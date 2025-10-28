@@ -1,0 +1,12 @@
+{
+  "name": "dentist_management_app",
+  "version": "1.0.0",
+  "description": "This project is supposed to be an app for the use of Dentists. They can use the app to manage their treatments, follow the past of their patients, and etc.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
