@@ -13,7 +13,7 @@ export class Dentist {
     surname: string;
 
     @Column({type: 'date'})
-    date: Date;
+    birthDate: Date;
 
     @Column({type: 'varchar', length: 40})
     gmail: string;

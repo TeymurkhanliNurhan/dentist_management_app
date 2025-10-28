@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DentistModule } from './dentist/dentist.module';
@@ -11,7 +13,26 @@ import { AppointmentModule } from './appointment/appointment.module';
 import { AuthModule } from './auth/auth.module';
 
 @Module({
-  imports: [DentistModule, PatientModule, PatientToothModule, ToothTreatmentModule, TreatmentModule, ToothModule, AppointmentModule, AuthModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    TypeOrmModule.forRootAsync({
+      useFactory: () => ({
+        type: 'postgres',
+        url: process.env.DATABASE_URL,
+        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+        autoLoadEntities: true,
+        synchronize: true,
+      }),
+    }),
+    DentistModule,
+    PatientModule,
+    PatientToothModule,
+    ToothTreatmentModule,
+    TreatmentModule,
+    ToothModule,
+    AppointmentModule,
+    AuthModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
