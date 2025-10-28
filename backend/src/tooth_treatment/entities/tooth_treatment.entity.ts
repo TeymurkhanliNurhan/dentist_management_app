@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, JoinColumns } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Appointment } from '../../appointment/entities/appointment.entity';
 import { Treatment } from '../../treatment/entities/treatment.entity';
 import { PatientTooth } from '../../patient_tooth/entities/patient_tooth.entity';
@@ -23,7 +23,7 @@ export class ToothTreatment {
     treatment: Treatment;
 
     @ManyToOne(() => PatientTooth, (pt) => pt.toothTreatments, { nullable: false })
-    @JoinColumns([
+    @JoinColumn([
         { name: 'patient', referencedColumnName: 'patient' },
         { name: 'tooth', referencedColumnName: 'tooth' },
     ])
