@@ -8,9 +8,10 @@ import { ToothTreatmentModule } from './tooth_treatment/tooth_treatment.module';
 import { TreatmentModule } from './treatment/treatment.module';
 import { ToothModule } from './tooth/tooth.module';
 import { AppointmentModule } from './appointment/appointment.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
-  imports: [DentistModule, PatientModule, PatientToothModule, ToothTreatmentModule, TreatmentModule, ToothModule, AppointmentModule],
+  imports: [DentistModule, PatientModule, PatientToothModule, ToothTreatmentModule, TreatmentModule, ToothModule, AppointmentModule, AuthModule],
   controllers: [AppController],
   providers: [AppService],
 })
