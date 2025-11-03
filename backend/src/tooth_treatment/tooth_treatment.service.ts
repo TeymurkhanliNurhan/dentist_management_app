@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, Logger } from '@nes
 import { ToothTreatmentRepository } from './tooth_treatment.repository';
 import { CreateToothTreatmentDto } from './dto/create-tooth_treatment.dto';
 import { UpdateToothTreatmentDto } from './dto/update-tooth_treatment.dto';
+import { GetToothTreatmentDto } from './dto/get-tooth_treatment.dto';
 import { LogWriter } from '../log-writer';
 
 @Injectable()
@@ -93,6 +94,31 @@ export class ToothTreatmentService {
         throw new BadRequestException("You don't have such a tooth treatment");
       }
       throw new BadRequestException('Failed to delete tooth treatment');
+    }
+  }
+
+  async findAll(dentistId: number, dto: GetToothTreatmentDto) {
+    try {
+      const toothTreatments = await this.repo.findToothTreatmentsForDentist(dentistId, {
+        id: dto.id,
+        appointment: dto.appointment,
+        tooth: dto.tooth,
+        patient: dto.patient,
+        treatment: dto.treatment,
+      });
+      const msg = `Dentist with id ${dentistId} retrieved ${toothTreatments.length} tooth treatment(s)`;
+      this.logger.log(msg);
+      LogWriter.append('log', ToothTreatmentService.name, msg);
+      return toothTreatments.map(tt => ({
+        id: tt.id,
+        patient: tt.patient,
+        tooth: tt.tooth,
+        appointment: tt.appointment?.id,
+        treatment: tt.treatment?.id,
+        description: tt.description,
+      }));
+    } catch (e: any) {
+      throw e;
     }
   }
 }

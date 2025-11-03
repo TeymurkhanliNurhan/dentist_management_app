@@ -47,5 +47,26 @@ export class ToothTreatmentMedicineRepository {
 
         await this.repo.remove(existing);
     }
+
+    async findToothTreatmentMedicinesForDentist(
+        dentistId: number,
+        filters: { medicine?: number; toothTreatment?: number },
+    ): Promise<ToothTreatmentMedicine[]> {
+        const queryBuilder = this.repo
+            .createQueryBuilder('ttm')
+            .leftJoinAndSelect('ttm.toothTreatmentEntity', 'toothTreatment')
+            .leftJoinAndSelect('toothTreatment.appointment', 'appointment')
+            .leftJoinAndSelect('appointment.dentist', 'dentist')
+            .where('dentist.id = :dentistId', { dentistId });
+
+        if (filters.medicine !== undefined) {
+            queryBuilder.andWhere('ttm.medicine = :medicine', { medicine: filters.medicine });
+        }
+        if (filters.toothTreatment !== undefined) {
+            queryBuilder.andWhere('ttm.toothTreatment = :toothTreatment', { toothTreatment: filters.toothTreatment });
+        }
+
+        return await queryBuilder.getMany();
+    }
 }
 

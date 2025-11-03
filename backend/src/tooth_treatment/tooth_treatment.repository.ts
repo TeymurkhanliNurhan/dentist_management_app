@@ -76,6 +76,37 @@ export class ToothTreatmentRepository {
         if (current.appointment?.dentist?.id !== dentistId) throw new Error('Forbidden');
         await this.repo.remove(current);
     }
+
+    async findToothTreatmentsForDentist(
+        dentistId: number,
+        filters: { id?: number; appointment?: number; tooth?: number; patient?: number; treatment?: number },
+    ): Promise<ToothTreatment[]> {
+        const queryBuilder = this.repo
+            .createQueryBuilder('toothTreatment')
+            .leftJoinAndSelect('toothTreatment.appointment', 'appointment')
+            .leftJoinAndSelect('toothTreatment.treatment', 'treatment')
+            .leftJoinAndSelect('toothTreatment.patientTooth', 'patientTooth')
+            .leftJoinAndSelect('appointment.patient', 'appointmentPatient')
+            .where('appointment.dentist = :dentistId', { dentistId });
+
+        if (filters.id !== undefined) {
+            queryBuilder.andWhere('toothTreatment.id = :id', { id: filters.id });
+        }
+        if (filters.appointment !== undefined) {
+            queryBuilder.andWhere('toothTreatment.appointment = :appointment', { appointment: filters.appointment });
+        }
+        if (filters.tooth !== undefined) {
+            queryBuilder.andWhere('toothTreatment.tooth = :tooth', { tooth: filters.tooth });
+        }
+        if (filters.patient !== undefined) {
+            queryBuilder.andWhere('toothTreatment.patient = :patient', { patient: filters.patient });
+        }
+        if (filters.treatment !== undefined) {
+            queryBuilder.andWhere('toothTreatment.treatment = :treatment', { treatment: filters.treatment });
+        }
+
+        return await queryBuilder.getMany();
+    }
 }
 
 

@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { ToothTreatmentMedicineRepository } from './tooth_treatment_medicine.repository';
 import { CreateToothTreatmentMedicineDto } from './dto/create-tooth_treatment_medicine.dto';
+import { GetToothTreatmentMedicineDto } from './dto/get-tooth_treatment_medicine.dto';
 import { LogWriter } from '../log-writer';
 
 @Injectable()
@@ -50,6 +51,24 @@ export class ToothTreatmentMedicineService {
         throw new BadRequestException("You don't have such a tooth treatment medicine");
       }
       throw new BadRequestException('Failed to delete tooth treatment medicine');
+    }
+  }
+
+  async findAll(dentistId: number, dto: GetToothTreatmentMedicineDto) {
+    try {
+      const toothTreatmentMedicines = await this.repo.findToothTreatmentMedicinesForDentist(dentistId, {
+        medicine: dto.medicine,
+        toothTreatment: dto.tooth_treatment,
+      });
+      const msg = `Dentist with id ${dentistId} retrieved ${toothTreatmentMedicines.length} tooth treatment medicine(s)`;
+      this.logger.log(msg);
+      LogWriter.append('log', ToothTreatmentMedicineService.name, msg);
+      return toothTreatmentMedicines.map(ttm => ({
+        medicine: ttm.medicine,
+        tooth_treatment: ttm.toothTreatment,
+      }));
+    } catch (e: any) {
+      throw e;
     }
   }
 }

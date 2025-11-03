@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, Logger } from '@nes
 import { AppointmentRepository } from './appointment.repository';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
+import { GetAppointmentDto } from './dto/get-appointment.dto';
 import { LogWriter } from '../log-writer';
 
 @Injectable()
@@ -83,6 +84,42 @@ export class AppointmentService {
       }
       if (e?.message?.includes('Appointment not found')) throw new NotFoundException('Appointment not found');
       throw new BadRequestException('Failed to delete appointment');
+    }
+  }
+
+  async findAll(dentistId: number, dto: GetAppointmentDto) {
+    try {
+      const appointments = await this.repo.findAppointmentsForDentist(dentistId, {
+        id: dto.id,
+        startDate: dto.startDate,
+        endDate: dto.endDate,
+        patient: dto.patient,
+      });
+      const msg = `Dentist with id ${dentistId} retrieved ${appointments.length} appointment(s)`;
+      this.logger.log(msg);
+      LogWriter.append('log', AppointmentService.name, msg);
+      return appointments.map(appointment => {
+        const startDate = appointment.startDate instanceof Date 
+          ? appointment.startDate 
+          : new Date(appointment.startDate);
+        const endDate = appointment.endDate 
+          ? (appointment.endDate instanceof Date 
+            ? appointment.endDate 
+            : new Date(appointment.endDate))
+          : null;
+        
+        return {
+          id: appointment.id,
+          startDate: startDate.toISOString().slice(0, 10),
+          endDate: endDate ? endDate.toISOString().slice(0, 10) : null,
+          discountFee: appointment.discountFee,
+          patient: typeof appointment.patient === 'object' && appointment.patient?.id 
+            ? appointment.patient.id 
+            : appointment.patient,
+        };
+      });
+    } catch (e: any) {
+      throw e;
     }
   }
 }
