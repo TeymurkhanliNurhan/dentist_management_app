@@ -12,7 +12,7 @@ export class MedicineService {
 
   async create(dentistId: number, dto: CreateMedicineDto) {
     try {
-      const created = await this.repo.createMedicine({
+      const created = await this.repo.createMedicineForDentist(dentistId, {
         name: dto.name,
         description: dto.description,
         price: dto.price,
@@ -33,7 +33,7 @@ export class MedicineService {
 
   async patch(dentistId: number, id: number, dto: UpdateMedicineDto) {
     try {
-      const updated = await this.repo.updateMedicine(id, {
+      const updated = await this.repo.updateMedicineEnsureOwnership(dentistId, id, {
         name: dto.name,
         description: dto.description,
         price: dto.price,
@@ -48,6 +48,7 @@ export class MedicineService {
         price: updated.price,
       };
     } catch (e: any) {
+      if (e?.message?.includes('Forbidden')) throw new BadRequestException("You don't have such a medicine");
       if (e?.message?.includes('Medicine not found')) throw new NotFoundException('Medicine not found');
       throw new BadRequestException('Failed to update medicine');
     }
