@@ -31,7 +31,7 @@ export class PatientService {
             return updated;
         } catch (e: any) {
             if (e?.message?.includes('Patient not found')) throw new NotFoundException('Patient not found');
-            if (e?.message?.includes('Forbidden')) throw new BadRequestException('You are not the owner of this patient');
+            if (e?.message?.includes('Forbidden')) throw new BadRequestException("You don't have such a patient");
             if (e?.message?.includes('Dentist not found')) throw new BadRequestException('Dentist not found');
             throw e;
         }
