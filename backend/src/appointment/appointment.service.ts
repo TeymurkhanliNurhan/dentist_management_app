@@ -29,7 +29,12 @@ export class AppointmentService {
     } catch (e: any) {
       if (e?.message?.includes('Dentist not found')) throw new BadRequestException('Dentist not found');
       if (e?.message?.includes('Patient not found')) throw new NotFoundException('Patient not found');
-      if (e?.message?.includes('Forbidden')) throw new BadRequestException("You don't have such a patient");
+      if (e?.message?.includes('Forbidden')) {
+        const warn = `Dentist with id ${dentistId} attempted to create Appointment for non-owned Patient with id ${dto.patient_id}`;
+        this.logger.warn(warn);
+        LogWriter.append('warn', AppointmentService.name, warn);
+        throw new BadRequestException("You don't have such a patient");
+      }
       throw new BadRequestException('Failed to create appointment');
     }
   }
@@ -51,7 +56,12 @@ export class AppointmentService {
         discountFee: updated.discountFee,
       };
     } catch (e: any) {
-      if (e?.message?.includes('Forbidden')) throw new BadRequestException("You don't have such an appointment");
+      if (e?.message?.includes('Forbidden')) {
+        const warn = `Dentist with id ${dentistId} attempted to update Appointment with id ${id} without ownership`;
+        this.logger.warn(warn);
+        LogWriter.append('warn', AppointmentService.name, warn);
+        throw new BadRequestException("You don't have such an appointment");
+      }
       if (e?.message?.includes('Appointment not found')) throw new NotFoundException('Appointment not found');
       throw new BadRequestException('Failed to update appointment');
     }
@@ -65,7 +75,12 @@ export class AppointmentService {
       LogWriter.append('log', AppointmentService.name, msg);
       return { message: 'Appointment deleted successfully' };
     } catch (e: any) {
-      if (e?.message?.includes('Forbidden')) throw new BadRequestException("You don't have such an appointment");
+      if (e?.message?.includes('Forbidden')) {
+        const warn = `Dentist with id ${dentistId} attempted to delete Appointment with id ${id} without ownership`;
+        this.logger.warn(warn);
+        LogWriter.append('warn', AppointmentService.name, warn);
+        throw new BadRequestException("You don't have such an appointment");
+      }
       if (e?.message?.includes('Appointment not found')) throw new NotFoundException('Appointment not found');
       throw new BadRequestException('Failed to delete appointment');
     }

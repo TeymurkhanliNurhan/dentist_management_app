@@ -18,7 +18,8 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Create appointment' })
   @ApiResponse({ status: 201, description: 'Appointment created' })
   async create(@User() user: any, @Body() dto: CreateAppointmentDto) {
-    return await this.service.create(user.userId, dto);
+    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
+    return await this.service.create(dentistId, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -32,7 +33,8 @@ export class AppointmentController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateAppointmentDto,
   ) {
-    return await this.service.patch(user.userId, id, dto);
+    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
+    return await this.service.patch(dentistId, id, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -45,6 +47,7 @@ export class AppointmentController {
     @User() user: any,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return await this.service.delete(user.userId, id);
+    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
+    return await this.service.delete(dentistId, id);
   }
 }
