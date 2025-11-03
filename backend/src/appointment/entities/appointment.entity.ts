@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { ToothTreatment } from '../../tooth_treatment/entities/tooth_treatment.entity';
 import { Dentist } from '../../dentist/entities/dentist.entity';
+import { Patient } from '../../patient/entities/patient.entity';
 
 @Entity({ name: 'Appointment' })
 export class Appointment {
@@ -22,6 +23,10 @@ export class Appointment {
     @ManyToOne(() => Dentist, (dentist) => dentist.appointments, { nullable: false })
     @JoinColumn({ name: 'dentist' })
     dentist: Dentist;
+
+    @ManyToOne(() => Patient, (patient) => patient.appointments, { nullable: false })
+    @JoinColumn({ name: 'patient' })
+    patient: Patient;
 }
 
 

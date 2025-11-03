@@ -1,6 +1,7 @@
 import {Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn} from 'typeorm';
 import { Dentist } from '../../dentist/entities/dentist.entity';
 import { PatientTooth } from '../../patient_tooth/entities/patient_tooth.entity';
+import { Appointment } from '../../appointment/entities/appointment.entity';
 
 @Entity({ name: 'Patient' })
 export class Patient {
@@ -22,6 +23,9 @@ export class Patient {
 
     @OneToMany(() => PatientTooth, (pt) => pt.patient)
     patientTeeth: PatientTooth[];
+
+    @OneToMany(() => Appointment, (a) => a.patient)
+    appointments: Appointment[];
 }
 
 

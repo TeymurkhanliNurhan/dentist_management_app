@@ -12,7 +12,7 @@ export class AppointmentService {
 
   async create(dentistId: number, dto: CreateAppointmentDto) {
     try {
-      const created = await this.repo.createAppointmentForDentist(dentistId, {
+      const created = await this.repo.createAppointmentForDentistAndPatient(dentistId, dto.patient_id, {
         startDate: new Date(dto.startDate),
         endDate: dto.endDate ? new Date(dto.endDate) : null,
         discountFee: dto.discountFee ?? null,
@@ -28,6 +28,8 @@ export class AppointmentService {
       };
     } catch (e: any) {
       if (e?.message?.includes('Dentist not found')) throw new BadRequestException('Dentist not found');
+      if (e?.message?.includes('Patient not found')) throw new NotFoundException('Patient not found');
+      if (e?.message?.includes('Forbidden')) throw new BadRequestException("You don't have such a patient");
       throw new BadRequestException('Failed to create appointment');
     }
   }

@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Appointment } from './entities/appointment.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
+import { Patient } from '../patient/entities/patient.entity';
 
 @Injectable()
 export class AppointmentRepository {
@@ -12,10 +13,17 @@ export class AppointmentRepository {
         return this.dataSource.getRepository(Appointment);
     }
 
-    async createAppointmentForDentist(dentistId: number, input: { startDate: Date; endDate: Date | null; discountFee: number | null }): Promise<Appointment> {
-        const dentist = await this.dataSource.getRepository(Dentist).findOne({ where: { id: dentistId } });
+    async createAppointmentForDentistAndPatient(dentistId: number, patientId: number, input: { startDate: Date; endDate: Date | null; discountFee: number | null }): Promise<Appointment> {
+        const dentistRepo = this.dataSource.getRepository(Dentist);
+        const patientRepo = this.dataSource.getRepository(Patient);
+        const [dentist, patient] = await Promise.all([
+            dentistRepo.findOne({ where: { id: dentistId } }),
+            patientRepo.findOne({ where: { id: patientId }, relations: ['dentist'] }),
+        ]);
         if (!dentist) throw new Error('Dentist not found');
-        const appointment = this.repo.create({ ...input, dentist });
+        if (!patient) throw new Error('Patient not found');
+        if (patient.dentist?.id !== dentistId) throw new Error('Forbidden');
+        const appointment = this.repo.create({ ...input, dentist, patient });
         return await this.repo.save(appointment);
     }
 

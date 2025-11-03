@@ -16,6 +16,11 @@ export class CreateAppointmentDto {
     @IsNumber()
     @Min(0)
     discountFee?: number;
+
+    @ApiProperty({ example: 3, description: 'Patient id' })
+    @IsNumber()
+    @Min(1)
+    patient_id: number;
 }
 
 
