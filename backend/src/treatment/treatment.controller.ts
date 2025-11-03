@@ -18,7 +18,8 @@ export class TreatmentController {
   @ApiOperation({ summary: 'Create treatment' })
   @ApiResponse({ status: 201, description: 'Treatment created' })
   async create(@User() user: any, @Body() dto: CreateTreatmentDto) {
-    return await this.service.create(user.userId, dto);
+    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
+    return await this.service.create(dentistId, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -32,6 +33,7 @@ export class TreatmentController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateTreatmentDto,
   ) {
-    return await this.service.patch(user.userId, id, dto);
+    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
+    return await this.service.patch(dentistId, id, dto);
   }
 }

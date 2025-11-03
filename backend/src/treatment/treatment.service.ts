@@ -49,7 +49,12 @@ export class TreatmentService {
         description: updated.description,
       };
     } catch (e: any) {
-      if (e?.message?.includes('Forbidden')) throw new BadRequestException("You don't have such a treatment");
+      if (e?.message?.includes('Forbidden')) {
+        const warn = `Dentist with id ${dentistId} attempted to update Treatment with id ${id} without ownership`;
+        this.logger.warn(warn);
+        LogWriter.append('warn', TreatmentService.name, warn);
+        throw new BadRequestException("You don't have such a treatment");
+      }
       if (e?.message?.includes('Treatment not found')) throw new NotFoundException('Treatment not found');
       throw new BadRequestException('Failed to update treatment');
     }
