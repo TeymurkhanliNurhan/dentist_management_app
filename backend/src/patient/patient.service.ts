@@ -7,13 +7,12 @@ import { UpdatePatientDto } from './dto/update-patient.dto';
 export class PatientService {
     constructor(private readonly patientRepository: PatientRepository) {}
 
-    async create(dto: CreatePatientDto) {
+    async create(dentistId: number, dto: CreatePatientDto) {
         try {
-            const created = await this.patientRepository.createPatient({
+            const created = await this.patientRepository.createPatientForDentist(dentistId, {
                 name: dto.name,
                 surname: dto.surname,
                 birthDate: new Date(dto.birthDate),
-                dentist: dto.dentist,
             });
             return created;
         } catch (e: any) {
@@ -22,17 +21,17 @@ export class PatientService {
         }
     }
 
-    async patch(id: number, dto: UpdatePatientDto) {
+    async patch(dentistId: number, id: number, dto: UpdatePatientDto) {
         try {
-            const updated = await this.patientRepository.updatePatient(id, {
+            const updated = await this.patientRepository.updatePatientEnsureOwnership(dentistId, id, {
                 name: dto.name,
                 surname: dto.surname,
                 birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
-                dentist: dto.dentist,
             });
             return updated;
         } catch (e: any) {
             if (e?.message?.includes('Patient not found')) throw new NotFoundException('Patient not found');
+            if (e?.message?.includes('Forbidden')) throw new BadRequestException('You are not the owner of this patient');
             if (e?.message?.includes('Dentist not found')) throw new BadRequestException('Dentist not found');
             throw e;
         }
