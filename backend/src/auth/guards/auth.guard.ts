@@ -5,7 +5,6 @@ import { AuthGuard as NestAuthGuard } from '@nestjs/passport';
 export class JwtAuthGuard extends NestAuthGuard('jwt') {
     canActivate(context: ExecutionContext) {
         const req = context.switchToHttp().getRequest();
-        // Debug: log auth header presence (not the token content)
         console.log('[JwtAuthGuard] Authorization header present:', !!req.headers?.authorization);
         return super.canActivate(context);
     }

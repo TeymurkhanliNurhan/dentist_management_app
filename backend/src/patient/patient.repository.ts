@@ -36,7 +36,6 @@ export class PatientRepository {
     }
 
     async updatePatientEnsureOwnership(dentistId: number, id: number, updates: Partial<{ name: string; surname: string; birthDate: Date }>): Promise<Patient> {
-        // Fetch only if the patient belongs to the dentist
         const patient = await this.patientRepo.findOne({ where: { id, dentist: { id: dentistId } } });
         if (!patient) throw new Error('Forbidden');
         if (updates.name !== undefined) patient.name = updates.name;

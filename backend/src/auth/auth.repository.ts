@@ -14,7 +14,6 @@ export class AuthRepository {
   private readonly logger = new Logger(AuthRepository.name);
 
   private getDentistRepository(): Repository<Dentist> {
-    // Ensure connection is initialized
     if (!this.dataSource.isInitialized) {
       throw new Error('Database connection is not initialized');
     }
