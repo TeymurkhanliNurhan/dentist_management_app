@@ -2,33 +2,46 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { PatientRepository } from './patient.repository';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
+import { PatientCreateResponseDto } from './dto/patient-create-response.dto';
+import { PatientUpdateResponseDto } from './dto/patient-update-response.dto';
 
 @Injectable()
 export class PatientService {
     constructor(private readonly patientRepository: PatientRepository) {}
 
-    async create(dentistId: number, dto: CreatePatientDto) {
+    async create(dentistId: number, dto: CreatePatientDto): Promise<PatientCreateResponseDto> {
         try {
             const created = await this.patientRepository.createPatientForDentist(dentistId, {
                 name: dto.name,
                 surname: dto.surname,
                 birthDate: new Date(dto.birthDate),
             });
-            return created;
+            return {
+                id: created.id,
+                name: created.name,
+                surname: created.surname,
+                birthDate: created.birthDate.toISOString().slice(0, 10),
+                dentist: { id: dentistId },
+            };
         } catch (e: any) {
             if (e?.message?.includes('Dentist not found')) throw new BadRequestException('Dentist not found');
             throw e;
         }
     }
 
-    async patch(dentistId: number, id: number, dto: UpdatePatientDto) {
+    async patch(dentistId: number, id: number, dto: UpdatePatientDto): Promise<PatientUpdateResponseDto> {
         try {
             const updated = await this.patientRepository.updatePatientEnsureOwnership(dentistId, id, {
                 name: dto.name,
                 surname: dto.surname,
                 birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
             });
-            return updated;
+            return {
+                id: updated.id,
+                name: updated.name,
+                surname: updated.surname,
+                birthDate: updated.birthDate.toISOString().slice(0, 10),
+            };
         } catch (e: any) {
             if (e?.message?.includes('Patient not found')) throw new NotFoundException('Patient not found');
             if (e?.message?.includes('Forbidden')) throw new BadRequestException("You don't have such a patient");

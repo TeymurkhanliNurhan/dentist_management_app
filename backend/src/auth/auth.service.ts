@@ -5,6 +5,8 @@ import { RegisterDto } from './dto/register.dto';
 import { Dentist } from '../dentist/entities/dentist.entity';
 import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
+import { LoginResponseDto } from './dto/login-response.dto';
+import { RegisterResponseDto } from './dto/register-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -13,7 +15,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async register(registerDto: RegisterDto): Promise<{ message: string; dentist: Omit<Dentist, 'password'> }> {
+  async register(registerDto: RegisterDto): Promise<RegisterResponseDto> {
     // Check if user already exists
     const existingUser = await this.authRepository.findUserByEmail(registerDto.gmail);
     if (existingUser) {
@@ -33,15 +35,12 @@ export class AuthService {
       password: hashedPassword,
     });
 
-    // Return dentist without password
-    const { password, ...dentistWithoutPassword } = newDentist;
-    return {
-      message: 'Dentist registered successfully',
-      dentist: dentistWithoutPassword,
-    };
+    const payload = { sub: newDentist.id, gmail: newDentist.gmail };
+    const access_token = await this.jwtService.signAsync(payload);
+    return { access_token, dentistId: newDentist.id };
   }
 
-  async signIn(loginDto: LoginDto): Promise<{ access_token: string }> {
+  async signIn(loginDto: LoginDto): Promise<LoginResponseDto> {
     const user = await this.authRepository.findUserByEmail(loginDto.gmail);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -54,6 +53,6 @@ export class AuthService {
 
     const payload = { sub: user.id, gmail: user.gmail };
     const access_token = await this.jwtService.signAsync(payload);
-    return { access_token };
+    return { access_token, dentistId: user.id };
   }
 }

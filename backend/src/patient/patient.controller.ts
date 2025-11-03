@@ -1,5 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PatientService } from './patient.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
@@ -27,7 +27,7 @@ export class PatientController {
     @Patch(':id')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Update patient by id' })
-    @ApiResponse({ status: 200, description: 'Patient updated' })
+    @ApiOkResponse({ description: 'Patient updated' })
     async patch(
         @User() user: any,
         @Param('id', ParseIntPipe) id: number,

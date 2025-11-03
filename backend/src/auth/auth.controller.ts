@@ -3,6 +3,8 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { LoginResponseDto } from './dto/login-response.dto';
+import { RegisterResponseDto } from './dto/register-response.dto';
 
 @ApiTags('auth')
 @Controller('Auth')
@@ -15,7 +17,7 @@ export class AuthController {
   @ApiResponse({ status: 201, description: 'Dentist successfully registered' })
   @ApiResponse({ status: 409, description: 'Email already exists' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
-  async register(@Body() registerDto: RegisterDto) {
+  async register(@Body() registerDto: RegisterDto): Promise<RegisterResponseDto> {
     return await this.authService.register(registerDto);
   }
 
@@ -24,7 +26,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Sign in and retrieve JWT' })
   @ApiResponse({ status: 200, description: 'JWT token returned' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  async signIn(@Body() loginDto: LoginDto) {
+  async signIn(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
     return await this.authService.signIn(loginDto);
   }
 }
