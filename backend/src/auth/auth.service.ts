@@ -1,12 +1,17 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthRepository } from './auth.repository';
 import { RegisterDto } from './dto/register.dto';
 import { Dentist } from '../dentist/entities/dentist.entity';
+import { LoginDto } from './dto/login.dto';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly authRepository: AuthRepository) {}
+  constructor(
+    private readonly authRepository: AuthRepository,
+    private readonly jwtService: JwtService,
+  ) {}
 
   async register(registerDto: RegisterDto): Promise<{ message: string; dentist: Omit<Dentist, 'password'> }> {
     // Check if user already exists
@@ -34,5 +39,21 @@ export class AuthService {
       message: 'Dentist registered successfully',
       dentist: dentistWithoutPassword,
     };
+  }
+
+  async signIn(loginDto: LoginDto): Promise<{ access_token: string }> {
+    const user = await this.authRepository.findUserByEmail(loginDto.gmail);
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const isMatch = await bcrypt.compare(loginDto.password, user.password);
+    if (!isMatch) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const payload = { sub: user.id, gmail: user.gmail };
+    const access_token = await this.jwtService.signAsync(payload);
+    return { access_token };
   }
 }
