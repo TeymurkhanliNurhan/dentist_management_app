@@ -11,18 +11,104 @@ import { TreatmentModule } from './treatment/treatment.module';
 import { ToothModule } from './tooth/tooth.module';
 import { AppointmentModule } from './appointment/appointment.module';
 import { AuthModule } from './auth/auth.module';
+import { MedicineModule } from './medicine/medicine.module';
+import { ToothTreatmentMedicineModule } from './tooth_treatment_medicine/tooth_treatment_medicine.module';
+// Import all entities
+import { Dentist } from './dentist/entities/dentist.entity';
+import { Patient } from './patient/entities/patient.entity';
+import { PatientTooth } from './patient_tooth/entities/patient_tooth.entity';
+import { Tooth } from './tooth/entities/tooth.entity';
+import { Treatment } from './treatment/entities/treatment.entity';
+import { ToothTreatment } from './tooth_treatment/entities/tooth_treatment.entity';
+import { Appointment } from './appointment/entities/appointment.entity';
+import { Medicine } from './medicine/entities/medicine.entity';
+import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/tooth_treatment_medicine.entity';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
-      useFactory: () => ({
-        type: 'postgres',
-        url: process.env.DATABASE_URL,
-        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-        autoLoadEntities: true,
-        synchronize: true,
-      }),
+      useFactory: () => {
+        const databaseUrl = process.env.DATABASE_URL;
+        console.log('DATABASE_URL:', databaseUrl ? 'Set (hidden)' : 'NOT SET');
+        console.log('DB_SSL:', process.env.DB_SSL);
+        
+        if (!databaseUrl) {
+          throw new Error('DATABASE_URL environment variable is not set');
+        }
+        
+        // Parse PostgreSQL URL manually to handle usernames with dots
+        // Format: postgresql://username:password@host:port/database
+        try {
+          const match = databaseUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
+          
+          if (!match) {
+            throw new Error('Invalid PostgreSQL URL format');
+          }
+          
+          const username = decodeURIComponent(match[1]);
+          const password = decodeURIComponent(match[2]);
+          const host = match[3];
+          const port = parseInt(match[4]);
+          const database = match[5];
+          
+          console.log('Parsed connection:', {
+            host,
+            port,
+            database,
+            username: username ? `${username.substring(0, 20)}...` : 'NOT SET',
+            passwordSet: password ? 'Yes' : 'No',
+          });
+          
+          return {
+            type: 'postgres',
+            host,
+            port,
+            username,
+            password,
+            database,
+            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+            entities: [
+              Dentist,
+              Patient,
+              PatientTooth,
+              Tooth,
+              Treatment,
+              ToothTreatment,
+              Appointment,
+              Medicine,
+              ToothTreatmentMedicine,
+            ],
+            synchronize: true,
+            logging: ['schema', 'error', 'warn'], // Enable schema logging to see table creation
+            extra: {
+              max: 10,
+              idleTimeoutMillis: 30000,
+              connectionTimeoutMillis: 2000,
+            },
+          };
+        } catch (error) {
+          console.error('Error parsing DATABASE_URL, falling back to URL string:', error);
+          // Fallback to URL string if parsing fails
+          return {
+            type: 'postgres',
+            url: databaseUrl,
+            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+            entities: [
+              Dentist,
+              Patient,
+              PatientTooth,
+              Tooth,
+              Treatment,
+              ToothTreatment,
+              Appointment,
+              Medicine,
+              ToothTreatmentMedicine,
+            ],
+            synchronize: true,
+          };
+        }
+      },
     }),
     DentistModule,
     PatientModule,
@@ -31,6 +117,8 @@ import { AuthModule } from './auth/auth.module';
     TreatmentModule,
     ToothModule,
     AppointmentModule,
+    MedicineModule,
+    ToothTreatmentMedicineModule,
     AuthModule,
   ],
   controllers: [AppController],

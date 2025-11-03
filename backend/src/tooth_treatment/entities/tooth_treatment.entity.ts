@@ -1,7 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Appointment } from '../../appointment/entities/appointment.entity';
 import { Treatment } from '../../treatment/entities/treatment.entity';
 import { PatientTooth } from '../../patient_tooth/entities/patient_tooth.entity';
+import { ToothTreatmentMedicine } from '../../tooth_treatment_medicine/entities/tooth_treatment_medicine.entity';
 
 @Entity({ name: 'Tooth_Treatment' })
 export class ToothTreatment {
@@ -31,6 +32,9 @@ export class ToothTreatment {
 
     @Column({ type: 'varchar', length: 300, nullable: true })
     description: string | null;
+
+    @OneToMany(() => ToothTreatmentMedicine, (ttm) => ttm.toothTreatmentEntity)
+    toothTreatmentMedicines: ToothTreatmentMedicine[];
 }
 
 
