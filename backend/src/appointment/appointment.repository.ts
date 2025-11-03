@@ -41,6 +41,31 @@ export class AppointmentRepository {
         if (!appointment) throw new Error('Forbidden');
         await this.repo.remove(appointment);
     }
+
+    async findAppointmentsForDentist(
+        dentistId: number,
+        filters: { id?: number; startDate?: string; endDate?: string; patient?: number },
+    ): Promise<Appointment[]> {
+        const queryBuilder = this.repo
+            .createQueryBuilder('appointment')
+            .leftJoinAndSelect('appointment.patient', 'patient')
+            .where('appointment.dentist = :dentistId', { dentistId });
+
+        if (filters.id !== undefined) {
+            queryBuilder.andWhere('appointment.id = :id', { id: filters.id });
+        }
+        if (filters.startDate !== undefined) {
+            queryBuilder.andWhere('appointment.startDate = :startDate', { startDate: filters.startDate });
+        }
+        if (filters.endDate !== undefined) {
+            queryBuilder.andWhere('appointment.endDate = :endDate', { endDate: filters.endDate });
+        }
+        if (filters.patient !== undefined) {
+            queryBuilder.andWhere('appointment.patient = :patient', { patient: filters.patient });
+        }
+
+        return await queryBuilder.getMany();
+    }
 }
 
 
