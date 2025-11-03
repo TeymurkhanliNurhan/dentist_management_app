@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LogWriter } from '../logs/log-writer';
+import { LogWriter } from '../log-writer';
 
 @Injectable()
 export class DentistRepository {

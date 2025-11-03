@@ -7,7 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
-import { LogWriter } from '../logs/log-writer';
+import { LogWriter } from '../log-writer';
 
 @Injectable()
 export class AuthService {

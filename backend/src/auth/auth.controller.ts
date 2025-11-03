@@ -6,7 +6,7 @@ import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
 import { Logger } from '@nestjs/common';
-import { LogWriter } from '../logs/log-writer';
+import { LogWriter } from '../log-writer';
 
 @ApiTags('auth')
 @Controller('Auth')

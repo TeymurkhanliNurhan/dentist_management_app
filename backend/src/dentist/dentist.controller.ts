@@ -1,6 +1,6 @@
 import { Controller, Logger } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { LogWriter } from '../logs/log-writer';
+import { LogWriter } from '../log-writer';
 
 @ApiTags('dentist')
 @Controller('dentist')

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Dentist } from '../dentist/entities/dentist.entity';
-import { LogWriter } from '../logs/log-writer';
+import { LogWriter } from '../log-writer';
 
 @Injectable()
 export class AuthRepository {
