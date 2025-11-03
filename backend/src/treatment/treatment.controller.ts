@@ -1,8 +1,9 @@
-import { Body, Controller, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TreatmentService } from './treatment.service';
 import { CreateTreatmentDto } from './dto/create-treatment.dto';
 import { UpdateTreatmentDto } from './dto/update-treatment.dto';
+import { GetTreatmentDto } from './dto/get-treatment.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
 
@@ -10,6 +11,17 @@ import { User } from '../auth/decorators/user.decorator';
 @Controller('treatment')
 export class TreatmentController {
   constructor(private readonly service: TreatmentService) {}
+
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get treatments with optional filters' })
+  @ApiOkResponse({ description: 'Treatments retrieved' })
+  async findAll(@User() user: any, @Query() dto: GetTreatmentDto) {
+    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
+    return await this.service.findAll(dentistId, dto);
+  }
 
   @ApiBearerAuth('bearer')
   @UseGuards(JwtAuthGuard)

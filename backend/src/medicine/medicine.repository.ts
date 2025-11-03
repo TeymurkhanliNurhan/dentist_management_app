@@ -27,5 +27,23 @@ export class MedicineRepository {
         if (updates.price !== undefined) med.price = updates.price;
         return await this.repo.save(med);
     }
+
+    async findMedicinesForDentist(
+        dentistId: number,
+        filters: { id?: number; name?: string },
+    ): Promise<Medicine[]> {
+        const queryBuilder = this.repo
+            .createQueryBuilder('medicine')
+            .where('medicine.dentist = :dentistId', { dentistId });
+
+        if (filters.id !== undefined) {
+            queryBuilder.andWhere('medicine.id = :id', { id: filters.id });
+        }
+        if (filters.name !== undefined) {
+            queryBuilder.andWhere('LOWER(medicine.name) LIKE LOWER(:name)', { name: `%${filters.name}%` });
+        }
+
+        return await queryBuilder.getMany();
+    }
 }
 

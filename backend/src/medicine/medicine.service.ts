@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, Logger } from '@nes
 import { MedicineRepository } from './medicine.repository';
 import { CreateMedicineDto } from './dto/create-medicine.dto';
 import { UpdateMedicineDto } from './dto/update-medicine.dto';
+import { GetMedicineDto } from './dto/get-medicine.dto';
 import { LogWriter } from '../log-writer';
 
 @Injectable()
@@ -51,6 +52,26 @@ export class MedicineService {
       if (e?.message?.includes('Forbidden')) throw new BadRequestException("You don't have such a medicine");
       if (e?.message?.includes('Medicine not found')) throw new NotFoundException('Medicine not found');
       throw new BadRequestException('Failed to update medicine');
+    }
+  }
+
+  async findAll(dentistId: number, dto: GetMedicineDto) {
+    try {
+      const medicines = await this.repo.findMedicinesForDentist(dentistId, {
+        id: dto.id,
+        name: dto.name,
+      });
+      const msg = `Dentist with id ${dentistId} retrieved ${medicines.length} medicine(s)`;
+      this.logger.log(msg);
+      LogWriter.append('log', MedicineService.name, msg);
+      return medicines.map((medicine) => ({
+        id: medicine.id,
+        name: medicine.name,
+        description: medicine.description,
+        price: medicine.price,
+      }));
+    } catch (e: any) {
+      throw e;
     }
   }
 }
