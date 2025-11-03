@@ -13,6 +13,7 @@ import { AppointmentModule } from './appointment/appointment.module';
 import { AuthModule } from './auth/auth.module';
 import { MedicineModule } from './medicine/medicine.module';
 import { ToothTreatmentMedicineModule } from './tooth_treatment_medicine/tooth_treatment_medicine.module';
+import { ToothTranslation } from './tooth/entities/tooth_translation.entity';
 // Import all entities
 import { Dentist } from './dentist/entities/dentist.entity';
 import { Patient } from './patient/entities/patient.entity';
@@ -73,6 +74,7 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
               Patient,
               PatientTooth,
               Tooth,
+              ToothTranslation,
               Treatment,
               ToothTreatment,
               Appointment,
@@ -101,6 +103,7 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
               Patient,
               PatientTooth,
               Tooth,
+              ToothTranslation,
               Treatment,
               ToothTreatment,
               Appointment,
