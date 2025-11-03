@@ -4,6 +4,7 @@ import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { PatientCreateResponseDto } from './dto/patient-create-response.dto';
 import { PatientUpdateResponseDto } from './dto/patient-update-response.dto';
+import { LogWriter } from '../logs/log-writer';
 
 @Injectable()
 export class PatientService {
