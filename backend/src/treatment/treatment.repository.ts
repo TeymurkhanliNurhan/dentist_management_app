@@ -27,6 +27,24 @@ export class TreatmentRepository {
         if (updates.description !== undefined) treatment.description = updates.description;
         return await this.repo.save(treatment);
     }
+
+    async findTreatmentsForDentist(
+        dentistId: number,
+        filters: { id?: number; name?: string },
+    ): Promise<Treatment[]> {
+        const queryBuilder = this.repo
+            .createQueryBuilder('treatment')
+            .where('treatment.dentist = :dentistId', { dentistId });
+
+        if (filters.id !== undefined) {
+            queryBuilder.andWhere('treatment.id = :id', { id: filters.id });
+        }
+        if (filters.name !== undefined) {
+            queryBuilder.andWhere('LOWER(treatment.name) LIKE LOWER(:name)', { name: `%${filters.name}%` });
+        }
+
+        return await queryBuilder.getMany();
+    }
 }
 
 

@@ -1,8 +1,9 @@
-import { Body, Controller, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MedicineService } from './medicine.service';
 import { CreateMedicineDto } from './dto/create-medicine.dto';
 import { UpdateMedicineDto } from './dto/update-medicine.dto';
+import { GetMedicineDto } from './dto/get-medicine.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
 
@@ -10,6 +11,16 @@ import { User } from '../auth/decorators/user.decorator';
 @Controller('medicine')
 export class MedicineController {
   constructor(private readonly service: MedicineService) {}
+
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get medicines with optional filters' })
+  @ApiOkResponse({ description: 'Medicines retrieved' })
+  async findAll(@User() user: any, @Query() dto: GetMedicineDto) {
+    return await this.service.findAll(user.userId, dto);
+  }
 
   @ApiBearerAuth('bearer')
   @UseGuards(JwtAuthGuard)

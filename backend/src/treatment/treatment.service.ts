@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, Logger } from '@nes
 import { TreatmentRepository } from './treatment.repository';
 import { CreateTreatmentDto } from './dto/create-treatment.dto';
 import { UpdateTreatmentDto } from './dto/update-treatment.dto';
+import { GetTreatmentDto } from './dto/get-treatment.dto';
 import { LogWriter } from '../log-writer';
 
 @Injectable()
@@ -57,6 +58,26 @@ export class TreatmentService {
       }
       if (e?.message?.includes('Treatment not found')) throw new NotFoundException('Treatment not found');
       throw new BadRequestException('Failed to update treatment');
+    }
+  }
+
+  async findAll(dentistId: number, dto: GetTreatmentDto) {
+    try {
+      const treatments = await this.repo.findTreatmentsForDentist(dentistId, {
+        id: dto.id,
+        name: dto.name,
+      });
+      const msg = `Dentist with id ${dentistId} retrieved ${treatments.length} treatment(s)`;
+      this.logger.log(msg);
+      LogWriter.append('log', TreatmentService.name, msg);
+      return treatments.map((treatment) => ({
+        id: treatment.id,
+        name: treatment.name,
+        price: treatment.price,
+        description: treatment.description,
+      }));
+    } catch (e: any) {
+      throw e;
     }
   }
 }

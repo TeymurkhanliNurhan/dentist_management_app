@@ -1,8 +1,10 @@
-import { Body, Controller, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PatientService } from './patient.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
+import { GetPatientDto } from './dto/get-patient.dto';
+import { PatientUpdateResponseDto } from './dto/patient-update-response.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
 
@@ -10,6 +12,17 @@ import { User } from '../auth/decorators/user.decorator';
 @Controller('patient')
 export class PatientController {
     constructor(private readonly patientService: PatientService) {}
+
+    @ApiBearerAuth('bearer')
+    @UseGuards(JwtAuthGuard)
+    @Get()
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Get patients with optional filters' })
+    @ApiOkResponse({ description: 'Patients retrieved', type: [PatientUpdateResponseDto] })
+    async findAll(@User() user: any, @Query() dto: GetPatientDto) {
+        console.log('[PatientController] findAll() user:', user, 'filters:', dto);
+        return await this.patientService.findAll(user.userId, dto);
+    }
 
     @ApiBearerAuth('bearer')
     @UseGuards(JwtAuthGuard)

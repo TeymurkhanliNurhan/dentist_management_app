@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, Logger } from '@nes
 import { PatientRepository } from './patient.repository';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
+import { GetPatientDto } from './dto/get-patient.dto';
 import { PatientCreateResponseDto } from './dto/patient-create-response.dto';
 import { PatientUpdateResponseDto } from './dto/patient-update-response.dto';
 import { LogWriter } from '../log-writer';
@@ -54,6 +55,33 @@ export class PatientService {
             if (e?.message?.includes('Patient not found')) throw new NotFoundException('Patient not found');
             if (e?.message?.includes('Forbidden')) throw new BadRequestException("You don't have such a patient");
             if (e?.message?.includes('Dentist not found')) throw new BadRequestException('Dentist not found');
+            throw e;
+        }
+    }
+
+    async findAll(dentistId: number, dto: GetPatientDto): Promise<PatientUpdateResponseDto[]> {
+        try {
+            const patients = await this.patientRepository.findPatientsForDentist(dentistId, {
+                id: dto.id,
+                name: dto.name,
+                surname: dto.surname,
+                birthdate: dto.birthdate,
+            });
+            const msg = `Dentist with id ${dentistId} retrieved ${patients.length} patient(s)`;
+            this.logger.log(msg);
+            LogWriter.append('log', PatientService.name, msg);
+            return patients.map((patient) => {
+                const birthDate = patient.birthDate instanceof Date 
+                    ? patient.birthDate 
+                    : new Date(patient.birthDate);
+                return {
+                    id: patient.id,
+                    name: patient.name,
+                    surname: patient.surname,
+                    birthDate: birthDate.toISOString().slice(0, 10),
+                };
+            });
+        } catch (e: any) {
             throw e;
         }
     }
