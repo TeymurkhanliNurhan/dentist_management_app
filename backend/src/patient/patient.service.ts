@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PatientRepository } from './patient.repository';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
@@ -8,6 +8,7 @@ import { PatientUpdateResponseDto } from './dto/patient-update-response.dto';
 @Injectable()
 export class PatientService {
     constructor(private readonly patientRepository: PatientRepository) {}
+    private readonly logger = new Logger(PatientService.name);
 
     async create(dentistId: number, dto: CreatePatientDto): Promise<PatientCreateResponseDto> {
         try {
@@ -16,6 +17,9 @@ export class PatientService {
                 surname: dto.surname,
                 birthDate: new Date(dto.birthDate),
             });
+            const msg = `Dentist with id ${dentistId} created Patient with id ${created.id}`;
+            this.logger.log(msg);
+            LogWriter.append('log', PatientService.name, msg);
             return {
                 id: created.id,
                 name: created.name,
@@ -36,6 +40,9 @@ export class PatientService {
                 surname: dto.surname,
                 birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
             });
+            const msg = `Dentist with id ${dentistId} updated Patient with id ${updated.id}`;
+            this.logger.log(msg);
+            LogWriter.append('log', PatientService.name, msg);
             return {
                 id: updated.id,
                 name: updated.name,
