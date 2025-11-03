@@ -1,7 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { ToothTreatmentMedicineRepository } from './tooth_treatment_medicine.repository';
 import { CreateToothTreatmentMedicineDto } from './dto/create-tooth_treatment_medicine.dto';
-import { UpdateToothTreatmentMedicineDto } from './dto/update-tooth_treatment_medicine.dto';
 import { LogWriter } from '../log-writer';
 
 @Injectable()
@@ -31,30 +30,6 @@ export class ToothTreatmentMedicineService {
         throw new BadRequestException("You don't have such a tooth treatment");
       }
       throw new BadRequestException('Failed to create tooth treatment medicine');
-    }
-  }
-
-  async patch(dentistId: number, toothTreatmentId: number, oldMedicineId: number, dto: UpdateToothTreatmentMedicineDto) {
-    try {
-      const updated = await this.repo.updateEnsureOwnership(dentistId, toothTreatmentId, oldMedicineId, dto.medicine_id);
-      const msg = `Dentist with id ${dentistId} updated ToothTreatmentMedicine for ToothTreatment ${toothTreatmentId} from Medicine ${oldMedicineId} to ${dto.medicine_id}`;
-      this.logger.log(msg);
-      LogWriter.append('log', ToothTreatmentMedicineService.name, msg);
-      return {
-        tooth_treatment: updated.toothTreatment,
-        medicine: updated.medicine,
-      };
-    } catch (e: any) {
-      if (e?.message?.includes('ToothTreatment not found')) throw new NotFoundException('ToothTreatment not found');
-      if (e?.message?.includes('ToothTreatmentMedicine not found')) throw new NotFoundException('ToothTreatmentMedicine not found');
-      if (e?.message?.includes('Medicine not found')) throw new NotFoundException('Medicine not found');
-      if (e?.message?.includes('Forbidden')) {
-        const warn = `Dentist with id ${dentistId} attempted to update ToothTreatmentMedicine for ToothTreatment ${toothTreatmentId} without ownership`;
-        this.logger.warn(warn);
-        LogWriter.append('warn', ToothTreatmentMedicineService.name, warn);
-        throw new BadRequestException("You don't have such a tooth treatment medicine");
-      }
-      throw new BadRequestException('Failed to update tooth treatment medicine');
     }
   }
 
