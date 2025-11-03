@@ -1,11 +1,28 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class RegisterResponseDto {
-    @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
-    access_token: string;
+class DentistSafeDto {
+    @ApiProperty({ example: 4 })
+    id: number;
 
-    @ApiProperty({ example: 1 })
-    dentistId: number;
+    @ApiProperty({ example: 'John' })
+    name: string;
+
+    @ApiProperty({ example: 'Doe' })
+    surname: string;
+
+    @ApiProperty({ example: '1990-01-01' })
+    birthDate: string;
+
+    @ApiProperty({ example: 'john.doe@example.com' })
+    gmail: string;
+}
+
+export class RegisterResponseDto {
+    @ApiProperty({ example: 'Dentist registered successfully' })
+    message: string;
+
+    @ApiProperty({ type: DentistSafeDto })
+    dentist: DentistSafeDto;
 }
 
 

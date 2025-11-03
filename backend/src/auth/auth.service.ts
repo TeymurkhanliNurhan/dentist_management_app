@@ -35,9 +35,17 @@ export class AuthService {
       password: hashedPassword,
     });
 
-    const payload = { sub: newDentist.id, gmail: newDentist.gmail };
-    const access_token = await this.jwtService.signAsync(payload);
-    return { access_token, dentistId: newDentist.id };
+    const { password, ...dentistWithoutPassword } = newDentist as any;
+    return {
+      message: 'Dentist registered successfully',
+      dentist: {
+        id: dentistWithoutPassword.id,
+        name: dentistWithoutPassword.name,
+        surname: dentistWithoutPassword.surname,
+        birthDate: (dentistWithoutPassword.birthDate as Date).toISOString().slice(0, 10),
+        gmail: dentistWithoutPassword.gmail,
+      },
+    };
   }
 
   async signIn(loginDto: LoginDto): Promise<LoginResponseDto> {
