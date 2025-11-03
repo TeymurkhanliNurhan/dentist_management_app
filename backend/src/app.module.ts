@@ -82,9 +82,11 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
             synchronize: true,
             logging: ['schema', 'error', 'warn'], // Enable schema logging to see table creation
             extra: {
-              max: 10,
+              // Pool tuning for Supabase Session Pooler
+              max: 5,
               idleTimeoutMillis: 30000,
-              connectionTimeoutMillis: 2000,
+              connectionTimeoutMillis: 10000,
+              keepAlive: true,
             },
           };
         } catch (error) {
@@ -106,6 +108,13 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
               ToothTreatmentMedicine,
             ],
             synchronize: true,
+            extra: {
+              // Pool tuning for Supabase Session Pooler
+              max: 5,
+              idleTimeoutMillis: 30000,
+              connectionTimeoutMillis: 10000,
+              keepAlive: true,
+            },
           };
         }
       },
