@@ -48,8 +48,8 @@ export class ToothTreatmentService {
   async patch(dentistId: number, id: number, dto: UpdateToothTreatmentDto) {
     try {
       const updated = await this.repo.updateEnsureOwnership(dentistId, id, {
-        appointmentId: dto.appointment_id,
         treatmentId: dto.treatment_id,
+        toothId: dto.tooth_id,
         description: dto.description ?? null,
       });
       const msg = `Dentist with id ${dentistId} updated ToothTreatment with id ${updated.id}`;
@@ -65,8 +65,8 @@ export class ToothTreatmentService {
       };
     } catch (e: any) {
       if (e?.message?.includes('ToothTreatment not found')) throw new NotFoundException('ToothTreatment not found');
-      if (e?.message?.includes('Appointment not found')) throw new NotFoundException('Appointment not found');
       if (e?.message?.includes('Treatment not found')) throw new NotFoundException('Treatment not found');
+      if (e?.message?.includes('PatientTooth not found')) throw new NotFoundException('Patient tooth not found');
       if (e?.message?.includes('Forbidden')) {
         const warn = `Dentist with id ${dentistId} attempted to update ToothTreatment with id ${id} without ownership`;
         this.logger.warn(warn);

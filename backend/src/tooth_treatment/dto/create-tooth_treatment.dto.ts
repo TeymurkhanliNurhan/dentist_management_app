@@ -29,6 +29,4 @@ export class CreateToothTreatmentDto {
     description?: string;
 }
 
-export class CreateToothTreatmentDto {}
-
 

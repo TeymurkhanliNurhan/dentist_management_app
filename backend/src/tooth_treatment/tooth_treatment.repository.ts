@@ -47,22 +47,24 @@ export class ToothTreatmentRepository {
     async updateEnsureOwnership(
         dentistId: number,
         id: number,
-        updates: Partial<{ appointmentId: number; treatmentId: number; description: string | null }>,
+        updates: Partial<{ treatmentId: number; toothId: number; description: string | null }>,
     ): Promise<ToothTreatment> {
-        const current = await this.repo.findOne({ where: { id }, relations: ['appointment', 'appointment.dentist'] });
+        const current = await this.repo.findOne({ where: { id }, relations: ['appointment', 'appointment.dentist', 'patientTooth'] });
         if (!current) throw new Error('ToothTreatment not found');
         if (current.appointment?.dentist?.id !== dentistId) throw new Error('Forbidden');
 
-        if (updates.appointmentId !== undefined) {
-            const appointment = await this.dataSource.getRepository(Appointment).findOne({ where: { id: updates.appointmentId }, relations: ['dentist'] });
-            if (!appointment) throw new Error('Appointment not found');
-            if (appointment.dentist?.id !== dentistId) throw new Error('Forbidden');
-            current.appointment = appointment;
-        }
         if (updates.treatmentId !== undefined) {
             const treatment = await this.dataSource.getRepository(Treatment).findOne({ where: { id: updates.treatmentId, dentist: { id: dentistId } } });
             if (!treatment) throw new Error('Treatment not found or not owned');
             current.treatment = treatment;
+        }
+        if (updates.toothId !== undefined) {
+            const patientId = current.patient;
+            const ptRepo = this.dataSource.getRepository(PatientTooth);
+            const patientTooth = await ptRepo.findOne({ where: { patient: patientId, tooth: updates.toothId } });
+            if (!patientTooth) throw new Error('PatientTooth not found');
+            current.patientTooth = patientTooth;
+            current.tooth = updates.toothId;
         }
         if (updates.description !== undefined) current.description = updates.description;
         return await this.repo.save(current);
