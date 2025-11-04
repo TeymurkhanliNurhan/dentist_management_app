@@ -71,7 +71,7 @@ const SignUp = () => {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-end p-8 relative"
+      className="min-h-screen flex items-center justify-center p-8 relative"
       style={{
         backgroundImage: "url('/images/tooth_login.jpg')",
         backgroundSize: 'cover',
@@ -79,7 +79,7 @@ const SignUp = () => {
       }}
     >
       <div className="absolute inset-0 bg-black/10"></div>
-      <div className="w-full max-w-md relative py-8 px-6 bg-white/30 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 mr-16">
+      <div className="w-full max-w-md relative py-8 px-6 bg-white/30 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20">
         
         
         <button
