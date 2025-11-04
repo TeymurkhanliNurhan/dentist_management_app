@@ -11,18 +11,15 @@ async function bootstrap() {
     logger: ['log', 'error', 'warn', 'debug'],
   });
   
-  // Enable CORS
   app.enableCors({
-    origin: true, // Allow all origins (for development)
+    origin: true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
   
-  // Set global prefix for all routes
   app.setGlobalPrefix('api');
   
-  // Enable validation
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -31,7 +28,6 @@ async function bootstrap() {
     }),
   );
   
-  // Give TypeORM time to connect and synchronize
   await new Promise(resolve => setTimeout(resolve, 2000));
   
   const config = new DocumentBuilder()
@@ -51,7 +47,6 @@ async function bootstrap() {
     )
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  // Swagger at /docs (root level, separate from /api routes)
   SwaggerModule.setup('docs', app, document);
   
   const port = process.env.PORT ?? 3000;

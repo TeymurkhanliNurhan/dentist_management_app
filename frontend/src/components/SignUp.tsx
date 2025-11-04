@@ -25,14 +25,14 @@ const SignUp = () => {
     setError('');
     setSuccess('');
 
-    // Validate password match
+    
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       setIsLoading(false);
       return;
     }
 
-    // Validate password length
+    
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters long');
       setIsLoading(false);
@@ -43,10 +43,10 @@ const SignUp = () => {
       const { confirmPassword, ...registerData } = formData;
       const data = await authService.register(registerData);
       
-      // Show success message
+      
       setSuccess('Registration successful! Redirecting to login...');
       
-      // Wait a moment to show success message before navigating
+      
       setTimeout(() => {
         navigate('/login');
       }, 1500);
@@ -72,7 +72,7 @@ const SignUp = () => {
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="w-full max-w-md relative py-8 px-6">
-        {/* Rectangle Background - Light Blue */}
+        
         <div 
           className="absolute bg-blue-200 rounded-2xl"
           style={{ 
@@ -84,7 +84,7 @@ const SignUp = () => {
           }}
         ></div>
         
-        {/* Back Button */}
+        
         <button
           onClick={() => navigate(-1)}
           className="mb-6 flex items-center text-gray-700 hover:text-gray-900 transition-colors relative"
@@ -93,7 +93,7 @@ const SignUp = () => {
           <ChevronLeft className="w-5 h-5 mr-1" />
         </button>
 
-        {/* Header */}
+        
         <div className="mb-8 relative" style={{ zIndex: 10 }}>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Sign Up</h1>
           <p className="text-gray-600 text-sm">
@@ -101,23 +101,23 @@ const SignUp = () => {
           </p>
         </div>
 
-        {/* Success Message */}
+        
         {success && (
           <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm relative" style={{ zIndex: 10 }}>
             {success}
           </div>
         )}
 
-        {/* Error Message */}
+        
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm relative" style={{ zIndex: 10 }}>
             {error}
           </div>
         )}
 
-        {/* Form */}
+        
         <form onSubmit={handleSubmit} className="space-y-5 relative" style={{ zIndex: 10 }}>
-          {/* Name Field */}
+          
           <div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -136,7 +136,7 @@ const SignUp = () => {
             </div>
           </div>
 
-          {/* Surname Field */}
+          
           <div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -155,7 +155,7 @@ const SignUp = () => {
             </div>
           </div>
 
-          {/* Birth Date Field */}
+          
           <div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -173,7 +173,7 @@ const SignUp = () => {
             </div>
           </div>
 
-          {/* Email Field */}
+          
           <div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -192,7 +192,7 @@ const SignUp = () => {
             </div>
           </div>
 
-          {/* Password Field */}
+          
           <div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -223,7 +223,7 @@ const SignUp = () => {
             </div>
           </div>
 
-          {/* Confirm Password Field */}
+          
           <div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -254,7 +254,7 @@ const SignUp = () => {
             </div>
           </div>
 
-          {/* Submit Button */}
+          
           <button
             type="submit"
             disabled={isLoading}
@@ -264,7 +264,7 @@ const SignUp = () => {
           </button>
         </form>
 
-        {/* Log In Link */}
+        
         <div className="mt-6 text-center relative" style={{ zIndex: 10 }}>
           <p className="text-gray-600 text-sm">
             Have an account?{' '}

@@ -25,10 +25,10 @@ const Login = () => {
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('dentistId', data.dentistId.toString());
       
-      // Show success message
+      
       setSuccess('Login successful! Redirecting...');
       
-      // Wait a moment to show success message before navigating
+      
       setTimeout(() => {
         navigate('/dashboard');
       }, 1500);
@@ -54,7 +54,7 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="w-full max-w-md relative py-8 px-6">
-        {/* Rectangle Background - Light Blue */}
+        
         <div 
           className="absolute bg-blue-200 rounded-2xl"
           style={{ 
@@ -66,7 +66,7 @@ const Login = () => {
           }}
         ></div>
         
-        {/* Back Button */}
+        
         <button
           onClick={() => navigate(-1)}
           className="mb-6 flex items-center text-gray-700 hover:text-gray-900 transition-colors relative"
@@ -75,7 +75,7 @@ const Login = () => {
           <ChevronLeft className="w-5 h-5 mr-1" />
         </button>
 
-        {/* Header */}
+        
         <div className="mb-8 relative" style={{ zIndex: 10 }}>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Log In</h1>
           <p className="text-gray-600 text-sm">
@@ -83,23 +83,23 @@ const Login = () => {
           </p>
         </div>
 
-        {/* Success Message */}
+        
         {success && (
           <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm relative" style={{ zIndex: 10 }}>
             {success}
           </div>
         )}
 
-        {/* Error Message */}
+        
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm relative" style={{ zIndex: 10 }}>
             {error}
           </div>
         )}
 
-        {/* Form */}
+        
         <form onSubmit={handleSubmit} className="space-y-5 relative" style={{ zIndex: 10 }}>
-          {/* Email Field */}
+          
           <div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -118,7 +118,7 @@ const Login = () => {
             </div>
           </div>
 
-          {/* Password Field */}
+          
           <div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -148,7 +148,7 @@ const Login = () => {
             </div>
           </div>
 
-          {/* Forgot Password Link */}
+          
           <div className="flex justify-end">
             <a
               href="#"
@@ -158,7 +158,7 @@ const Login = () => {
             </a>
           </div>
 
-          {/* Submit Button */}
+          
           <button
             type="submit"
             disabled={isLoading}
@@ -168,7 +168,7 @@ const Login = () => {
           </button>
         </form>
 
-        {/* Sign Up Link */}
+        
         <div className="mt-6 text-center relative" style={{ zIndex: 10 }}>
           <p className="text-gray-600 text-sm">
             Don't have an account?{' '}
