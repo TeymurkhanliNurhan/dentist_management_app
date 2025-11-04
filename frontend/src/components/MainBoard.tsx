@@ -1,6 +1,6 @@
 import Header from './Header';
 
-const Dashboard = () => {
+const MainBoard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -17,5 +17,5 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default MainBoard;
 

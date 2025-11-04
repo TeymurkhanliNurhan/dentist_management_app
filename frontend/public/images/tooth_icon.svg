@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Tooth -->
+  <path d="M60 80 Q60 50 80 40 Q100 35 120 40 Q140 50 140 80 L140 120 Q135 160 120 180 Q110 190 100 190 Q90 190 80 180 Q65 160 60 120 Z" 
+        fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Heartbeat line -->
+  <path d="M10 100 L50 100 L70 60 L80 140 L90 100 L110 100" 
+        fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Heart -->
+  <path d="M130 100 Q130 90 137 90 Q144 90 147 97 Q150 90 157 90 Q164 90 164 100 Q164 110 147 120 Q130 110 130 100 Z" 
+        fill="black" stroke="black" stroke-width="1.5"/>
+</svg>
+

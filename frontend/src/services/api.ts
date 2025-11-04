@@ -26,15 +26,18 @@ api.interceptors.request.use(
 
 export const authService = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    // Using /Auth/SignIn endpoint (which matches the backend controller)
-    // With global prefix 'api', full URL will be: http://localhost:3000/api/Auth/SignIn
     const response = await api.post<LoginResponse>('/Auth/SignIn', credentials);
     return response.data;
   },
   register: async (registerData: RegisterRequest): Promise<RegisterResponse> => {
-    // Using /Auth/Register endpoint (which matches the backend controller)
-    // With global prefix 'api', full URL will be: http://localhost:3000/api/Auth/Register
     const response = await api.post<RegisterResponse>('/Auth/Register', registerData);
+    return response.data;
+  },
+};
+
+export const dentistService = {
+  getById: async (id: number) => {
+    const response = await api.get(`/dentist/${id}`);
     return response.data;
   },
 };

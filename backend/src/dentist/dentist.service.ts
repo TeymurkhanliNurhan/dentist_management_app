@@ -1,11 +1,26 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { DentistRepository } from './dentist.repository';
 import { LogWriter } from '../log-writer';
 
 @Injectable()
 export class DentistService {
     private readonly logger = new Logger(DentistService.name);
 
-    // Example hook for future methods
+    constructor(private readonly dentistRepository: DentistRepository) {}
+
+    async findOne(id: number) {
+        const dentist = await this.dentistRepository.findById(id);
+        if (!dentist) {
+            this.logger.warn(`Dentist with id ${id} not found`);
+            LogWriter.append('warn', DentistService.name, `Dentist with id ${id} not found`);
+            throw new NotFoundException(`Dentist with id ${id} not found`);
+        }
+        const { password, ...dentistWithoutPassword } = dentist;
+        this.logger.log(`Dentist with id ${id} retrieved`);
+        LogWriter.append('log', DentistService.name, `Dentist with id ${id} retrieved`);
+        return dentistWithoutPassword;
+    }
+
     logProfileAccess(dentistId: number) {
         const msg = `Dentist with id ${dentistId} accessed profile`;
         this.logger.debug(msg);

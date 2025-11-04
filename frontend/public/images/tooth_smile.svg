@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 220">
+  <!-- Left wavy line "s" -->
+  <path d="M10 150 Q30 120 50 130 Q70 140 90 110" 
+        fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Tooth with smile -->
+  <g transform="translate(150, 50)">
+    <!-- Tooth outline -->
+    <path d="M40 40 Q35 20 50 15 Q65 10 80 15 Q95 20 90 40 L90 70 Q85 95 75 105 Q65 115 65 115 Q65 115 55 105 Q45 95 40 70 Z" 
+          fill="none" stroke="black" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Eyes -->
+    <circle cx="55" cy="45" r="3" fill="black"/>
+    <circle cx="75" cy="45" r="3" fill="black"/>
+    
+    <!-- Smile -->
+    <path d="M50 60 Q65 70 80 60" 
+          fill="none" stroke="black" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Right wavy line "ile" -->
+  <path d="M250 150 Q270 180 290 150 Q310 120 330 150 Q350 180 370 140 Q390 100 410 130 Q430 160 450 130 Q470 100 490 140 Q500 160 510 150" 
+        fill="none" stroke="black" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Horizontal baseline -->
+  <line x1="0" y1="152" x2="520" y2="152" stroke="black" stroke-width="2"/>
+</svg>
+
