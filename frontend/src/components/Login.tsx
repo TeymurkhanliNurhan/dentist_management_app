@@ -60,8 +60,8 @@ const Login = () => {
         backgroundPosition: 'center',
       }}
     >
-      <div className="absolute inset-0 bg-black/10"></div>
-      <div className="w-full max-w-md relative py-8 px-6 bg-white/30 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20">
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-md"></div>
+      <div className="w-full max-w-md relative py-8 px-6 bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl border-2 border-white/50">
         
         
         <button
