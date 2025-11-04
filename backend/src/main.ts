@@ -11,6 +11,17 @@ async function bootstrap() {
     logger: ['log', 'error', 'warn', 'debug'],
   });
   
+  // Enable CORS
+  app.enableCors({
+    origin: true, // Allow all origins (for development)
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+  
+  // Set global prefix for all routes
+  app.setGlobalPrefix('api');
+  
   // Enable validation
   app.useGlobalPipes(
     new ValidationPipe({
@@ -40,11 +51,13 @@ async function bootstrap() {
     )
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  // Swagger at /docs (root level, separate from /api routes)
+  SwaggerModule.setup('docs', app, document);
   
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   console.log(`\n✅ Application is running on: http://localhost:${port}`);
-  console.log(`📚 API Documentation: http://localhost:${port}/api\n`);
+  console.log(`📚 API Documentation: http://localhost:${port}/docs\n`);
+  console.log(`🔗 API Endpoints: http://localhost:${port}/api\n`);
 }
 bootstrap();
