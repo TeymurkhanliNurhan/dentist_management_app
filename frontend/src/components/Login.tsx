@@ -52,24 +52,21 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md relative py-8 px-6">
-        
-        <div 
-          className="absolute bg-blue-200 rounded-2xl"
-          style={{ 
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 0
-          }}
-        ></div>
+    <div
+      className="min-h-screen flex items-center justify-center p-8 relative"
+      style={{
+        backgroundImage: "url('/images/tooth_login.jpg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <div className="absolute inset-0 bg-black/10"></div>
+      <div className="w-full max-w-md relative py-8 px-6 bg-white/30 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20">
         
         
         <button
           onClick={() => navigate(-1)}
-          className="mb-6 flex items-center text-gray-700 hover:text-gray-900 transition-colors relative"
+          className="mb-6 flex items-center text-gray-800 hover:text-gray-900 transition-colors relative"
           style={{ zIndex: 10 }}
         >
           <ChevronLeft className="w-5 h-5 mr-1" />
@@ -78,7 +75,7 @@ const Login = () => {
         
         <div className="mb-8 relative" style={{ zIndex: 10 }}>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Log In</h1>
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-700 text-sm">
             Log in to your account and start tracking your appointments.
           </p>
         </div>
