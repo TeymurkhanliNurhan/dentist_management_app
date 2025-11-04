@@ -52,19 +52,16 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md relative py-8 px-6">
-        
-        <div 
-          className="absolute bg-blue-200 rounded-2xl"
-          style={{ 
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 0
-          }}
-        ></div>
+    <div
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{
+        backgroundImage: "url('/assets/auth-bg.jpg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <div className="absolute inset-0 bg-white/30"></div>
+      <div className="w-full max-w-md relative py-8 px-6 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-white/40">
         
         
         <button
