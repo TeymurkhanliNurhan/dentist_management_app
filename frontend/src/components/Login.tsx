@@ -55,12 +55,13 @@ const Login = () => {
     <div
       className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
-        backgroundImage: "url('/assets/auth-bg.jpg')",
+        backgroundImage: "url('/assets/auth-bg.jpg'), url('/auth-bg.jpg')",
         backgroundSize: 'cover',
         backgroundPosition: 'center',
+        backgroundColor: '#e6f0fa',
       }}
     >
-      <div className="absolute inset-0 bg-white/30"></div>
+      <div className="absolute inset-0 bg-white/20"></div>
       <div className="w-full max-w-md relative py-8 px-6 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-white/40">
         
         
