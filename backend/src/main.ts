@@ -11,7 +11,15 @@ async function bootstrap() {
     logger: ['log', 'error', 'warn', 'debug'],
   });
   
-  // Enable validation
+  app.enableCors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+  
+  app.setGlobalPrefix('api');
+  
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -20,7 +28,6 @@ async function bootstrap() {
     }),
   );
   
-  // Give TypeORM time to connect and synchronize
   await new Promise(resolve => setTimeout(resolve, 2000));
   
   const config = new DocumentBuilder()
@@ -40,11 +47,12 @@ async function bootstrap() {
     )
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('docs', app, document);
   
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   console.log(`\n✅ Application is running on: http://localhost:${port}`);
-  console.log(`📚 API Documentation: http://localhost:${port}/api\n`);
+  console.log(`📚 API Documentation: http://localhost:${port}/docs\n`);
+  console.log(`🔗 API Endpoints: http://localhost:${port}/api\n`);
 }
 bootstrap();
