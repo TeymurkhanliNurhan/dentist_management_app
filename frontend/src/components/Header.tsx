@@ -11,9 +11,13 @@ const Header = () => {
     const fetchDentistInfo = async () => {
       try {
         const dentistId = localStorage.getItem('dentistId');
+        console.log('Dentist ID from localStorage:', dentistId);
         if (dentistId) {
           const dentist = await dentistService.getById(parseInt(dentistId));
+          console.log('Fetched dentist info:', dentist);
           setDentistSurname(dentist.surname);
+        } else {
+          console.log('No dentistId found in localStorage');
         }
       } catch (error) {
         console.error('Failed to fetch dentist info:', error);
