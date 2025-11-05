@@ -77,5 +77,36 @@ export const patientService = {
   },
 };
 
+export interface Treatment {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+}
+
+export interface TreatmentFilters {
+  name?: string;
+}
+
+export interface CreateTreatmentDto {
+  name: string;
+  description: string;
+  price: number;
+}
+
+export const treatmentService = {
+  getAll: async (filters?: TreatmentFilters): Promise<Treatment[]> => {
+    const params = new URLSearchParams();
+    if (filters?.name) params.append('name', filters.name);
+    
+    const response = await api.get(`/treatment?${params.toString()}`);
+    return response.data;
+  },
+  create: async (treatment: CreateTreatmentDto): Promise<Treatment> => {
+    const response = await api.post('/treatment', treatment);
+    return response.data;
+  },
+};
+
 export default api;
 
