@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Mail, LogOut } from 'lucide-react';
+import { Home, Settings, Mail, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { dentistService } from '../services/api';
 
@@ -43,6 +43,14 @@ const Header = () => {
           </div>
 
           <nav className="flex items-center space-x-8">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center space-x-2 text-white/90 hover:text-white hover:bg-white/10 px-4 py-2.5 rounded-lg transition-all duration-200"
+              >
+                <Home className="w-6 h-6" />
+                <span className="text-base font-medium">Main Menu</span>
+              </button>
+
               <button
                 onClick={() => navigate('/settings')}
                 className="flex items-center space-x-2 text-white/90 hover:text-white hover:bg-white/10 px-4 py-2.5 rounded-lg transition-all duration-200"

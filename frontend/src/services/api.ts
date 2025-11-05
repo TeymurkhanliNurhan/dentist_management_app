@@ -61,6 +61,19 @@ export interface CreatePatientDto {
   birthDate: string;
 }
 
+export interface UpdatePatientDto {
+  name?: string;
+  surname?: string;
+  birthDate?: string;
+}
+
+export interface PatientTooth {
+  patient: number;
+  tooth: number;
+  toothNumber: number;
+  permanent: string;
+}
+
 export const patientService = {
   getAll: async (filters?: PatientFilters): Promise<Patient[]> => {
     const params = new URLSearchParams();
@@ -71,8 +84,20 @@ export const patientService = {
     const response = await api.get(`/patient?${params.toString()}`);
     return response.data;
   },
+  getById: async (id: number): Promise<Patient> => {
+    const response = await api.get(`/patient?id=${id}`);
+    return response.data[0];
+  },
   create: async (patient: CreatePatientDto): Promise<Patient> => {
     const response = await api.post('/patient', patient);
+    return response.data;
+  },
+  update: async (id: number, patient: UpdatePatientDto): Promise<Patient> => {
+    const response = await api.patch(`/patient/${id}`, patient);
+    return response.data;
+  },
+  getPatientTeeth: async (patientId: number): Promise<PatientTooth[]> => {
+    const response = await api.get(`/patient-tooth?patient=${patientId}`);
     return response.data;
   },
 };
