@@ -94,6 +94,12 @@ export interface CreateMedicineDto {
   price: number;
 }
 
+export interface UpdateMedicineDto {
+  name?: string;
+  description?: string;
+  price?: number;
+}
+
 export const medicineService = {
   getAll: async (filters?: MedicineFilters): Promise<Medicine[]> => {
     const params = new URLSearchParams();
@@ -104,6 +110,10 @@ export const medicineService = {
   },
   create: async (medicine: CreateMedicineDto): Promise<Medicine> => {
     const response = await api.post('/medicine', medicine);
+    return response.data;
+  },
+  update: async (id: number, medicine: UpdateMedicineDto): Promise<Medicine> => {
+    const response = await api.patch(`/medicine/${id}`, medicine);
     return response.data;
   },
 };
