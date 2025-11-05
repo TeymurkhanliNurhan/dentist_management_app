@@ -224,4 +224,34 @@ export const toothTreatmentService = {
   },
 };
 
+export interface ToothInfo {
+  id: number;
+  number: number;
+  permanent: boolean;
+  upperJaw: boolean;
+  name: string;
+}
+
+export interface ToothFilters {
+  id?: number;
+  number?: number;
+  permanent?: boolean;
+  upperJaw?: boolean;
+  language: string;
+}
+
+export const toothService = {
+  getAll: async (filters: ToothFilters): Promise<ToothInfo[]> => {
+    const params = new URLSearchParams();
+    if (filters.id) params.append('id', filters.id.toString());
+    if (filters.number) params.append('number', filters.number.toString());
+    if (filters.permanent !== undefined) params.append('permanent', filters.permanent.toString());
+    if (filters.upperJaw !== undefined) params.append('upperJaw', filters.upperJaw.toString());
+    params.append('language', filters.language);
+    
+    const response = await api.get(`/tooth?${params.toString()}`);
+    return response.data;
+  },
+};
+
 export default api;

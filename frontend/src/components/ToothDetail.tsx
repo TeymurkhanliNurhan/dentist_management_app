@@ -2,34 +2,41 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, FileText, DollarSign } from 'lucide-react';
 import Header from './Header';
-import { toothTreatmentService } from '../services/api';
-import type { ToothTreatment } from '../services/api';
+import { toothTreatmentService, toothService } from '../services/api';
+import type { ToothTreatment, ToothInfo } from '../services/api';
 
 const ToothDetail = () => {
   const { patientId, toothId } = useParams<{ patientId: string; toothId: string }>();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [treatments, setTreatments] = useState<ToothTreatment[]>([]);
+  const [toothInfo, setToothInfo] = useState<ToothInfo | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchToothTreatments = async () => {
+    const fetchData = async () => {
       if (!toothId) return;
       
       setIsLoading(true);
       setError('');
       try {
-        const data = await toothTreatmentService.getAll({ tooth: parseInt(toothId) });
-        setTreatments(data);
+        const [treatmentsData, toothData] = await Promise.all([
+          toothTreatmentService.getAll({ tooth: parseInt(toothId) }),
+          toothService.getAll({ id: parseInt(toothId), language: 'english' })
+        ]);
+        setTreatments(treatmentsData);
+        if (toothData.length > 0) {
+          setToothInfo(toothData[0]);
+        }
       } catch (err: any) {
-        console.error('Failed to fetch tooth treatments:', err);
-        setError(err.response?.data?.message || 'Failed to fetch tooth treatments');
+        console.error('Failed to fetch data:', err);
+        setError(err.response?.data?.message || 'Failed to fetch tooth information');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchToothTreatments();
+    fetchData();
   }, [toothId]);
 
   if (isLoading) {
@@ -60,7 +67,17 @@ const ToothDetail = () => {
 
         <div className="bg-white rounded-lg shadow-md p-8 mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Tooth #{toothId}
+            {toothInfo ? (
+              <>
+                <span className="text-teal-600">
+                  {toothInfo.permanent ? 'Permanent' : 'Childish'}
+                </span>
+                {' '}
+                <span>{toothInfo.name}</span>
+              </>
+            ) : (
+              `Tooth #${toothId}`
+            )}
           </h1>
           <p className="text-gray-600">Past Treatments History</p>
         </div>
