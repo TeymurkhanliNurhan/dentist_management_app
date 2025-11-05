@@ -67,5 +67,3 @@ export class SeedTeeth1700000000000 implements MigrationInterface {
         await queryRunner.query(`DELETE FROM "Tooth" WHERE id BETWEEN 1 AND 52;`);
     }
 }
-
-

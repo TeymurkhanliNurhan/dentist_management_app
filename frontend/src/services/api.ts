@@ -102,5 +102,86 @@ export const patientService = {
   },
 };
 
-export default api;
+export interface Medicine {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+}
 
+export interface MedicineFilters {
+  name?: string;
+}
+
+export interface CreateMedicineDto {
+  name: string;
+  description: string;
+  price: number;
+}
+
+export interface UpdateMedicineDto {
+  name?: string;
+  description?: string;
+  price?: number;
+}
+
+export const medicineService = {
+  getAll: async (filters?: MedicineFilters): Promise<Medicine[]> => {
+    const params = new URLSearchParams();
+    if (filters?.name) params.append('name', filters.name);
+    
+    const response = await api.get(`/medicine?${params.toString()}`);
+    return response.data;
+  },
+  create: async (medicine: CreateMedicineDto): Promise<Medicine> => {
+    const response = await api.post('/medicine', medicine);
+    return response.data;
+  },
+  update: async (id: number, medicine: UpdateMedicineDto): Promise<Medicine> => {
+    const response = await api.patch(`/medicine/${id}`, medicine);
+    return response.data;
+  },
+};
+
+export interface Treatment {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+}
+
+export interface TreatmentFilters {
+  name?: string;
+}
+
+export interface CreateTreatmentDto {
+  name: string;
+  description: string;
+  price: number;
+}
+
+export interface UpdateTreatmentDto {
+  name?: string;
+  description?: string;
+  price?: number;
+}
+
+export const treatmentService = {
+  getAll: async (filters?: TreatmentFilters): Promise<Treatment[]> => {
+    const params = new URLSearchParams();
+    if (filters?.name) params.append('name', filters.name);
+    
+    const response = await api.get(`/treatment?${params.toString()}`);
+    return response.data;
+  },
+  create: async (treatment: CreateTreatmentDto): Promise<Treatment> => {
+    const response = await api.post('/treatment', treatment);
+    return response.data;
+  },
+  update: async (id: number, treatment: UpdateTreatmentDto): Promise<Treatment> => {
+    const response = await api.patch(`/treatment/${id}`, treatment);
+    return response.data;
+  },
+};
+
+export default api;
