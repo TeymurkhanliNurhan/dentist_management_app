@@ -61,6 +61,12 @@ export interface CreatePatientDto {
   birthDate: string;
 }
 
+export interface UpdatePatientDto {
+  name?: string;
+  surname?: string;
+  birthDate?: string;
+}
+
 export interface PatientTooth {
   patient: number;
   tooth: number;
@@ -84,6 +90,10 @@ export const patientService = {
   },
   create: async (patient: CreatePatientDto): Promise<Patient> => {
     const response = await api.post('/patient', patient);
+    return response.data;
+  },
+  update: async (id: number, patient: UpdatePatientDto): Promise<Patient> => {
+    const response = await api.patch(`/patient/${id}`, patient);
     return response.data;
   },
   getPatientTeeth: async (patientId: number): Promise<PatientTooth[]> => {

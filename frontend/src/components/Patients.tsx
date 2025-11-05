@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, X } from 'lucide-react';
+import { Search, Plus, X, Edit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import { patientService } from '../services/api';
-import type { Patient, PatientFilters, CreatePatientDto } from '../services/api';
+import type { Patient, PatientFilters, CreatePatientDto, UpdatePatientDto } from '../services/api';
 
 const Patients = () => {
   const navigate = useNavigate();
@@ -16,7 +16,14 @@ const Patients = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [newPatient, setNewPatient] = useState<CreatePatientDto>({
+    name: '',
+    surname: '',
+    birthDate: '',
+  });
+  const [updatedPatient, setUpdatedPatient] = useState<UpdatePatientDto>({
     name: '',
     surname: '',
     birthDate: '',
@@ -67,6 +74,37 @@ const Patients = () => {
     } catch (err: any) {
       console.error('Failed to create patient:', err);
       setError(err.response?.data?.message || 'Failed to create patient');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditClick = (patient: Patient, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingPatient(patient);
+    setUpdatedPatient({
+      name: patient.name,
+      surname: patient.surname,
+      birthDate: patient.birthDate,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdatePatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPatient) return;
+    
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await patientService.update(editingPatient.id, updatedPatient);
+      setShowEditModal(false);
+      setEditingPatient(null);
+      setUpdatedPatient({ name: '', surname: '', birthDate: '' });
+      fetchPatients();
+    } catch (err: any) {
+      console.error('Failed to update patient:', err);
+      setError(err.response?.data?.message || 'Failed to update patient');
     } finally {
       setIsSubmitting(false);
     }
@@ -153,30 +191,32 @@ const Patients = () => {
 
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full table-fixed">
               <thead className="bg-teal-500 text-white">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider" style={{width: '30%'}}>
                     Name
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider" style={{width: '30%'}}>
                     Surname
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider" style={{width: '30%'}}>
                     Birth Date
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider" style={{width: '10%'}}>
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
                       Loading patients...
                     </td>
                   </tr>
                 ) : patients.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
                       No patients found
                     </td>
                   </tr>
@@ -190,6 +230,15 @@ const Patients = () => {
                       <td className="px-6 py-4 text-sm text-gray-900">{patient.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">{patient.surname}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">{patient.birthDate}</td>
+                      <td className="px-6 py-4 text-sm">
+                        <button
+                          onClick={(e) => handleEditClick(patient, e)}
+                          className="flex items-center space-x-1 px-3 py-1.5 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span>Edit</span>
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -278,6 +327,86 @@ const Patients = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
+                  className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Patient Modal */}
+      {showEditModal && editingPatient && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">Edit Patient</h2>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdatePatient} className="space-y-4">
+              <div>
+                <label htmlFor="editName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Name *
+                </label>
+                <input
+                  type="text"
+                  id="editName"
+                  required
+                  value={updatedPatient.name}
+                  onChange={(e) => setUpdatedPatient({ ...updatedPatient, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="Enter name"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="editSurname" className="block text-sm font-medium text-gray-700 mb-1">
+                  Surname *
+                </label>
+                <input
+                  type="text"
+                  id="editSurname"
+                  required
+                  value={updatedPatient.surname}
+                  onChange={(e) => setUpdatedPatient({ ...updatedPatient, surname: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="Enter surname"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="editBirthDate" className="block text-sm font-medium text-gray-700 mb-1">
+                  Birth Date *
+                </label>
+                <input
+                  type="date"
+                  id="editBirthDate"
+                  required
+                  value={updatedPatient.birthDate}
+                  onChange={(e) => setUpdatedPatient({ ...updatedPatient, birthDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? 'Updating...' : 'Update Patient'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
                   className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
                 >
                   Cancel
