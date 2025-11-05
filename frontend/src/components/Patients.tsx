@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import { patientService } from '../services/api';
 import type { Patient, PatientFilters, CreatePatientDto } from '../services/api';
 
 const Patients = () => {
+  const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [filters, setFilters] = useState<PatientFilters>({
     name: '',
@@ -180,7 +182,11 @@ const Patients = () => {
                   </tr>
                 ) : (
                   patients.map((patient) => (
-                    <tr key={patient.id} className="hover:bg-gray-50 transition-colors">
+                    <tr 
+                      key={patient.id} 
+                      onClick={() => navigate(`/patients/${patient.id}`)}
+                      className="hover:bg-teal-50 transition-colors cursor-pointer"
+                    >
                       <td className="px-6 py-4 text-sm text-gray-900">{patient.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">{patient.surname}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">{patient.birthDate}</td>
