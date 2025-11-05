@@ -78,8 +78,8 @@ const SignUp = () => {
         backgroundPosition: 'center',
       }}
     >
-      <div className="absolute inset-0 bg-black/10"></div>
-      <div className="w-full max-w-md relative py-8 px-6 bg-white/30 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20">
+      <div className="absolute inset-0 bg-black/15 backdrop-blur-sm"></div>
+      <div className="w-full max-w-md relative py-8 px-6 bg-white/60 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/40">
         
         
         <button

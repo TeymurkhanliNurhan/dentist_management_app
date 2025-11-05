@@ -26,15 +26,53 @@ api.interceptors.request.use(
 
 export const authService = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    // Using /Auth/SignIn endpoint (which matches the backend controller)
-    // With global prefix 'api', full URL will be: http://localhost:3000/api/Auth/SignIn
     const response = await api.post<LoginResponse>('/Auth/SignIn', credentials);
     return response.data;
   },
   register: async (registerData: RegisterRequest): Promise<RegisterResponse> => {
-    // Using /Auth/Register endpoint (which matches the backend controller)
-    // With global prefix 'api', full URL will be: http://localhost:3000/api/Auth/Register
     const response = await api.post<RegisterResponse>('/Auth/Register', registerData);
+    return response.data;
+  },
+};
+
+export const dentistService = {
+  getById: async (id: number) => {
+    const response = await api.get(`/dentist/${id}`);
+    return response.data;
+  },
+};
+
+export interface Patient {
+  id: number;
+  name: string;
+  surname: string;
+  birthDate: string;
+}
+
+export interface PatientFilters {
+  name?: string;
+  surname?: string;
+  birthdate?: string;
+}
+
+export interface CreatePatientDto {
+  name: string;
+  surname: string;
+  birthDate: string;
+}
+
+export const patientService = {
+  getAll: async (filters?: PatientFilters): Promise<Patient[]> => {
+    const params = new URLSearchParams();
+    if (filters?.name) params.append('name', filters.name);
+    if (filters?.surname) params.append('surname', filters.surname);
+    if (filters?.birthdate) params.append('birthdate', filters.birthdate);
+    
+    const response = await api.get(`/patient?${params.toString()}`);
+    return response.data;
+  },
+  create: async (patient: CreatePatientDto): Promise<Patient> => {
+    const response = await api.post('/patient', patient);
     return response.data;
   },
 };
