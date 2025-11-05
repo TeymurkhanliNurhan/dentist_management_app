@@ -184,4 +184,44 @@ export const treatmentService = {
   },
 };
 
+export interface ToothTreatment {
+  id: number;
+  patient: number;
+  tooth: number;
+  appointment: {
+    id: number;
+    startDate: string;
+    endDate: string | null;
+  };
+  treatment: {
+    id: number;
+    name: string;
+    description: string;
+    price: number;
+  };
+  description: string | null;
+}
+
+export interface ToothTreatmentFilters {
+  id?: number;
+  appointment?: number;
+  tooth?: number;
+  patient?: number;
+  treatment?: number;
+}
+
+export const toothTreatmentService = {
+  getAll: async (filters?: ToothTreatmentFilters): Promise<ToothTreatment[]> => {
+    const params = new URLSearchParams();
+    if (filters?.id) params.append('id', filters.id.toString());
+    if (filters?.appointment) params.append('appointment', filters.appointment.toString());
+    if (filters?.tooth) params.append('tooth', filters.tooth.toString());
+    if (filters?.patient) params.append('patient', filters.patient.toString());
+    if (filters?.treatment) params.append('treatment', filters.treatment.toString());
+    
+    const response = await api.get(`/tooth-treatment?${params.toString()}`);
+    return response.data;
+  },
+};
+
 export default api;

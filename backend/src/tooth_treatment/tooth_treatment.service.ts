@@ -113,8 +113,17 @@ export class ToothTreatmentService {
         id: tt.id,
         patient: tt.patient,
         tooth: tt.tooth,
-        appointment: tt.appointment?.id,
-        treatment: tt.treatment?.id,
+        appointment: {
+          id: tt.appointment?.id,
+          startDate: tt.appointment?.startDate ? tt.appointment.startDate.toISOString().slice(0, 10) : null,
+          endDate: tt.appointment?.endDate ? tt.appointment.endDate.toISOString().slice(0, 10) : null,
+        },
+        treatment: {
+          id: tt.treatment?.id,
+          name: tt.treatment?.name,
+          description: tt.treatment?.description,
+          price: tt.treatment?.price,
+        },
         description: tt.description,
       }));
     } catch (e: any) {
