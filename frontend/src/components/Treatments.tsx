@@ -170,7 +170,6 @@ const Treatments = () => {
                     Price
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
-                    Actions
                   </th>
                 </tr>
               </thead>
@@ -196,7 +195,7 @@ const Treatments = () => {
                       <td className="px-6 py-4 text-sm">
                         <button
                           onClick={() => handleEditClick(treatment)}
-                          className="flex items-center space-x-1 px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                          className="flex items-center space-x-1 px-3 py-1.5 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
                         >
                           <Edit className="w-4 h-4" />
                           <span>Edit</span>
@@ -332,7 +331,7 @@ const Treatments = () => {
                   maxLength={40}
                   value={updatedTreatment.name}
                   onChange={(e) => setUpdatedTreatment({ ...updatedTreatment, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="Enter treatment name"
                 />
               </div>
@@ -348,7 +347,7 @@ const Treatments = () => {
                   rows={3}
                   value={updatedTreatment.description}
                   onChange={(e) => setUpdatedTreatment({ ...updatedTreatment, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="Enter description"
                 />
               </div>
@@ -365,7 +364,7 @@ const Treatments = () => {
                   step="0.01"
                   value={updatedTreatment.price || ''}
                   onChange={(e) => setUpdatedTreatment({ ...updatedTreatment, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder="Enter price"
                 />
               </div>
@@ -374,7 +373,7 @@ const Treatments = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Updating...' : 'Update Treatment'}
                 </button>
