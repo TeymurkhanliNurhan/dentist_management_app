@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, X } from 'lucide-react';
+import { Search, Plus, X, Edit } from 'lucide-react';
 import Header from './Header';
 import { treatmentService } from '../services/api';
-import type { Treatment, TreatmentFilters, CreateTreatmentDto } from '../services/api';
+import type { Treatment, TreatmentFilters, CreateTreatmentDto, UpdateTreatmentDto } from '../services/api';
 
 const Treatments = () => {
   const [treatments, setTreatments] = useState<Treatment[]>([]);
@@ -12,7 +12,14 @@ const Treatments = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTreatment, setEditingTreatment] = useState<Treatment | null>(null);
   const [newTreatment, setNewTreatment] = useState<CreateTreatmentDto>({
+    name: '',
+    description: '',
+    price: 0,
+  });
+  const [updatedTreatment, setUpdatedTreatment] = useState<UpdateTreatmentDto>({
     name: '',
     description: '',
     price: 0,
@@ -61,6 +68,36 @@ const Treatments = () => {
     } catch (err: any) {
       console.error('Failed to create treatment:', err);
       setError(err.response?.data?.message || 'Failed to create treatment');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditClick = (treatment: Treatment) => {
+    setEditingTreatment(treatment);
+    setUpdatedTreatment({
+      name: treatment.name,
+      description: treatment.description,
+      price: treatment.price,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateTreatment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTreatment) return;
+    
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await treatmentService.update(editingTreatment.id, updatedTreatment);
+      setShowEditModal(false);
+      setEditingTreatment(null);
+      setUpdatedTreatment({ name: '', description: '', price: 0 });
+      fetchTreatments();
+    } catch (err: any) {
+      console.error('Failed to update treatment:', err);
+      setError(err.response?.data?.message || 'Failed to update treatment');
     } finally {
       setIsSubmitting(false);
     }
@@ -132,18 +169,21 @@ const Treatments = () => {
                   <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
                     Price
                   </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
                       Loading treatments...
                     </td>
                   </tr>
                 ) : treatments.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
                       No treatments found
                     </td>
                   </tr>
@@ -153,6 +193,15 @@ const Treatments = () => {
                       <td className="px-6 py-4 text-sm text-gray-900 font-medium">{treatment.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{treatment.description}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">${treatment.price.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-sm">
+                        <button
+                          onClick={() => handleEditClick(treatment)}
+                          className="flex items-center space-x-1 px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span>Edit</span>
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -172,6 +221,7 @@ const Treatments = () => {
         </div>
       </main>
 
+      {/* Add Treatment Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
@@ -246,6 +296,91 @@ const Treatments = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
+                  className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Treatment Modal */}
+      {showEditModal && editingTreatment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">Edit Treatment</h2>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateTreatment} className="space-y-4">
+              <div>
+                <label htmlFor="editName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Name *
+                </label>
+                <input
+                  type="text"
+                  id="editName"
+                  required
+                  maxLength={40}
+                  value={updatedTreatment.name}
+                  onChange={(e) => setUpdatedTreatment({ ...updatedTreatment, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter treatment name"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="editDescription" className="block text-sm font-medium text-gray-700 mb-1">
+                  Description *
+                </label>
+                <textarea
+                  id="editDescription"
+                  required
+                  maxLength={300}
+                  rows={3}
+                  value={updatedTreatment.description}
+                  onChange={(e) => setUpdatedTreatment({ ...updatedTreatment, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter description"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="editPrice" className="block text-sm font-medium text-gray-700 mb-1">
+                  Price *
+                </label>
+                <input
+                  type="number"
+                  id="editPrice"
+                  required
+                  min="0"
+                  step="0.01"
+                  value={updatedTreatment.price || ''}
+                  onChange={(e) => setUpdatedTreatment({ ...updatedTreatment, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter price"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? 'Updating...' : 'Update Treatment'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
                   className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
                 >
                   Cancel
