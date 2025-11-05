@@ -42,5 +42,40 @@ export const dentistService = {
   },
 };
 
+export interface Patient {
+  id: number;
+  name: string;
+  surname: string;
+  birthDate: string;
+}
+
+export interface PatientFilters {
+  name?: string;
+  surname?: string;
+  birthdate?: string;
+}
+
+export interface CreatePatientDto {
+  name: string;
+  surname: string;
+  birthDate: string;
+}
+
+export const patientService = {
+  getAll: async (filters?: PatientFilters): Promise<Patient[]> => {
+    const params = new URLSearchParams();
+    if (filters?.name) params.append('name', filters.name);
+    if (filters?.surname) params.append('surname', filters.surname);
+    if (filters?.birthdate) params.append('birthdate', filters.birthdate);
+    
+    const response = await api.get(`/patient?${params.toString()}`);
+    return response.data;
+  },
+  create: async (patient: CreatePatientDto): Promise<Patient> => {
+    const response = await api.post('/patient', patient);
+    return response.data;
+  },
+};
+
 export default api;
 

@@ -3,6 +3,7 @@ import Login from './components/Login';
 import SignUp from './components/SignUp';
 import Dashboard from './components/Dashboard';
 import MainBoard from './components/MainBoard';
+import Patients from './components/Patients';
 import './App.css';
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/main" element={<MainBoard />} />
+        <Route path="/patients" element={<Patients />} />
         
       </Routes>
     </Router>
