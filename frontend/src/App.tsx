@@ -5,6 +5,7 @@ import Dashboard from './components/Dashboard';
 import MainBoard from './components/MainBoard';
 import Patients from './components/Patients';
 import Medicines from './components/Medicines';
+import Treatments from './components/Treatments';
 import './App.css';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
         <Route path="/main" element={<MainBoard />} />
         <Route path="/patients" element={<Patients />} />
         <Route path="/medicines" element={<Medicines />} />
+        <Route path="/treatments" element={<Treatments />} />
         
       </Routes>
     </Router>
