@@ -18,6 +18,10 @@ const SignUp = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showVerification, setShowVerification] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,13 +47,8 @@ const SignUp = () => {
       const { confirmPassword, ...registerData } = formData;
       const data = await authService.register(registerData);
       
-      
-      setSuccess('Registration successful! Redirecting to login...');
-      
-      
-      setTimeout(() => {
-        navigate('/login');
-      }, 1500);
+      setSuccess('Registration successful! Please check your email for the verification code.');
+      setShowVerification(true);
     } catch (err: any) {
       console.error('Registration error:', err);
       if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
@@ -67,6 +66,42 @@ const SignUp = () => {
       ...formData,
       [e.target.name]: e.target.value,
     });
+  };
+
+  const handleVerifyEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifying(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await authService.verifyEmail(formData.gmail, verificationCode);
+      setSuccess('Email verified successfully! Redirecting to login...');
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
+    } catch (err: any) {
+      console.error('Verification error:', err);
+      setError(err.response?.data?.message || err.message || 'Verification failed');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setIsResending(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await authService.resendVerificationCode(formData.gmail);
+      setSuccess('Verification code has been resent to your email.');
+    } catch (err: any) {
+      console.error('Resend error:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to resend verification code');
+    } finally {
+      setIsResending(false);
+    }
   };
 
   return (
@@ -112,8 +147,60 @@ const SignUp = () => {
           </div>
         )}
 
-        
-        <form onSubmit={handleSubmit} className="space-y-5 relative" style={{ zIndex: 10 }}>
+        {showVerification ? (
+          <div className="space-y-5 relative" style={{ zIndex: 10 }}>
+            <div className="text-center mb-6">
+              <Mail className="w-16 h-16 text-teal-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Verify Your Email</h2>
+              <p className="text-gray-700 text-sm">
+                We've sent a 6-digit verification code to <strong>{formData.gmail}</strong>
+              </p>
+              <p className="text-gray-600 text-xs mt-2">Please check your inbox and enter the code below.</p>
+            </div>
+
+            <form onSubmit={handleVerifyEmail} className="space-y-5">
+              <div>
+                <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700 mb-2">
+                  Verification Code
+                </label>
+                <input
+                  type="text"
+                  id="verificationCode"
+                  name="verificationCode"
+                  value={verificationCode}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                    setVerificationCode(value);
+                  }}
+                  required
+                  maxLength={6}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all text-center text-2xl tracking-widest font-mono"
+                  placeholder="000000"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isVerifying || verificationCode.length !== 6}
+                className="w-full py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isVerifying ? 'Verifying...' : 'Verify Email'}
+              </button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={handleResendCode}
+                  disabled={isResending}
+                  className="text-teal-600 font-semibold hover:text-teal-700 hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  {isResending ? 'Sending...' : "Didn't receive the code? Resend"}
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-5 relative" style={{ zIndex: 10 }}>
           
           <div>
             <div className="relative">
@@ -260,7 +347,7 @@ const SignUp = () => {
             {isLoading ? 'Signing up...' : 'Sign Up'}
           </button>
         </form>
-
+        )}
         
         <div className="mt-6 text-center relative" style={{ zIndex: 10 }}>
           <p className="text-gray-600 text-sm">

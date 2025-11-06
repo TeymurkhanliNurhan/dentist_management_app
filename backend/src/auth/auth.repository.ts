@@ -38,4 +38,16 @@ export class AuthRepository {
     LogWriter.append('log', AuthRepository.name, `Dentist persisted with id ${saved.id}`);
     return saved;
   }
+
+  async updateUser(id: number, updates: Partial<Dentist>): Promise<Dentist> {
+    const repository = this.getDentistRepository();
+    await repository.update(id, updates);
+    const updated = await repository.findOne({ where: { id } });
+    if (!updated) {
+      throw new Error(`Dentist with id ${id} not found after update`);
+    }
+    this.logger.log(`Dentist with id ${id} updated`);
+    LogWriter.append('log', AuthRepository.name, `Dentist with id ${id} updated`);
+    return updated;
+  }
 }

@@ -14,7 +14,6 @@ import { AuthModule } from './auth/auth.module';
 import { MedicineModule } from './medicine/medicine.module';
 import { ToothTreatmentMedicineModule } from './tooth_treatment_medicine/tooth_treatment_medicine.module';
 import { ToothTranslation } from './tooth/entities/tooth_translation.entity';
-// Import all entities
 import { Dentist } from './dentist/entities/dentist.entity';
 import { Patient } from './patient/entities/patient.entity';
 import { PatientTooth } from './patient_tooth/entities/patient_tooth.entity';
@@ -38,8 +37,6 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
           throw new Error('DATABASE_URL environment variable is not set');
         }
         
-        // Parse PostgreSQL URL manually to handle usernames with dots
-        // Format: postgresql://username:password@host:port/database
         try {
           const match = databaseUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
           
@@ -82,9 +79,8 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
               ToothTreatmentMedicine,
             ],
             synchronize: true,
-            logging: ['schema', 'error', 'warn'], // Enable schema logging to see table creation
+            logging: ['schema', 'error', 'warn'],
             extra: {
-              // Pool tuning for Supabase Session Pooler
               max: 5,
               idleTimeoutMillis: 30000,
               connectionTimeoutMillis: 10000,
@@ -93,7 +89,6 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
           };
         } catch (error) {
           console.error('Error parsing DATABASE_URL, falling back to URL string:', error);
-          // Fallback to URL string if parsing fails
           return {
             type: 'postgres',
             url: databaseUrl,
@@ -112,7 +107,6 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
             ],
             synchronize: true,
             extra: {
-              // Pool tuning for Supabase Session Pooler
               max: 5,
               idleTimeoutMillis: 30000,
               connectionTimeoutMillis: 10000,

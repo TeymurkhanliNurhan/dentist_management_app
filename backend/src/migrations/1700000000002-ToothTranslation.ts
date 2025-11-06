@@ -70,7 +70,6 @@ export class ToothTranslation1700000000002 implements MigrationInterface {
         ON CONFLICT (tooth) DO NOTHING;
         `);
 
-        // Drop legacy name column if it exists
         await queryRunner.query(`
         DO $$ BEGIN
           IF EXISTS (

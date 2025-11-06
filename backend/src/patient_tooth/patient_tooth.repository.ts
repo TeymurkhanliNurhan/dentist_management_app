@@ -20,7 +20,6 @@ export class PatientToothRepository {
         dentistId: number,
         filters: { patient: number; tooth?: number },
     ): Promise<PatientTooth[]> {
-        // First verify that the patient belongs to the dentist
         const patient = await this.patientRepo.findOne({
             where: { id: filters.patient, dentist: { id: dentistId } },
             relations: ['dentist'],
@@ -30,7 +29,6 @@ export class PatientToothRepository {
             throw new Error('Patient not found or Forbidden');
         }
 
-        // Now query patient teeth with tooth entity join
         const queryBuilder = this.patientToothRepo
             .createQueryBuilder('patientTooth')
             .leftJoinAndSelect('patientTooth.toothEntity', 'tooth')

@@ -24,6 +24,15 @@ export class Dentist {
     @Column({type: 'varchar',length: 256})
     password: string;
 
+    @Column({type: 'boolean', default: false})
+    isEmailVerified: boolean;
+
+    @Column({type: 'varchar', length: 6, nullable: true})
+    verificationCode: string | null;
+
+    @Column({type: 'timestamp', nullable: true})
+    verificationCodeExpiry: Date | null;
+
     @OneToMany(()=> Patient, (patient)=> patient.dentist)
     patients: Patient[];
 

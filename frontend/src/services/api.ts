@@ -10,7 +10,6 @@ const api = axios.create({
   },
 });
 
-// Add request interceptor to include auth token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
@@ -31,6 +30,19 @@ export const authService = {
   },
   register: async (registerData: RegisterRequest): Promise<RegisterResponse> => {
     const response = await api.post<RegisterResponse>('/Auth/Register', registerData);
+    return response.data;
+  },
+  verifyEmail: async (email: string, code: string): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>('/Auth/VerifyEmail', {
+      gmail: email,
+      code,
+    });
+    return response.data;
+  },
+  resendVerificationCode: async (email: string): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>('/Auth/ResendVerificationCode', {
+      gmail: email,
+    });
     return response.data;
   },
 };

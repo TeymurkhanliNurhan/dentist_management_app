@@ -28,12 +28,10 @@ export class LogWriter {
             const file = this.getLogFilePath();
             fs.appendFile(file, line, (err) => {
                 if (err) {
-                    // eslint-disable-next-line no-console
                     console.error('Failed to write log file:', err.message);
                 }
             });
         } catch (e: any) {
-            // eslint-disable-next-line no-console
             console.error('LogWriter error:', e?.message || e);
         }
     }
