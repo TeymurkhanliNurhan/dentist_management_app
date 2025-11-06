@@ -32,7 +32,13 @@ const Appointments = () => {
     setError('');
     try {
       const data = await appointmentService.getAll(searchFilters);
-      setAppointments(data);
+      // Sort by startDate descending (most recent first)
+      const sortedData = [...data].sort((a, b) => {
+        const dateA = new Date(a.startDate).getTime();
+        const dateB = new Date(b.startDate).getTime();
+        return dateB - dateA; // Descending order (most recent first)
+      });
+      setAppointments(sortedData);
     } catch (err: any) {
       console.error('Failed to fetch appointments:', err);
       setError(err.response?.data?.message || 'Failed to fetch appointments');
