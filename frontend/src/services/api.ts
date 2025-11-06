@@ -210,6 +210,14 @@ export interface ToothTreatmentFilters {
   treatment?: number;
 }
 
+export interface CreateToothTreatmentDto {
+  appointment_id: number;
+  treatment_id: number;
+  patient_id: number;
+  tooth_id: number;
+  description?: string;
+}
+
 export interface UpdateToothTreatmentDto {
   treatment_id?: number;
   tooth_id?: number;
@@ -226,6 +234,10 @@ export const toothTreatmentService = {
     if (filters?.treatment) params.append('treatment', filters.treatment.toString());
     
     const response = await api.get(`/tooth-treatment?${params.toString()}`);
+    return response.data;
+  },
+  create: async (toothTreatment: CreateToothTreatmentDto): Promise<ToothTreatment> => {
+    const response = await api.post('/tooth-treatment', toothTreatment);
     return response.data;
   },
   update: async (id: number, toothTreatment: UpdateToothTreatmentDto): Promise<ToothTreatment> => {
