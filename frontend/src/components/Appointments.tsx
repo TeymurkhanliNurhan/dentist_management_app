@@ -25,6 +25,7 @@ const Appointments = () => {
   });
   const [patientSearch, setPatientSearch] = useState({ name: '', surname: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dateError, setDateError] = useState('');
 
   const fetchAppointments = async (searchFilters?: AppointmentFilters) => {
     setIsLoading(true);
@@ -55,13 +56,26 @@ const Appointments = () => {
 
   const handleAddAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    setDateError('');
     setError('');
+    
+    // Validate that endDate is not earlier than startDate
+    if (newAppointment.endDate && newAppointment.startDate && newAppointment.endDate < newAppointment.startDate) {
+      setDateError('End date cannot be earlier than start date');
+      return;
+    }
+    
+    setIsSubmitting(true);
     try {
-      await appointmentService.create(newAppointment);
+      const appointmentData = {
+        ...newAppointment,
+        endDate: newAppointment.endDate || undefined, // Send undefined if empty, which will be null on backend
+      };
+      await appointmentService.create(appointmentData);
       setShowAddModal(false);
       setNewAppointment({ startDate: '', endDate: '', discountFee: 0, patient_id: 0 });
       setPatientSearch({ name: '', surname: '' });
+      setDateError('');
       fetchAppointments();
     } catch (err: any) {
       console.error('Failed to create appointment:', err);
@@ -245,6 +259,7 @@ const Appointments = () => {
                   onClick={() => {
                     setShowAddModal(false);
                     setPatientSearch({ name: '', surname: '' });
+                    setDateError('');
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
@@ -262,7 +277,7 @@ const Appointments = () => {
                     <div className="flex gap-2">
                       <div className="flex-1">
                         <label htmlFor="patientNameSearch" className="block text-xs font-medium text-gray-600 mb-1">
-                          Search by Name
+                          Name
                         </label>
                         <input
                           type="text"
@@ -270,12 +285,12 @@ const Appointments = () => {
                           value={patientSearch.name}
                           onChange={(e) => setPatientSearch({ ...patientSearch, name: e.target.value })}
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
-                          placeholder="Patient name"
+                          placeholder="Search by name"
                         />
                       </div>
                       <div className="flex-1">
                         <label htmlFor="patientSurnameSearch" className="block text-xs font-medium text-gray-600 mb-1">
-                          Search by Surname
+                          Surname
                         </label>
                         <input
                           type="text"
@@ -283,7 +298,7 @@ const Appointments = () => {
                           value={patientSearch.surname}
                           onChange={(e) => setPatientSearch({ ...patientSearch, surname: e.target.value })}
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
-                          placeholder="Patient surname"
+                          placeholder="Search by surname"
                         />
                       </div>
                     </div>
@@ -323,7 +338,16 @@ const Appointments = () => {
                     id="newStartDate"
                     required
                     value={newAppointment.startDate}
-                    onChange={(e) => setNewAppointment({ ...newAppointment, startDate: e.target.value })}
+                    onChange={(e) => {
+                      const startDate = e.target.value;
+                      setNewAppointment({ ...newAppointment, startDate });
+                      // Validate endDate if it's already set
+                      if (newAppointment.endDate && startDate && newAppointment.endDate < startDate) {
+                        setDateError('End date cannot be earlier than start date');
+                      } else {
+                        setDateError('');
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
@@ -336,9 +360,24 @@ const Appointments = () => {
                     type="date"
                     id="newEndDate"
                     value={newAppointment.endDate}
-                    onChange={(e) => setNewAppointment({ ...newAppointment, endDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    onChange={(e) => {
+                      const endDate = e.target.value;
+                      setNewAppointment({ ...newAppointment, endDate });
+                      // Validate in real-time
+                      if (endDate && newAppointment.startDate && endDate < newAppointment.startDate) {
+                        setDateError('End date cannot be earlier than start date');
+                      } else {
+                        setDateError('');
+                      }
+                    }}
+                    min={newAppointment.startDate || undefined}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                      dateError ? 'border-red-300 focus:ring-red-500' : 'border-gray-300 focus:ring-teal-500'
+                    }`}
                   />
+                  {dateError && (
+                    <p className="text-xs text-red-600 mt-1">{dateError}</p>
+                  )}
                 </div>
 
                 <div>
@@ -360,7 +399,7 @@ const Appointments = () => {
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !!dateError}
                     className="flex-1 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? 'Creating...' : 'Create Appointment'}
@@ -370,6 +409,7 @@ const Appointments = () => {
                     onClick={() => {
                       setShowAddModal(false);
                       setPatientSearch({ name: '', surname: '' });
+                      setDateError('');
                     }}
                     className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
                   >
