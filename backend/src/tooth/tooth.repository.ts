@@ -34,13 +34,11 @@ export class ToothRepository {
 
         const teeth = await queryBuilder.getMany();
 
-        // Validate language
         const validLanguages = ['english', 'azerbaijani', 'russian'];
         if (!validLanguages.includes(language.toLowerCase())) {
             throw new Error(`Invalid language: ${language}. Must be one of: ${validLanguages.join(', ')}`);
         }
 
-        // Map results with translated names from the already joined translation
         return teeth.map(tooth => {
             const translation = tooth.translation;
             let name = '';

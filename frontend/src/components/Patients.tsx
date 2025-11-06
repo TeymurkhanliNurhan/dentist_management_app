@@ -16,13 +16,11 @@ const Patients = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  // Editing handled on Patient Detail page
   const [newPatient, setNewPatient] = useState<CreatePatientDto>({
     name: '',
     surname: '',
     birthDate: '',
   });
-  // No inline updatedPatient state here
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchPatients = async (searchFilters?: PatientFilters) => {

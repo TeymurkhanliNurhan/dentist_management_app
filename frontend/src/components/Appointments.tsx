@@ -32,11 +32,10 @@ const Appointments = () => {
     setError('');
     try {
       const data = await appointmentService.getAll(searchFilters);
-      // Sort by startDate descending (most recent first)
       const sortedData = [...data].sort((a, b) => {
         const dateA = new Date(a.startDate).getTime();
         const dateB = new Date(b.startDate).getTime();
-        return dateB - dateA; // Descending order (most recent first)
+        return dateB - dateA;
       });
       setAppointments(sortedData);
     } catch (err: any) {
@@ -65,7 +64,6 @@ const Appointments = () => {
     setDateError('');
     setError('');
     
-    // Validate that endDate is not earlier than startDate
     if (newAppointment.endDate && newAppointment.startDate && newAppointment.endDate < newAppointment.startDate) {
       setDateError('End date cannot be earlier than start date');
       return;
@@ -347,7 +345,6 @@ const Appointments = () => {
                     onChange={(e) => {
                       const startDate = e.target.value;
                       setNewAppointment({ ...newAppointment, startDate });
-                      // Validate endDate if it's already set
                       if (newAppointment.endDate && startDate && newAppointment.endDate < startDate) {
                         setDateError('End date cannot be earlier than start date');
                       } else {
@@ -369,7 +366,6 @@ const Appointments = () => {
                     onChange={(e) => {
                       const endDate = e.target.value;
                       setNewAppointment({ ...newAppointment, endDate });
-                      // Validate in real-time
                       if (endDate && newAppointment.startDate && endDate < newAppointment.startDate) {
                         setDateError('End date cannot be earlier than start date');
                       } else {

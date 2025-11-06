@@ -46,7 +46,6 @@ const AppointmentDetail = () => {
   const [editingMedicineIds, setEditingMedicineIds] = useState<number[]>([]);
   const [confirmDeleteTreatmentId, setConfirmDeleteTreatmentId] = useState<number | null>(null);
 
-  // Inline teeth selector component leveraging the same imagery and numbering logic
   const TeethSelector = ({
     patientTeeth,
     onSelect,
@@ -58,7 +57,6 @@ const AppointmentDetail = () => {
   }) => {
     const [isPermanent, setIsPermanent] = useState(true);
 
-    // Match by toothNumber only; backend already encodes permanent/childish in numbering
     const hasToothNumber = (toothNumber: number) =>
       patientTeeth.some((pt) => pt.toothNumber === toothNumber);
 
@@ -201,7 +199,6 @@ const AppointmentDetail = () => {
         }
         setTreatments(treatmentsData);
 
-        // Fetch tooth information for all teeth in treatments
         const uniqueToothIds = [...new Set(treatmentsData.map(t => t.tooth))];
         const teethPromises = uniqueToothIds.map(toothId => 
           toothService.getAll({ id: toothId, language: 'english' })
@@ -216,7 +213,6 @@ const AppointmentDetail = () => {
         });
         setTeethInfo(teethMap);
 
-        // Fetch medicines for each treatment
         const medicinePromises = treatmentsData.map(treatment => 
           toothTreatmentMedicineService.getAll({ tooth_treatment: treatment.id })
         );
@@ -250,7 +246,6 @@ const AppointmentDetail = () => {
         endDate: editedAppointment.endDate || null,
       });
       setShowEditAppointment(false);
-      // Refresh data
       const appointmentsData = await appointmentService.getAll();
       const updatedAppointment = appointmentsData.find(a => a.id === appointment.id);
       if (updatedAppointment) {
@@ -305,7 +300,6 @@ const AppointmentDetail = () => {
       const createdId = created?.id;
       setShowAddTreatment(false);
       setNewTreatment({ appointment_id: 0, treatment_id: 0, patient_id: 0, tooth_id: 0, description: '' });
-      // Attach selected medicines if any
       if (createdId && selectedMedicineIds.length > 0) {
         await Promise.all(
           selectedMedicineIds.map((mid) =>
@@ -314,11 +308,9 @@ const AppointmentDetail = () => {
         );
       }
       
-      // Refresh treatment data
       const treatmentsData = await toothTreatmentService.getAll({ appointment: appointment.id });
       setTreatments(treatmentsData);
 
-      // Fetch tooth information for new treatments
       const uniqueToothIds = [...new Set(treatmentsData.map(t => t.tooth))];
       const teethPromises = uniqueToothIds.map(toothId => 
         toothService.getAll({ id: toothId, language: 'english' })
@@ -333,7 +325,6 @@ const AppointmentDetail = () => {
       });
       setTeethInfo(teethMap);
 
-      // Fetch medicines for all treatments
       const medicinePromises = treatmentsData.map(treatment => 
         toothTreatmentMedicineService.getAll({ tooth_treatment: treatment.id })
       );
@@ -355,7 +346,6 @@ const AppointmentDetail = () => {
   const beginEditTreatment = async (tt: ToothTreatment) => {
     setError('');
     setEditingTreatmentId(tt.id);
-    // Ensure lists present
     if (allTreatments.length === 0) {
       const ts = await treatmentService.getAll();
       setAllTreatments(ts);
@@ -371,7 +361,6 @@ const AppointmentDetail = () => {
       tooth_id: tt.tooth,
       description: tt.description || '',
     });
-    // load medicines selected for this treatment
     try {
       const meds = await toothTreatmentMedicineService.getAll({ tooth_treatment: tt.id });
       setEditingMedicineIds(meds.map((m) => m.medicine.id));
@@ -395,7 +384,6 @@ const AppointmentDetail = () => {
         tooth_id: editingFields.tooth_id,
         description: editingFields.description || null,
       });
-      // reconcile medicines
       const currentMeds = await toothTreatmentMedicineService.getAll({ tooth_treatment: tt.id });
       const currentIds = currentMeds.map((m) => m.medicine.id);
       const toAdd = editingMedicineIds.filter((id) => !currentIds.includes(id));
@@ -405,7 +393,6 @@ const AppointmentDetail = () => {
         ...toRemove.map((id) => toothTreatmentMedicineService.delete(tt.id, id)),
       ]);
 
-      // refresh lists similar to create
       const treatmentsData = await toothTreatmentService.getAll({ appointment: appointment.id });
       setTreatments(treatmentsData);
 
@@ -472,19 +459,15 @@ const AppointmentDetail = () => {
     );
   }
 
-  // Calculate total fee
   const calculateTotalFee = () => {
     if (!appointment) return 0;
     
-    // Sum of all treatment prices
     const treatmentTotal = treatments.reduce((sum, treatment) => sum + treatment.treatment.price, 0);
     
-    // Sum of all medicine prices
     const medicineTotal = Array.from(treatmentMedicines.values())
       .flat()
       .reduce((sum, med) => sum + med.medicine.price, 0);
     
-    // Total = treatments + medicines - discount
     const discount = appointment.discountFee || 0;
     return treatmentTotal + medicineTotal - discount;
   };
