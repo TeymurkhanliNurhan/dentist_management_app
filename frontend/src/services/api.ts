@@ -244,6 +244,10 @@ export const toothTreatmentService = {
     const response = await api.patch(`/tooth-treatment/${id}`, toothTreatment);
     return response.data;
   },
+  delete: async (id: number) => {
+    const response = await api.delete(`/tooth-treatment/${id}`);
+    return response.data;
+  },
 };
 
 export interface ToothInfo {
@@ -291,6 +295,11 @@ export interface ToothTreatmentMedicineFilters {
   tooth_treatment?: number;
 }
 
+export interface CreateToothTreatmentMedicineDto {
+  tooth_treatment_id: number;
+  medicine_id: number;
+}
+
 export const toothTreatmentMedicineService = {
   getAll: async (filters?: ToothTreatmentMedicineFilters): Promise<ToothTreatmentMedicine[]> => {
     const params = new URLSearchParams();
@@ -298,6 +307,14 @@ export const toothTreatmentMedicineService = {
     if (filters?.tooth_treatment) params.append('tooth_treatment', filters.tooth_treatment.toString());
     
     const response = await api.get(`/tooth-treatment-medicine?${params.toString()}`);
+    return response.data;
+  },
+  create: async (dto: CreateToothTreatmentMedicineDto) => {
+    const response = await api.post('/tooth-treatment-medicine', dto);
+    return response.data;
+  },
+  delete: async (toothTreatmentId: number, medicineId: number) => {
+    const response = await api.delete(`/tooth-treatment-medicine/${toothTreatmentId}/${medicineId}`);
     return response.data;
   },
 };
@@ -349,6 +366,10 @@ export const appointmentService = {
   },
   update: async (id: number, appointment: UpdateAppointmentDto): Promise<Appointment> => {
     const response = await api.patch(`/appointment/${id}`, appointment);
+    return response.data;
+  },
+  delete: async (id: number) => {
+    const response = await api.delete(`/appointment/${id}`);
     return response.data;
   },
 };

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus } from 'lucide-react';
+import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash } from 'lucide-react';
 import Header from './Header';
-import { appointmentService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService } from '../services/api';
-import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto } from '../services/api';
+import { appointmentService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService } from '../services/api';
+import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine } from '../services/api';
 
 const AppointmentDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,8 +20,10 @@ const AppointmentDetail = () => {
     endDate: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmDeleteAppointment, setConfirmDeleteAppointment] = useState(false);
   const [showAddTreatment, setShowAddTreatment] = useState(false);
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>([]);
+  const [allTreatments, setAllTreatments] = useState<Treatment[]>([]);
   const [patientTeeth, setPatientTeeth] = useState<PatientTooth[]>([]);
   const [newTreatment, setNewTreatment] = useState<CreateToothTreatmentDto>({
     appointment_id: 0,
@@ -31,6 +33,18 @@ const AppointmentDetail = () => {
     description: '',
   });
   const [isAddingTreatment, setIsAddingTreatment] = useState(false);
+  const [availableMedicines, setAvailableMedicines] = useState<Medicine[]>([]);
+  const [allMedicines, setAllMedicines] = useState<Medicine[]>([]);
+  const [selectedMedicineIds, setSelectedMedicineIds] = useState<number[]>([]);
+  const [medicineQuery, setMedicineQuery] = useState('');
+  const [editingTreatmentId, setEditingTreatmentId] = useState<number | null>(null);
+  const [editingFields, setEditingFields] = useState<{ treatment_id: number; tooth_id: number; description: string }>({
+    treatment_id: 0,
+    tooth_id: 0,
+    description: '',
+  });
+  const [editingMedicineIds, setEditingMedicineIds] = useState<number[]>([]);
+  const [confirmDeleteTreatmentId, setConfirmDeleteTreatmentId] = useState<number | null>(null);
 
   // Inline teeth selector component leveraging the same imagery and numbering logic
   const TeethSelector = ({
@@ -44,11 +58,12 @@ const AppointmentDetail = () => {
   }) => {
     const [isPermanent, setIsPermanent] = useState(true);
 
+    // Match by toothNumber only; backend already encodes permanent/childish in numbering
     const hasToothNumber = (toothNumber: number) =>
-      patientTeeth.some((pt) => pt.toothNumber === toothNumber && (isPermanent ? pt.permanent === 'true' : pt.permanent !== 'true'));
+      patientTeeth.some((pt) => pt.toothNumber === toothNumber);
 
     const toothIdByNumber = (toothNumber: number): number | null => {
-      const pt = patientTeeth.find((p) => p.toothNumber === toothNumber && (isPermanent ? p.permanent === 'true' : p.permanent !== 'true'));
+      const pt = patientTeeth.find((p) => p.toothNumber === toothNumber);
       return pt ? pt.tooth : null;
     };
 
@@ -59,12 +74,12 @@ const AppointmentDetail = () => {
       return (
         <div
           onClick={() => enabled && possibleToothId && onSelect(possibleToothId)}
-          className={`absolute w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition-all select-none ${
+          className={`absolute z-10 w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition-all select-none ${
             enabled
               ? `text-black cursor-pointer hover:bg-teal-500 hover:text-white hover:scale-110 ${isSelected ? 'bg-teal-600 text-white scale-110' : ''}`
               : 'text-gray-400 cursor-not-allowed opacity-50'
           }`}
-          style={{ top, left }}
+          style={{ top, left, pointerEvents: 'auto' }}
           title={enabled ? `Select Tooth #${number}` : `Tooth #${number} not available`}
         >
           {number}
@@ -87,6 +102,7 @@ const AppointmentDetail = () => {
             src={isPermanent ? '/images/32teeth_logo.jpg' : '/images/20teeth_logo.jpg'}
             alt="Teeth Diagram"
             className="absolute top-0 left-0 w-full h-full object-contain"
+            style={{ pointerEvents: 'none', zIndex: 1 }}
           />
 
           {isPermanent ? (
@@ -254,12 +270,16 @@ const AppointmentDetail = () => {
     setShowAddTreatment(true);
     setError('');
     try {
-      const [treatmentsData, teethData] = await Promise.all([
+      const [treatmentsData, teethData, medsData] = await Promise.all([
         treatmentService.getAll(),
-        patientService.getPatientTeeth(appointment.patient.id)
+        patientService.getPatientTeeth(appointment.patient.id),
+        medicineService.getAll(),
       ]);
       setAvailableTreatments(treatmentsData);
+      setAllTreatments(treatmentsData);
       setPatientTeeth(teethData);
+      setAvailableMedicines(medsData);
+      setAllMedicines(medsData);
       setNewTreatment({
         appointment_id: appointment.id,
         treatment_id: 0,
@@ -267,22 +287,32 @@ const AppointmentDetail = () => {
         tooth_id: 0,
         description: '',
       });
+      setSelectedMedicineIds([]);
     } catch (err: any) {
       console.error('Failed to fetch treatments/teeth:', err);
       setError(err.response?.data?.message || 'Failed to load data');
     }
   };
 
-  const handleAddTreatment = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddTreatment = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!appointment) return;
     
     setIsAddingTreatment(true);
     setError('');
     try {
-      await toothTreatmentService.create(newTreatment);
+      const created = await toothTreatmentService.create(newTreatment);
+      const createdId = created?.id;
       setShowAddTreatment(false);
       setNewTreatment({ appointment_id: 0, treatment_id: 0, patient_id: 0, tooth_id: 0, description: '' });
+      // Attach selected medicines if any
+      if (createdId && selectedMedicineIds.length > 0) {
+        await Promise.all(
+          selectedMedicineIds.map((mid) =>
+            toothTreatmentMedicineService.create({ tooth_treatment_id: createdId, medicine_id: mid })
+          )
+        );
+      }
       
       // Refresh treatment data
       const treatmentsData = await toothTreatmentService.getAll({ appointment: appointment.id });
@@ -319,6 +349,87 @@ const AppointmentDetail = () => {
       setError(err.response?.data?.message || 'Failed to create treatment');
     } finally {
       setIsAddingTreatment(false);
+    }
+  };
+
+  const beginEditTreatment = async (tt: ToothTreatment) => {
+    setError('');
+    setEditingTreatmentId(tt.id);
+    // Ensure lists present
+    if (allTreatments.length === 0) {
+      const ts = await treatmentService.getAll();
+      setAllTreatments(ts);
+      setAvailableTreatments(ts);
+    }
+    if (allMedicines.length === 0) {
+      const ms = await medicineService.getAll();
+      setAllMedicines(ms);
+      setAvailableMedicines(ms);
+    }
+    setEditingFields({
+      treatment_id: tt.treatment.id,
+      tooth_id: tt.tooth,
+      description: tt.description || '',
+    });
+    // load medicines selected for this treatment
+    try {
+      const meds = await toothTreatmentMedicineService.getAll({ tooth_treatment: tt.id });
+      setEditingMedicineIds(meds.map((m) => m.medicine.id));
+    } catch (e) {
+      setEditingMedicineIds([]);
+    }
+  };
+
+  const cancelEditTreatment = () => {
+    setEditingTreatmentId(null);
+    setEditingMedicineIds([]);
+  };
+
+  const saveEditTreatment = async (tt: ToothTreatment) => {
+    if (!appointment) return;
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await toothTreatmentService.update(tt.id, {
+        treatment_id: editingFields.treatment_id,
+        tooth_id: editingFields.tooth_id,
+        description: editingFields.description || null,
+      });
+      // reconcile medicines
+      const currentMeds = await toothTreatmentMedicineService.getAll({ tooth_treatment: tt.id });
+      const currentIds = currentMeds.map((m) => m.medicine.id);
+      const toAdd = editingMedicineIds.filter((id) => !currentIds.includes(id));
+      const toRemove = currentIds.filter((id) => !editingMedicineIds.includes(id));
+      await Promise.all([
+        ...toAdd.map((id) => toothTreatmentMedicineService.create({ tooth_treatment_id: tt.id, medicine_id: id })),
+        ...toRemove.map((id) => toothTreatmentMedicineService.delete(tt.id, id)),
+      ]);
+
+      // refresh lists similar to create
+      const treatmentsData = await toothTreatmentService.getAll({ appointment: appointment.id });
+      setTreatments(treatmentsData);
+
+      const uniqueToothIds = [...new Set(treatmentsData.map((t) => t.tooth))];
+      const teethPromises = uniqueToothIds.map((toothId) => toothService.getAll({ id: toothId, language: 'english' }));
+      const teethResults = await Promise.all(teethPromises);
+      const teethMap = new Map<number, ToothInfo>();
+      teethResults.forEach((arr, idx) => {
+        if (arr.length > 0) teethMap.set(uniqueToothIds[idx], arr[0]);
+      });
+      setTeethInfo(teethMap);
+
+      const medicinePromises = treatmentsData.map((t) => toothTreatmentMedicineService.getAll({ tooth_treatment: t.id }));
+      const medicinesResults = await Promise.all(medicinePromises);
+      const medicinesMap = new Map<number, ToothTreatmentMedicine[]>();
+      treatmentsData.forEach((t, idx) => medicinesMap.set(t.id, medicinesResults[idx]));
+      setTreatmentMedicines(medicinesMap);
+
+      cancelEditTreatment();
+    } catch (err: any) {
+      console.error('Failed to update treatment:', err);
+      setError(err.response?.data?.message || 'Failed to update treatment');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -396,13 +507,50 @@ const AppointmentDetail = () => {
             <h1 className="text-3xl font-bold text-gray-900">
               Appointment Details
             </h1>
-            <button
-              onClick={() => setShowEditAppointment(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
-            >
-              <Edit className="w-4 h-4" />
-              <span>Edit</span>
-            </button>
+            <div className="flex flex-col items-end gap-2">
+              <button
+                onClick={() => setShowEditAppointment(true)}
+                className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors min-w-[96px]"
+              >
+                <Edit className="w-4 h-4" />
+                <span>Edit</span>
+              </button>
+              <button
+                onClick={() => setConfirmDeleteAppointment(true)}
+                className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors min-w-[96px]"
+              >
+                <Trash className="w-4 h-4" />
+                <span>Delete</span>
+              </button>
+
+              {confirmDeleteAppointment && (
+                <div className="mt-1 w-64 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 shadow-sm">
+                  <p className="mb-2 font-medium">Delete this appointment?</p>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setConfirmDeleteAppointment(false)}
+                      className="px-3 py-1.5 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!appointment) return;
+                        try {
+                          await appointmentService.delete(appointment.id);
+                          navigate('/appointments');
+                        } catch (err: any) {
+                          setError(err.response?.data?.message || 'Failed to delete appointment');
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -497,8 +645,12 @@ const AppointmentDetail = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                       onChange={(e) => {
                         const q = e.target.value.toLowerCase();
-                        const filtered = availableTreatments.filter(t => t.name.toLowerCase().includes(q));
-                        setAvailableTreatments(filtered.length > 0 || q ? filtered : filtered);
+                        if (!q) {
+                          setAvailableTreatments(allTreatments);
+                        } else {
+                          const filtered = allTreatments.filter(t => t.name.toLowerCase().includes(q));
+                          setAvailableTreatments(filtered);
+                        }
                       }}
                     />
                   </div>
@@ -536,6 +688,62 @@ const AppointmentDetail = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Select Medicines (optional)</h3>
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      placeholder="Search medicine by name..."
+                      value={medicineQuery}
+                      onChange={(e) => {
+                        const q = e.target.value.toLowerCase();
+                        setMedicineQuery(e.target.value);
+                        if (!q) {
+                          setAvailableMedicines(allMedicines);
+                        } else {
+                          setAvailableMedicines(allMedicines.filter(m => m.name.toLowerCase().includes(q)));
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+
+                  <div className="max-h-64 overflow-auto rounded-md border border-gray-200 bg-white">
+                    {availableMedicines.length === 0 ? (
+                      <div className="p-4 text-sm text-gray-500">No medicines found</div>
+                    ) : (
+                      availableMedicines.map((m) => {
+                        const checked = selectedMedicineIds.includes(m.id);
+                        return (
+                          <label key={m.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 cursor-pointer hover:bg-purple-50">
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedMedicineIds([...selectedMedicineIds, m.id]);
+                                  } else {
+                                    setSelectedMedicineIds(selectedMedicineIds.filter(id => id !== m.id));
+                                  }
+                                }}
+                                className="h-4 w-4 text-purple-600 border-gray-300 rounded"
+                              />
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">{m.name}</div>
+                                <div className="text-xs text-gray-600">{m.description}</div>
+                              </div>
+                            </div>
+                            <span className="text-sm font-semibold text-gray-700">${m.price.toFixed(2)}</span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="mt-4">
                 <label htmlFor="inlineDescription" className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
                 <textarea
@@ -551,6 +759,7 @@ const AppointmentDetail = () => {
 
               <div className="flex gap-3 mt-4">
                 <button
+                  type="button"
                   onClick={handleAddTreatment}
                   disabled={isAddingTreatment || newTreatment.treatment_id === 0 || newTreatment.tooth_id === 0}
                   className="px-5 py-2 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -641,13 +850,151 @@ const AppointmentDetail = () => {
                           )}
                         </div>
                       </div>
-                      <button
-                        className="ml-4 flex items-center space-x-1 px-3 py-1.5 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors flex-shrink-0"
-                      >
-                        <Edit className="w-4 h-4" />
-                        <span>Edit</span>
-                      </button>
+                      <div className="ml-4 flex flex-col gap-2 flex-shrink-0">
+                        {editingTreatmentId === treatment.id ? (
+                          <>
+                            <button
+                              onClick={() => saveEditTreatment(treatment)}
+                              className="px-3 py-1.5 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors"
+                              disabled={isSubmitting}
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={cancelEditTreatment}
+                              className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => beginEditTreatment(treatment)}
+                            className="flex items-center space-x-1 px-3 py-1.5 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
+                          >
+                            <Edit className="w-4 h-4" />
+                            <span>Edit</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setConfirmDeleteTreatmentId(treatment.id)}
+                          className="px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                        >
+                          Delete
+                        </button>
+                        {confirmDeleteTreatmentId === treatment.id && (
+                          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 shadow-sm">
+                            <p className="mb-2 font-medium">Delete this treatment?</p>
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => setConfirmDeleteTreatmentId(null)}
+                                className="px-3 py-1.5 rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await toothTreatmentService.delete(treatment.id);
+                                    if (appointment) {
+                                      const treatmentsData = await toothTreatmentService.getAll({ appointment: appointment.id });
+                                      setTreatments(treatmentsData);
+                                      const medPromises = treatmentsData.map((t) => toothTreatmentMedicineService.getAll({ tooth_treatment: t.id }));
+                                      const medsRes = await Promise.all(medPromises);
+                                      const medMap = new Map<number, ToothTreatmentMedicine[]>();
+                                      treatmentsData.forEach((t, idx) => medMap.set(t.id, medsRes[idx]));
+                                      setTreatmentMedicines(medMap);
+                                    }
+                                    if (editingTreatmentId === treatment.id) {
+                                      cancelEditTreatment();
+                                    }
+                                  } catch (err: any) {
+                                    setError(err.response?.data?.message || 'Failed to delete treatment');
+                                  } finally {
+                                    setConfirmDeleteTreatmentId(null);
+                                  }
+                                }}
+                                className="px-3 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    {editingTreatmentId === treatment.id && (
+                      <div className="mt-4 rounded-md border border-teal-200 p-4 bg-teal-50/40">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Change Treatment</h4>
+                            <div className="max-h-56 overflow-auto rounded-md border border-gray-200 bg-white">
+                              {allTreatments.map((t) => (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  onClick={() => setEditingFields({ ...editingFields, treatment_id: t.id })}
+                                  className={`w-full text-left px-4 py-2 border-b last:border-b-0 hover:bg-teal-50 ${editingFields.treatment_id === t.id ? 'bg-teal-100' : ''}`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium text-gray-900">{t.name}</span>
+                                    <span className="text-sm font-semibold text-gray-700">${t.price.toFixed(2)}</span>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Change Tooth</h4>
+                            <TeethSelector
+                              patientTeeth={patientTeeth}
+                              onSelect={(toothId) => setEditingFields({ ...editingFields, tooth_id: toothId })}
+                              selectedToothId={editingFields.tooth_id}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Medicines</h4>
+                            <div className="max-h-56 overflow-auto rounded-md border border-gray-200 bg-white">
+                              {allMedicines.map((m) => {
+                                const checked = editingMedicineIds.includes(m.id);
+                                return (
+                                  <label key={m.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 cursor-pointer hover:bg-purple-50">
+                                    <div className="flex items-center gap-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={(e) => {
+                                          if (e.target.checked) setEditingMedicineIds([...editingMedicineIds, m.id]);
+                                          else setEditingMedicineIds(editingMedicineIds.filter((id) => id !== m.id));
+                                        }}
+                                        className="h-4 w-4 text-purple-600 border-gray-300 rounded"
+                                      />
+                                      <div>
+                                        <div className="text-sm font-medium text-gray-900">{m.name}</div>
+                                        <div className="text-xs text-gray-600">{m.description}</div>
+                                      </div>
+                                    </div>
+                                    <span className="text-sm font-semibold text-gray-700">${m.price.toFixed(2)}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes</h4>
+                            <textarea
+                              rows={3}
+                              value={editingFields.description}
+                              onChange={(e) => setEditingFields({ ...editingFields, description: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                              placeholder="Enter notes"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
