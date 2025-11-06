@@ -44,12 +44,16 @@ const Dashboard = () => {
               onClick={() => navigate(service.path)}
               className="flex flex-col items-center cursor-pointer group"
             >
-              <div className="w-48 h-48 mb-6 flex items-center justify-center bg-white rounded-xl shadow-md transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl p-4">
+              <div className="w-48 h-48 mb-6 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
                 <img
                   src={service.image}
                   alt={service.name}
                   className="w-full h-full object-contain"
-                  style={{ maxWidth: '100%', maxHeight: '100%' }}
+                  style={{ 
+                    maxWidth: '100%', 
+                    maxHeight: '100%',
+                    transform: service.name === 'Treatments' ? 'scale(1.3)' : 'scale(1)'
+                  }}
                 />
               </div>
               <h3 className="text-xl font-bold text-teal-700 uppercase tracking-wide">
