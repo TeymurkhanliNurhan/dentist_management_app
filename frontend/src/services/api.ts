@@ -210,6 +210,12 @@ export interface ToothTreatmentFilters {
   treatment?: number;
 }
 
+export interface UpdateToothTreatmentDto {
+  treatment_id?: number;
+  tooth_id?: number;
+  description?: string | null;
+}
+
 export const toothTreatmentService = {
   getAll: async (filters?: ToothTreatmentFilters): Promise<ToothTreatment[]> => {
     const params = new URLSearchParams();
@@ -220,6 +226,10 @@ export const toothTreatmentService = {
     if (filters?.treatment) params.append('treatment', filters.treatment.toString());
     
     const response = await api.get(`/tooth-treatment?${params.toString()}`);
+    return response.data;
+  },
+  update: async (id: number, toothTreatment: UpdateToothTreatmentDto): Promise<ToothTreatment> => {
+    const response = await api.patch(`/tooth-treatment/${id}`, toothTreatment);
     return response.data;
   },
 };
@@ -254,6 +264,32 @@ export const toothService = {
   },
 };
 
+export interface ToothTreatmentMedicine {
+  medicine: {
+    id: number;
+    name: string;
+    description: string;
+    price: number;
+  };
+  tooth_treatment: number;
+}
+
+export interface ToothTreatmentMedicineFilters {
+  medicine?: number;
+  tooth_treatment?: number;
+}
+
+export const toothTreatmentMedicineService = {
+  getAll: async (filters?: ToothTreatmentMedicineFilters): Promise<ToothTreatmentMedicine[]> => {
+    const params = new URLSearchParams();
+    if (filters?.medicine) params.append('medicine', filters.medicine.toString());
+    if (filters?.tooth_treatment) params.append('tooth_treatment', filters.tooth_treatment.toString());
+    
+    const response = await api.get(`/tooth-treatment-medicine?${params.toString()}`);
+    return response.data;
+  },
+};
+
 export interface Appointment {
   id: number;
   startDate: string;
@@ -272,6 +308,12 @@ export interface AppointmentFilters {
   patientSurname?: string;
 }
 
+export interface UpdateAppointmentDto {
+  startDate?: string;
+  endDate?: string | null;
+  discountFee?: number | null;
+}
+
 export const appointmentService = {
   getAll: async (filters?: AppointmentFilters): Promise<Appointment[]> => {
     const params = new URLSearchParams();
@@ -280,6 +322,10 @@ export const appointmentService = {
     if (filters?.patientSurname) params.append('patientSurname', filters.patientSurname);
     
     const response = await api.get(`/appointment?${params.toString()}`);
+    return response.data;
+  },
+  update: async (id: number, appointment: UpdateAppointmentDto): Promise<Appointment> => {
+    const response = await api.patch(`/appointment/${id}`, appointment);
     return response.data;
   },
 };

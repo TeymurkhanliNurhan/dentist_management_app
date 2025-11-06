@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import Header from './Header';
 import { appointmentService } from '../services/api';
 import type { Appointment, AppointmentFilters } from '../services/api';
 
 const Appointments = () => {
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [filters, setFilters] = useState<AppointmentFilters>({
     startDate: '',
@@ -58,7 +60,7 @@ const Appointments = () => {
             <div className="flex flex-wrap gap-3 items-end">
               <div className="flex-1 min-w-[200px]">
                 <label htmlFor="startDate" className="block text-xs font-medium text-gray-700 mb-1">
-                  Start Date
+                  Date
                 </label>
                 <input
                   type="date"
@@ -131,7 +133,7 @@ const Appointments = () => {
               <thead className="bg-teal-500 text-white">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
-                    Start Date
+                    Date
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
                     Patient Name
@@ -156,7 +158,11 @@ const Appointments = () => {
                   </tr>
                 ) : (
                   appointments.map((appointment) => (
-                    <tr key={appointment.id} className="hover:bg-gray-50 transition-colors">
+                    <tr 
+                      key={appointment.id} 
+                      onClick={() => navigate(`/appointments/${appointment.id}`)}
+                      className="hover:bg-teal-50 transition-colors cursor-pointer"
+                    >
                       <td className="px-6 py-4 text-sm text-gray-900 font-medium">
                         {appointment.startDate}
                       </td>
