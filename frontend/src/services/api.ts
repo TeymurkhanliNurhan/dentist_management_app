@@ -45,6 +45,27 @@ export const authService = {
     });
     return response.data;
   },
+  forgotPassword: async (email: string): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>('/Auth/password-reset/code-request', {
+      email,
+    });
+    return response.data;
+  },
+  verifyResetCode: async (email: string, code: string): Promise<{ valid: boolean }> => {
+    const response = await api.post<{ valid: boolean }>('/Auth/password-resets/code-verification', {
+      email,
+      code,
+    });
+    return response.data;
+  },
+  resetPassword: async (email: string, newPassword: string, confirmPassword: string): Promise<{ success: boolean; message: string }> => {
+    const response = await api.post<{ success: boolean; message: string }>('/Auth/password-resets', {
+      email,
+      newPassword,
+      confirmPassword,
+    });
+    return response.data;
+  },
 };
 
 export const dentistService = {

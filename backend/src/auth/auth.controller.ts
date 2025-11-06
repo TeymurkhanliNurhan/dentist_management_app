@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import {Controller, Post, Body, HttpCode, HttpStatus, SetMetadata} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -9,6 +9,12 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { Logger } from '@nestjs/common';
 import { LogWriter } from '../log-writer';
+import {ForgotPasswordDto} from "./dto/forgot-password.dto";
+import {ResetPasswordDto} from "./dto/reset-password.dto";
+import {VerifyResetCodeDto} from "./dto/verify-reset-code.dto";
+
+export const IS_PUBLIC_KEY = 'isPublic';
+export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 @ApiTags('auth')
 @Controller('Auth')
@@ -61,5 +67,24 @@ export class AuthController {
     this.logger.log('ResendVerificationCode endpoint called');
     LogWriter.append('log', AuthController.name, 'ResendVerificationCode endpoint called');
     return await this.authService.resendVerificationCode(resendDto);
+  }
+
+  @Public()
+  @Post('password-reset/code-request')
+  async forgotPassword(@Body() dto:ForgotPasswordDto){
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Public()
+  @Post('password-resets/code-verification')
+  async verifyResetCode(@Body() dto: VerifyResetCodeDto){
+    const isValid= await this.authService.verifyResetCode(dto.email, dto.code);
+    return { valid: isValid };
+  }
+
+  @Public()
+  @Post('password-resets')
+  async resetPassword(@Body() dto: ResetPasswordDto){
+    return this.authService.resetPassword(dto.email, dto.newPassword, dto.confirmPassword);
   }
 }

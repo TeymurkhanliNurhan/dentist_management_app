@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, UnauthorizedException, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, Logger, BadRequestException, NotFoundException, Inject } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthRepository } from './auth.repository';
 import { RegisterDto } from './dto/register.dto';
@@ -11,6 +11,9 @@ import { LogWriter } from '../log-writer';
 import { EmailService } from '../email/email.service';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
+import Redis from 'ioredis';
+import {InjectRepository} from "@nestjs/typeorm";
+import {Repository} from "typeorm";
 
 @Injectable()
 export class AuthService {
@@ -18,6 +21,9 @@ export class AuthService {
     private readonly authRepository: AuthRepository,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
+    @InjectRepository(Dentist)
+    private readonly dentistRepository: Repository<Dentist>,
+    @Inject('REDIS_CLIENT') private readonly redisClient: Redis,
   ) {}
   private readonly logger = new Logger(AuthService.name);
 
@@ -157,5 +163,64 @@ export class AuthService {
       this.logger.error(`Failed to resend verification email: ${error.message}`);
       throw new BadRequestException('Failed to send verification email. Please try again later.');
     }
+  }
+  async forgotPassword(email: string): Promise<{ message: string }>{
+    const user = await this.authRepository.findUserByEmail(email);
+    if (!user) {
+      this.logger.warn(`Password reset requested for non-existent email: ${email}`);
+      return { message: 'If an account with this email exists, a reset code has been sent.' };
+    }
+
+    const floorNumberWithSixZeroes=1000000
+    const hugeRangeForRandom=9000000;
+    const code = Math.floor(floorNumberWithSixZeroes+ Math.random()*hugeRangeForRandom).toString();
+
+    const secondsInMinute=60;
+    const shortExpirationTimeForResetPasswordInMinutes=5;
+    await this.redisClient.set(`reset:${email}`, code, 'EX', shortExpirationTimeForResetPasswordInMinutes * secondsInMinute);
+
+    try {
+      await this.emailService.sendPasswordResetEmail(email, code);
+      this.logger.log(`Password reset code sent to ${email}`);
+      return { message: 'If an account with this email exists, a reset code has been sent to your email.' };
+    } catch (error) {
+      this.logger.error(`Failed to send password reset email to ${email}: ${error.message}`);
+      await this.redisClient.del(`reset:${email}`);
+      return { message: 'If an account with this email exists, a reset code has been sent to your email.' };
+    }
+  }
+
+  async resetPassword(email: string, newPassword: string, confirmPassword: string): Promise<{ success: boolean; message: string }> {
+    if (newPassword !== confirmPassword) {
+      return { success: false, message: 'Passwords do not match.' };
+    }
+
+    const verified = await this.redisClient.get(`verified:${email}`);
+    if (!verified) {
+      return { success: false, message: 'Reset code not verified for this email.' };
+    }
+
+    const person = await this.dentistRepository.findOne({ where: { gmail: email } });
+    if (!person) {
+      return { success: false, message: 'No user found with this email.' };
+    }
+
+    const bcrypt_salt_rounds = 10;
+    person.password = await bcrypt.hash(newPassword, bcrypt_salt_rounds);
+    await this.dentistRepository.save(person);
+
+    await this.redisClient.del(`reset:${email}`);
+    await this.redisClient.del(`verified:${email}`);
+
+    this.logger.log(`Password reset for ${email}`);
+    return { success: true, message: 'Password reset successful.' };
+  }
+  
+  async verifyResetCode(email: string, code: string): Promise<boolean> {
+    const storedCode = await this.redisClient.get(`reset:${email}`);
+    if (storedCode !== code) return false;
+
+    await this.redisClient.set(`verified:${email}`, 'true', 'EX', 15 * 60);
+    return true;
   }
 }
