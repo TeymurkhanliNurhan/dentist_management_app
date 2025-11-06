@@ -7,22 +7,22 @@ const Dashboard = () => {
   const services = [
     {
       name: 'Appointments',
-      image: '/images/appointment_logo.jpg',
+      image: '/images/appointment_logo-removebg-preview.png',
       path: '/appointments',
     },
     {
       name: 'Patients',
-      image: '/images/patient_logo.jpg',
+      image: '/images/patient_logo-removebg-preview.png',
       path: '/patients',
     },
     {
       name: 'Treatments',
-      image: '/images/treatment_logo.jpg',
+      image: '/images/treatment_logo-removebg-preview.png',
       path: '/treatments',
     },
     {
       name: 'Medicines',
-      image: '/images/medicine_logo.jpg',
+      image: '/images/medicine_logo-removebg-preview.png',
       path: '/medicines',
     },
   ];
@@ -44,11 +44,17 @@ const Dashboard = () => {
               onClick={() => navigate(service.path)}
               className="flex flex-col items-center cursor-pointer group"
             >
-              <div className="w-48 h-48 mb-6 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+              <div className="w-48 h-48 mb-6 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
                 <img
                   src={service.image}
                   alt={service.name}
                   className="w-full h-full object-contain"
+                  style={{ 
+                    maxWidth: '100%', 
+                    maxHeight: '100%',
+                    transform: service.name === 'Treatments' ? 'scale(1.3)' : 
+                               service.name === 'Patients' ? 'scale(0.8)' : 'scale(1)'
+                  }}
                 />
               </div>
               <h3 className="text-xl font-bold text-teal-700 uppercase tracking-wide">

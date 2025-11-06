@@ -109,14 +109,31 @@ export class ToothTreatmentService {
       const msg = `Dentist with id ${dentistId} retrieved ${toothTreatments.length} tooth treatment(s)`;
       this.logger.log(msg);
       LogWriter.append('log', ToothTreatmentService.name, msg);
-      return toothTreatments.map(tt => ({
-        id: tt.id,
-        patient: tt.patient,
-        tooth: tt.tooth,
-        appointment: tt.appointment?.id,
-        treatment: tt.treatment?.id,
-        description: tt.description,
-      }));
+      return toothTreatments.map(tt => {
+        const formatDate = (date: Date | string | null | undefined): string | null => {
+          if (!date) return null;
+          if (typeof date === 'string') return date;
+          return date.toISOString().slice(0, 10);
+        };
+
+        return {
+          id: tt.id,
+          patient: tt.patient,
+          tooth: tt.tooth,
+          appointment: {
+            id: tt.appointment?.id,
+            startDate: formatDate(tt.appointment?.startDate),
+            endDate: formatDate(tt.appointment?.endDate),
+          },
+          treatment: {
+            id: tt.treatment?.id,
+            name: tt.treatment?.name,
+            description: tt.treatment?.description,
+            price: tt.treatment?.price,
+          },
+          description: tt.description,
+        };
+      });
     } catch (e: any) {
       throw e;
     }
