@@ -254,4 +254,34 @@ export const toothService = {
   },
 };
 
+export interface Appointment {
+  id: number;
+  startDate: string;
+  endDate: string | null;
+  discountFee: number | null;
+  patient: {
+    id: number;
+    name: string;
+    surname: string;
+  };
+}
+
+export interface AppointmentFilters {
+  startDate?: string;
+  patientName?: string;
+  patientSurname?: string;
+}
+
+export const appointmentService = {
+  getAll: async (filters?: AppointmentFilters): Promise<Appointment[]> => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.patientName) params.append('patientName', filters.patientName);
+    if (filters?.patientSurname) params.append('patientSurname', filters.patientSurname);
+    
+    const response = await api.get(`/appointment?${params.toString()}`);
+    return response.data;
+  },
+};
+
 export default api;

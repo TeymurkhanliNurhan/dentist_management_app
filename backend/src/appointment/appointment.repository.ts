@@ -44,7 +44,7 @@ export class AppointmentRepository {
 
     async findAppointmentsForDentist(
         dentistId: number,
-        filters: { id?: number; startDate?: string; endDate?: string; patient?: number },
+        filters: { id?: number; startDate?: string; endDate?: string; patient?: number; patientName?: string; patientSurname?: string },
     ): Promise<Appointment[]> {
         const queryBuilder = this.repo
             .createQueryBuilder('appointment')
@@ -62,6 +62,12 @@ export class AppointmentRepository {
         }
         if (filters.patient !== undefined) {
             queryBuilder.andWhere('appointment.patient = :patient', { patient: filters.patient });
+        }
+        if (filters.patientName !== undefined) {
+            queryBuilder.andWhere('LOWER(patient.name) LIKE LOWER(:patientName)', { patientName: `%${filters.patientName}%` });
+        }
+        if (filters.patientSurname !== undefined) {
+            queryBuilder.andWhere('LOWER(patient.surname) LIKE LOWER(:patientSurname)', { patientSurname: `%${filters.patientSurname}%` });
         }
 
         return await queryBuilder.getMany();
