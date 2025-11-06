@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, Plus, X } from 'lucide-react';
 import Header from './Header';
-import { appointmentService } from '../services/api';
-import type { Appointment, AppointmentFilters } from '../services/api';
+import { appointmentService, patientService } from '../services/api';
+import type { Appointment, AppointmentFilters, CreateAppointmentDto, Patient } from '../services/api';
 
 const Appointments = () => {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [filters, setFilters] = useState<AppointmentFilters>({
     startDate: '',
     patientName: '',
@@ -15,6 +16,14 @@ const Appointments = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newAppointment, setNewAppointment] = useState<CreateAppointmentDto>({
+    startDate: '',
+    endDate: '',
+    discountFee: 0,
+    patient_id: 0,
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchAppointments = async (searchFilters?: AppointmentFilters) => {
     setIsLoading(true);
@@ -32,7 +41,33 @@ const Appointments = () => {
 
   useEffect(() => {
     fetchAppointments();
+    const fetchPatients = async () => {
+      try {
+        const data = await patientService.getAll();
+        setPatients(data);
+      } catch (err: any) {
+        console.error('Failed to fetch patients:', err);
+      }
+    };
+    fetchPatients();
   }, []);
+
+  const handleAddAppointment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await appointmentService.create(newAppointment);
+      setShowAddModal(false);
+      setNewAppointment({ startDate: '', endDate: '', discountFee: 0, patient_id: 0 });
+      fetchAppointments();
+    } catch (err: any) {
+      console.error('Failed to create appointment:', err);
+      setError(err.response?.data?.message || 'Failed to create appointment');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,6 +214,115 @@ const Appointments = () => {
             </table>
           </div>
         </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center space-x-2 px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition-colors shadow-md"
+          >
+            <Plus className="w-5 h-5" />
+            <span>New Appointment</span>
+          </button>
+        </div>
+
+        {/* Add Appointment Modal */}
+        {showAddModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">New Appointment</h2>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddAppointment} className="space-y-4">
+                <div>
+                  <label htmlFor="patient" className="block text-sm font-medium text-gray-700 mb-1">
+                    Patient *
+                  </label>
+                  <select
+                    id="patient"
+                    required
+                    value={newAppointment.patient_id}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, patient_id: parseInt(e.target.value) })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value={0}>Select a patient</option>
+                    {patients.map((patient) => (
+                      <option key={patient.id} value={patient.id}>
+                        {patient.name} {patient.surname}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="newStartDate" className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Date *
+                  </label>
+                  <input
+                    type="date"
+                    id="newStartDate"
+                    required
+                    value={newAppointment.startDate}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, startDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="newEndDate" className="block text-sm font-medium text-gray-700 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    id="newEndDate"
+                    value={newAppointment.endDate}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, endDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="newDiscountFee" className="block text-sm font-medium text-gray-700 mb-1">
+                    Discount Fee
+                  </label>
+                  <input
+                    type="number"
+                    id="newDiscountFee"
+                    min="0"
+                    step="0.01"
+                    value={newAppointment.discountFee || ''}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, discountFee: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    placeholder="Enter discount fee"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex-1 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? 'Creating...' : 'Create Appointment'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

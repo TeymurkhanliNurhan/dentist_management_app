@@ -308,6 +308,13 @@ export interface AppointmentFilters {
   patientSurname?: string;
 }
 
+export interface CreateAppointmentDto {
+  startDate: string;
+  endDate?: string;
+  discountFee?: number;
+  patient_id: number;
+}
+
 export interface UpdateAppointmentDto {
   startDate?: string;
   endDate?: string | null;
@@ -322,6 +329,10 @@ export const appointmentService = {
     if (filters?.patientSurname) params.append('patientSurname', filters.patientSurname);
     
     const response = await api.get(`/appointment?${params.toString()}`);
+    return response.data;
+  },
+  create: async (appointment: CreateAppointmentDto): Promise<Appointment> => {
+    const response = await api.post('/appointment', appointment);
     return response.data;
   },
   update: async (id: number, appointment: UpdateAppointmentDto): Promise<Appointment> => {
