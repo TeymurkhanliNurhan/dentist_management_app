@@ -23,6 +23,7 @@ const Appointments = () => {
     discountFee: 0,
     patient_id: 0,
   });
+  const [patientSearch, setPatientSearch] = useState({ name: '', surname: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchAppointments = async (searchFilters?: AppointmentFilters) => {
@@ -60,6 +61,7 @@ const Appointments = () => {
       await appointmentService.create(newAppointment);
       setShowAddModal(false);
       setNewAppointment({ startDate: '', endDate: '', discountFee: 0, patient_id: 0 });
+      setPatientSearch({ name: '', surname: '' });
       fetchAppointments();
     } catch (err: any) {
       console.error('Failed to create appointment:', err);
@@ -82,6 +84,14 @@ const Appointments = () => {
     setFilters({ startDate: '', patientName: '', patientSurname: '' });
     fetchAppointments();
   };
+
+  const filteredPatients = patients.filter((patient) => {
+    const nameMatch = patientSearch.name === '' || 
+      patient.name.toLowerCase().includes(patientSearch.name.toLowerCase());
+    const surnameMatch = patientSearch.surname === '' || 
+      patient.surname.toLowerCase().includes(patientSearch.surname.toLowerCase());
+    return nameMatch && surnameMatch;
+  });
 
   return (
     <div className="min-h-screen bg-blue-50">
@@ -232,7 +242,10 @@ const Appointments = () => {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold text-gray-900">New Appointment</h2>
                 <button
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setPatientSearch({ name: '', surname: '' });
+                  }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <X className="w-6 h-6" />
@@ -241,9 +254,41 @@ const Appointments = () => {
 
               <form onSubmit={handleAddAppointment} className="space-y-4">
                 <div>
-                  <label htmlFor="patient" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Patient *
                   </label>
+                  
+                  <div className="space-y-2 mb-2">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label htmlFor="patientNameSearch" className="block text-xs font-medium text-gray-600 mb-1">
+                          Search by Name
+                        </label>
+                        <input
+                          type="text"
+                          id="patientNameSearch"
+                          value={patientSearch.name}
+                          onChange={(e) => setPatientSearch({ ...patientSearch, name: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
+                          placeholder="Patient name"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label htmlFor="patientSurnameSearch" className="block text-xs font-medium text-gray-600 mb-1">
+                          Search by Surname
+                        </label>
+                        <input
+                          type="text"
+                          id="patientSurnameSearch"
+                          value={patientSearch.surname}
+                          onChange={(e) => setPatientSearch({ ...patientSearch, surname: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
+                          placeholder="Patient surname"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <select
                     id="patient"
                     required
@@ -252,12 +297,21 @@ const Appointments = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   >
                     <option value={0}>Select a patient</option>
-                    {patients.map((patient) => (
-                      <option key={patient.id} value={patient.id}>
-                        {patient.name} {patient.surname}
-                      </option>
-                    ))}
+                    {filteredPatients.length === 0 ? (
+                      <option disabled>No patients found</option>
+                    ) : (
+                      filteredPatients.map((patient) => (
+                        <option key={patient.id} value={patient.id}>
+                          {patient.name} {patient.surname}
+                        </option>
+                      ))
+                    )}
                   </select>
+                  {filteredPatients.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {filteredPatients.length} patient(s) found
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -313,7 +367,10 @@ const Appointments = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowAddModal(false)}
+                    onClick={() => {
+                      setShowAddModal(false);
+                      setPatientSearch({ name: '', surname: '' });
+                    }}
                     className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
                   >
                     Cancel
