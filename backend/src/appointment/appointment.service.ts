@@ -94,6 +94,8 @@ export class AppointmentService {
         startDate: dto.startDate,
         endDate: dto.endDate,
         patient: dto.patient,
+        patientName: dto.patientName,
+        patientSurname: dto.patientSurname,
       });
       const msg = `Dentist with id ${dentistId} retrieved ${appointments.length} appointment(s)`;
       this.logger.log(msg);
@@ -113,9 +115,17 @@ export class AppointmentService {
           startDate: startDate.toISOString().slice(0, 10),
           endDate: endDate ? endDate.toISOString().slice(0, 10) : null,
           discountFee: appointment.discountFee,
-          patient: typeof appointment.patient === 'object' && appointment.patient?.id 
-            ? appointment.patient.id 
-            : appointment.patient,
+          patient: {
+            id: typeof appointment.patient === 'object' && appointment.patient?.id 
+              ? appointment.patient.id 
+              : appointment.patient,
+            name: typeof appointment.patient === 'object' && appointment.patient?.name 
+              ? appointment.patient.name 
+              : null,
+            surname: typeof appointment.patient === 'object' && appointment.patient?.surname 
+              ? appointment.patient.surname 
+              : null,
+          },
         };
       });
     } catch (e: any) {

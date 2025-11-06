@@ -26,5 +26,13 @@ export class GetAppointmentDto {
     @IsInt()
     @Min(1)
     patient?: number;
+
+    @ApiPropertyOptional({ example: 'John', description: 'Patient name' })
+    @IsOptional()
+    patientName?: string;
+
+    @ApiPropertyOptional({ example: 'Doe', description: 'Patient surname' })
+    @IsOptional()
+    patientSurname?: string;
 }
 

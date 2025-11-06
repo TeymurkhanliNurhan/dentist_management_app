@@ -54,6 +54,7 @@ export class ToothTreatmentMedicineRepository {
     ): Promise<ToothTreatmentMedicine[]> {
         const queryBuilder = this.repo
             .createQueryBuilder('ttm')
+            .leftJoinAndSelect('ttm.medicineEntity', 'medicine')
             .leftJoinAndSelect('ttm.toothTreatmentEntity', 'toothTreatment')
             .leftJoinAndSelect('toothTreatment.appointment', 'appointment')
             .leftJoinAndSelect('appointment.dentist', 'dentist')

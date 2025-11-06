@@ -64,7 +64,12 @@ export class ToothTreatmentMedicineService {
       this.logger.log(msg);
       LogWriter.append('log', ToothTreatmentMedicineService.name, msg);
       return toothTreatmentMedicines.map(ttm => ({
-        medicine: ttm.medicine,
+        medicine: {
+          id: ttm.medicineEntity?.id || ttm.medicine,
+          name: ttm.medicineEntity?.name || null,
+          description: ttm.medicineEntity?.description || null,
+          price: ttm.medicineEntity?.price || null,
+        },
         tooth_treatment: ttm.toothTreatment,
       }));
     } catch (e: any) {
