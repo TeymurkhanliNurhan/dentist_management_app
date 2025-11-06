@@ -32,6 +32,135 @@ const AppointmentDetail = () => {
   });
   const [isAddingTreatment, setIsAddingTreatment] = useState(false);
 
+  // Inline teeth selector component leveraging the same imagery and numbering logic
+  const TeethSelector = ({
+    patientTeeth,
+    onSelect,
+    selectedToothId,
+  }: {
+    patientTeeth: PatientTooth[];
+    onSelect: (toothId: number) => void;
+    selectedToothId: number;
+  }) => {
+    const [isPermanent, setIsPermanent] = useState(true);
+
+    const hasToothNumber = (toothNumber: number) =>
+      patientTeeth.some((pt) => pt.toothNumber === toothNumber && (isPermanent ? pt.permanent === 'true' : pt.permanent !== 'true'));
+
+    const toothIdByNumber = (toothNumber: number): number | null => {
+      const pt = patientTeeth.find((p) => p.toothNumber === toothNumber && (isPermanent ? p.permanent === 'true' : p.permanent !== 'true'));
+      return pt ? pt.tooth : null;
+    };
+
+    const ToothNumber = ({ number, top, left }: { number: number; top: string; left: string }) => {
+      const enabled = hasToothNumber(number);
+      const possibleToothId = toothIdByNumber(number);
+      const isSelected = possibleToothId !== null && possibleToothId === selectedToothId;
+      return (
+        <div
+          onClick={() => enabled && possibleToothId && onSelect(possibleToothId)}
+          className={`absolute w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition-all select-none ${
+            enabled
+              ? `text-black cursor-pointer hover:bg-teal-500 hover:text-white hover:scale-110 ${isSelected ? 'bg-teal-600 text-white scale-110' : ''}`
+              : 'text-gray-400 cursor-not-allowed opacity-50'
+          }`}
+          style={{ top, left }}
+          title={enabled ? `Select Tooth #${number}` : `Tooth #${number} not available`}
+        >
+          {number}
+        </div>
+      );
+    };
+
+    return (
+      <div className="w-full">
+        <div className="mb-2 flex justify-end">
+          <button
+            onClick={() => setIsPermanent(!isPermanent)}
+            className="px-3 py-1.5 bg-teal-500 text-white rounded-md text-sm font-medium hover:bg-teal-600 transition-colors"
+          >
+            {isPermanent ? 'Childish Teeth' : 'Permanent Teeth'}
+          </button>
+        </div>
+        <div className="relative w-full" style={{ paddingBottom: '90%' }}>
+          <img
+            src={isPermanent ? '/images/32teeth_logo.jpg' : '/images/20teeth_logo.jpg'}
+            alt="Teeth Diagram"
+            className="absolute top-0 left-0 w-full h-full object-contain"
+          />
+
+          {isPermanent ? (
+            <>
+              {/* Permanent Teeth positions borrowed from TeethDiagram */}
+              <ToothNumber number={18} top="39%" left="32.5%" />
+              <ToothNumber number={17} top="31%" left="31.5%" />
+              <ToothNumber number={16} top="24%" left="32%" />
+              <ToothNumber number={15} top="18%" left="32.8%" />
+              <ToothNumber number={14} top="12.5%" left="34.2%" />
+              <ToothNumber number={13} top="8%" left="36%" />
+              <ToothNumber number={12} top="5%" left="39.7%" />
+              <ToothNumber number={11} top="3%" left="44.5%" />
+
+              <ToothNumber number={21} top="3%" left="50%" />
+              <ToothNumber number={22} top="5%" left="55%" />
+              <ToothNumber number={23} top="8%" left="59%" />
+              <ToothNumber number={24} top="12.5%" left="60%" />
+              <ToothNumber number={25} top="18.3%" left="61.7%" />
+              <ToothNumber number={26} top="24.5%" left="62.6%" />
+              <ToothNumber number={27} top="31%" left="63.2%" />
+              <ToothNumber number={28} top="39%" left="62.3%" />
+
+              <ToothNumber number={48} top="55%" left="32.9%" />
+              <ToothNumber number={47} top="63%" left="31.8%" />
+              <ToothNumber number={46} top="70%" left="32.3%" />
+              <ToothNumber number={45} top="76%" left="33.2%" />
+              <ToothNumber number={44} top="82%" left="34.8%" />
+              <ToothNumber number={43} top="86.3%" left="36.9%" />
+              <ToothNumber number={42} top="89.7%" left="40.1%" />
+              <ToothNumber number={41} top="91%" left="45%" />
+
+              <ToothNumber number={31} top="91%" left="50.5%" />
+              <ToothNumber number={32} top="89.7%" left="55.5%" />
+              <ToothNumber number={33} top="86.3%" left="59%" />
+              <ToothNumber number={34} top="82%" left="61%" />
+              <ToothNumber number={35} top="76%" left="62.3%" />
+              <ToothNumber number={36} top="70%" left="63.4%" />
+              <ToothNumber number={37} top="63%" left="63.8%" />
+              <ToothNumber number={38} top="55%" left="62.8%" />
+            </>
+          ) : (
+            <>
+              {/* Childish Teeth positions borrowed from TeethDiagram */}
+              <ToothNumber number={55} top="34%" left="28.4%" />
+              <ToothNumber number={54} top="23.5%" left="30.2%" />
+              <ToothNumber number={53} top="15%" left="33.5%" />
+              <ToothNumber number={52} top="10%" left="38%" />
+              <ToothNumber number={51} top="7.5%" left="44%" />
+
+              <ToothNumber number={61} top="7.5%" left="51%" />
+              <ToothNumber number={62} top="10%" left="57.5%" />
+              <ToothNumber number={63} top="15%" left="62.5%" />
+              <ToothNumber number={64} top="23.3%" left="66.5%" />
+              <ToothNumber number={65} top="33.8%" left="68.5%" />
+
+              <ToothNumber number={85} top="61.2%" left="28.7%" />
+              <ToothNumber number={84} top="71.5%" left="30.6%" />
+              <ToothNumber number={83} top="79.7%" left="33.8%" />
+              <ToothNumber number={82} top="85%" left="38.1%" />
+              <ToothNumber number={81} top="87.7%" left="44.4%" />
+
+              <ToothNumber number={71} top="87.7%" left="51.2%" />
+              <ToothNumber number={72} top="85%" left="57.9%" />
+              <ToothNumber number={73} top="79.7%" left="62.9%" />
+              <ToothNumber number={74} top="71.5%" left="66.9%" />
+              <ToothNumber number={75} top="61.2%" left="68.6%" />
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   useEffect(() => {
     const fetchAppointmentData = async () => {
       if (!id) return;
@@ -355,6 +484,88 @@ const AppointmentDetail = () => {
               <span>Add Treatment</span>
             </button>
           </div>
+
+          {showAddTreatment && appointment && (
+            <div className="mb-8 border border-teal-200 rounded-lg p-6 bg-teal-50/40">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Select Treatment</h3>
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      placeholder="Search treatment by name..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      onChange={(e) => {
+                        const q = e.target.value.toLowerCase();
+                        const filtered = availableTreatments.filter(t => t.name.toLowerCase().includes(q));
+                        setAvailableTreatments(filtered.length > 0 || q ? filtered : filtered);
+                      }}
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-auto rounded-md border border-gray-200 bg-white">
+                    {availableTreatments.length === 0 ? (
+                      <div className="p-4 text-sm text-gray-500">No treatments found</div>
+                    ) : (
+                      availableTreatments.map(t => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setNewTreatment({ ...newTreatment, treatment_id: t.id })}
+                          className={`w-full text-left px-4 py-2 border-b last:border-b-0 hover:bg-teal-50 transition-colors ${newTreatment.treatment_id === t.id ? 'bg-teal-100' : ''}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-gray-900">{t.name}</span>
+                            <span className="text-sm font-semibold text-gray-700">${t.price.toFixed(2)}</span>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-1">{t.description}</p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Select Tooth</h3>
+                  <div className="w-full max-w-xl mx-auto bg-white rounded-lg p-3 shadow-sm">
+                    <TeethSelector
+                      patientTeeth={patientTeeth}
+                      onSelect={(toothId) => setNewTreatment({ ...newTreatment, tooth_id: toothId })}
+                      selectedToothId={newTreatment.tooth_id}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label htmlFor="inlineDescription" className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
+                <textarea
+                  id="inlineDescription"
+                  rows={3}
+                  maxLength={300}
+                  value={newTreatment.description}
+                  onChange={(e) => setNewTreatment({ ...newTreatment, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="Enter treatment description/notes"
+                />
+              </div>
+
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={handleAddTreatment}
+                  disabled={isAddingTreatment || newTreatment.treatment_id === 0 || newTreatment.tooth_id === 0}
+                  className="px-5 py-2 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isAddingTreatment ? 'Adding...' : 'Add Treatment'}
+                </button>
+                <button
+                  onClick={() => setShowAddTreatment(false)}
+                  className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
           
           {treatments.length === 0 ? (
             <p className="text-center text-gray-500 py-8">
@@ -507,105 +718,7 @@ const AppointmentDetail = () => {
           </div>
         )}
 
-        {/* Add Treatment Modal */}
-        {showAddTreatment && appointment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-gray-900">Add Treatment</h2>
-                <button
-                  onClick={() => {
-                    setShowAddTreatment(false);
-                    setNewTreatment({ appointment_id: 0, treatment_id: 0, patient_id: 0, tooth_id: 0, description: '' });
-                  }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <form onSubmit={handleAddTreatment} className="space-y-4">
-                <div>
-                  <label htmlFor="treatment" className="block text-sm font-medium text-gray-700 mb-1">
-                    Treatment *
-                  </label>
-                  <select
-                    id="treatment"
-                    required
-                    value={newTreatment.treatment_id}
-                    onChange={(e) => setNewTreatment({ ...newTreatment, treatment_id: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  >
-                    <option value={0}>Select a treatment</option>
-                    {availableTreatments.map((treatment) => (
-                      <option key={treatment.id} value={treatment.id}>
-                        {treatment.name} - ${treatment.price.toFixed(2)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="tooth" className="block text-sm font-medium text-gray-700 mb-1">
-                    Tooth *
-                  </label>
-                  <select
-                    id="tooth"
-                    required
-                    value={newTreatment.tooth_id}
-                    onChange={(e) => setNewTreatment({ ...newTreatment, tooth_id: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  >
-                    <option value={0}>Select a tooth</option>
-                    {patientTeeth.map((pt) => (
-                      <option key={pt.tooth} value={pt.tooth}>
-                        Tooth #{pt.toothNumber} ({pt.permanent === 'true' ? 'Permanent' : 'Childish'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="treatmentDescription" className="block text-sm font-medium text-gray-700 mb-1">
-                    Description (Optional)
-                  </label>
-                  <textarea
-                    id="treatmentDescription"
-                    maxLength={300}
-                    rows={3}
-                    value={newTreatment.description}
-                    onChange={(e) => setNewTreatment({ ...newTreatment, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    placeholder="Enter treatment description/notes"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {newTreatment.description?.length || 0}/300 characters
-                  </p>
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="submit"
-                    disabled={isAddingTreatment}
-                    className="flex-1 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isAddingTreatment ? 'Adding...' : 'Add Treatment'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAddTreatment(false);
-                      setNewTreatment({ appointment_id: 0, treatment_id: 0, patient_id: 0, tooth_id: 0, description: '' });
-                    }}
-                    className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        {/* Inline form replaces modal above; modal removed */}
       </main>
     </div>
   );
