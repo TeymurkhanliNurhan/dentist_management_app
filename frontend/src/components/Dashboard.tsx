@@ -52,7 +52,8 @@ const Dashboard = () => {
                   style={{ 
                     maxWidth: '100%', 
                     maxHeight: '100%',
-                    transform: service.name === 'Treatments' ? 'scale(1.3)' : 'scale(1)'
+                    transform: service.name === 'Treatments' ? 'scale(1.3)' : 
+                               service.name === 'Patients' ? 'scale(0.8)' : 'scale(1)'
                   }}
                 />
               </div>
