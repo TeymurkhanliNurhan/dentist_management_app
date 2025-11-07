@@ -356,6 +356,10 @@ const AppointmentDetail = () => {
       setAllMedicines(ms);
       setAvailableMedicines(ms);
     }
+    if (patientTeeth.length === 0 && appointment) {
+      const teethData = await patientService.getPatientTeeth(appointment.patient.id);
+      setPatientTeeth(teethData);
+    }
     setEditingFields({
       treatment_id: tt.treatment.id,
       tooth_id: tt.tooth,
