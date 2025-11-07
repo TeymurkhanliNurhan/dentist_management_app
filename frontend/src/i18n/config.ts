@@ -6,12 +6,18 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 import enLogin from '../locales/en/login.json';
 import enSignup from '../locales/en/signup.json';
 import enCommon from '../locales/en/common.json';
+import enDashboard from '../locales/en/dashboard.json';
+import enHeader from '../locales/en/header.json';
 import azLogin from '../locales/az/login.json';
 import azSignup from '../locales/az/signup.json';
 import azCommon from '../locales/az/common.json';
+import azDashboard from '../locales/az/dashboard.json';
+import azHeader from '../locales/az/header.json';
 import ruLogin from '../locales/ru/login.json';
 import ruSignup from '../locales/ru/signup.json';
 import ruCommon from '../locales/ru/common.json';
+import ruDashboard from '../locales/ru/dashboard.json';
+import ruHeader from '../locales/ru/header.json';
 
 i18n
   .use(LanguageDetector)
@@ -27,16 +33,22 @@ i18n
         login: enLogin,
         signup: enSignup,
         common: enCommon,
+        dashboard: enDashboard,
+        header: enHeader,
       },
       az: {
         login: azLogin,
         signup: azSignup,
         common: azCommon,
+        dashboard: azDashboard,
+        header: azHeader,
       },
       ru: {
         login: ruLogin,
         signup: ruSignup,
         common: ruCommon,
+        dashboard: ruDashboard,
+        header: ruHeader,
       },
     },
     detection: {
