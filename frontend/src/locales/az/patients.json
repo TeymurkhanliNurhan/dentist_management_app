@@ -1,0 +1,31 @@
+{
+  "title": "Xəstələr",
+  "filters": {
+    "name": "Ad",
+    "surname": "Soyad",
+    "birthDate": "Doğum tarixi",
+    "namePlaceholder": "Ada görə axtar",
+    "surnamePlaceholder": "Soyada görə axtar"
+  },
+  "search": "Axtar",
+  "clear": "Təmizlə",
+  "table": {
+    "name": "Ad",
+    "surname": "Soyad",
+    "birthDate": "Doğum tarixi"
+  },
+  "loading": "Xəstələr yüklənir...",
+  "empty": "Xəstə tapılmadı",
+  "addNew": "Yeni xəstə əlavə et",
+  "addTitle": "Yeni xəstə əlavə et",
+  "form": {
+    "name": "Ad *",
+    "surname": "Soyad *",
+    "birthDate": "Doğum tarixi *",
+    "namePlaceholder": "Adı daxil edin",
+    "surnamePlaceholder": "Soyadı daxil edin"
+  },
+  "adding": "Əlavə olunur...",
+  "add": "Xəstə əlavə et",
+  "cancel": "Ləğv et"
+}

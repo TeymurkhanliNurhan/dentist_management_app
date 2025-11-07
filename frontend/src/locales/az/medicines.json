@@ -1,0 +1,31 @@
+{
+  "title": "Dərmanlar",
+  "searchLabel": "Dərmanın adı",
+  "searchPlaceholder": "Dərman adına görə axtar",
+  "search": "Axtar",
+  "clear": "Təmizlə",
+  "table": {
+    "name": "Ad",
+    "description": "Təsvir",
+    "price": "Qiymət"
+  },
+  "loading": "Dərmanlar yüklənir...",
+  "empty": "Dərman tapılmadı",
+  "edit": "Redaktə et",
+  "addNew": "Yeni dərman əlavə et",
+  "addTitle": "Yeni dərman əlavə et",
+  "editTitle": "Dərmanı redaktə et",
+  "form": {
+    "name": "Ad *",
+    "description": "Təsvir *",
+    "price": "Qiymət *",
+    "namePlaceholder": "Dərmanın adını daxil edin",
+    "descriptionPlaceholder": "Təsviri daxil edin",
+    "pricePlaceholder": "Qiyməti daxil edin"
+  },
+  "adding": "Əlavə olunur...",
+  "add": "Dərman əlavə et",
+  "updating": "Yenilənir...",
+  "update": "Dərmanı yenilə",
+  "cancel": "Ləğv et"
+}

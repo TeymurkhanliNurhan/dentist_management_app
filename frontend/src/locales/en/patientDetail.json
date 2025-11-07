@@ -1,0 +1,21 @@
+{
+  "loading": "Loading patient details...",
+  "back": "Back to Patients",
+  "notFound": "Patient not found",
+  "fetchError": "Failed to fetch patient details",
+  "edit": "Edit",
+  "patientInfo": "Patient Information",
+  "fullName": "Full Name",
+  "birthDate": "Birth Date",
+  "teethDiagram": "Teeth Diagram",
+  "editTitle": "Edit Patient",
+  "form": {
+    "name": "Name *",
+    "surname": "Surname *",
+    "birthDate": "Birth Date *"
+  },
+  "updating": "Updating...",
+  "update": "Update Patient",
+  "cancel": "Cancel",
+  "updateError": "Failed to update patient"
+}

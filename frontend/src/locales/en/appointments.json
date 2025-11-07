@@ -1,0 +1,41 @@
+{
+  "title": "Appointments",
+  "filters": {
+    "date": "Date",
+    "name": "Patient Name",
+    "surname": "Patient Surname",
+    "namePlaceholder": "Search by patient name",
+    "surnamePlaceholder": "Search by patient surname"
+  },
+  "search": "Search",
+  "clear": "Clear",
+  "table": {
+    "date": "Date",
+    "name": "Patient Name",
+    "surname": "Patient Surname"
+  },
+  "loading": "Loading appointments...",
+  "empty": "No appointments found",
+  "fetchError": "Failed to fetch appointments",
+  "newAppointment": "New Appointment",
+  "modal": {
+    "title": "New Appointment",
+    "patient": "Patient *",
+    "patientName": "Name",
+    "patientSurname": "Surname",
+    "namePlaceholder": "Search by name",
+    "surnamePlaceholder": "Search by surname",
+    "selectPlaceholder": "Select a patient",
+    "noPatients": "No patients found",
+    "patientsFound": "{{count}} patient(s) found"
+  },
+  "startDate": "Start Date *",
+  "endDate": "End Date",
+  "endDateError": "End date cannot be earlier than start date",
+  "discountFee": "Discount Fee",
+  "discountPlaceholder": "Enter discount fee",
+  "creating": "Creating...",
+  "create": "Create Appointment",
+  "cancel": "Cancel",
+  "createError": "Failed to create appointment"
+}

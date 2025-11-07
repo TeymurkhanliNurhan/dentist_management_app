@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { PatientTooth } from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 interface TeethDiagramProps {
   patientId: number;
@@ -10,6 +11,7 @@ interface TeethDiagramProps {
 const TeethDiagram = ({ patientId, patientTeeth }: TeethDiagramProps) => {
   const navigate = useNavigate();
   const [isPermanent, setIsPermanent] = useState(true);
+  const { t } = useTranslation('teethDiagram');
 
   const hasToothNumber = (toothNumber: number) => {
     return patientTeeth.some(pt => pt.toothNumber === toothNumber);
@@ -44,7 +46,7 @@ const TeethDiagram = ({ patientId, patientTeeth }: TeethDiagramProps) => {
             : 'text-gray-300 cursor-not-allowed opacity-50'
         }`}
         style={{ top, left }}
-        title={hasTooth ? `Click to view Tooth #${number}` : `Tooth #${number} not available`}
+        title={hasTooth ? t('tooltipAvailable', { number }) : t('tooltipUnavailable', { number })}
       >
         {number}
       </div>
@@ -58,7 +60,7 @@ const TeethDiagram = ({ patientId, patientTeeth }: TeethDiagramProps) => {
           onClick={() => setIsPermanent(!isPermanent)}
           className="px-4 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors shadow-md"
         >
-          {isPermanent ? 'Childish Teeth' : 'Permanent Teeth'}
+          {isPermanent ? t('childTeeth') : t('permanentTeeth')}
         </button>
       </div>
       
@@ -145,7 +147,7 @@ const TeethDiagram = ({ patientId, patientTeeth }: TeethDiagramProps) => {
       </div>
 
       <div className="mt-3 text-center text-sm text-gray-600">
-        <p className="font-medium">Click on a tooth number to view details and treatments</p>
+        <p className="font-medium">{t('instruction')}</p>
       </div>
     </div>
   );

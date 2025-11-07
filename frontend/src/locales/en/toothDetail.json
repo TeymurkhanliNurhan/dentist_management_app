@@ -1,0 +1,15 @@
+{
+  "loading": "Loading tooth details...",
+  "back": "Back to Patient",
+  "permanent": "Permanent",
+  "child": "Child",
+  "pastTreatments": "Past Treatments History",
+  "fetchError": "Failed to fetch tooth information",
+  "noTreatments": "No treatments found for this tooth.",
+  "appointmentDate": "Appointment Date",
+  "treatment": "Treatment",
+  "price": "Price",
+  "treatmentDescription": "Treatment Description",
+  "notAvailable": "N/A",
+  "notes": "Notes"
+}

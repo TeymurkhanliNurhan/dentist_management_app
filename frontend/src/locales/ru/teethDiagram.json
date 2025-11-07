@@ -1,0 +1,7 @@
+{
+  "childTeeth": "Молочные зубы",
+  "permanentTeeth": "Постоянные зубы",
+  "instruction": "Нажмите на номер зуба, чтобы посмотреть детали и лечения",
+  "tooltipAvailable": "Нажмите, чтобы посмотреть зуб №{{number}}",
+  "tooltipUnavailable": "Зуб №{{number}} недоступен"
+}

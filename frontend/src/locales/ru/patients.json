@@ -1,0 +1,31 @@
+{
+  "title": "Пациенты",
+  "filters": {
+    "name": "Имя",
+    "surname": "Фамилия",
+    "birthDate": "Дата рождения",
+    "namePlaceholder": "Поиск по имени",
+    "surnamePlaceholder": "Поиск по фамилии"
+  },
+  "search": "Поиск",
+  "clear": "Очистить",
+  "table": {
+    "name": "Имя",
+    "surname": "Фамилия",
+    "birthDate": "Дата рождения"
+  },
+  "loading": "Загрузка пациентов...",
+  "empty": "Пациенты не найдены",
+  "addNew": "Добавить пациента",
+  "addTitle": "Добавить пациента",
+  "form": {
+    "name": "Имя *",
+    "surname": "Фамилия *",
+    "birthDate": "Дата рождения *",
+    "namePlaceholder": "Введите имя",
+    "surnamePlaceholder": "Введите фамилию"
+  },
+  "adding": "Добавление...",
+  "add": "Добавить пациента",
+  "cancel": "Отмена"
+}

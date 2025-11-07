@@ -1,0 +1,41 @@
+{
+  "title": "Randevular",
+  "filters": {
+    "date": "Tarix",
+    "name": "Xəstənin adı",
+    "surname": "Xəstənin soyadı",
+    "namePlaceholder": "Xəstənin adına görə axtar",
+    "surnamePlaceholder": "Xəstənin soyadına görə axtar"
+  },
+  "search": "Axtar",
+  "clear": "Təmizlə",
+  "table": {
+    "date": "Tarix",
+    "name": "Xəstənin adı",
+    "surname": "Xəstənin soyadı"
+  },
+  "loading": "Randevular yüklənir...",
+  "empty": "Randevu tapılmadı",
+  "fetchError": "Randevular alınmadı",
+  "newAppointment": "Yeni randevu",
+  "modal": {
+    "title": "Yeni randevu",
+    "patient": "Xəstə *",
+    "patientName": "Ad",
+    "patientSurname": "Soyad",
+    "namePlaceholder": "Ada görə axtar",
+    "surnamePlaceholder": "Soyada görə axtar",
+    "selectPlaceholder": "Xəstəni seçin",
+    "noPatients": "Xəstə tapılmadı",
+    "patientsFound": "{{count}} xəstə tapıldı"
+  },
+  "startDate": "Başlama tarixi *",
+  "endDate": "Bitmə tarixi",
+  "endDateError": "Bitmə tarixi başlama tarixindən əvvəl ola bilməz",
+  "discountFee": "Endirim haqqı",
+  "discountPlaceholder": "Endirim məbləğini daxil edin",
+  "creating": "Yaradılır...",
+  "create": "Randevu yarat",
+  "cancel": "Ləğv et",
+  "createError": "Randevu yaradılmadı"
+}

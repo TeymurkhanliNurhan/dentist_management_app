@@ -1,0 +1,7 @@
+{
+  "childTeeth": "Uşaq dişləri",
+  "permanentTeeth": "Daimi dişlər",
+  "instruction": "Diş nömrəsinə klikləyərək məlumat və müalicələrə baxın",
+  "tooltipAvailable": "Diş №{{number}} üçün baxın",
+  "tooltipUnavailable": "Diş №{{number}} mövcud deyil"
+}

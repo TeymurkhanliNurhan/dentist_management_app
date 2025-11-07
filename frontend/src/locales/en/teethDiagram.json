@@ -1,0 +1,7 @@
+{
+  "childTeeth": "Child Teeth",
+  "permanentTeeth": "Permanent Teeth",
+  "instruction": "Click on a tooth number to view details and treatments",
+  "tooltipAvailable": "Click to view Tooth #{{number}}",
+  "tooltipUnavailable": "Tooth #{{number}} not available"
+}

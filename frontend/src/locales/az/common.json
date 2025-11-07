@@ -1,0 +1,21 @@
+{
+  "settings": "Parametrlər",
+  "edit": "Redaktə et",
+  "save": "Saxla",
+  "cancel": "Ləğv et",
+  "delete": "Sil",
+  "loading": "Yüklənir...",
+  "error": "Xəta",
+  "success": "Uğur",
+  "confirm": "Təsdiq et",
+  "close": "Bağla",
+  "back": "Geri",
+  "next": "Növbəti",
+  "submit": "Göndər",
+  "search": "Axtar",
+  "filter": "Filtrlə",
+  "actions": "Əməliyyatlar",
+  "noData": "Məlumat yoxdur",
+  "notSet": "Təyin edilməyib"
+}
+

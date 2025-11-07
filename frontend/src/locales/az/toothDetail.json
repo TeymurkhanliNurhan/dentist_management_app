@@ -1,0 +1,15 @@
+{
+  "loading": "Diş məlumatları yüklənir...",
+  "back": "Xəstəyə qayıt",
+  "permanent": "Daimi",
+  "child": "Uşaq",
+  "pastTreatments": "Ötən müalicələr tarixi",
+  "fetchError": "Diş məlumatları alınmadı",
+  "noTreatments": "Bu diş üçün müalicə tapılmadı.",
+  "appointmentDate": "Randevu tarixi",
+  "treatment": "Müalicə",
+  "price": "Qiymət",
+  "treatmentDescription": "Müalicə təsviri",
+  "notAvailable": "Mövcud deyil",
+  "notes": "Qeydlər"
+}
