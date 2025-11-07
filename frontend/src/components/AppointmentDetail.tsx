@@ -106,41 +106,41 @@ const AppointmentDetail = () => {
           {isPermanent ? (
             <>
               {/* Permanent Teeth positions borrowed from TeethDiagram */}
-              <ToothNumber number={18} top="39%" left="32.5%" />
-              <ToothNumber number={17} top="31%" left="31.5%" />
-              <ToothNumber number={16} top="24%" left="32%" />
-              <ToothNumber number={15} top="18%" left="32.8%" />
+              <ToothNumber number={18} top="38.5%" left="31.7%" />
+              <ToothNumber number={17} top="31%" left="30.6%" />
+              <ToothNumber number={16} top="24%" left="31%" />
+              <ToothNumber number={15} top="18%" left="32%" />
               <ToothNumber number={14} top="12.5%" left="34.2%" />
               <ToothNumber number={13} top="8%" left="36%" />
-              <ToothNumber number={12} top="5%" left="39.7%" />
-              <ToothNumber number={11} top="3%" left="44.5%" />
+              <ToothNumber number={12} top="4.4%" left="39.5%" />
+              <ToothNumber number={11} top="3%" left="44%" />
 
-              <ToothNumber number={21} top="3%" left="50%" />
-              <ToothNumber number={22} top="5%" left="55%" />
-              <ToothNumber number={23} top="8%" left="59%" />
-              <ToothNumber number={24} top="12.5%" left="60%" />
+              <ToothNumber number={21} top="3%" left="49.3%" />
+              <ToothNumber number={22} top="5%" left="54.3%" />
+              <ToothNumber number={23} top="8%" left="57.6%" />
+              <ToothNumber number={24} top="12.5%" left="59.7%" />
               <ToothNumber number={25} top="18.3%" left="61.7%" />
-              <ToothNumber number={26} top="24.5%" left="62.6%" />
-              <ToothNumber number={27} top="31%" left="63.2%" />
-              <ToothNumber number={28} top="39%" left="62.3%" />
+              <ToothNumber number={26} top="24.5%" left="62.2%" />
+              <ToothNumber number={27} top="31%" left="62.7%" />
+              <ToothNumber number={28} top="39%" left="61.7%" />
 
               <ToothNumber number={48} top="55%" left="32.9%" />
-              <ToothNumber number={47} top="63%" left="31.8%" />
-              <ToothNumber number={46} top="70%" left="32.3%" />
-              <ToothNumber number={45} top="76%" left="33.2%" />
-              <ToothNumber number={44} top="82%" left="34.8%" />
-              <ToothNumber number={43} top="86.3%" left="36.9%" />
+              <ToothNumber number={47} top="62.8%" left="31.3%" />
+              <ToothNumber number={46} top="69.6%" left="32.1%" />
+              <ToothNumber number={45} top="75.8%" left="33%" />
+              <ToothNumber number={44} top="81.3%" left="34.5%" />
+              <ToothNumber number={43} top="85.7%" left="36.5%" />
               <ToothNumber number={42} top="89.7%" left="40.1%" />
               <ToothNumber number={41} top="91%" left="45%" />
 
-              <ToothNumber number={31} top="91%" left="50.5%" />
-              <ToothNumber number={32} top="89.7%" left="55.5%" />
-              <ToothNumber number={33} top="86.3%" left="59%" />
-              <ToothNumber number={34} top="82%" left="61%" />
-              <ToothNumber number={35} top="76%" left="62.3%" />
-              <ToothNumber number={36} top="70%" left="63.4%" />
-              <ToothNumber number={37} top="63%" left="63.8%" />
-              <ToothNumber number={38} top="55%" left="62.8%" />
+              <ToothNumber number={31} top="91%" left="50.2%" />
+              <ToothNumber number={32} top="89%" left="55%" />
+              <ToothNumber number={33} top="86%" left="59%" />
+              <ToothNumber number={34} top="81.5%" left="60.5%" />
+              <ToothNumber number={35} top="75.7%" left="62.3%" />
+              <ToothNumber number={36} top="69.4%" left="62.8%" />
+              <ToothNumber number={37} top="62.6%" left="63.4%" />
+              <ToothNumber number={38} top="55%" left="62.5%" />
             </>
           ) : (
             <>
@@ -149,7 +149,7 @@ const AppointmentDetail = () => {
               <ToothNumber number={54} top="23.5%" left="30.2%" />
               <ToothNumber number={53} top="15%" left="33.5%" />
               <ToothNumber number={52} top="10%" left="38%" />
-              <ToothNumber number={51} top="7.5%" left="44%" />
+              <ToothNumber number={51} top="7.5%" left="43.7%" />
 
               <ToothNumber number={61} top="7.5%" left="51%" />
               <ToothNumber number={62} top="10%" left="57.5%" />
