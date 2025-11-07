@@ -1,31 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { Globe } from 'lucide-react';
 import Header from './Header';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { t, i18n } = useTranslation('dashboard');
-  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
-  const languageMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close language menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (languageMenuRef.current && !languageMenuRef.current.contains(event.target as Node)) {
-        setShowLanguageMenu(false);
-      }
-    };
-
-    if (showLanguageMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showLanguageMenu]);
+  const { t } = useTranslation('dashboard');
 
   const services = [
     {
@@ -54,55 +33,7 @@ const Dashboard = () => {
     <div className="min-h-screen bg-blue-50">
       <Header />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative">
-        {/* Language Switcher */}
-        <div className="absolute top-4 right-4" ref={languageMenuRef}>
-          <button
-            onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-            className="p-2 rounded-lg bg-white/90 hover:bg-white transition-colors shadow-sm"
-            aria-label="Change language"
-          >
-            <Globe className="w-5 h-5 text-gray-700" />
-          </button>
-          {showLanguageMenu && (
-            <div className="absolute top-12 right-0 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[120px] z-50">
-              <button
-                onClick={() => {
-                  i18n.changeLanguage('en');
-                  setShowLanguageMenu(false);
-                }}
-                className={`w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors ${
-                  i18n.language === 'en' ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-gray-700'
-                }`}
-              >
-                English
-              </button>
-              <button
-                onClick={() => {
-                  i18n.changeLanguage('az');
-                  setShowLanguageMenu(false);
-                }}
-                className={`w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors ${
-                  i18n.language === 'az' ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-gray-700'
-                }`}
-              >
-                Azərbaycan
-              </button>
-              <button
-                onClick={() => {
-                  i18n.changeLanguage('ru');
-                  setShowLanguageMenu(false);
-                }}
-                className={`w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors ${
-                  i18n.language === 'ru' ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-gray-700'
-                }`}
-              >
-                Русский
-              </button>
-            </div>
-          )}
-        </div>
-
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold text-gray-800 mb-3">{t('ourServices')}</h1>
           <div className="w-20 h-1 bg-teal-500 mx-auto"></div>

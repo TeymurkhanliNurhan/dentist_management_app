@@ -1,0 +1,31 @@
+{
+  "title": "Patients",
+  "filters": {
+    "name": "Name",
+    "surname": "Surname",
+    "birthDate": "Birth Date",
+    "namePlaceholder": "Search by name",
+    "surnamePlaceholder": "Search by surname"
+  },
+  "search": "Search",
+  "clear": "Clear",
+  "table": {
+    "name": "Name",
+    "surname": "Surname",
+    "birthDate": "Birth Date"
+  },
+  "loading": "Loading patients...",
+  "empty": "No patients found",
+  "addNew": "Add New Patient",
+  "addTitle": "Add New Patient",
+  "form": {
+    "name": "Name *",
+    "surname": "Surname *",
+    "birthDate": "Birth Date *",
+    "namePlaceholder": "Enter name",
+    "surnamePlaceholder": "Enter surname"
+  },
+  "adding": "Adding...",
+  "add": "Add Patient",
+  "cancel": "Cancel"
+}

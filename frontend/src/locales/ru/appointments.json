@@ -1,0 +1,41 @@
+{
+  "title": "Записи",
+  "filters": {
+    "date": "Дата",
+    "name": "Имя пациента",
+    "surname": "Фамилия пациента",
+    "namePlaceholder": "Поиск по имени пациента",
+    "surnamePlaceholder": "Поиск по фамилии пациента"
+  },
+  "search": "Поиск",
+  "clear": "Очистить",
+  "table": {
+    "date": "Дата",
+    "name": "Имя пациента",
+    "surname": "Фамилия пациента"
+  },
+  "loading": "Загрузка записей...",
+  "empty": "Записи не найдены",
+  "fetchError": "Не удалось получить записи",
+  "newAppointment": "Новая запись",
+  "modal": {
+    "title": "Новая запись",
+    "patient": "Пациент *",
+    "patientName": "Имя",
+    "patientSurname": "Фамилия",
+    "namePlaceholder": "Поиск по имени",
+    "surnamePlaceholder": "Поиск по фамилии",
+    "selectPlaceholder": "Выберите пациента",
+    "noPatients": "Пациенты не найдены",
+    "patientsFound": "Найдено пациентов: {{count}}"
+  },
+  "startDate": "Дата начала *",
+  "endDate": "Дата окончания",
+  "endDateError": "Дата окончания не может быть раньше даты начала",
+  "discountFee": "Сумма скидки",
+  "discountPlaceholder": "Введите сумму скидки",
+  "creating": "Создается...",
+  "create": "Создать запись",
+  "cancel": "Отмена",
+  "createError": "Не удалось создать запись"
+}

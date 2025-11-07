@@ -1,0 +1,31 @@
+{
+  "title": "Müalicələr",
+  "searchLabel": "Müalicənin adı",
+  "searchPlaceholder": "Müalicə adına görə axtar",
+  "search": "Axtar",
+  "clear": "Təmizlə",
+  "table": {
+    "name": "Ad",
+    "description": "Təsvir",
+    "price": "Qiymət"
+  },
+  "loading": "Müalicələr yüklənir...",
+  "empty": "Müalicə tapılmadı",
+  "edit": "Redaktə et",
+  "addNew": "Yeni müalicə əlavə et",
+  "addTitle": "Yeni müalicə əlavə et",
+  "editTitle": "Müalicəni redaktə et",
+  "form": {
+    "name": "Ad *",
+    "description": "Təsvir *",
+    "price": "Qiymət *",
+    "namePlaceholder": "Müalicənin adını daxil edin",
+    "descriptionPlaceholder": "Təsviri daxil edin",
+    "pricePlaceholder": "Qiyməti daxil edin"
+  },
+  "adding": "Əlavə olunur...",
+  "add": "Müalicə əlavə et",
+  "updating": "Yenilənir...",
+  "update": "Müalicəni yenilə",
+  "cancel": "Ləğv et"
+}

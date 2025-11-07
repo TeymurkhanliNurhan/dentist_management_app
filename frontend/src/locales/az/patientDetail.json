@@ -1,0 +1,21 @@
+{
+  "loading": "Xəstə məlumatları yüklənir...",
+  "back": "Xəstələrə qayıt",
+  "notFound": "Xəstə tapılmadı",
+  "fetchError": "Xəstə məlumatları alınmadı",
+  "edit": "Redaktə et",
+  "patientInfo": "Xəstə məlumatı",
+  "fullName": "Tam adı",
+  "birthDate": "Doğum tarixi",
+  "teethDiagram": "Diş diaqramı",
+  "editTitle": "Xəstəni redaktə et",
+  "form": {
+    "name": "Ad *",
+    "surname": "Soyad *",
+    "birthDate": "Doğum tarixi *"
+  },
+  "updating": "Yenilənir...",
+  "update": "Xəstəni yenilə",
+  "cancel": "Ləğv et",
+  "updateError": "Xəstə yenilənmədi"
+}

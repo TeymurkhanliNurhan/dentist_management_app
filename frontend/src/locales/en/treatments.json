@@ -1,0 +1,31 @@
+{
+  "title": "Treatments",
+  "searchLabel": "Treatment Name",
+  "searchPlaceholder": "Search by treatment name",
+  "search": "Search",
+  "clear": "Clear",
+  "table": {
+    "name": "Name",
+    "description": "Description",
+    "price": "Price"
+  },
+  "loading": "Loading treatments...",
+  "empty": "No treatments found",
+  "edit": "Edit",
+  "addNew": "Add New Treatment",
+  "addTitle": "Add New Treatment",
+  "editTitle": "Edit Treatment",
+  "form": {
+    "name": "Name *",
+    "description": "Description *",
+    "price": "Price *",
+    "namePlaceholder": "Enter treatment name",
+    "descriptionPlaceholder": "Enter description",
+    "pricePlaceholder": "Enter price"
+  },
+  "adding": "Adding...",
+  "add": "Add Treatment",
+  "updating": "Updating...",
+  "update": "Update Treatment",
+  "cancel": "Cancel"
+}
