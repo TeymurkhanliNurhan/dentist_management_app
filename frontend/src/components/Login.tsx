@@ -1,11 +1,32 @@
-import { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, ChevronLeft, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Mail, Lock, Eye, EyeOff, ChevronLeft, ArrowLeft, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { authService } from '../services/api';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation('login');
   const [showPassword, setShowPassword] = useState(false);
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const languageMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close language menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (languageMenuRef.current && !languageMenuRef.current.contains(event.target as Node)) {
+        setShowLanguageMenu(false);
+      }
+    };
+
+    if (showLanguageMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showLanguageMenu]);
   const [formData, setFormData] = useState({
     gmail: '',
     password: '',
@@ -35,7 +56,7 @@ const Login = () => {
       localStorage.setItem('dentistId', data.dentistId.toString());
       
       
-      setSuccess('Login successful! Redirecting...');
+      setSuccess(t('loginSuccessful'));
       
       
       setTimeout(() => {
@@ -44,9 +65,9 @@ const Login = () => {
     } catch (err: any) {
       console.error('Login error:', err);
       if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
-        setError('Cannot connect to server. Please make sure the backend is running on http://localhost:3000. The API endpoints are at /Auth/SignIn (not /api/Auth/SignIn).');
+        setError(t('networkError'));
       } else {
-        setError(err.response?.data?.message || err.message || 'Invalid credentials');
+        setError(err.response?.data?.message || err.message || t('invalidCredentials'));
       }
     } finally {
       setIsLoading(false);
@@ -68,11 +89,11 @@ const Login = () => {
 
     try {
       await authService.forgotPassword(forgotPasswordData.email);
-      setSuccess('Reset code has been sent to your email.');
+      setSuccess(t('codeSent'));
       setForgotPasswordStep('code');
     } catch (err: any) {
       console.error('Forgot password error:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to send reset code');
+      setError(err.response?.data?.message || err.message || t('failedToSend'));
     } finally {
       setIsForgotPasswordLoading(false);
     }
@@ -87,14 +108,14 @@ const Login = () => {
     try {
       const result = await authService.verifyResetCode(forgotPasswordData.email, forgotPasswordData.code);
       if (result.valid) {
-        setSuccess('Code verified successfully!');
+        setSuccess(t('codeVerified'));
         setForgotPasswordStep('password');
       } else {
-        setError('Invalid verification code');
+        setError(t('invalidCode'));
       }
     } catch (err: any) {
       console.error('Verify code error:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to verify code');
+      setError(err.response?.data?.message || err.message || t('failedToVerify'));
     } finally {
       setIsForgotPasswordLoading(false);
     }
@@ -107,13 +128,13 @@ const Login = () => {
     setSuccess('');
 
     if (forgotPasswordData.newPassword !== forgotPasswordData.confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('passwordsNotMatch'));
       setIsForgotPasswordLoading(false);
       return;
     }
 
     if (forgotPasswordData.newPassword.length < 6) {
-      setError('Password must be at least 6 characters long');
+      setError(t('passwordTooShort'));
       setIsForgotPasswordLoading(false);
       return;
     }
@@ -125,7 +146,7 @@ const Login = () => {
         forgotPasswordData.confirmPassword
       );
       if (result.success) {
-        setSuccess('Password reset successful! Redirecting to login...');
+        setSuccess(t('passwordReset'));
         setTimeout(() => {
           setShowForgotPassword(false);
           setForgotPasswordStep('email');
@@ -137,11 +158,11 @@ const Login = () => {
           });
         }, 2000);
       } else {
-        setError(result.message || 'Failed to reset password');
+        setError(result.message || t('failedToReset'));
       }
     } catch (err: any) {
       console.error('Reset password error:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to reset password');
+      setError(err.response?.data?.message || err.message || t('failedToReset'));
     } finally {
       setIsForgotPasswordLoading(false);
     }
@@ -159,6 +180,53 @@ const Login = () => {
       <div className="absolute inset-0 bg-black/15 backdrop-blur-sm"></div>
       <div className="w-full max-w-md relative py-8 px-6 bg-white/60 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/40">
         
+        {/* Language Switcher */}
+        <div className="absolute top-4 right-4 relative" style={{ zIndex: 20 }} ref={languageMenuRef}>
+          <button
+            onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+            className="p-2 rounded-lg bg-white/80 hover:bg-white transition-colors shadow-sm"
+            aria-label="Change language"
+          >
+            <Globe className="w-5 h-5 text-gray-700" />
+          </button>
+          {showLanguageMenu && (
+            <div className="absolute top-12 right-0 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[120px]">
+              <button
+                onClick={() => {
+                  i18n.changeLanguage('en');
+                  setShowLanguageMenu(false);
+                }}
+                className={`w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors ${
+                  i18n.language === 'en' ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-gray-700'
+                }`}
+              >
+                English
+              </button>
+              <button
+                onClick={() => {
+                  i18n.changeLanguage('az');
+                  setShowLanguageMenu(false);
+                }}
+                className={`w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors ${
+                  i18n.language === 'az' ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-gray-700'
+                }`}
+              >
+                Azərbaycan
+              </button>
+              <button
+                onClick={() => {
+                  i18n.changeLanguage('ru');
+                  setShowLanguageMenu(false);
+                }}
+                className={`w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors ${
+                  i18n.language === 'ru' ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-gray-700'
+                }`}
+              >
+                Русский
+              </button>
+            </div>
+          )}
+        </div>
         
         <button
           onClick={() => navigate(-1)}
@@ -170,9 +238,9 @@ const Login = () => {
 
         
         <div className="mb-8 relative" style={{ zIndex: 10 }}>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Log In</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('title')}</h1>
           <p className="text-gray-700 text-sm">
-            Log in to your account and start tracking your appointments.
+            {t('subtitle')}
           </p>
         </div>
 
@@ -206,7 +274,7 @@ const Login = () => {
                 onChange={handleChange}
                 required
                 className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all"
-                placeholder="Email"
+                placeholder={t('email')}
               />
             </div>
           </div>
@@ -225,7 +293,7 @@ const Login = () => {
                 onChange={handleChange}
                 required
                 className="w-full pl-10 pr-12 py-3 bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all"
-                placeholder="Password"
+                placeholder={t('password')}
               />
               <button
                 type="button"
@@ -248,7 +316,7 @@ const Login = () => {
               onClick={() => setShowForgotPassword(true)}
               className="text-sm text-teal-600 hover:text-teal-700 transition-colors"
             >
-              Forgot password?
+              {t('forgotPassword')}
             </button>
           </div>
 
@@ -258,19 +326,19 @@ const Login = () => {
             disabled={isLoading}
             className="w-full py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Logging in...' : 'Log In'}
+            {isLoading ? t('loggingIn') : t('loginButton')}
           </button>
         </form>
 
         
         <div className="mt-6 text-center relative" style={{ zIndex: 10 }}>
           <p className="text-gray-600 text-sm">
-            Don't have an account?{' '}
+            {t('noAccount')}{' '}
             <button
               onClick={() => navigate('/signup')}
               className="text-teal-600 font-semibold hover:text-teal-700 hover:underline transition-colors"
             >
-              Sign Up
+              {t('signUp')}
             </button>
           </p>
         </div>
@@ -298,11 +366,11 @@ const Login = () => {
             </button>
 
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Reset Password</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('resetPassword')}</h1>
               <p className="text-gray-700 text-sm">
-                {forgotPasswordStep === 'email' && 'Enter your email address to receive a reset code.'}
-                {forgotPasswordStep === 'code' && 'Enter the verification code sent to your email.'}
-                {forgotPasswordStep === 'password' && 'Enter your new password.'}
+                {forgotPasswordStep === 'email' && t('enterEmail')}
+                {forgotPasswordStep === 'code' && t('enterCode')}
+                {forgotPasswordStep === 'password' && t('enterNewPassword')}
               </p>
             </div>
 
@@ -331,7 +399,7 @@ const Login = () => {
                       value={forgotPasswordData.email}
                       onChange={(e) => setForgotPasswordData({ ...forgotPasswordData, email: e.target.value })}
                       className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all"
-                      placeholder="Email"
+                      placeholder={t('email')}
                     />
                   </div>
                 </div>
@@ -341,7 +409,7 @@ const Login = () => {
                   disabled={isForgotPasswordLoading}
                   className="w-full py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isForgotPasswordLoading ? 'Sending...' : 'Send Verification Code'}
+                  {isForgotPasswordLoading ? t('sending') : t('sendCode')}
                 </button>
               </form>
             )}
@@ -350,7 +418,7 @@ const Login = () => {
               <form onSubmit={handleVerifyResetCode} className="space-y-5">
                 <div>
                   <label htmlFor="resetCode" className="block text-sm font-medium text-gray-700 mb-2">
-                    Verification Code
+                    {t('verifyCode')}
                   </label>
                   <input
                     type="text"
@@ -372,7 +440,7 @@ const Login = () => {
                   disabled={isForgotPasswordLoading || forgotPasswordData.code.length !== 7}
                   className="w-full py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isForgotPasswordLoading ? 'Verifying...' : 'Verify Code'}
+                  {isForgotPasswordLoading ? t('verifying') : t('verifyCode')}
                 </button>
               </form>
             )}
@@ -391,7 +459,7 @@ const Login = () => {
                       value={forgotPasswordData.newPassword}
                       onChange={(e) => setForgotPasswordData({ ...forgotPasswordData, newPassword: e.target.value })}
                       className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all"
-                      placeholder="New Password"
+                      placeholder={t('newPassword')}
                     />
                   </div>
                 </div>
@@ -408,7 +476,7 @@ const Login = () => {
                       value={forgotPasswordData.confirmPassword}
                       onChange={(e) => setForgotPasswordData({ ...forgotPasswordData, confirmPassword: e.target.value })}
                       className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all"
-                      placeholder="Confirm Password"
+                      placeholder={t('confirmPassword')}
                     />
                   </div>
                 </div>
@@ -418,7 +486,7 @@ const Login = () => {
                   disabled={isForgotPasswordLoading}
                   className="w-full py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isForgotPasswordLoading ? 'Resetting...' : 'Reset Password'}
+                  {isForgotPasswordLoading ? t('resetting') : t('resetPasswordButton')}
                 </button>
               </form>
             )}
