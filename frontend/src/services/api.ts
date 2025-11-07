@@ -73,6 +73,14 @@ export const dentistService = {
     const response = await api.get(`/dentist/${id}`);
     return response.data;
   },
+  update: async (data: { name?: string; surname?: string; birthDate?: string }) => {
+    const response = await api.patch(`/dentist`, data);
+    return response.data;
+  },
+  updatePassword: async (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
+    const response = await api.patch(`/dentist/password`, data);
+    return response.data;
+  },
 };
 
 export interface Patient {

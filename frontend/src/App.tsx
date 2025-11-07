@@ -11,6 +11,7 @@ import ToothDetail from './components/ToothDetail';
 import Medicines from './components/Medicines';
 import Treatments from './components/Treatments';
 import Contact from './components/Contact';
+import Settings from './components/Settings';
 import './App.css';
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
         <Route path="/medicines" element={<Medicines />} />
         <Route path="/treatments" element={<Treatments />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </Router>
   );
