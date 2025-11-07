@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { DentistService } from './dentist.service';
 import { LogWriter } from '../log-writer';
 import { UpdateDentistDto } from './dto/update-dentist.dto';
+import { UpdatePasswordDto } from './dto/update-password.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 
 @ApiTags('dentist')
@@ -30,5 +31,14 @@ export class DentistController {
     update(@Request() req: any, @Body() updateDentistDto: UpdateDentistDto) {
         const dentistId = req.user.userId;
         return this.dentistService.update(dentistId, updateDentistDto);
+    }
+
+    @Patch('password')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Update dentist password' })
+    @ApiBearerAuth('bearer')
+    updatePassword(@Request() req: any, @Body() updatePasswordDto: UpdatePasswordDto) {
+        const dentistId = req.user.userId;
+        return this.dentistService.updatePassword(dentistId, updatePasswordDto);
     }
 }
