@@ -13,6 +13,7 @@ import { AppointmentModule } from './appointment/appointment.module';
 import { AuthModule } from './auth/auth.module';
 import { MedicineModule } from './medicine/medicine.module';
 import { ToothTreatmentMedicineModule } from './tooth_treatment_medicine/tooth_treatment_medicine.module';
+import { ContactModule } from './contact/contact.module';
 import { ToothTranslation } from './tooth/entities/tooth_translation.entity';
 import { Dentist } from './dentist/entities/dentist.entity';
 import { Patient } from './patient/entities/patient.entity';
@@ -126,6 +127,7 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
     MedicineModule,
     ToothTreatmentMedicineModule,
     AuthModule,
+    ContactModule,
   ],
   controllers: [AppController],
   providers: [AppService],
