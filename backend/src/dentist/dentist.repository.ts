@@ -21,6 +21,20 @@ export class DentistRepository {
 		const repository = this.dataSource.getRepository(Dentist);
 		return repository.findOne({ where: { id } });
 	}
+
+	async update(id: number, updates: Partial<Dentist>): Promise<Dentist> {
+		this.logger.debug(`update called with id ${id}`);
+		LogWriter.append('debug', DentistRepository.name, `update called with id ${id}`);
+		const repository = this.dataSource.getRepository(Dentist);
+		await repository.update(id, updates);
+		const updated = await repository.findOne({ where: { id } });
+		if (!updated) {
+			throw new Error(`Dentist with id ${id} not found after update`);
+		}
+		this.logger.log(`Dentist with id ${id} updated`);
+		LogWriter.append('log', DentistRepository.name, `Dentist with id ${id} updated`);
+		return updated;
+	}
 }
 
 
