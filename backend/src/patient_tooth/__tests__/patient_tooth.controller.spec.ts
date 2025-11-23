@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PatientToothController } from './patient_tooth.controller';
+import { PatientToothController } from '../patient_tooth.controller';
 
 describe('PatientToothController', () => {
   let controller: PatientToothController;
@@ -16,3 +16,4 @@ describe('PatientToothController', () => {
     expect(controller).toBeDefined();
   });
 });
+

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Mail, FileImage, X, Send, Upload, Phone } from 'lucide-react';
+import { Mail, X, Send, Upload, Phone } from 'lucide-react';
 import Header from './Header';
 
 const Contact = () => {

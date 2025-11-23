@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DentistService } from './dentist.service';
+import { DentistService } from '../dentist.service';
 
 describe('DentistService', () => {
   let service: DentistService;
@@ -16,3 +16,4 @@ describe('DentistService', () => {
     expect(service).toBeDefined();
   });
 });
+
