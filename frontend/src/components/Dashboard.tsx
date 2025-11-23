@@ -1,10 +1,36 @@
+import { useState, useEffect } from 'react';
 import Header from './Header';
+import PaymentRequired from './PaymentRequired';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { subscriptionService } from '../services/api';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('dashboard');
+  const [subscriptionActive, setSubscriptionActive] = useState<boolean | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkSubscription = async () => {
+      try {
+        console.log('Checking subscription status...');
+        const status = await subscriptionService.getStatus();
+        console.log('Subscription status received:', status);
+        console.log('Subscription active:', status.active);
+        setSubscriptionActive(status.active);
+      } catch (error: any) {
+        console.error('Failed to check subscription:', error);
+        console.error('Error details:', error.response?.data || error.message);
+        // If error, assume inactive to be safe
+        setSubscriptionActive(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkSubscription();
+  }, []);
 
   const services = [
     {
@@ -28,6 +54,22 @@ const Dashboard = () => {
       path: '/medicines',
     },
   ];
+
+  // Show payment required page if subscription is inactive
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!subscriptionActive) {
+    return <PaymentRequired />;
+  }
 
   return (
     <div className="min-h-screen bg-blue-50">

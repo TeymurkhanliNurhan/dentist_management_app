@@ -15,6 +15,7 @@ import enPatientDetail from '../locales/en/patientDetail.json';
 import enTeethDiagram from '../locales/en/teethDiagram.json';
 import enToothDetail from '../locales/en/toothDetail.json';
 import enAppointments from '../locales/en/appointments.json';
+import enSubscription from '../locales/en/subscription.json';
 import azLogin from '../locales/az/login.json';
 import azSignup from '../locales/az/signup.json';
 import azCommon from '../locales/az/common.json';
@@ -27,6 +28,7 @@ import azPatientDetail from '../locales/az/patientDetail.json';
 import azTeethDiagram from '../locales/az/teethDiagram.json';
 import azToothDetail from '../locales/az/toothDetail.json';
 import azAppointments from '../locales/az/appointments.json';
+import azSubscription from '../locales/az/subscription.json';
 import ruLogin from '../locales/ru/login.json';
 import ruSignup from '../locales/ru/signup.json';
 import ruCommon from '../locales/ru/common.json';
@@ -39,6 +41,7 @@ import ruPatientDetail from '../locales/ru/patientDetail.json';
 import ruTeethDiagram from '../locales/ru/teethDiagram.json';
 import ruToothDetail from '../locales/ru/toothDetail.json';
 import ruAppointments from '../locales/ru/appointments.json';
+import ruSubscription from '../locales/ru/subscription.json';
 
 i18n
   .use(LanguageDetector)
@@ -63,6 +66,7 @@ i18n
         teethDiagram: enTeethDiagram,
         toothDetail: enToothDetail,
         appointments: enAppointments,
+        subscription: enSubscription,
       },
       az: {
         login: azLogin,
@@ -77,6 +81,7 @@ i18n
         teethDiagram: azTeethDiagram,
         toothDetail: azToothDetail,
         appointments: azAppointments,
+        subscription: azSubscription,
       },
       ru: {
         login: ruLogin,
@@ -91,6 +96,7 @@ i18n
         teethDiagram: ruTeethDiagram,
         toothDetail: ruToothDetail,
         appointments: ruAppointments,
+        subscription: ruSubscription,
       },
     },
     detection: {

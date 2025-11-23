@@ -33,6 +33,16 @@ export class Dentist {
     @Column({type: 'timestamp', nullable: true})
     verificationCodeExpiry: Date | null;
 
+    // Subscription fields
+    @Column({type: 'boolean', default: true})
+    active: boolean;
+
+    @Column({type: 'timestamp', default: () => 'CURRENT_TIMESTAMP'})
+    created_date: Date;
+
+    @Column({type: 'timestamp', nullable: true})
+    last_payment_date: Date | null;
+
     @OneToMany(()=> Patient, (patient)=> patient.dentist)
     patients: Patient[];
 

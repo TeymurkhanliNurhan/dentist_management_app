@@ -51,6 +51,10 @@ export class AuthService {
       isEmailVerified: false,
       verificationCode,
       verificationCodeExpiry,
+      // Subscription fields: new dentists get first month free
+      active: true,
+      created_date: new Date(),
+      last_payment_date: null,
     });
 
     try {

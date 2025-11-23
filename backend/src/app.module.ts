@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DentistModule } from './dentist/dentist.module';
@@ -14,6 +15,7 @@ import { AuthModule } from './auth/auth.module';
 import { MedicineModule } from './medicine/medicine.module';
 import { ToothTreatmentMedicineModule } from './tooth_treatment_medicine/tooth_treatment_medicine.module';
 import { ContactModule } from './contact/contact.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 import { ToothTranslation } from './tooth/entities/tooth_translation.entity';
 import { Dentist } from './dentist/entities/dentist.entity';
 import { Patient } from './patient/entities/patient.entity';
@@ -28,6 +30,7 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       useFactory: () => {
         const databaseUrl = process.env.DATABASE_URL;
@@ -128,6 +131,7 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
     ToothTreatmentMedicineModule,
     AuthModule,
     ContactModule,
+    SubscriptionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

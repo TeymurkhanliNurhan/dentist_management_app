@@ -12,6 +12,8 @@ import Medicines from './components/Medicines';
 import Treatments from './components/Treatments';
 import Contact from './components/Contact';
 import Settings from './components/Settings';
+import ProtectedRoute from './components/ProtectedRoute';
+import PaymentRequired from './components/PaymentRequired';
 import './App.css';
 
 function App() {
@@ -21,17 +23,19 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/main" element={<MainBoard />} />
-        <Route path="/appointments" element={<Appointments />} />
-        <Route path="/appointments/:id" element={<AppointmentDetail />} />
-        <Route path="/patients" element={<Patients />} />
-        <Route path="/patients/:id" element={<PatientDetail />} />
-        <Route path="/patients/:patientId/teeth/:toothId" element={<ToothDetail />} />
-        <Route path="/medicines" element={<Medicines />} />
-        <Route path="/treatments" element={<Treatments />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/main" element={<ProtectedRoute><MainBoard /></ProtectedRoute>} />
+        <Route path="/appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
+        <Route path="/appointments/:id" element={<ProtectedRoute><AppointmentDetail /></ProtectedRoute>} />
+        <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
+        <Route path="/patients/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
+        <Route path="/patients/:patientId/teeth/:toothId" element={<ProtectedRoute><ToothDetail /></ProtectedRoute>} />
+        <Route path="/medicines" element={<ProtectedRoute><Medicines /></ProtectedRoute>} />
+        <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
+        <Route path="/contact" element={<ProtectedRoute><Contact /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/subscription/success" element={<ProtectedRoute><PaymentRequired /></ProtectedRoute>} />
+        <Route path="/subscription/cancel" element={<ProtectedRoute><PaymentRequired /></ProtectedRoute>} />
       </Routes>
     </Router>
   );

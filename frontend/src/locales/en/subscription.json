@@ -1,0 +1,11 @@
+{
+  "paymentRequired": "Payment Required",
+  "paymentMessage": "You have to make payment to use the app",
+  "createPayment": "Pay Now",
+  "processingPayment": "Processing payment...",
+  "paymentSuccess": "Payment successful! Your subscription has been activated.",
+  "paymentError": "Payment failed. Please try again.",
+  "redirectingPayPal": "Redirecting to PayPal...",
+  "monthlyFee": "Monthly Subscription Fee: $1.00 USD"
+}
+

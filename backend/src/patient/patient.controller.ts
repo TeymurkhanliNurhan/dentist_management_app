@@ -6,15 +6,16 @@ import { UpdatePatientDto } from './dto/update-patient.dto';
 import { GetPatientDto } from './dto/get-patient.dto';
 import { PatientUpdateResponseDto } from './dto/patient-update-response.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
+import { SubscriptionGuard } from '../subscription/guards/subscription.guard';
 import { User } from '../auth/decorators/user.decorator';
 
 @ApiTags('patient')
 @Controller('patient')
+@UseGuards(JwtAuthGuard, SubscriptionGuard) // Protect all patient routes with subscription guard
 export class PatientController {
     constructor(private readonly patientService: PatientService) {}
 
     @ApiBearerAuth('bearer')
-    @UseGuards(JwtAuthGuard)
     @Get()
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Get patients with optional filters' })
@@ -25,7 +26,6 @@ export class PatientController {
     }
 
     @ApiBearerAuth('bearer')
-    @UseGuards(JwtAuthGuard)
     @Post()
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Create patient' })
@@ -36,7 +36,6 @@ export class PatientController {
     }
 
     @ApiBearerAuth('bearer')
-    @UseGuards(JwtAuthGuard)
     @Patch(':id')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Update patient by id' })

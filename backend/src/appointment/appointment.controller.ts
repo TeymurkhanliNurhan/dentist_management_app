@@ -5,15 +5,16 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { GetAppointmentDto } from './dto/get-appointment.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
+import { SubscriptionGuard } from '../subscription/guards/subscription.guard';
 import { User } from '../auth/decorators/user.decorator';
 
 @ApiTags('appointment')
 @Controller('appointment')
+@UseGuards(JwtAuthGuard, SubscriptionGuard) // Protect all appointment routes with subscription guard
 export class AppointmentController {
   constructor(private readonly service: AppointmentService) {}
 
   @ApiBearerAuth('bearer')
-  @UseGuards(JwtAuthGuard)
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get appointments with optional filters' })
@@ -24,7 +25,6 @@ export class AppointmentController {
   }
 
   @ApiBearerAuth('bearer')
-  @UseGuards(JwtAuthGuard)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create appointment' })
@@ -35,7 +35,6 @@ export class AppointmentController {
   }
 
   @ApiBearerAuth('bearer')
-  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update appointment by id' })
@@ -50,7 +49,6 @@ export class AppointmentController {
   }
 
   @ApiBearerAuth('bearer')
-  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete appointment by id' })

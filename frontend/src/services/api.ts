@@ -415,4 +415,28 @@ export const appointmentService = {
   },
 };
 
+export interface SubscriptionStatus {
+  active: boolean;
+  createdDate: string;
+  lastPaymentDate: string | null;
+  freeMonthEnd: string;
+  isInFreeMonth: boolean;
+  daysUntilExpiry: number | null;
+}
+
+export const subscriptionService = {
+  getStatus: async (): Promise<SubscriptionStatus> => {
+    const response = await api.get<SubscriptionStatus>('/subscription/status');
+    return response.data;
+  },
+  createOrder: async (): Promise<{ orderId: string; approvalUrl: string }> => {
+    const response = await api.post<{ orderId: string; approvalUrl: string }>('/subscription/create');
+    return response.data;
+  },
+  capturePayment: async (orderId: string): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>('/subscription/capture', { orderId });
+    return response.data;
+  },
+};
+
 export default api;

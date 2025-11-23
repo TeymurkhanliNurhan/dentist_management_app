@@ -52,7 +52,7 @@ services:
       dockerfile: Dockerfile
     container_name: dentist_frontend
     ports:
-      - "80:80"
+      - "5175:80"
     depends_on:
       - backend
     networks:

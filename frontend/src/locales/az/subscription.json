@@ -1,0 +1,11 @@
+{
+  "paymentRequired": "Ödəniş Tələb Olunur",
+  "paymentMessage": "Tətbiqdən istifadə etmək üçün ödəniş etməlisiniz",
+  "createPayment": "İndi Ödə",
+  "processingPayment": "Ödəniş emal olunur...",
+  "paymentSuccess": "Ödəniş uğurlu oldu! Abunəliyiniz aktivləşdirildi.",
+  "paymentError": "Ödəniş uğursuz oldu. Zəhmət olmasa yenidən cəhd edin.",
+  "redirectingPayPal": "PayPal-a yönləndirilir...",
+  "monthlyFee": "Aylıq Abunəlik: $1.00 USD"
+}
+
