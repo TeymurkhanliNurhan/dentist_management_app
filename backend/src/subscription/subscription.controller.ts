@@ -2,18 +2,13 @@ import { Controller, Post, Body, UseGuards, Request, Get, Logger } from '@nestjs
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { PayPalService } from '../paypal/paypal.service';
+import { StripeService } from '../stripe/stripe.service';
 import { SubscriptionService } from './subscription.service';
 import { CapturePaymentDto } from './dto/capture-payment.dto';
+import { CaptureStripePaymentDto } from './dto/capture-stripe-payment.dto';
+import { CreatePaymentDto, PaymentMethod } from './dto/create-payment.dto';
 import { LogWriter } from '../log-writer';
 
-/**
- * Subscription Controller
- * 
- * Handles subscription-related endpoints:
- * - POST /subscription/create - Creates a PayPal order for payment
- * - POST /subscription/capture - Captures payment and activates subscription
- * - GET /subscription/status - Gets current subscription status
- */
 @ApiTags('subscription')
 @Controller('subscription')
 @UseGuards(JwtAuthGuard)
@@ -23,6 +18,7 @@ export class SubscriptionController {
 
   constructor(
     private readonly paypalService: PayPalService,
+    private readonly stripeService: StripeService,
     private readonly subscriptionService: SubscriptionService,
   ) {
     const msg = 'SubscriptionController initialized';
@@ -30,54 +26,47 @@ export class SubscriptionController {
     LogWriter.append('debug', SubscriptionController.name, msg);
   }
 
-  /**
-   * Create a PayPal order for subscription payment
-   * 
-   * This endpoint creates a $1 USD payment order in PayPal.
-   * The frontend should redirect the user to the returned approvalUrl
-   * to complete the payment.
-   * 
-   * @param req - Request object containing authenticated user
-   * @returns PayPal order ID and approval URL
-   */
   @Post('create')
-  @ApiOperation({ summary: 'Create PayPal order for subscription payment' })
+  @ApiOperation({ summary: 'Create payment order for subscription (PayPal or Stripe)' })
   @ApiResponse({
     status: 201,
-    description: 'PayPal order created successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        orderId: { type: 'string', example: '5O190127TN364715T' },
-        approvalUrl: { type: 'string', example: 'https://www.sandbox.paypal.com/checkoutnow?token=...' },
-      },
-    },
+    description: 'Payment order created successfully',
   })
-  async createOrder(@Request() req: any): Promise<{ orderId: string; approvalUrl: string }> {
+  async createOrder(
+    @Body() createPaymentDto: CreatePaymentDto,
+    @Request() req: any,
+  ): Promise<{ orderId?: string; approvalUrl?: string; clientSecret?: string; paymentIntentId?: string; publishableKey?: string }> {
     const dentistId = req.user.userId;
-    this.logger.log(`Creating PayPal order for dentist ${dentistId}`);
+    const paymentMethod = createPaymentDto.paymentMethod || PaymentMethod.PAYPAL;
+    this.logger.log(`Creating ${paymentMethod} order for dentist ${dentistId}`);
 
     try {
-      const result = await this.paypalService.createOrder();
-      LogWriter.append('log', SubscriptionController.name, `PayPal order created for dentist ${dentistId}: ${result.orderId}`);
-      return result;
+      if (paymentMethod === PaymentMethod.PAYPAL) {
+        const result = await this.paypalService.createOrder();
+        LogWriter.append('log', SubscriptionController.name, `PayPal order created for dentist ${dentistId}: ${result.orderId}`);
+        return {
+          orderId: result.orderId,
+          approvalUrl: result.approvalUrl,
+        };
+      } else if (paymentMethod === PaymentMethod.STRIPE) {
+        const result = await this.stripeService.createPaymentIntent();
+        const publishableKey = this.stripeService.getPublishableKey();
+        LogWriter.append('log', SubscriptionController.name, `Stripe payment intent created for dentist ${dentistId}: ${result.paymentIntentId}`);
+        return {
+          clientSecret: result.clientSecret,
+          paymentIntentId: result.paymentIntentId,
+          publishableKey,
+        };
+      } else {
+        throw new Error('Invalid payment method');
+      }
     } catch (error) {
-      this.logger.error(`Failed to create PayPal order for dentist ${dentistId}: ${error.message}`);
-      LogWriter.append('error', SubscriptionController.name, `Failed to create PayPal order: ${error.message}`);
+      this.logger.error(`Failed to create ${paymentMethod} order for dentist ${dentistId}: ${error.message}`);
+      LogWriter.append('error', SubscriptionController.name, `Failed to create payment order: ${error.message}`);
       throw error;
     }
   }
 
-  /**
-   * Capture a PayPal payment and activate subscription
-   * 
-   * This endpoint should be called after the user approves the payment on PayPal.
-   * It captures the payment and updates the dentist's subscription status.
-   * 
-   * @param captureDto - Contains the PayPal order ID
-   * @param req - Request object containing authenticated user
-   * @returns Success message
-   */
   @Post('capture')
   @ApiOperation({ summary: 'Capture PayPal payment and activate subscription' })
   @ApiResponse({
@@ -110,7 +99,6 @@ export class SubscriptionController {
         throw new Error('Payment capture failed. Please try again.');
       }
 
-      // Activate subscription after successful payment
       await this.subscriptionService.activateSubscription(dentistId);
       
       this.logger.log(`Payment captured and subscription activated for dentist ${dentistId}`);
@@ -126,19 +114,53 @@ export class SubscriptionController {
     }
   }
 
-  /**
-   * Get current subscription status
-   * 
-   * Returns detailed information about the dentist's subscription:
-   * - Whether subscription is active
-   * - Created date
-   * - Last payment date
-   * - Free month status
-   * - Days until expiry
-   * 
-   * @param req - Request object containing authenticated user
-   * @returns Subscription details
-   */
+  @Post('capture-stripe')
+  @ApiOperation({ summary: 'Confirm Stripe payment and activate subscription' })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment confirmed and subscription activated',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Payment successful. Subscription activated.' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Payment confirmation failed',
+  })
+  async captureStripePayment(
+    @Body() captureDto: CaptureStripePaymentDto,
+    @Request() req: any,
+  ): Promise<{ message: string }> {
+    const dentistId = req.user.userId;
+    this.logger.log(`Confirming Stripe payment for dentist ${dentistId}, payment intent: ${captureDto.paymentIntentId}`);
+
+    try {
+      const confirmResult = await this.stripeService.confirmPayment(captureDto.paymentIntentId);
+
+      if (!confirmResult.success) {
+        this.logger.warn(`Payment confirmation failed for dentist ${dentistId}, payment intent: ${captureDto.paymentIntentId}`);
+        LogWriter.append('warn', SubscriptionController.name, `Payment confirmation failed for dentist ${dentistId}`);
+        throw new Error('Payment confirmation failed. Please try again.');
+      }
+
+      await this.subscriptionService.activateSubscription(dentistId);
+      
+      this.logger.log(`Payment confirmed and subscription activated for dentist ${dentistId}`);
+      LogWriter.append('log', SubscriptionController.name, `Stripe payment successful for dentist ${dentistId}`);
+
+      return {
+        message: 'Payment successful. Subscription activated.',
+      };
+    } catch (error) {
+      this.logger.error(`Error confirming Stripe payment for dentist ${dentistId}: ${error.message}`);
+      LogWriter.append('error', SubscriptionController.name, `Error confirming Stripe payment: ${error.message}`);
+      throw error;
+    }
+  }
+
   @Get('status')
   @ApiOperation({ summary: 'Get current subscription status' })
   @ApiResponse({
@@ -157,6 +179,3 @@ export class SubscriptionController {
     }
   }
 }
-
-
-

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { User, Calendar, Edit, X, Save, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { User, Calendar, Edit, X, Save, Lock, Eye, EyeOff, KeyRound, CreditCard } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Header from './Header';
-import { dentistService, authService } from '../services/api';
+import { dentistService, authService, subscriptionService } from '../services/api';
 
 interface Dentist {
   id: number;
@@ -12,7 +13,9 @@ interface Dentist {
 }
 
 const Settings = () => {
+  const navigate = useNavigate();
   const [dentist, setDentist] = useState<Dentist | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -30,7 +33,7 @@ const Settings = () => {
   const [isForgotPasswordLoading, setIsForgotPasswordLoading] = useState(false);
 
   useEffect(() => {
-    const fetchDentistData = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
       setError('');
       try {
@@ -39,22 +42,26 @@ const Settings = () => {
           setError('Dentist ID not found');
           return;
         }
-        const dentistData = await dentistService.getById(parseInt(dentistId));
+        const [dentistData, subscriptionData] = await Promise.all([
+          dentistService.getById(parseInt(dentistId)),
+          subscriptionService.getStatus().catch(() => null),
+        ]);
         setDentist(dentistData);
+        setSubscriptionStatus(subscriptionData);
         setEditFields({
           name: dentistData.name || '',
           surname: dentistData.surname || '',
           birthDate: dentistData.birthDate ? dentistData.birthDate.split('T')[0] : '',
         });
       } catch (err: any) {
-        console.error('Failed to fetch dentist data:', err);
-        setError(err.response?.data?.message || 'Failed to fetch dentist details');
+        console.error('Failed to fetch data:', err);
+        setError(err.response?.data?.message || 'Failed to fetch details');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchDentistData();
+    fetchData();
   }, []);
 
   const handleEdit = () => {
@@ -320,7 +327,7 @@ const Settings = () => {
               </div>
 
               <div className="border-t border-gray-200 pt-6">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center space-x-3">
                     <Lock className="w-5 h-5 text-teal-600" />
                     <div>
@@ -342,6 +349,39 @@ const Settings = () => {
                       <span>Change Password</span>
                     </button>
                   </div>
+                </div>
+              </div>
+
+              {/* Subscription Section */}
+              <div className="border-t border-gray-200 pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <CreditCard className="w-5 h-5 text-teal-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Subscription</p>
+                      <p className={`text-lg font-semibold ${subscriptionStatus?.active ? 'text-green-600' : 'text-red-600'}`}>
+                        {subscriptionStatus?.active ? 'Active' : 'Inactive'}
+                      </p>
+                      {subscriptionStatus && (
+                        <div className="mt-1 text-xs text-gray-500">
+                          {subscriptionStatus.daysUntilExpiry !== null && subscriptionStatus.daysUntilExpiry > 0 ? (
+                            <span>{subscriptionStatus.daysUntilExpiry} days until expiry</span>
+                          ) : subscriptionStatus.isInFreeMonth ? (
+                            <span>Free trial period</span>
+                          ) : (
+                            <span>Expired</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate('/payment')}
+                    className="flex items-center space-x-2 px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>{subscriptionStatus?.active ? 'Extend Subscription' : 'Activate Subscription'}</span>
+                  </button>
                 </div>
               </div>
             </div>

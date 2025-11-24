@@ -34,6 +34,7 @@ function App() {
         <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
         <Route path="/contact" element={<ProtectedRoute><Contact /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/payment" element={<ProtectedRoute><PaymentRequired /></ProtectedRoute>} />
         <Route path="/subscription/success" element={<ProtectedRoute><PaymentRequired /></ProtectedRoute>} />
         <Route path="/subscription/cancel" element={<ProtectedRoute><PaymentRequired /></ProtectedRoute>} />
       </Routes>

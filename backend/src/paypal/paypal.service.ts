@@ -1,15 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-/**
- * PayPal Service
- * 
- * This service handles PayPal payment operations:
- * - Creating orders for payment
- * - Capturing payments after user approval
- * 
- * Uses PayPal REST API v2 for order management.
- */
 @Injectable()
 export class PayPalService {
   private readonly logger = new Logger(PayPalService.name);
@@ -29,12 +20,7 @@ export class PayPalService {
     }
   }
 
-  /**
-   * Get OAuth access token from PayPal
-   * Tokens are cached until expiry to reduce API calls
-   */
   private async getAccessToken(): Promise<string> {
-    // Return cached token if still valid (with 5 minute buffer)
     if (this.accessToken && this.tokenExpiry && new Date() < this.tokenExpiry) {
       return this.accessToken as string;
     }
@@ -58,7 +44,6 @@ export class PayPalService {
 
       const data = await response.json();
       this.accessToken = data.access_token;
-      // Set expiry 5 minutes before actual expiry for safety
       this.tokenExpiry = new Date(Date.now() + (data.expires_in - 300) * 1000);
       
       if (!this.accessToken) {
@@ -72,11 +57,12 @@ export class PayPalService {
     }
   }
 
-  /**
-   * Create a PayPal order for $1 USD subscription payment
-   * Returns the order ID that should be used to redirect user to PayPal
-   */
   async createOrder(): Promise<{ orderId: string; approvalUrl: string }> {
+    if (!this.clientId || !this.clientSecret) {
+      this.logger.error('PayPal credentials not configured');
+      throw new BadRequestException('PayPal is not configured. Please use Stripe for payments or configure PayPal credentials.');
+    }
+
     try {
       const accessToken = await this.getAccessToken();
 
@@ -111,14 +97,28 @@ export class PayPalService {
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        this.logger.error(`Failed to create PayPal order: ${error}`);
-        throw new BadRequestException('Failed to create payment order');
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+        
+        this.logger.error(`Failed to create PayPal order: ${errorText}`);
+        
+        if (errorData.name === 'UNPROCESSABLE_ENTITY') {
+          const issue = errorData.details?.[0]?.issue;
+          if (issue === 'PAYEE_ACCOUNT_RESTRICTED') {
+            throw new BadRequestException('PayPal account is restricted. Please check your PayPal merchant account status or use Stripe instead.');
+          }
+        }
+        
+        throw new BadRequestException(errorData.message || 'Failed to create payment order. Please try again or use Stripe.');
       }
 
       const order = await response.json();
       
-      // Find approval URL from links
       const approvalLink = order.links?.find((link: any) => link.rel === 'approve');
       const approvalUrl = approvalLink?.href || '';
 
@@ -136,10 +136,6 @@ export class PayPalService {
     }
   }
 
-  /**
-   * Capture a PayPal order after user approval
-   * This completes the payment and charges the user
-   */
   async captureOrder(orderId: string): Promise<{ success: boolean; transactionId?: string }> {
     try {
       const accessToken = await this.getAccessToken();
@@ -161,7 +157,6 @@ export class PayPalService {
 
       const capture = await response.json();
       
-      // Check if capture was successful
       if (capture.status === 'COMPLETED') {
         const transactionId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
         this.logger.log(`PayPal order captured successfully: ${orderId}, transaction: ${transactionId}`);
@@ -179,4 +174,3 @@ export class PayPalService {
     }
   }
 }
-

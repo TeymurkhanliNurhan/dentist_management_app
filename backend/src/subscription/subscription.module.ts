@@ -5,21 +5,14 @@ import { SubscriptionController } from './subscription.controller';
 import { SubscriptionService } from './subscription.service';
 import { SubscriptionGuard } from './guards/subscription.guard';
 import { PayPalModule } from '../paypal/paypal.module';
+import { StripeModule } from '../stripe/stripe.module';
 import { Dentist } from '../dentist/entities/dentist.entity';
 
-/**
- * Subscription Module
- * 
- * This module handles subscription management:
- * - PayPal payment integration
- * - Subscription validation
- * - Automatic deactivation of expired subscriptions (cron job)
- * - Route protection for inactive subscriptions
- */
 @Module({
   imports: [
     TypeOrmModule.forFeature([Dentist]),
     PayPalModule,
+    StripeModule,
     ScheduleModule,
   ],
   controllers: [SubscriptionController],
@@ -27,4 +20,3 @@ import { Dentist } from '../dentist/entities/dentist.entity';
   exports: [SubscriptionService, SubscriptionGuard],
 })
 export class SubscriptionModule {}
-

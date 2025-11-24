@@ -424,17 +424,29 @@ export interface SubscriptionStatus {
   daysUntilExpiry: number | null;
 }
 
+export type PaymentMethod = 'paypal' | 'stripe';
+
 export const subscriptionService = {
   getStatus: async (): Promise<SubscriptionStatus> => {
     const response = await api.get<SubscriptionStatus>('/subscription/status');
     return response.data;
   },
-  createOrder: async (): Promise<{ orderId: string; approvalUrl: string }> => {
-    const response = await api.post<{ orderId: string; approvalUrl: string }>('/subscription/create');
+  createOrder: async (paymentMethod: PaymentMethod): Promise<{ 
+    orderId?: string; 
+    approvalUrl?: string; 
+    clientSecret?: string; 
+    paymentIntentId?: string; 
+    publishableKey?: string;
+  }> => {
+    const response = await api.post('/subscription/create', { paymentMethod });
     return response.data;
   },
   capturePayment: async (orderId: string): Promise<{ message: string }> => {
     const response = await api.post<{ message: string }>('/subscription/capture', { orderId });
+    return response.data;
+  },
+  captureStripePayment: async (paymentIntentId: string): Promise<{ message: string }> => {
+    const response = await api.post<{ message: string }>('/subscription/capture-stripe', { paymentIntentId });
     return response.data;
   },
 };

@@ -1,12 +1,12 @@
 import { IsString, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class CapturePaymentDto {
+export class CaptureStripePaymentDto {
   @ApiProperty({
-    description: 'PayPal order ID returned from create order endpoint',
-    example: '5O190127TN364715T',
+    description: 'Stripe payment intent ID',
+    example: 'pi_1234567890',
   })
   @IsString()
   @IsNotEmpty()
-  orderId: string;
+  paymentIntentId: string;
 }
