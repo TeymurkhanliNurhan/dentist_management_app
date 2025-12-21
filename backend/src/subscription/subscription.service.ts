@@ -42,7 +42,13 @@ export class SubscriptionService {
     const paymentExpiry = new Date(lastPaymentDate);
     paymentExpiry.setDate(paymentExpiry.getDate() + 30);
 
-    return now < paymentExpiry;
+    const isActive = now < paymentExpiry;
+    
+    if (!isActive && dentist.active) {
+      this.logger.warn(`Subscription expired for dentist ${dentist.id}. Last payment: ${lastPaymentDate.toISOString()}, Expiry: ${paymentExpiry.toISOString()}, Now: ${now.toISOString()}`);
+    }
+    
+    return isActive;
   }
 
   async validateAndUpdateSubscription(dentistId: number): Promise<boolean> {
@@ -76,15 +82,15 @@ export class SubscriptionService {
     const freeMonthEnd = new Date(createdDate);
     freeMonthEnd.setDate(freeMonthEnd.getDate() + 30);
 
-    let newPaymentDate: Date;
-
     const isCurrentlyActive = this.checkSubscriptionStatus(dentist);
+    let newPaymentDate: Date;
 
     if (isCurrentlyActive) {
       if (now < freeMonthEnd) {
         newPaymentDate = freeMonthEnd;
       } else if (dentist.last_payment_date) {
-        const currentExpiry = new Date(dentist.last_payment_date);
+        const lastPaymentDate = new Date(dentist.last_payment_date);
+        const currentExpiry = new Date(lastPaymentDate);
         currentExpiry.setDate(currentExpiry.getDate() + 30);
         newPaymentDate = currentExpiry;
       } else {
@@ -99,8 +105,10 @@ export class SubscriptionService {
       last_payment_date: newPaymentDate,
     });
 
+    const newExpiry = new Date(newPaymentDate);
+    newExpiry.setDate(newExpiry.getDate() + 30);
     this.logger.log(
-      `Subscription ${isCurrentlyActive ? 'extended' : 'activated'} for dentist ${dentistId}. New expiry: ${new Date(newPaymentDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()}`,
+      `Subscription ${isCurrentlyActive ? 'extended' : 'activated'} for dentist ${dentistId}. Payment date: ${newPaymentDate.toISOString()}, New expiry: ${newExpiry.toISOString()}`,
     );
   }
 
