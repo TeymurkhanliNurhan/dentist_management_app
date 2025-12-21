@@ -92,7 +92,11 @@ export class SubscriptionService {
         const lastPaymentDate = new Date(dentist.last_payment_date);
         const currentExpiry = new Date(lastPaymentDate);
         currentExpiry.setDate(currentExpiry.getDate() + 30);
-        newPaymentDate = currentExpiry;
+        if (now >= currentExpiry) {
+          newPaymentDate = now;
+        } else {
+          newPaymentDate = currentExpiry;
+        }
       } else {
         newPaymentDate = now;
       }
