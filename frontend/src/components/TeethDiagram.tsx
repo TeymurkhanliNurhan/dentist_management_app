@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { PatientTooth, ToothTreatment } from '../services/api';
+import { toothTreatmentService, toothTreatmentTeethService } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
 interface TeethDiagramProps {
@@ -13,6 +14,9 @@ const TeethDiagram = ({ patientId, patientTeeth, toothTreatments = [] }: TeethDi
   const navigate = useNavigate();
   const [isPermanent, setIsPermanent] = useState(true);
   const [hoveredTooth, setHoveredTooth] = useState<number | null>(null);
+  const [hoverHistory, setHoverHistory] = useState<ToothTreatment[]>([]);
+  const [isHoverLoading, setIsHoverLoading] = useState(false);
+  const [hoverError, setHoverError] = useState<string | null>(null);
   const { t } = useTranslation('teethDiagram');
 
   const hasToothNumber = (toothNumber: number) => {
@@ -25,12 +29,67 @@ const TeethDiagram = ({ patientId, patientTeeth, toothTreatments = [] }: TeethDi
   };
 
   const getTreatmentsForTooth = (toothNumber: number) => {
+    if (hoverHistory.length > 0 && hoveredTooth === toothNumber) {
+      console.debug('Using hoverHistory for tooth', toothNumber, hoverHistory);
+      return hoverHistory;
+    }
+
     const toothId = getToothIdByNumber(toothNumber);
     if (!toothId) return [];
 
-    return toothTreatments
-      .filter(tt => tt.toothTreatmentTeeth.some(ttt => ttt.toothId === toothId))
-      .sort((a, b) => new Date(b.appointment.startDate).getTime() - new Date(a.appointment.startDate).getTime());
+    const mapped = toothTreatments
+      .filter((tt) => {
+        const hasNewRelation = tt.toothTreatmentTeeth?.some((ttt) => ttt.toothId === toothId);
+        const hasLegacyTooth = tt.tooth === toothId;
+        return hasNewRelation || hasLegacyTooth;
+      })
+      .reduce((acc: ToothTreatment[], tt) => {
+        if (!acc.some((x) => x.id === tt.id)) acc.push(tt);
+        return acc;
+      }, []);
+
+    return mapped.sort((a, b) => new Date(b.appointment.startDate).getTime() - new Date(a.appointment.startDate).getTime());
+  };
+
+  const loadToothHistory = async (toothNumber: number) => {
+    const toothId = getToothIdByNumber(toothNumber);
+    if (!toothId) {
+      setHoverHistory([]);
+      return;
+    }
+
+    setIsHoverLoading(true);
+    setHoverError(null);
+    console.debug('Fetching tooth history for patient', patientId, 'tooth', toothId);
+
+    try {
+      const tttRecords = await toothTreatmentTeethService.getAll({ patient_id: patientId, tooth_id: toothId });
+      console.debug('toothTreatmentTeeth response', tttRecords);
+
+      if (!tttRecords.length) {
+        setHoverHistory([]);
+        return;
+      }
+
+      const treatmentIds = Array.from(new Set(tttRecords.map((record) => record.tooth_treatment_id)));
+      const historyEntries: ToothTreatment[] = [];
+      for (const id of treatmentIds) {
+        const response = await toothTreatmentService.getAll({ id });
+        console.debug('toothTreatment fetch for id', id, '=>', response);
+
+        if (response.length > 0) {
+          historyEntries.push(response[0]);
+        }
+      }
+
+      setHoverHistory(historyEntries.sort((a, b) => new Date(b.appointment.startDate).getTime() - new Date(a.appointment.startDate).getTime()));
+    } catch (error: any) {
+      console.error('Failed loading tooth history', error);
+      setHoverError(error.message || 'Unknown error');
+      setHoverHistory([]);
+    } finally {
+      setIsHoverLoading(false);
+    }
   };
 
   const handleToothClick = (toothNumber: number) => {
@@ -55,7 +114,11 @@ const TeethDiagram = ({ patientId, patientTeeth, toothTreatments = [] }: TeethDi
 
     return (
       <div
-        onMouseEnter={() => hasTooth && setHoveredTooth(number)}
+        onMouseEnter={() => {
+          if (!hasTooth) return;
+          setHoveredTooth(number);
+          loadToothHistory(number);
+        }}
         onMouseLeave={() => setHoveredTooth(prev => (prev === number ? null : prev))}
         onClick={() => handleToothClick(number)}
         className={`absolute w-8 h-8 flex items-center justify-center text-xs font-bold transition-all ${
@@ -100,7 +163,11 @@ const TeethDiagram = ({ patientId, patientTeeth, toothTreatments = [] }: TeethDi
             onMouseLeave={() => setHoveredTooth(null)}
           >
             <h3 className="text-sm font-semibold text-teal-700 mb-2">Tooth #{hoveredTooth} history</h3>
-            {getTreatmentsForTooth(hoveredTooth).length === 0 ? (
+            {isHoverLoading ? (
+              <p className="text-xs text-gray-500">Loading history...</p>
+            ) : hoverError ? (
+              <p className="text-xs text-red-500">Error: {hoverError}</p>
+            ) : getTreatmentsForTooth(hoveredTooth).length === 0 ? (
               <p className="text-xs text-gray-500">No previous treatments</p>
             ) : (
               <ul className="space-y-2 max-h-56 overflow-y-auto">
@@ -112,6 +179,7 @@ const TeethDiagram = ({ patientId, patientTeeth, toothTreatments = [] }: TeethDi
                 ))}
               </ul>
             )}
+            <p className="mt-2 text-[10px] text-gray-400">(logs in console for each hover request)</p>
           </div>
         )}
 

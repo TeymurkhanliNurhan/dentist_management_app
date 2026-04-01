@@ -270,6 +270,33 @@ export interface UpdateToothTreatmentDto {
   description?: string | null;
 }
 
+export interface ToothTreatmentTeeth {
+  id: number;
+  tooth_treatment_id: number;
+  tooth_id: number;
+  patient_id: number;
+}
+
+export interface GetToothTreatmentTeethDto {
+  id?: number;
+  tooth_treatment_id?: number;
+  tooth_id?: number;
+  patient_id?: number;
+}
+
+export const toothTreatmentTeethService = {
+  getAll: async (filters?: GetToothTreatmentTeethDto): Promise<ToothTreatmentTeeth[]> => {
+    const params = new URLSearchParams();
+    if (filters?.id) params.append('id', filters.id.toString());
+    if (filters?.tooth_treatment_id) params.append('tooth_treatment_id', filters.tooth_treatment_id.toString());
+    if (filters?.tooth_id) params.append('tooth_id', filters.tooth_id.toString());
+    if (filters?.patient_id) params.append('patient_id', filters.patient_id.toString());
+
+    const response = await api.get(`/tooth-treatment-teeth?${params.toString()}`);
+    return response.data;
+  },
+};
+
 export const toothTreatmentService = {
   getAll: async (filters?: ToothTreatmentFilters): Promise<ToothTreatment[]> => {
     const params = new URLSearchParams();
