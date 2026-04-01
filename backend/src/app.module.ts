@@ -7,6 +7,7 @@ import { DentistModule } from './dentist/dentist.module';
 import { PatientModule } from './patient/patient.module';
 import { PatientToothModule } from './patient_tooth/patient_tooth.module';
 import { ToothTreatmentModule } from './tooth_treatment/tooth_treatment.module';
+import { ToothTreatmentTeethModule } from './tooth_treatment_teeth/tooth_treatment_teeth.module';
 import { TreatmentModule } from './treatment/treatment.module';
 import { ToothModule } from './tooth/tooth.module';
 import { AppointmentModule } from './appointment/appointment.module';
@@ -21,6 +22,7 @@ import { PatientTooth } from './patient_tooth/entities/patient_tooth.entity';
 import { Tooth } from './tooth/entities/tooth.entity';
 import { Treatment } from './treatment/entities/treatment.entity';
 import { ToothTreatment } from './tooth_treatment/entities/tooth_treatment.entity';
+import { ToothTreatmentTeeth } from './tooth_treatment_teeth/entities/tooth_treatment_teeth.entity';
 import { Appointment } from './appointment/entities/appointment.entity';
 import { Medicine } from './medicine/entities/medicine.entity';
 import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/tooth_treatment_medicine.entity';
@@ -75,6 +77,7 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
               ToothTranslation,
               Treatment,
               ToothTreatment,
+              ToothTreatmentTeeth,
               Appointment,
               Medicine,
               ToothTreatmentMedicine,
@@ -102,6 +105,7 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
               ToothTranslation,
               Treatment,
               ToothTreatment,
+              ToothTreatmentTeeth,
               Appointment,
               Medicine,
               ToothTreatmentMedicine,
@@ -121,6 +125,7 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
     PatientModule,
     PatientToothModule,
     ToothTreatmentModule,
+    ToothTreatmentTeethModule,
     TreatmentModule,
     ToothModule,
     AppointmentModule,

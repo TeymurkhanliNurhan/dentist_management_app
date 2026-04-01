@@ -11,6 +11,7 @@ import { Appointment } from './src/appointment/entities/appointment.entity';
 import { Medicine } from './src/medicine/entities/medicine.entity';
 import { ToothTreatmentMedicine } from './src/tooth_treatment_medicine/entities/tooth_treatment_medicine.entity';
 import { ToothTranslation } from './src/tooth/entities/tooth_translation.entity';
+import { ToothTreatmentTeeth } from './src/tooth_treatment_teeth/entities/tooth_treatment_teeth.entity';
 
 export default new DataSource({
   type: 'postgres',
@@ -24,6 +25,7 @@ export default new DataSource({
     ToothTranslation,
     Treatment,
     ToothTreatment,
+    ToothTreatmentTeeth,
     Appointment,
     Medicine,
     ToothTreatmentMedicine,

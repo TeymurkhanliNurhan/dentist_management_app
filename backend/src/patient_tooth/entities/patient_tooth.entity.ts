@@ -2,6 +2,7 @@ import { Entity, ManyToOne, JoinColumn, PrimaryColumn, OneToMany } from 'typeorm
 import { Patient } from '../../patient/entities/patient.entity';
 import { Tooth } from '../../tooth/entities/tooth.entity';
 import { ToothTreatment } from '../../tooth_treatment/entities/tooth_treatment.entity';
+import { ToothTreatmentTeeth } from '../../tooth_treatment_teeth/entities/tooth_treatment_teeth.entity';
 
 @Entity({ name: 'Patient_Teeth' })
 export class PatientTooth {
@@ -21,6 +22,9 @@ export class PatientTooth {
 
     @OneToMany(() => ToothTreatment, (tt) => tt.patientTooth)
     toothTreatments: ToothTreatment[];
+
+    @OneToMany(() => ToothTreatmentTeeth, (ttt) => ttt.patientTooth)
+    toothTreatmentTeeth: ToothTreatmentTeeth[];
 }
 
 
