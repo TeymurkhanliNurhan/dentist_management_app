@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, MaxLength, Min, IsArray } from 'class-validator';
 
 export class CreateToothTreatmentDto {
     @ApiProperty({ example: 1, description: 'Appointment id' })
@@ -17,10 +17,11 @@ export class CreateToothTreatmentDto {
     @Min(1)
     patient_id: number;
 
-    @ApiProperty({ example: 11, description: 'Tooth id (1..52)' })
-    @IsInt()
-    @Min(1)
-    tooth_id: number;
+    @ApiProperty({ example: [11, 12], description: 'Array of tooth ids (1..52)' })
+    @IsArray()
+    @IsInt({ each: true })
+    @Min(1, { each: true })
+    tooth_ids: number[];
 
     @ApiPropertyOptional({ example: 'Caries removal and filling' })
     @IsOptional()

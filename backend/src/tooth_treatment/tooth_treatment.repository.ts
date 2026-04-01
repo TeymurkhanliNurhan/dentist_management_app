@@ -16,7 +16,7 @@ export class ToothTreatmentRepository {
 
     async createForDentist(
         dentistId: number,
-        input: { appointmentId: number; treatmentId: number; patientId: number; toothId: number; description: string | null },
+        input: { appointmentId: number; treatmentId: number; patientId: number; toothIds: number[]; description: string | null },
     ): Promise<ToothTreatment> {
         const appointmentRepo = this.dataSource.getRepository(Appointment);
         const treatmentRepo = this.dataSource.getRepository(Treatment);
@@ -30,15 +30,17 @@ export class ToothTreatmentRepository {
         const treatment = await treatmentRepo.findOne({ where: { id: input.treatmentId, dentist: { id: dentistId } } });
         if (!treatment) throw new Error('Treatment not found or not owned');
 
-        const patientTooth = await ptRepo.findOne({ where: { patient: input.patientId, tooth: input.toothId } });
-        if (!patientTooth) throw new Error('PatientTooth not found');
+        for (const toothId of input.toothIds) {
+            const patientTooth = await ptRepo.findOne({ where: { patient: input.patientId, tooth: toothId } });
+            if (!patientTooth) throw new Error(`PatientTooth not found for tooth ${toothId}`);
+        }
 
         const created = this.repo.create({
             appointment,
             treatment,
-            patientTooth,
+            patientTooth: null,
             patient: input.patientId,
-            tooth: input.toothId,
+            tooth: null,
             description: input.description,
         });
         return await this.repo.save(created);
@@ -47,7 +49,7 @@ export class ToothTreatmentRepository {
     async updateEnsureOwnership(
         dentistId: number,
         id: number,
-        updates: Partial<{ treatmentId: number; toothId: number; description: string | null }>,
+        updates: Partial<{ treatmentId: number; description: string | null }>,
     ): Promise<ToothTreatment> {
         const current = await this.repo.findOne({ where: { id }, relations: ['appointment', 'appointment.dentist', 'patientTooth'] });
         if (!current) throw new Error('ToothTreatment not found');
@@ -57,14 +59,6 @@ export class ToothTreatmentRepository {
             const treatment = await this.dataSource.getRepository(Treatment).findOne({ where: { id: updates.treatmentId, dentist: { id: dentistId } } });
             if (!treatment) throw new Error('Treatment not found or not owned');
             current.treatment = treatment;
-        }
-        if (updates.toothId !== undefined) {
-            const patientId = current.patient;
-            const ptRepo = this.dataSource.getRepository(PatientTooth);
-            const patientTooth = await ptRepo.findOne({ where: { patient: patientId, tooth: updates.toothId } });
-            if (!patientTooth) throw new Error('PatientTooth not found');
-            current.patientTooth = patientTooth;
-            current.tooth = updates.toothId;
         }
         if (updates.description !== undefined) current.description = updates.description;
         return await this.repo.save(current);
@@ -86,6 +80,8 @@ export class ToothTreatmentRepository {
             .leftJoinAndSelect('toothTreatment.appointment', 'appointment')
             .leftJoinAndSelect('toothTreatment.treatment', 'treatment')
             .leftJoinAndSelect('toothTreatment.patientTooth', 'patientTooth')
+            .leftJoinAndSelect('toothTreatment.toothTreatmentTeeth', 'toothTreatmentTeeth')
+            .leftJoinAndSelect('toothTreatmentTeeth.patientTooth', 'tttPatientTooth')
             .leftJoinAndSelect('appointment.patient', 'appointmentPatient')
             .where('appointment.dentist = :dentistId', { dentistId });
 

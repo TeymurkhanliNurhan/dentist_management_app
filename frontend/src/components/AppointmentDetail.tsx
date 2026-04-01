@@ -29,7 +29,7 @@ const AppointmentDetail = () => {
     appointment_id: 0,
     treatment_id: 0,
     patient_id: 0,
-    tooth_id: 0,
+    tooth_ids: [],
     description: '',
   });
   const [isAddingTreatment, setIsAddingTreatment] = useState(false);
@@ -38,9 +38,9 @@ const AppointmentDetail = () => {
   const [selectedMedicineIds, setSelectedMedicineIds] = useState<number[]>([]);
   const [medicineQuery, setMedicineQuery] = useState('');
   const [editingTreatmentId, setEditingTreatmentId] = useState<number | null>(null);
-  const [editingFields, setEditingFields] = useState<{ treatment_id: number; tooth_id: number; description: string }>({
+  const [editingFields, setEditingFields] = useState<{ treatment_id: number; tooth_ids: number[]; description: string }>({
     treatment_id: 0,
-    tooth_id: 0,
+    tooth_ids: [],
     description: '',
   });
   const [editingMedicineIds, setEditingMedicineIds] = useState<number[]>([]);
@@ -49,11 +49,11 @@ const AppointmentDetail = () => {
   const TeethSelector = ({
     patientTeeth,
     onSelect,
-    selectedToothId,
+    selectedToothIds,
   }: {
     patientTeeth: PatientTooth[];
     onSelect: (toothId: number) => void;
-    selectedToothId: number;
+    selectedToothIds: number[];
   }) => {
     const [isPermanent, setIsPermanent] = useState(true);
 
@@ -68,7 +68,7 @@ const AppointmentDetail = () => {
     const ToothNumber = ({ number, top, left }: { number: number; top: string; left: string }) => {
       const enabled = hasToothNumber(number);
       const possibleToothId = toothIdByNumber(number);
-      const isSelected = possibleToothId !== null && possibleToothId === selectedToothId;
+      const isSelected = possibleToothId !== null && selectedToothIds.includes(possibleToothId);
       return (
         <div
           onClick={() => enabled && possibleToothId && onSelect(possibleToothId)}
@@ -199,7 +199,7 @@ const AppointmentDetail = () => {
         }
         setTreatments(treatmentsData);
 
-        const uniqueToothIds = [...new Set(treatmentsData.map(t => t.tooth))];
+        const uniqueToothIds = [...new Set(treatmentsData.flatMap(t => t.toothTreatmentTeeth.map(ttt => ttt.toothId)))];
         const teethPromises = uniqueToothIds.map(toothId => 
           toothService.getAll({ id: toothId, language: 'english' })
         );
@@ -279,7 +279,7 @@ const AppointmentDetail = () => {
         appointment_id: appointment.id,
         treatment_id: 0,
         patient_id: appointment.patient.id,
-        tooth_id: 0,
+        tooth_ids: [],
         description: '',
       });
       setSelectedMedicineIds([]);
@@ -299,7 +299,7 @@ const AppointmentDetail = () => {
       const created = await toothTreatmentService.create(newTreatment);
       const createdId = created?.id;
       setShowAddTreatment(false);
-      setNewTreatment({ appointment_id: 0, treatment_id: 0, patient_id: 0, tooth_id: 0, description: '' });
+      setNewTreatment({ appointment_id: 0, treatment_id: 0, patient_id: 0, tooth_ids: [], description: '' });
       if (createdId && selectedMedicineIds.length > 0) {
         await Promise.all(
           selectedMedicineIds.map((mid) =>
@@ -311,7 +311,7 @@ const AppointmentDetail = () => {
       const treatmentsData = await toothTreatmentService.getAll({ appointment: appointment.id });
       setTreatments(treatmentsData);
 
-      const uniqueToothIds = [...new Set(treatmentsData.map(t => t.tooth))];
+      const uniqueToothIds = [...new Set(treatmentsData.flatMap(t => t.toothTreatmentTeeth.map(ttt => ttt.toothId)))];
       const teethPromises = uniqueToothIds.map(toothId => 
         toothService.getAll({ id: toothId, language: 'english' })
       );
@@ -362,7 +362,7 @@ const AppointmentDetail = () => {
     }
     setEditingFields({
       treatment_id: tt.treatment.id,
-      tooth_id: tt.tooth,
+      tooth_ids: tt.toothTreatmentTeeth.map(ttt => ttt.toothId),
       description: tt.description || '',
     });
     try {
@@ -385,7 +385,7 @@ const AppointmentDetail = () => {
     try {
       await toothTreatmentService.update(tt.id, {
         treatment_id: editingFields.treatment_id,
-        tooth_id: editingFields.tooth_id,
+        tooth_ids: editingFields.tooth_ids,
         description: editingFields.description || null,
       });
       const currentMeds = await toothTreatmentMedicineService.getAll({ tooth_treatment: tt.id });
@@ -400,7 +400,7 @@ const AppointmentDetail = () => {
       const treatmentsData = await toothTreatmentService.getAll({ appointment: appointment.id });
       setTreatments(treatmentsData);
 
-      const uniqueToothIds = [...new Set(treatmentsData.map((t) => t.tooth))];
+      const uniqueToothIds = [...new Set(treatmentsData.flatMap((t) => t.toothTreatmentTeeth.map(ttt => ttt.toothId)))];
       const teethPromises = uniqueToothIds.map((toothId) => toothService.getAll({ id: toothId, language: 'english' }));
       const teethResults = await Promise.all(teethPromises);
       const teethMap = new Map<number, ToothInfo>();
@@ -668,8 +668,8 @@ const AppointmentDetail = () => {
                   <div className="w-full max-w-xl mx-auto bg-white rounded-lg p-3 shadow-sm">
                     <TeethSelector
                       patientTeeth={patientTeeth}
-                      onSelect={(toothId) => setNewTreatment({ ...newTreatment, tooth_id: toothId })}
-                      selectedToothId={newTreatment.tooth_id}
+                      onSelect={(toothId) => setNewTreatment({ ...newTreatment, tooth_ids: newTreatment.tooth_ids.includes(toothId) ? newTreatment.tooth_ids.filter(id => id !== toothId) : [...newTreatment.tooth_ids, toothId] })}
+                      selectedToothIds={newTreatment.tooth_ids}
                     />
                   </div>
                 </div>
@@ -748,7 +748,7 @@ const AppointmentDetail = () => {
                 <button
                   type="button"
                   onClick={handleAddTreatment}
-                  disabled={isAddingTreatment || newTreatment.treatment_id === 0 || newTreatment.tooth_id === 0}
+                  disabled={isAddingTreatment || newTreatment.treatment_id === 0 || newTreatment.tooth_ids.length === 0}
                   className="px-5 py-2 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isAddingTreatment ? 'Adding...' : 'Add Treatment'}
@@ -770,7 +770,7 @@ const AppointmentDetail = () => {
           ) : (
             <div className="space-y-4">
               {treatments.map((treatment) => {
-                const toothInfo = teethInfo.get(treatment.tooth);
+                const toothInfos = treatment.toothTreatmentTeeth.map(ttt => teethInfo.get(ttt.toothId)).filter(Boolean);
                 const medicines = treatmentMedicines.get(treatment.id) || [];
                 return (
                   <div 
@@ -788,14 +788,18 @@ const AppointmentDetail = () => {
                             {treatment.treatment.description}
                           </p>
                           
-                          {toothInfo && (
+                          {toothInfos.length > 0 && (
                             <div className="mb-3 p-3 bg-teal-50 rounded-md">
                               <p className="text-sm font-medium text-teal-900 mb-1">
-                                {toothInfo.permanent ? 'Permanent' : 'Childish'} Tooth
+                                Teeth ({toothInfos.length})
                               </p>
-                              <p className="text-sm text-teal-700 font-semibold">
-                                {toothInfo.name}
-                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {toothInfos.map((info, index) => (
+                                  <span key={index} className="text-sm text-teal-700 font-semibold bg-white px-2 py-1 rounded">
+                                    {info?.name}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           )}
                           
@@ -935,8 +939,8 @@ const AppointmentDetail = () => {
                             <h4 className="text-sm font-semibold text-gray-900 mb-2">Change Tooth</h4>
                             <TeethSelector
                               patientTeeth={patientTeeth}
-                              onSelect={(toothId) => setEditingFields({ ...editingFields, tooth_id: toothId })}
-                              selectedToothId={editingFields.tooth_id}
+                              onSelect={(toothId) => setEditingFields({ ...editingFields, tooth_ids: editingFields.tooth_ids.includes(toothId) ? editingFields.tooth_ids.filter(id => id !== toothId) : [...editingFields.tooth_ids, toothId] })}
+                              selectedToothIds={editingFields.tooth_ids}
                             />
                           </div>
                         </div>

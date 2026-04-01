@@ -241,6 +241,11 @@ export interface ToothTreatment {
     price: number;
   };
   description: string | null;
+  toothTreatmentTeeth: {
+    id: number;
+    toothId: number;
+    patientId: number;
+  }[];
 }
 
 export interface ToothTreatmentFilters {
@@ -255,13 +260,13 @@ export interface CreateToothTreatmentDto {
   appointment_id: number;
   treatment_id: number;
   patient_id: number;
-  tooth_id: number;
+  tooth_ids: number[];
   description?: string;
 }
 
 export interface UpdateToothTreatmentDto {
   treatment_id?: number;
-  tooth_id?: number;
+  tooth_ids?: number[];
   description?: string | null;
 }
 

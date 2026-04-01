@@ -17,7 +17,7 @@ export class ToothTreatmentService {
         appointmentId: dto.appointment_id,
         treatmentId: dto.treatment_id,
         patientId: dto.patient_id,
-        toothId: dto.tooth_id,
+        toothIds: dto.tooth_ids,
         description: dto.description ?? null,
       });
       const msg = `Dentist with id ${dentistId} created ToothTreatment with id ${created.id}`;
@@ -26,7 +26,6 @@ export class ToothTreatmentService {
       return {
         id: created.id,
         patient: created.patient,
-        tooth: created.tooth,
         appointment: created.appointment.id,
         treatment: created.treatment.id,
         description: created.description,
@@ -34,7 +33,7 @@ export class ToothTreatmentService {
     } catch (e: any) {
       if (e?.message?.includes('Appointment not found')) throw new NotFoundException('Appointment not found');
       if (e?.message?.includes('Treatment not found')) throw new NotFoundException('Treatment not found');
-      if (e?.message?.includes('PatientTooth not found')) throw new NotFoundException('Patient tooth not found');
+      if (e?.message?.includes('PatientTooth not found')) throw new NotFoundException(e.message);
       if (e?.message?.includes('InvalidPatientForAppointment')) throw new BadRequestException('Patient mismatch for appointment');
       if (e?.message?.includes('Forbidden')) {
         const warn = `Dentist with id ${dentistId} attempted to create ToothTreatment for non-owned resources`;
@@ -50,7 +49,6 @@ export class ToothTreatmentService {
     try {
       const updated = await this.repo.updateEnsureOwnership(dentistId, id, {
         treatmentId: dto.treatment_id,
-        toothId: dto.tooth_id,
         description: dto.description ?? null,
       });
       const msg = `Dentist with id ${dentistId} updated ToothTreatment with id ${updated.id}`;
@@ -59,7 +57,6 @@ export class ToothTreatmentService {
       return {
         id: updated.id,
         patient: updated.patient,
-        tooth: updated.tooth,
         appointment: updated.appointment.id,
         treatment: updated.treatment.id,
         description: updated.description,
@@ -67,7 +64,6 @@ export class ToothTreatmentService {
     } catch (e: any) {
       if (e?.message?.includes('ToothTreatment not found')) throw new NotFoundException('ToothTreatment not found');
       if (e?.message?.includes('Treatment not found')) throw new NotFoundException('Treatment not found');
-      if (e?.message?.includes('PatientTooth not found')) throw new NotFoundException('Patient tooth not found');
       if (e?.message?.includes('Forbidden')) {
         const warn = `Dentist with id ${dentistId} attempted to update ToothTreatment with id ${id} without ownership`;
         this.logger.warn(warn);
@@ -119,7 +115,6 @@ export class ToothTreatmentService {
         return {
           id: tt.id,
           patient: tt.patient,
-          tooth: tt.tooth,
           appointment: {
             id: tt.appointment?.id,
             startDate: formatDate(tt.appointment?.startDate),
@@ -132,6 +127,11 @@ export class ToothTreatmentService {
             price: tt.treatment?.price,
           },
           description: tt.description,
+          toothTreatmentTeeth: tt.toothTreatmentTeeth?.map(ttt => ({
+            id: ttt.id,
+            toothId: ttt.patientTooth?.tooth,
+            patientId: ttt.patientTooth?.patient,
+          })) || [],
         };
       });
     } catch (e: any) {

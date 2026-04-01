@@ -3,6 +3,7 @@ import { Appointment } from '../../appointment/entities/appointment.entity';
 import { Treatment } from '../../treatment/entities/treatment.entity';
 import { PatientTooth } from '../../patient_tooth/entities/patient_tooth.entity';
 import { ToothTreatmentMedicine } from '../../tooth_treatment_medicine/entities/tooth_treatment_medicine.entity';
+import { ToothTreatmentTeeth } from '../../tooth_treatment_teeth/entities/tooth_treatment_teeth.entity';
 
 @Entity({ name: 'Tooth_Treatment' })
 export class ToothTreatment {
@@ -12,8 +13,8 @@ export class ToothTreatment {
     @Column({ type: 'int' })
     patient: number;
 
-    @Column({ type: 'int' })
-    tooth: number;
+    @Column({ type: 'int', nullable: true })
+    tooth: number | null;
 
     @ManyToOne(() => Appointment, (appointment) => appointment.toothTreatments, { nullable: false })
     @JoinColumn({ name: 'appointment' })
@@ -23,18 +24,21 @@ export class ToothTreatment {
     @JoinColumn({ name: 'treatment' })
     treatment: Treatment;
 
-    @ManyToOne(() => PatientTooth, (pt) => pt.toothTreatments, { nullable: false })
+    @ManyToOne(() => PatientTooth, (pt) => pt.toothTreatments, { nullable: true })
     @JoinColumn([
         { name: 'patient', referencedColumnName: 'patient' },
         { name: 'tooth', referencedColumnName: 'tooth' },
     ])
-    patientTooth: PatientTooth;
+    patientTooth: PatientTooth | null;
 
     @Column({ type: 'varchar', length: 300, nullable: true })
     description: string | null;
 
     @OneToMany(() => ToothTreatmentMedicine, (ttm) => ttm.toothTreatmentEntity)
     toothTreatmentMedicines: ToothTreatmentMedicine[];
+
+    @OneToMany(() => ToothTreatmentTeeth, (ttt) => ttt.toothTreatment)
+    toothTreatmentTeeth: ToothTreatmentTeeth[];
 }
 
 
