@@ -50,7 +50,7 @@ const PatientDetail = () => {
       try {
         const [patientData, teethData] = await Promise.all([
           patientService.getById(parseInt(id)),
-          patientService.getPatientTeeth(parseInt(id))
+          patientService.getPatientTeeth(parseInt(id)),
         ]);
         setPatient(patientData);
         setPatientTeeth(teethData);

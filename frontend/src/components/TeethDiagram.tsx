@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { PatientTooth } from '../services/api';
+import type { PatientTooth, ToothTreatment } from '../services/api';
+import { toothTreatmentService } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
 interface TeethDiagramProps {
@@ -11,10 +12,40 @@ interface TeethDiagramProps {
 const TeethDiagram = ({ patientId, patientTeeth }: TeethDiagramProps) => {
   const navigate = useNavigate();
   const [isPermanent, setIsPermanent] = useState(true);
+  const [hoveredTooth, setHoveredTooth] = useState<number | null>(null);
+  const [hoveredToothTreatments, setHoveredToothTreatments] = useState<ToothTreatment[]>([]);
+  const [isLoadingTreatments, setIsLoadingTreatments] = useState(false);
   const { t } = useTranslation('teethDiagram');
 
   const hasToothNumber = (toothNumber: number) => {
     return patientTeeth.some(pt => pt.toothNumber === toothNumber);
+  };
+
+  const getToothIdByNumber = (toothNumber: number): number | null => {
+    const pt = patientTeeth.find(pt => pt.toothNumber === toothNumber);
+    return pt ? pt.tooth : null;
+  };
+
+  const handleToothHover = async (toothNumber: number) => {
+    const toothId = getToothIdByNumber(toothNumber);
+    if (!toothId) {
+      setHoveredTooth(null);
+      return;
+    }
+    
+    setHoveredTooth(toothNumber);
+    setIsLoadingTreatments(true);
+    
+    try {
+      const treatments = await toothTreatmentService.getAll({ tooth: toothId });
+      const sorted = treatments.sort((a, b) => new Date(b.appointment.startDate).getTime() - new Date(a.appointment.startDate).getTime());
+      setHoveredToothTreatments(sorted);
+    } catch (error) {
+      console.error('Failed to load treatments for tooth:', error);
+      setHoveredToothTreatments([]);
+    } finally {
+      setIsLoadingTreatments(false);
+    }
   };
 
   const handleToothClick = (toothNumber: number) => {
@@ -36,9 +67,11 @@ const TeethDiagram = ({ patientId, patientTeeth }: TeethDiagramProps) => {
     left: string;
   }) => {
     const hasTooth = hasToothNumber(number);
-    
+
     return (
       <div
+        onMouseEnter={() => hasTooth && handleToothHover(number)}
+        onMouseLeave={() => setHoveredTooth(null)}
         onClick={() => handleToothClick(number)}
         className={`absolute w-8 h-8 flex items-center justify-center text-xs font-bold transition-all ${
           hasTooth 
@@ -64,13 +97,41 @@ const TeethDiagram = ({ patientId, patientTeeth }: TeethDiagramProps) => {
         </button>
       </div>
       
-      <div className="relative w-full" style={{ paddingBottom: '90%' }}>
+      <div 
+        className="relative w-full" 
+        style={{ paddingBottom: '90%' }}
+        onMouseLeave={() => setHoveredTooth(null)}
+      >
         <img
           src={isPermanent ? "/images/32teeth_logo.jpg" : "/images/20teeth_logo.jpg"}
           alt="Teeth Diagram"
           className="absolute top-0 left-0 w-full h-full object-contain"
         />
-        
+
+        {hoveredTooth !== null && (
+          <div 
+            className="absolute right-2 top-2 z-20 w-72 rounded-lg border border-teal-200 bg-white shadow-lg p-3 backdrop-blur-sm"
+            onMouseEnter={() => setHoveredTooth(hoveredTooth)}
+            onMouseLeave={() => setHoveredTooth(null)}
+          >
+            <h3 className="text-sm font-semibold text-teal-700 mb-2">Tooth #{hoveredTooth} history</h3>
+            {isLoadingTreatments ? (
+              <p className="text-xs text-gray-500">Loading...</p>
+            ) : hoveredToothTreatments.length === 0 ? (
+              <p className="text-xs text-gray-500">No previous treatments</p>
+            ) : (
+              <ul className="space-y-2 max-h-56 overflow-y-auto">
+                {hoveredToothTreatments.map((t) => (
+                  <li key={t.id} className="rounded-md bg-teal-50 p-2 border border-teal-100">
+                    <p className="text-[11px] text-gray-500">Appointment: <span className="text-gray-700 font-medium">{new Date(t.appointment.startDate).toLocaleDateString()}</span></p>
+                    <p className="text-[11px] text-gray-500">Treatment: <span className="text-gray-800 font-semibold">{t.treatment.name}</span></p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
         {isPermanent ? (
           <>
             {/* Permanent Teeth - Upper Right (18-11) */}
