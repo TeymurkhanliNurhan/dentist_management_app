@@ -42,14 +42,14 @@ const ToothDetail = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!toothId) return;
+      if (!toothId || !patientId) return;
       
       setIsLoading(true);
       setError(null);
       try {
         const languageParam = languageMap[i18n.language] || 'english';
         const [treatmentsData, toothData] = await Promise.all([
-          toothTreatmentService.getAll({ tooth: parseInt(toothId) }),
+          toothTreatmentService.getAll({ tooth: parseInt(toothId), patient: parseInt(patientId) }),
           toothService.getAll({ id: parseInt(toothId), language: languageParam })
         ]);
         setTreatments(treatmentsData);

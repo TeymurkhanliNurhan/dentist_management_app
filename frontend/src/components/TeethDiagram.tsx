@@ -179,7 +179,7 @@ const TeethDiagram = ({ patientId, patientTeeth, toothTreatments = [] }: TeethDi
                 ))}
               </ul>
             )}
-            <p className="mt-2 text-[10px] text-gray-400">(logs in console for each hover request)</p>
+            <p className="mt-2 text-[10px] text-gray-400"></p>
           </div>
         )}
 
