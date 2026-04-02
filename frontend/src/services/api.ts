@@ -408,6 +408,16 @@ export interface AppointmentFilters {
   startDate?: string;
   patientName?: string;
   patientSurname?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedAppointments {
+  appointments: Appointment[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface CreateAppointmentDto {
@@ -424,11 +434,13 @@ export interface UpdateAppointmentDto {
 }
 
 export const appointmentService = {
-  getAll: async (filters?: AppointmentFilters): Promise<Appointment[]> => {
+  getAll: async (filters?: AppointmentFilters): Promise<PaginatedAppointments> => {
     const params = new URLSearchParams();
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.patientName) params.append('patientName', filters.patientName);
     if (filters?.patientSurname) params.append('patientSurname', filters.patientSurname);
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
     
     const response = await api.get(`/appointment?${params.toString()}`);
     return response.data;
