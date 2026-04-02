@@ -44,8 +44,8 @@ export class AppointmentRepository {
 
     async findAppointmentsForDentist(
         dentistId: number,
-        filters: { id?: number; startDate?: string; endDate?: string; patient?: number; patientName?: string; patientSurname?: string },
-    ): Promise<Appointment[]> {
+        filters: { id?: number; startDate?: string; endDate?: string; patient?: number; patientName?: string; patientSurname?: string; page?: number; limit?: number },
+    ): Promise<{ appointments: Appointment[]; total: number }> {
         const queryBuilder = this.repo
             .createQueryBuilder('appointment')
             .leftJoinAndSelect('appointment.patient', 'patient')
@@ -70,7 +70,21 @@ export class AppointmentRepository {
             queryBuilder.andWhere('LOWER(patient.surname) LIKE LOWER(:patientSurname)', { patientSurname: `%${filters.patientSurname}%` });
         }
 
-        return await queryBuilder.getMany();
+        // Add ordering by startDate descending
+        queryBuilder.orderBy('appointment.startDate', 'DESC');
+
+        // Get total count before pagination
+        const total = await queryBuilder.getCount();
+
+        // Apply pagination
+        if (filters.page !== undefined && filters.limit !== undefined) {
+            const offset = (filters.page - 1) * filters.limit;
+            queryBuilder.skip(offset).take(filters.limit);
+        }
+
+        const appointments = await queryBuilder.getMany();
+
+        return { appointments, total };
     }
 }
 

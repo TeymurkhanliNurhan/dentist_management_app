@@ -89,45 +89,53 @@ export class AppointmentService {
 
   async findAll(dentistId: number, dto: GetAppointmentDto) {
     try {
-      const appointments = await this.repo.findAppointmentsForDentist(dentistId, {
+      const { appointments, total } = await this.repo.findAppointmentsForDentist(dentistId, {
         id: dto.id,
         startDate: dto.startDate,
         endDate: dto.endDate,
         patient: dto.patient,
         patientName: dto.patientName,
         patientSurname: dto.patientSurname,
+        page: dto.page,
+        limit: dto.limit,
       });
-      const msg = `Dentist with id ${dentistId} retrieved ${appointments.length} appointment(s)`;
+      const msg = `Dentist with id ${dentistId} retrieved ${appointments.length} appointment(s) out of ${total}`;
       this.logger.log(msg);
       LogWriter.append('log', AppointmentService.name, msg);
-      return appointments.map(appointment => {
-        const startDate = appointment.startDate instanceof Date 
-          ? appointment.startDate 
-          : new Date(appointment.startDate);
-        const endDate = appointment.endDate 
-          ? (appointment.endDate instanceof Date 
-            ? appointment.endDate 
-            : new Date(appointment.endDate))
-          : null;
-        
-        return {
-          id: appointment.id,
-          startDate: startDate.toISOString().slice(0, 10),
-          endDate: endDate ? endDate.toISOString().slice(0, 10) : null,
-          discountFee: appointment.discountFee,
-          patient: {
-            id: typeof appointment.patient === 'object' && appointment.patient?.id 
-              ? appointment.patient.id 
-              : appointment.patient,
-            name: typeof appointment.patient === 'object' && appointment.patient?.name 
-              ? appointment.patient.name 
-              : null,
-            surname: typeof appointment.patient === 'object' && appointment.patient?.surname 
-              ? appointment.patient.surname 
-              : null,
-          },
-        };
-      });
+      return {
+        appointments: appointments.map(appointment => {
+          const startDate = appointment.startDate instanceof Date 
+            ? appointment.startDate 
+            : new Date(appointment.startDate);
+          const endDate = appointment.endDate 
+            ? (appointment.endDate instanceof Date 
+              ? appointment.endDate 
+              : new Date(appointment.endDate))
+            : null;
+          
+          return {
+            id: appointment.id,
+            startDate: startDate.toISOString().slice(0, 10),
+            endDate: endDate ? endDate.toISOString().slice(0, 10) : null,
+            discountFee: appointment.discountFee,
+            patient: {
+              id: typeof appointment.patient === 'object' && appointment.patient?.id 
+                ? appointment.patient.id 
+                : appointment.patient,
+              name: typeof appointment.patient === 'object' && appointment.patient?.name 
+                ? appointment.patient.name 
+                : null,
+              surname: typeof appointment.patient === 'object' && appointment.patient?.surname 
+                ? appointment.patient.surname 
+                : null,
+            },
+          };
+        }),
+        total,
+        page: dto.page || 1,
+        limit: dto.limit || total,
+        totalPages: dto.limit ? Math.ceil(total / dto.limit) : 1,
+      };
     } catch (e: any) {
       throw e;
     }

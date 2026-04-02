@@ -34,5 +34,19 @@ export class GetAppointmentDto {
     @ApiPropertyOptional({ example: 'Doe', description: 'Patient surname' })
     @IsOptional()
     patientSurname?: string;
+
+    @ApiPropertyOptional({ example: 1, description: 'Page number (1-based)' })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    page?: number;
+
+    @ApiPropertyOptional({ example: 10, description: 'Items per page' })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    limit?: number;
 }
 
