@@ -1,15 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, X, Globe } from 'lucide-react';
+import { Search, Plus, X, Globe, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
 import Header from './Header';
 import { appointmentService, patientService } from '../services/api';
-import type { Appointment, AppointmentFilters, CreateAppointmentDto, Patient } from '../services/api';
+import type { AppointmentFilters, CreateAppointmentDto, Patient, PaginatedAppointments, CreatePatientDto } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
 const Appointments = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation('appointments');
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointmentsData, setAppointmentsData] = useState<PaginatedAppointments>({
+    appointments: [],
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 0,
+  });
   const [patients, setPatients] = useState<Patient[]>([]);
   const [filters, setFilters] = useState<AppointmentFilters>({
     startDate: '',
@@ -30,6 +36,10 @@ const Appointments = () => {
   const [dateError, setDateError] = useState<string>('');
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
+  const [showAddPatientInModal, setShowAddPatientInModal] = useState(false);
+  const [newPatient, setNewPatient] = useState<CreatePatientDto>({ name: '', surname: '', birthDate: '' });
+  const [isSubmittingPatient, setIsSubmittingPatient] = useState(false);
+  const [patientError, setPatientError] = useState<string>('');
 
   const FETCH_ERROR_KEY = '__appointments_fetch_error__';
   const CREATE_ERROR_KEY = '__appointments_create_error__';
@@ -51,17 +61,16 @@ const Appointments = () => {
     };
   }, [showLanguageMenu]);
 
-  const fetchAppointments = async (searchFilters?: AppointmentFilters) => {
+  const fetchAppointments = async (searchFilters?: AppointmentFilters, page: number = 1) => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await appointmentService.getAll(searchFilters);
-      const sortedData = [...data].sort((a, b) => {
-        const dateA = new Date(a.startDate).getTime();
-        const dateB = new Date(b.startDate).getTime();
-        return dateB - dateA;
+      const data = await appointmentService.getAll({
+        ...searchFilters,
+        page,
+        limit: 10,
       });
-      setAppointments(sortedData);
+      setAppointmentsData(data);
     } catch (err: any) {
       console.error('Failed to fetch appointments:', err);
       setError(err.response?.data?.message || FETCH_ERROR_KEY);
@@ -104,12 +113,37 @@ const Appointments = () => {
       setNewAppointment({ startDate: '', endDate: '', discountFee: 0, patient_id: 0 });
       setPatientSearch({ name: '', surname: '' });
       setDateError('');
-      fetchAppointments();
+      fetchAppointments({}, appointmentsData.page);
     } catch (err: any) {
       console.error('Failed to create appointment:', err);
       setError(err.response?.data?.message || CREATE_ERROR_KEY);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleAddPatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPatientError('');
+    setIsSubmittingPatient(true);
+    try {
+      const createdPatient = await patientService.create(newPatient);
+      setShowAddPatientInModal(false);
+      setNewPatient({ name: '', surname: '', birthDate: '' });
+      
+      // Auto-select the newly created patient in the modal
+      if (createdPatient && createdPatient.id) {
+        setNewAppointment({ ...newAppointment, patient_id: createdPatient.id });
+      }
+      
+      // Refresh patients list
+      const updatedPatients = await patientService.getAll();
+      setPatients(updatedPatients);
+    } catch (err: any) {
+      console.error('Failed to create patient:', err);
+      setPatientError(err.response?.data?.message || 'Failed to create patient');
+    } finally {
+      setIsSubmittingPatient(false);
     }
   };
 
@@ -119,12 +153,12 @@ const Appointments = () => {
     if (filters.startDate) searchFilters.startDate = filters.startDate;
     if (filters.patientName) searchFilters.patientName = filters.patientName;
     if (filters.patientSurname) searchFilters.patientSurname = filters.patientSurname;
-    fetchAppointments(searchFilters);
+    fetchAppointments(searchFilters, 1);
   };
 
   const handleClearSearch = () => {
     setFilters({ startDate: '', patientName: '', patientSurname: '' });
-    fetchAppointments();
+    fetchAppointments({}, 1);
   };
 
   const filteredPatients = patients.filter((patient) => {
@@ -134,6 +168,14 @@ const Appointments = () => {
       patient.surname.toLowerCase().includes(patientSearch.surname.toLowerCase());
     return nameMatch && surnameMatch;
   });
+
+  const handlePageChange = (newPage: number) => {
+    const searchFilters: AppointmentFilters = {};
+    if (filters.startDate) searchFilters.startDate = filters.startDate;
+    if (filters.patientName) searchFilters.patientName = filters.patientName;
+    if (filters.patientSurname) searchFilters.patientSurname = filters.patientSurname;
+    fetchAppointments(searchFilters, newPage);
+  };
 
   const resolvedError = error === FETCH_ERROR_KEY
     ? t('fetchError')
@@ -193,7 +235,16 @@ const Appointments = () => {
           )}
         </div>
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">{t('title')}</h1>
+          <div className="flex items-center gap-4 mb-4">
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center space-x-2 px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition-colors shadow-md"
+            >
+              <Plus className="w-5 h-5" />
+              <span>{t('newAppointment')}</span>
+            </button>
+            <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
+          </div>
           
           <form onSubmit={handleSearch} className="bg-white rounded-lg shadow p-4 mb-4">
             <div className="flex flex-wrap gap-3 items-end">
@@ -289,14 +340,14 @@ const Appointments = () => {
                       {t('loading')}
                     </td>
                   </tr>
-                ) : appointments.length === 0 ? (
+                ) : appointmentsData.appointments.length === 0 ? (
                   <tr>
                     <td colSpan={3} className="px-6 py-8 text-center text-gray-500">
                       {t('empty')}
                     </td>
                   </tr>
                 ) : (
-                  appointments.map((appointment) => (
+                  appointmentsData.appointments.map((appointment) => (
                     <tr 
                       key={appointment.id} 
                       onClick={() => navigate(`/appointments/${appointment.id}`)}
@@ -319,15 +370,63 @@ const Appointments = () => {
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end">
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center space-x-2 px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition-colors shadow-md"
-          >
-            <Plus className="w-5 h-5" />
-            <span>{t('newAppointment')}</span>
-          </button>
-        </div>
+        {/* Pagination */}
+        {appointmentsData.totalPages > 1 && (
+          <div className="mt-6 flex items-center justify-between">
+            <div className="text-sm text-gray-700">
+              {t('pagination.showing', {
+                from: (appointmentsData.page - 1) * appointmentsData.limit + 1,
+                to: Math.min(appointmentsData.page * appointmentsData.limit, appointmentsData.total),
+                total: appointmentsData.total,
+              })}
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handlePageChange(appointmentsData.page - 1)}
+                disabled={appointmentsData.page <= 1 || isLoading}
+                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                {t('pagination.previous')}
+              </button>
+              
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: appointmentsData.totalPages }, (_, i) => i + 1)
+                  .filter(page => {
+                    const current = appointmentsData.page;
+                    return page === 1 || page === appointmentsData.totalPages || (page >= current - 1 && page <= current + 1);
+                  })
+                  .map((page, index, array) => (
+                    <React.Fragment key={page}>
+                      {index > 0 && array[index - 1] !== page - 1 && (
+                        <span className="px-2 py-2 text-sm text-gray-500">...</span>
+                      )}
+                      <button
+                        onClick={() => handlePageChange(page)}
+                        disabled={isLoading}
+                        className={`px-3 py-2 text-sm font-medium rounded-md ${
+                          page === appointmentsData.page
+                            ? 'bg-teal-500 text-white'
+                            : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {page}
+                      </button>
+                    </React.Fragment>
+                  ))}
+              </div>
+
+              <button
+                onClick={() => handlePageChange(appointmentsData.page + 1)}
+                disabled={appointmentsData.page >= appointmentsData.totalPages || isLoading}
+                className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {t('pagination.next')}
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Add Appointment Modal */}
         {showAddModal && (
@@ -407,7 +506,80 @@ const Appointments = () => {
                       {t('modal.patientsFound', { count: filteredPatients.length })}
                     </p>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowAddPatientInModal(true)}
+                    className="w-full mt-3 flex items-center justify-center space-x-1 px-4 py-2 bg-blue-50 text-blue-600 text-sm rounded-md font-medium border border-blue-200 hover:bg-blue-100 transition-colors"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>{t('newPatient')}</span>
+                  </button>
                 </div>
+
+                {showAddPatientInModal && (
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="text-sm font-medium text-gray-900 mb-3">{t('newPatient')}</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label htmlFor="modalNewPatientName" className="block text-xs font-medium text-gray-700 mb-1">{t('modal.patientName')}</label>
+                        <input
+                          id="modalNewPatientName"
+                          type="text"
+                          value={newPatient.name}
+                          onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="modalNewPatientSurname" className="block text-xs font-medium text-gray-700 mb-1">{t('modal.patientSurname')}</label>
+                        <input
+                          id="modalNewPatientSurname"
+                          type="text"
+                          value={newPatient.surname}
+                          onChange={(e) => setNewPatient({ ...newPatient, surname: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="modalNewPatientBirthDate" className="block text-xs font-medium text-gray-700 mb-1">{t('patientBirthDate')}</label>
+                        <input
+                          id="modalNewPatientBirthDate"
+                          type="date"
+                          value={newPatient.birthDate}
+                          onChange={(e) => setNewPatient({ ...newPatient, birthDate: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+
+                      {patientError && (
+                        <div className="text-xs text-red-600">{patientError}</div>
+                      )}
+
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleAddPatient}
+                          disabled={isSubmittingPatient || !newPatient.name || !newPatient.surname || !newPatient.birthDate}
+                          className="flex-1 py-2 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isSubmittingPatient ? t('creating') : t('create')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAddPatientInModal(false);
+                            setNewPatient({ name: '', surname: '', birthDate: '' });
+                            setPatientError('');
+                          }}
+                          className="flex-1 py-2 bg-gray-200 text-gray-700 text-xs rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                        >
+                          {t('cancel')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label htmlFor="newStartDate" className="block text-sm font-medium text-gray-700 mb-1">
@@ -498,6 +670,7 @@ const Appointments = () => {
             </div>
           </div>
         )}
+
       </main>
     </div>
   );
