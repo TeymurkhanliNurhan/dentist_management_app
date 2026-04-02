@@ -18,6 +18,11 @@
   "empty": "Записи не найдены",
   "fetchError": "Не удалось получить записи",
   "newAppointment": "Новая запись",
+  "pagination": {
+    "showing": "Показано {{from}} - {{to}} из {{total}}",
+    "previous": "Предыдущая",
+    "next": "Следующая"
+  },
   "modal": {
     "title": "Новая запись",
     "patient": "Пациент *",
@@ -30,6 +35,7 @@
     "patientsFound": "Найдено пациентов: {{count}}"
   },
   "startDate": "Дата начала *",
+  "patientBirthDate": "Дата рождения *",
   "endDate": "Дата окончания",
   "endDateError": "Дата окончания не может быть раньше даты начала",
   "discountFee": "Сумма скидки",

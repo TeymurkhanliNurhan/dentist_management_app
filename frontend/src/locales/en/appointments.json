@@ -18,6 +18,11 @@
   "empty": "No appointments found",
   "fetchError": "Failed to fetch appointments",
   "newAppointment": "New Appointment",
+  "pagination": {
+    "showing": "Showing {{from}} to {{to}} of {{total}} appointments",
+    "previous": "Previous",
+    "next": "Next"
+  },
   "modal": {
     "title": "New Appointment",
     "patient": "Patient *",
@@ -30,6 +35,7 @@
     "patientsFound": "{{count}} patient(s) found"
   },
   "startDate": "Start Date *",
+  "patientBirthDate": "Birth Date *",
   "endDate": "End Date",
   "endDateError": "End date cannot be earlier than start date",
   "discountFee": "Discount Fee",

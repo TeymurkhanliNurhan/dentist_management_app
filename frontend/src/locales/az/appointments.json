@@ -18,6 +18,11 @@
   "empty": "Randevu tapılmadı",
   "fetchError": "Randevular alınmadı",
   "newAppointment": "Yeni randevu",
+  "pagination": {
+    "showing": "{{from}} - {{to}} arası {{total}} randevudan göstərilir",
+    "previous": "Əvvəlki",
+    "next": "Növbəti"
+  },
   "modal": {
     "title": "Yeni randevu",
     "patient": "Xəstə *",
@@ -30,6 +35,7 @@
     "patientsFound": "{{count}} xəstə tapıldı"
   },
   "startDate": "Başlama tarixi *",
+  "patientBirthDate": "Doğum tarixi *",
   "endDate": "Bitmə tarixi",
   "endDateError": "Bitmə tarixi başlama tarixindən əvvəl ola bilməz",
   "discountFee": "Endirim haqqı",
