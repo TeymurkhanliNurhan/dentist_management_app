@@ -49,6 +49,7 @@ export class ToothTreatmentService {
     try {
       const updated = await this.repo.updateEnsureOwnership(dentistId, id, {
         treatmentId: dto.treatment_id,
+        toothIds: dto.tooth_ids,
         description: dto.description ?? null,
       });
       const msg = `Dentist with id ${dentistId} updated ToothTreatment with id ${updated.id}`;
@@ -95,6 +96,7 @@ export class ToothTreatmentService {
 
   async findAll(dentistId: number, dto: GetToothTreatmentDto) {
     try {
+      this.logger.log(`ToothTreatmentService.findAll called with dentistId=${dentistId}, filters=${JSON.stringify(dto)}`);
       const toothTreatments = await this.repo.findToothTreatmentsForDentist(dentistId, {
         id: dto.id,
         appointment: dto.appointment,

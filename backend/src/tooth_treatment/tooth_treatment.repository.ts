@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, In, Brackets } from 'typeorm';
 import { ToothTreatment } from './entities/tooth_treatment.entity';
 import { Appointment } from '../appointment/entities/appointment.entity';
 import { Treatment } from '../treatment/entities/treatment.entity';
 import { PatientTooth } from '../patient_tooth/entities/patient_tooth.entity';
+import { ToothTreatmentTeeth } from '../tooth_treatment_teeth/entities/tooth_treatment_teeth.entity';
 
 @Injectable()
 export class ToothTreatmentRepository {
@@ -43,15 +44,36 @@ export class ToothTreatmentRepository {
             tooth: null,
             description: input.description,
         });
-        return await this.repo.save(created);
+        const savedToothTreatment = await this.repo.save(created);
+
+        // Create ToothTreatmentTeeth records for each tooth
+        if (input.toothIds.length > 0) {
+            const tttRepo = this.dataSource.getRepository(ToothTreatmentTeeth);
+            const patientTeeth = await ptRepo.find({ 
+                where: { 
+                    patient: input.patientId, 
+                    tooth: In(input.toothIds) 
+                } 
+            });
+            
+            const tttRecords = patientTeeth.map(patientTooth => 
+                tttRepo.create({
+                    toothTreatment: savedToothTreatment,
+                    patientTooth: patientTooth,
+                })
+            );
+            await tttRepo.save(tttRecords);
+        }
+
+        return savedToothTreatment;
     }
 
     async updateEnsureOwnership(
         dentistId: number,
         id: number,
-        updates: Partial<{ treatmentId: number; description: string | null }>,
+        updates: Partial<{ treatmentId: number; toothIds: number[]; description: string | null }>,
     ): Promise<ToothTreatment> {
-        const current = await this.repo.findOne({ where: { id }, relations: ['appointment', 'appointment.dentist', 'patientTooth'] });
+        const current = await this.repo.findOne({ where: { id }, relations: ['appointment', 'appointment.dentist'] });
         if (!current) throw new Error('ToothTreatment not found');
         if (current.appointment?.dentist?.id !== dentistId) throw new Error('Forbidden');
 
@@ -61,7 +83,40 @@ export class ToothTreatmentRepository {
             current.treatment = treatment;
         }
         if (updates.description !== undefined) current.description = updates.description;
-        return await this.repo.save(current);
+        
+        // Handle tooth_ids update
+        if (updates.toothIds !== undefined) {
+            const tttRepo = this.dataSource.getRepository(ToothTreatmentTeeth);
+            const ptRepo = this.dataSource.getRepository(PatientTooth);
+
+            // Remove existing ToothTreatmentTeeth records
+            await tttRepo.delete({ toothTreatment: { id } });
+
+            // Set legacy tooth to null
+            current.tooth = null;
+
+            // Create new ToothTreatmentTeeth records
+            if (updates.toothIds.length > 0) {
+                const patientTeeth = await ptRepo.find({ 
+                    where: { 
+                        patient: current.patient, 
+                        tooth: In(updates.toothIds) 
+                    } 
+                });
+                
+                const tttRecords = patientTeeth.map(patientTooth => 
+                    tttRepo.create({
+                        toothTreatment: current,
+                        patientTooth: patientTooth,
+                    })
+                );
+                await tttRepo.save(tttRecords);
+            }
+        }
+
+        const updated = await this.repo.save(current);
+
+        return updated;
     }
 
     async deleteEnsureOwnership(dentistId: number, id: number): Promise<void> {
@@ -92,7 +147,11 @@ export class ToothTreatmentRepository {
             queryBuilder.andWhere('toothTreatment.appointment = :appointment', { appointment: filters.appointment });
         }
         if (filters.tooth !== undefined) {
-            queryBuilder.andWhere('toothTreatment.tooth = :tooth', { tooth: filters.tooth });
+            // include legacy per-record tooth field and new ToothTreatmentTeeth relation
+            queryBuilder.andWhere(new Brackets((qb) => {
+                qb.where('toothTreatment.tooth = :tooth', { tooth: filters.tooth })
+                  .orWhere('tttPatientTooth.tooth = :tooth', { tooth: filters.tooth });
+            }));
         }
         if (filters.patient !== undefined) {
             queryBuilder.andWhere('toothTreatment.patient = :patient', { patient: filters.patient });
