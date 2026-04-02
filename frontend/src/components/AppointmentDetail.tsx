@@ -1,9 +1,218 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash } from 'lucide-react';
+import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash, MousePointer, Grid3X3, RectangleHorizontal } from 'lucide-react';
 import Header from './Header';
 import { appointmentService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService } from '../services/api';
 import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine } from '../services/api';
+
+interface TeethSelectorProps {
+  patientTeeth: PatientTooth[];
+  selectedToothIds: number[];
+  onSelectionChange: (toothIds: number[]) => void;
+  selectionMode: 'single' | 'multiple' | 'chin';
+  onSelectionModeChange: (mode: 'single' | 'multiple' | 'chin') => void;
+}
+
+const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, selectionMode, onSelectionModeChange }: TeethSelectorProps) => {
+  const [isPermanent, setIsPermanent] = useState(true);
+
+  const hasToothNumber = (toothNumber: number) =>
+    patientTeeth.some((pt) => pt.toothNumber === toothNumber);
+
+  const toothIdByNumber = (toothNumber: number): number | null => {
+    const pt = patientTeeth.find((p) => p.toothNumber === toothNumber);
+    return pt ? pt.tooth : null;
+  };
+
+  const getUpperChinTeeth = (): number[] => {
+    if (isPermanent) {
+      return [11, 12, 13, 14, 15, 16, 17, 18, 21, 22, 23, 24, 25, 26, 27, 28];
+    } else {
+      return [51, 52, 53, 54, 55, 61, 62, 63, 64, 65];
+    }
+  };
+
+  const getLowerChinTeeth = (): number[] => {
+    if (isPermanent) {
+      return [31, 32, 33, 34, 35, 36, 37, 38, 41, 42, 43, 44, 45, 46, 47, 48];
+    } else {
+      return [71, 72, 73, 74, 75, 81, 82, 83, 84, 85];
+    }
+  };
+
+  const isUpperTooth = (toothNumber: number): boolean => {
+    return getUpperChinTeeth().includes(toothNumber);
+  };
+
+  const handleToothClick = (toothNumber: number) => {
+    const toothId = toothIdByNumber(toothNumber);
+    if (!toothId || !hasToothNumber(toothNumber)) return;
+
+    let newSelection: number[] = [...selectedToothIds];
+
+    if (selectionMode === 'single') {
+      newSelection = [toothId];
+    } else if (selectionMode === 'multiple') {
+      if (newSelection.includes(toothId)) {
+        newSelection = newSelection.filter((id) => id !== toothId);
+      } else {
+        newSelection.push(toothId);
+      }
+    } else if (selectionMode === 'chin') {
+      const isUpper = isUpperTooth(toothNumber);
+      const chinTeeth = isUpper ? getUpperChinTeeth() : getLowerChinTeeth();
+      const chinToothIds: number[] = [];
+
+      chinTeeth.forEach((num) => {
+        if (hasToothNumber(num)) {
+          const id = toothIdByNumber(num);
+          if (id) chinToothIds.push(id);
+        }
+      });
+
+      const allChinSelected = chinToothIds.every((id) => newSelection.includes(id));
+
+      if (allChinSelected) {
+        newSelection = newSelection.filter((id) => !chinToothIds.includes(id));
+      } else {
+        chinToothIds.forEach((id) => {
+          if (!newSelection.includes(id)) {
+            newSelection.push(id);
+          }
+        });
+      }
+    }
+
+    onSelectionChange(newSelection);
+  };
+
+  const ToothNumber = ({ number, top, left }: { number: number; top: string; left: string }) => {
+    const enabled = hasToothNumber(number);
+    const possibleToothId = toothIdByNumber(number);
+    const isSelected = possibleToothId !== null && selectedToothIds.includes(possibleToothId);
+
+    return (
+      <div
+        onClick={() => enabled && possibleToothId && handleToothClick(number)}
+        className={`absolute z-10 w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition-all select-none ${
+          enabled
+            ? `text-black cursor-pointer hover:bg-teal-500 hover:text-white hover:scale-110 ${isSelected ? 'bg-teal-600 text-white scale-110' : ''}`
+            : 'text-gray-400 cursor-not-allowed opacity-50'
+        }`}
+        style={{ top, left, pointerEvents: 'auto' }}
+        title={enabled ? `Select Tooth #${number}` : `Tooth #${number} not available`}
+      >
+        {number}
+      </div>
+    );
+  };
+
+  return (
+    <div className="w-full">
+      <div className="mb-2 flex justify-between items-center">
+        <div className="flex space-x-2">
+          <button
+            onClick={() => onSelectionModeChange('single')}
+            className={`p-2 rounded-md transition-colors ${selectionMode === 'single' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            title="Single tooth selection"
+          >
+            <MousePointer size={16} />
+          </button>
+          <button
+            onClick={() => onSelectionModeChange('multiple')}
+            className={`p-2 rounded-md transition-colors ${selectionMode === 'multiple' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            title="Multiple teeth selection"
+          >
+            <Grid3X3 size={16} />
+          </button>
+          <button
+            onClick={() => onSelectionModeChange('chin')}
+            className={`p-2 rounded-md transition-colors ${selectionMode === 'chin' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            title="Chin selection (select all upper or lower teeth)"
+          >
+            <RectangleHorizontal size={16} />
+          </button>
+        </div>
+
+        <button
+          onClick={() => setIsPermanent(!isPermanent)}
+          className="px-3 py-1.5 bg-teal-500 text-white rounded-md text-sm font-medium hover:bg-teal-600 transition-colors"
+        >
+          {isPermanent ? 'Childish Teeth' : 'Permanent Teeth'}
+        </button>
+      </div>
+
+      <div className="relative w-full" style={{ paddingBottom: '90%' }}>
+        <img
+          src={isPermanent ? '/images/32teeth_logo.jpg' : '/images/20teeth_logo.jpg'}
+          alt="Teeth Diagram"
+          className="absolute top-0 left-0 w-full h-full object-contain"
+          style={{ pointerEvents: 'none', zIndex: 1 }}
+        />
+
+        {isPermanent ? (
+          <>
+            <ToothNumber number={18} top="38.5%" left="31.7%" />
+            <ToothNumber number={17} top="31%" left="30.6%" />
+            <ToothNumber number={16} top="24%" left="31%" />
+            <ToothNumber number={15} top="18%" left="32%" />
+            <ToothNumber number={14} top="12.5%" left="34.2%" />
+            <ToothNumber number={13} top="8%" left="36%" />
+            <ToothNumber number={12} top="4.4%" left="39.5%" />
+            <ToothNumber number={11} top="3%" left="44%" />
+            <ToothNumber number={21} top="3%" left="49.3%" />
+            <ToothNumber number={22} top="5%" left="54.3%" />
+            <ToothNumber number={23} top="8%" left="57.6%" />
+            <ToothNumber number={24} top="12.5%" left="59.7%" />
+            <ToothNumber number={25} top="18.3%" left="61.7%" />
+            <ToothNumber number={26} top="24.5%" left="62.2%" />
+            <ToothNumber number={27} top="31%" left="62.7%" />
+            <ToothNumber number={28} top="39%" left="61.7%" />
+            <ToothNumber number={48} top="55%" left="32.9%" />
+            <ToothNumber number={47} top="62.8%" left="31.3%" />
+            <ToothNumber number={46} top="69.6%" left="32.1%" />
+            <ToothNumber number={45} top="75.8%" left="33%" />
+            <ToothNumber number={44} top="81.3%" left="34.5%" />
+            <ToothNumber number={43} top="85.7%" left="36.5%" />
+            <ToothNumber number={42} top="89.7%" left="40.1%" />
+            <ToothNumber number={41} top="91%" left="45%" />
+            <ToothNumber number={31} top="91%" left="50.2%" />
+            <ToothNumber number={32} top="89%" left="55%" />
+            <ToothNumber number={33} top="86%" left="59%" />
+            <ToothNumber number={34} top="81.5%" left="60.5%" />
+            <ToothNumber number={35} top="75.7%" left="62.3%" />
+            <ToothNumber number={36} top="69.4%" left="62.8%" />
+            <ToothNumber number={37} top="62.6%" left="63.4%" />
+            <ToothNumber number={38} top="55%" left="62.5%" />
+          </>
+        ) : (
+          <>
+            <ToothNumber number={55} top="34%" left="28.4%" />
+            <ToothNumber number={54} top="23.5%" left="30.2%" />
+            <ToothNumber number={53} top="15%" left="33.5%" />
+            <ToothNumber number={52} top="10%" left="38%" />
+            <ToothNumber number={51} top="7.5%" left="43.7%" />
+            <ToothNumber number={61} top="7.5%" left="51%" />
+            <ToothNumber number={62} top="10%" left="57.5%" />
+            <ToothNumber number={63} top="15%" left="62.5%" />
+            <ToothNumber number={64} top="23.3%" left="66.5%" />
+            <ToothNumber number={65} top="33.8%" left="68.5%" />
+            <ToothNumber number={85} top="61.2%" left="28.7%" />
+            <ToothNumber number={84} top="71.5%" left="30.6%" />
+            <ToothNumber number={83} top="79.7%" left="33.8%" />
+            <ToothNumber number={82} top="85%" left="38.1%" />
+            <ToothNumber number={81} top="87.7%" left="44.4%" />
+            <ToothNumber number={71} top="87.7%" left="51.2%" />
+            <ToothNumber number={72} top="85%" left="57.9%" />
+            <ToothNumber number={73} top="79.7%" left="62.9%" />
+            <ToothNumber number={74} top="71.5%" left="66.9%" />
+            <ToothNumber number={75} top="61.2%" left="68.6%" />
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const AppointmentDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -45,135 +254,7 @@ const AppointmentDetail = () => {
   });
   const [editingMedicineIds, setEditingMedicineIds] = useState<number[]>([]);
   const [confirmDeleteTreatmentId, setConfirmDeleteTreatmentId] = useState<number | null>(null);
-
-  const TeethSelector = ({
-    patientTeeth,
-    onSelect,
-    selectedToothIds,
-  }: {
-    patientTeeth: PatientTooth[];
-    onSelect: (toothId: number) => void;
-    selectedToothIds: number[];
-  }) => {
-    const [isPermanent, setIsPermanent] = useState(true);
-
-    const hasToothNumber = (toothNumber: number) =>
-      patientTeeth.some((pt) => pt.toothNumber === toothNumber);
-
-    const toothIdByNumber = (toothNumber: number): number | null => {
-      const pt = patientTeeth.find((p) => p.toothNumber === toothNumber);
-      return pt ? pt.tooth : null;
-    };
-
-    const ToothNumber = ({ number, top, left }: { number: number; top: string; left: string }) => {
-      const enabled = hasToothNumber(number);
-      const possibleToothId = toothIdByNumber(number);
-      const isSelected = possibleToothId !== null && selectedToothIds.includes(possibleToothId);
-      return (
-        <div
-          onClick={() => enabled && possibleToothId && onSelect(possibleToothId)}
-          className={`absolute z-10 w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition-all select-none ${
-            enabled
-              ? `text-black cursor-pointer hover:bg-teal-500 hover:text-white hover:scale-110 ${isSelected ? 'bg-teal-600 text-white scale-110' : ''}`
-              : 'text-gray-400 cursor-not-allowed opacity-50'
-          }`}
-          style={{ top, left, pointerEvents: 'auto' }}
-          title={enabled ? `Select Tooth #${number}` : `Tooth #${number} not available`}
-        >
-          {number}
-        </div>
-      );
-    };
-
-    return (
-      <div className="w-full">
-        <div className="mb-2 flex justify-end">
-          <button
-            onClick={() => setIsPermanent(!isPermanent)}
-            className="px-3 py-1.5 bg-teal-500 text-white rounded-md text-sm font-medium hover:bg-teal-600 transition-colors"
-          >
-            {isPermanent ? 'Childish Teeth' : 'Permanent Teeth'}
-          </button>
-        </div>
-        <div className="relative w-full" style={{ paddingBottom: '90%' }}>
-          <img
-            src={isPermanent ? '/images/32teeth_logo.jpg' : '/images/20teeth_logo.jpg'}
-            alt="Teeth Diagram"
-            className="absolute top-0 left-0 w-full h-full object-contain"
-            style={{ pointerEvents: 'none', zIndex: 1 }}
-          />
-
-          {isPermanent ? (
-            <>
-              {/* Permanent Teeth positions borrowed from TeethDiagram */}
-              <ToothNumber number={18} top="38.5%" left="31.7%" />
-              <ToothNumber number={17} top="31%" left="30.6%" />
-              <ToothNumber number={16} top="24%" left="31%" />
-              <ToothNumber number={15} top="18%" left="32%" />
-              <ToothNumber number={14} top="12.5%" left="34.2%" />
-              <ToothNumber number={13} top="8%" left="36%" />
-              <ToothNumber number={12} top="4.4%" left="39.5%" />
-              <ToothNumber number={11} top="3%" left="44%" />
-
-              <ToothNumber number={21} top="3%" left="49.3%" />
-              <ToothNumber number={22} top="5%" left="54.3%" />
-              <ToothNumber number={23} top="8%" left="57.6%" />
-              <ToothNumber number={24} top="12.5%" left="59.7%" />
-              <ToothNumber number={25} top="18.3%" left="61.7%" />
-              <ToothNumber number={26} top="24.5%" left="62.2%" />
-              <ToothNumber number={27} top="31%" left="62.7%" />
-              <ToothNumber number={28} top="39%" left="61.7%" />
-
-              <ToothNumber number={48} top="55%" left="32.9%" />
-              <ToothNumber number={47} top="62.8%" left="31.3%" />
-              <ToothNumber number={46} top="69.6%" left="32.1%" />
-              <ToothNumber number={45} top="75.8%" left="33%" />
-              <ToothNumber number={44} top="81.3%" left="34.5%" />
-              <ToothNumber number={43} top="85.7%" left="36.5%" />
-              <ToothNumber number={42} top="89.7%" left="40.1%" />
-              <ToothNumber number={41} top="91%" left="45%" />
-
-              <ToothNumber number={31} top="91%" left="50.2%" />
-              <ToothNumber number={32} top="89%" left="55%" />
-              <ToothNumber number={33} top="86%" left="59%" />
-              <ToothNumber number={34} top="81.5%" left="60.5%" />
-              <ToothNumber number={35} top="75.7%" left="62.3%" />
-              <ToothNumber number={36} top="69.4%" left="62.8%" />
-              <ToothNumber number={37} top="62.6%" left="63.4%" />
-              <ToothNumber number={38} top="55%" left="62.5%" />
-            </>
-          ) : (
-            <>
-              {/* Childish Teeth positions borrowed from TeethDiagram */}
-              <ToothNumber number={55} top="34%" left="28.4%" />
-              <ToothNumber number={54} top="23.5%" left="30.2%" />
-              <ToothNumber number={53} top="15%" left="33.5%" />
-              <ToothNumber number={52} top="10%" left="38%" />
-              <ToothNumber number={51} top="7.5%" left="43.7%" />
-
-              <ToothNumber number={61} top="7.5%" left="51%" />
-              <ToothNumber number={62} top="10%" left="57.5%" />
-              <ToothNumber number={63} top="15%" left="62.5%" />
-              <ToothNumber number={64} top="23.3%" left="66.5%" />
-              <ToothNumber number={65} top="33.8%" left="68.5%" />
-
-              <ToothNumber number={85} top="61.2%" left="28.7%" />
-              <ToothNumber number={84} top="71.5%" left="30.6%" />
-              <ToothNumber number={83} top="79.7%" left="33.8%" />
-              <ToothNumber number={82} top="85%" left="38.1%" />
-              <ToothNumber number={81} top="87.7%" left="44.4%" />
-
-              <ToothNumber number={71} top="87.7%" left="51.2%" />
-              <ToothNumber number={72} top="85%" left="57.9%" />
-              <ToothNumber number={73} top="79.7%" left="62.9%" />
-              <ToothNumber number={74} top="71.5%" left="66.9%" />
-              <ToothNumber number={75} top="61.2%" left="68.6%" />
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
+  const [toothSelectionMode, setToothSelectionMode] = useState<'single' | 'multiple' | 'chin'>('multiple');
 
   useEffect(() => {
     const fetchAppointmentData = async () => {
@@ -187,7 +268,7 @@ const AppointmentDetail = () => {
           toothTreatmentService.getAll({ appointment: parseInt(id) })
         ]);
         
-        const appointmentData = appointmentsData.find(a => a.id === parseInt(id));
+        const appointmentData = appointmentsData.appointments.find(a => a.id === parseInt(id));
         if (!appointmentData) {
           setError('Appointment not found');
         } else {
@@ -247,7 +328,7 @@ const AppointmentDetail = () => {
       });
       setShowEditAppointment(false);
       const appointmentsData = await appointmentService.getAll();
-      const updatedAppointment = appointmentsData.find(a => a.id === appointment.id);
+      const updatedAppointment = appointmentsData.appointments.find(a => a.id === appointment.id);
       if (updatedAppointment) {
         setAppointment(updatedAppointment);
       }
@@ -668,8 +749,10 @@ const AppointmentDetail = () => {
                   <div className="w-full max-w-xl mx-auto bg-white rounded-lg p-3 shadow-sm">
                     <TeethSelector
                       patientTeeth={patientTeeth}
-                      onSelect={(toothId) => setNewTreatment({ ...newTreatment, tooth_ids: newTreatment.tooth_ids.includes(toothId) ? newTreatment.tooth_ids.filter(id => id !== toothId) : [...newTreatment.tooth_ids, toothId] })}
+                      onSelectionChange={(toothIds) => setNewTreatment({ ...newTreatment, tooth_ids: toothIds })}
                       selectedToothIds={newTreatment.tooth_ids}
+                      selectionMode={toothSelectionMode}
+                      onSelectionModeChange={setToothSelectionMode}
                     />
                   </div>
                 </div>
@@ -939,8 +1022,10 @@ const AppointmentDetail = () => {
                             <h4 className="text-sm font-semibold text-gray-900 mb-2">Change Tooth</h4>
                             <TeethSelector
                               patientTeeth={patientTeeth}
-                              onSelect={(toothId) => setEditingFields({ ...editingFields, tooth_ids: editingFields.tooth_ids.includes(toothId) ? editingFields.tooth_ids.filter(id => id !== toothId) : [...editingFields.tooth_ids, toothId] })}
+                              onSelectionChange={(toothIds) => setEditingFields({ ...editingFields, tooth_ids: toothIds })}
                               selectedToothIds={editingFields.tooth_ids}
+                              selectionMode={toothSelectionMode}
+                              onSelectionModeChange={setToothSelectionMode}
                             />
                           </div>
                         </div>
