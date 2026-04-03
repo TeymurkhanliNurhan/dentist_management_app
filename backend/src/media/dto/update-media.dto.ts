@@ -2,10 +2,10 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsString, IsOptional } from 'class-validator';
 
 export class UpdateMediaDto {
-    @ApiPropertyOptional({ example: 123, description: 'Photo URL as integer' })
+    @ApiPropertyOptional({ example: 'https://s3.amazonaws.com/bucket/media.jpg', description: 'Photo URL from S3' })
     @IsOptional()
-    @IsInt()
-    photo_url?: number;
+    @IsString()
+    photo_url?: string;
 
     @ApiPropertyOptional({ example: 'Updated X-ray image' })
     @IsOptional()
@@ -20,5 +20,5 @@ export class UpdateMediaDto {
     @ApiPropertyOptional({ example: 1, description: 'Tooth Treatment ID' })
     @IsOptional()
     @IsInt()
-    Tooth_Treatment_id?: number;
+    tooth_treatment_id?: number;
 }

@@ -15,7 +15,7 @@ export class MediaRepository {
         return this.dataSource.getRepository(Media);
     }
 
-    async findAll(filters: { id?: number; name?: string; Tooth_Treatment_id?: number; page?: number; limit?: number }): Promise<{ medias: Media[]; total: number }> {
+    async findAll(filters: { id?: number; name?: string; tooth_treatment_id?: number; page?: number; limit?: number }): Promise<{ medias: Media[]; total: number }> {
         this.logger.debug('findAll called');
         LogWriter.append('debug', MediaRepository.name, 'findAll called');
 
@@ -28,8 +28,8 @@ export class MediaRepository {
         if (filters.name) {
             queryBuilder.andWhere('media.name ILIKE :name', { name: `%${filters.name}%` });
         }
-        if (filters.Tooth_Treatment_id) {
-            queryBuilder.andWhere('media.Tooth_Treatment_id = :toothTreatmentId', { toothTreatmentId: filters.Tooth_Treatment_id });
+        if (filters.tooth_treatment_id) {
+            queryBuilder.andWhere('media.Tooth_Treatment_id = :toothTreatmentId', { toothTreatmentId: filters.tooth_treatment_id });
         }
 
         const page = filters.page || 1;
@@ -48,12 +48,12 @@ export class MediaRepository {
         return this.repo.findOne({ where: { id }, relations: ['toothTreatment'] });
     }
 
-    async create(input: { photo_url: number; name: string; description?: string; Tooth_Treatment_id: number }): Promise<Media> {
+    async create(input: { photo_url: string; name: string; description?: string; tooth_treatment_id: number }): Promise<Media> {
         this.logger.debug('create called');
         LogWriter.append('debug', MediaRepository.name, 'create called');
 
         const toothTreatmentRepo = this.dataSource.getRepository(ToothTreatment);
-        const toothTreatment = await toothTreatmentRepo.findOne({ where: { id: input.Tooth_Treatment_id } });
+        const toothTreatment = await toothTreatmentRepo.findOne({ where: { id: input.tooth_treatment_id } });
         if (!toothTreatment) throw new Error('Tooth Treatment not found');
 
         const media = this.repo.create({
@@ -65,7 +65,7 @@ export class MediaRepository {
         return await this.repo.save(media);
     }
 
-    async update(id: number, updates: Partial<{ photo_url: number; name: string; description: string; Tooth_Treatment_id: number }>): Promise<Media> {
+    async update(id: number, updates: Partial<{ photo_url: string; name: string; description: string; tooth_treatment_id: number }>): Promise<Media> {
         this.logger.debug(`update called with id ${id}`);
         LogWriter.append('debug', MediaRepository.name, `update called with id ${id}`);
 
@@ -75,9 +75,9 @@ export class MediaRepository {
         if (updates.photo_url !== undefined) media.photo_url = updates.photo_url;
         if (updates.name !== undefined) media.name = updates.name;
         if (updates.description !== undefined) media.description = updates.description;
-        if (updates.Tooth_Treatment_id !== undefined) {
+        if (updates.tooth_treatment_id !== undefined) {
             const toothTreatmentRepo = this.dataSource.getRepository(ToothTreatment);
-            const toothTreatment = await toothTreatmentRepo.findOne({ where: { id: updates.Tooth_Treatment_id } });
+            const toothTreatment = await toothTreatmentRepo.findOne({ where: { id: updates.tooth_treatment_id } });
             if (!toothTreatment) throw new Error('Tooth Treatment not found');
             media.toothTreatment = toothTreatment;
         }

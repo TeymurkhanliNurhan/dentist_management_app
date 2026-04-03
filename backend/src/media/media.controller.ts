@@ -1,9 +1,11 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MediaService } from './media.service';
 import { CreateMediaDto } from './dto/create-media.dto';
 import { UpdateMediaDto } from './dto/update-media.dto';
 import { GetMediaDto } from './dto/get-media.dto';
+import { JwtAuthGuard } from '../auth/guards/auth.guard';
 
 @ApiTags('media')
 @Controller('media')
@@ -26,12 +28,20 @@ export class MediaController {
         return await this.service.findOne(id);
     }
 
+    @ApiBearerAuth('bearer')
+    @UseGuards(JwtAuthGuard)
     @Post()
     @HttpCode(HttpStatus.CREATED)
-    @ApiOperation({ summary: 'Create media' })
+    @UseInterceptors(FileInterceptor('media'))
+    @ApiConsumes('multipart/form-data')
+    @ApiBody({
+        description: 'Media file upload with metadata',
+        type: CreateMediaDto,
+    })
+    @ApiOperation({ summary: 'Create media with file upload' })
     @ApiResponse({ status: 201, description: 'Media created' })
-    async create(@Body() dto: CreateMediaDto) {
-        return await this.service.create(dto);
+    async create(@Body() dto: CreateMediaDto, @UploadedFile() file: Express.Multer.File) {
+        return await this.service.create(dto, file);
     }
 
     @Patch(':id')

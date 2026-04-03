@@ -3,13 +3,14 @@ import { MediaRepository } from './media.repository';
 import { CreateMediaDto } from './dto/create-media.dto';
 import { UpdateMediaDto } from './dto/update-media.dto';
 import { GetMediaDto } from './dto/get-media.dto';
+import { S3Service } from '../s3/s3.service';
 import { LogWriter } from '../log-writer';
 
 @Injectable()
 export class MediaService {
     private readonly logger = new Logger(MediaService.name);
 
-    constructor(private readonly repo: MediaRepository) {}
+    constructor(private readonly repo: MediaRepository, private readonly s3Service: S3Service) {}
 
     async findAll(dto: GetMediaDto) {
         const result = await this.repo.findAll(dto);
@@ -30,9 +31,18 @@ export class MediaService {
         return media;
     }
 
-    async create(dto: CreateMediaDto) {
+    async create(dto: CreateMediaDto, file: Express.Multer.File) {
         try {
-            const created = await this.repo.create(dto);
+            // Upload file to S3
+            const key = this.s3Service.generateKey(file);
+            const photoUrl = await this.s3Service.uploadFile(file, key);
+
+            const created = await this.repo.create({
+                photo_url: photoUrl,
+                name: dto.name,
+                description: dto.description,
+                tooth_treatment_id: dto.tooth_treatment_id,
+            });
             this.logger.log(`Media created with id ${created.id}`);
             LogWriter.append('log', MediaService.name, `Media created with id ${created.id}`);
             return created;

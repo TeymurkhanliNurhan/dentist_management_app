@@ -18,7 +18,7 @@ export class GetMediaDto {
     @IsOptional()
     @Type(() => Number)
     @IsInt()
-    Tooth_Treatment_id?: number;
+    tooth_treatment_id?: number;
 
     @ApiPropertyOptional({ example: 1 })
     @IsOptional()

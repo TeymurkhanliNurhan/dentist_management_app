@@ -27,6 +27,7 @@ import { Appointment } from './appointment/entities/appointment.entity';
 import { Medicine } from './medicine/entities/medicine.entity';
 import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/tooth_treatment_medicine.entity';
 import { MediaModule } from './media/media.module';
+import { S3Module } from './s3/s3.module';
 import { Media } from './media/entities/media.entity';
 
 @Module({
@@ -138,6 +139,7 @@ import { Media } from './media/entities/media.entity';
     AuthModule,
     ContactModule,
     MediaModule,
+    S3Module,
   ],
   controllers: [AppController],
   providers: [AppService],

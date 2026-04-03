@@ -17,7 +17,8 @@ export class CreateMediaTable1743700000000 implements MigrationInterface {
                     },
                     {
                         name: 'photo_url',
-                        type: 'int',
+                        type: 'varchar',
+                        length: '500',
                         isNullable: false,
                     },
                     {

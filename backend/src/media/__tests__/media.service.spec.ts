@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MediaService } from '../media.service';
 import { MediaRepository } from '../media.repository';
+import { S3Service } from '../../s3/s3.service';
 
 describe('MediaService', () => {
   let service: MediaService;
@@ -17,6 +18,13 @@ describe('MediaService', () => {
             create: jest.fn(),
             update: jest.fn(),
             delete: jest.fn(),
+          },
+        },
+        {
+          provide: S3Service,
+          useValue: {
+            uploadFile: jest.fn(),
+            generateKey: jest.fn(),
           },
         },
       ],

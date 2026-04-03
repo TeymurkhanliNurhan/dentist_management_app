@@ -6,8 +6,8 @@ export class Media {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column({ type: 'int' })
-    photo_url: number;
+    @Column({ type: 'varchar', length: 500 })
+    photo_url: string;
 
     @Column({ type: 'text' })
     name: string;
