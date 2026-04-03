@@ -50,6 +50,14 @@ export class S3Service {
         } catch (error) {
             this.logger.error(`Failed to upload file: ${error.message}`);
             LogWriter.append('error', S3Service.name, `Failed to upload file: ${error.message}`);
+            if (error.name) {
+                this.logger.error(`Error name: ${error.name}`);
+                LogWriter.append('error', S3Service.name, `Error name: ${error.name}`);
+            }
+            if (error.code) {
+                this.logger.error(`Error code: ${error.code}`);
+                LogWriter.append('error', S3Service.name, `Error code: ${error.code}`);
+            }
             throw error;
         }
     }
