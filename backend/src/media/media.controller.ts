@@ -35,8 +35,18 @@ export class MediaController {
     @UseInterceptors(FileInterceptor('media'))
     @ApiConsumes('multipart/form-data')
     @ApiBody({
-        description: 'Media file upload with metadata',
-        type: CreateMediaDto,
+        schema: {
+            type: 'object',
+            properties: {
+                name: { type: 'string', example: 'X-ray image' },
+                description: { type: 'string', example: 'Description of the media', nullable: true },
+                tooth_treatment_id: { type: 'integer', example: 1 },
+                media: {
+                    type: 'string',
+                    format: 'binary',
+                },
+            },
+        },
     })
     @ApiOperation({ summary: 'Create media with file upload' })
     @ApiResponse({ status: 201, description: 'Media created' })
