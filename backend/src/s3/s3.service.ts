@@ -18,7 +18,10 @@ export class S3Service {
                 secretAccessKey: this.configService.get<string>('AWS_SECRET_ACCESS_KEY')!,
             },
         });
-        this.bucketName = this.configService.get<string>('AWS_S3_BUCKET_NAME') || 'dentist-management-media';
+        this.bucketName = this.configService.get<string>('AWS_S3_BUCKET_NAME')!;
+        if (!this.bucketName) {
+            throw new Error('AWS_S3_BUCKET_NAME environment variable is not set');
+        }
     }
 
     async uploadFile(file: Express.Multer.File, key: string): Promise<string> {
