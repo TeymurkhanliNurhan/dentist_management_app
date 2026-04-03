@@ -279,6 +279,26 @@ const AppointmentDetail = () => {
   const [editingMediaId, setEditingMediaId] = useState<number | null>(null);
   const [editingMediaData, setEditingMediaData] = useState<{ name: string; description: string }>({ name: '', description: '' });
   const [isEditingMedia, setIsEditingMedia] = useState(false);
+  const [previewMedia, setPreviewMedia] = useState<Media | null>(null);
+
+  useEffect(() => {
+    if (!previewMedia) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPreviewMedia(null);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [previewMedia]);
 
   useEffect(() => {
     const fetchAppointmentData = async () => {
@@ -1183,13 +1203,13 @@ const AppointmentDetail = () => {
                             const medias = treatmentMedias.get(treatment.id) || [];
                             return medias.length > 0 ? (
                               <div className="mb-3 p-3 bg-blue-50 rounded-md border border-blue-200">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Grid3X3 className="w-4 h-4 text-blue-600" />
-                                  <p className="text-sm font-medium text-blue-900">Media Gallery ({medias.length})</p>
-                                </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                   {medias.map((media) => (
-                                    <div key={media.id} className="relative group rounded-md overflow-hidden border border-gray-300">
+                                    <div
+                                      key={media.id}
+                                      className="relative group rounded-md overflow-hidden border border-gray-300 cursor-zoom-in"
+                                      onClick={() => setPreviewMedia(media)}
+                                    >
                                       <img
                                         src={media.photo_url}
                                         alt={media.name}
@@ -1198,17 +1218,25 @@ const AppointmentDetail = () => {
                                           (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2214%22%3ENo Image%3C/text%3E%3C/svg%3E';
                                         }}
                                       />
-                                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-opacity flex items-center justify-center gap-2">
+                                      <div className="absolute inset-0 pointer-events-none bg-black/0 group-hover:bg-black/60 transition-colors flex items-center justify-center gap-2">
                                         <button
-                                          onClick={() => handleEditMedia(media)}
-                                          className="opacity-0 group-hover:opacity-100 p-2 bg-white rounded-full hover:bg-gray-100 transition-all"
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEditMedia(media);
+                                          }}
+                                          className="pointer-events-auto opacity-0 group-hover:opacity-100 p-2 bg-white rounded-full hover:bg-gray-100 transition-all"
                                           title="Edit media"
                                         >
                                           <Edit className="w-4 h-4 text-blue-600" />
                                         </button>
                                         <button
-                                          onClick={() => handleDeleteMedia(media.id, treatment.id)}
-                                          className="opacity-0 group-hover:opacity-100 p-2 bg-red-500 rounded-full hover:bg-red-600 transition-all"
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteMedia(media.id, treatment.id);
+                                          }}
+                                          className="pointer-events-auto opacity-0 group-hover:opacity-100 p-2 bg-red-500 rounded-full hover:bg-red-600 transition-all"
                                           title="Delete media"
                                         >
                                           <Trash className="w-4 h-4 text-white" />
@@ -1277,7 +1305,7 @@ const AppointmentDetail = () => {
                           )}
 
                           {confirmDeleteMediaId && confirmDeleteMediaTreatmentId === treatment.id && (
-                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 rounded-md">
+                            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 rounded-md">
                               <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Delete Media?</h3>
                                 <p className="text-sm text-gray-600 mb-6">This action cannot be undone. Are you sure you want to delete this media?</p>

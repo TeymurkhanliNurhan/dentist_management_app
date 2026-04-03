@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, FileText, DollarSign, Globe } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, DollarSign, Globe, X } from 'lucide-react';
 import Header from './Header';
-import { toothTreatmentService, toothService } from '../services/api';
-import type { ToothTreatment, ToothInfo } from '../services/api';
+import { toothTreatmentService, toothService, mediaService } from '../services/api';
+import type { ToothTreatment, ToothInfo, Media } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
 const ToothDetail = () => {
@@ -15,6 +15,8 @@ const ToothDetail = () => {
   const [toothInfo, setToothInfo] = useState<ToothInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const [treatmentMedias, setTreatmentMedias] = useState<Map<number, Media[]>>(new Map());
+  const [previewMedia, setPreviewMedia] = useState<Media | null>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
 
   const FETCH_ERROR_KEY = '__tooth_fetch_error__';
@@ -41,6 +43,25 @@ const ToothDetail = () => {
   }, [showLanguageMenu]);
 
   useEffect(() => {
+    if (!previewMedia) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPreviewMedia(null);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [previewMedia]);
+
+  useEffect(() => {
     const fetchData = async () => {
       if (!toothId || !patientId) return;
       
@@ -56,6 +77,19 @@ const ToothDetail = () => {
         if (toothData.length > 0) {
           setToothInfo(toothData[0]);
         }
+
+        // Fetch media for each treatment
+        const mediasMap = new Map<number, Media[]>();
+        for (const treatment of treatmentsData) {
+          try {
+            const mediaResult = await mediaService.getAll({ tooth_treatment_id: treatment.id });
+            mediasMap.set(treatment.id, mediaResult.medias);
+          } catch (err) {
+            console.error(`Failed to fetch media for treatment ${treatment.id}:`, err);
+            mediasMap.set(treatment.id, []);
+          }
+        }
+        setTreatmentMedias(mediasMap);
       } catch (err: any) {
         console.error('Failed to fetch data:', err);
         setError(err.response?.data?.message || FETCH_ERROR_KEY);
@@ -224,8 +258,82 @@ const ToothDetail = () => {
                     </p>
                   </div>
                 )}
+
+                {(() => {
+                  const medias = treatmentMedias.get(treatment.id) || [];
+                  return medias.length > 0 ? (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <p className="text-sm font-medium text-gray-500 mb-3">{t('treatmentImages') || 'Treatment Images'}</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {medias.map((media) => (
+                          <div
+                            key={media.id}
+                            className="relative group rounded-md overflow-hidden border border-gray-300 cursor-zoom-in"
+                            onClick={() => setPreviewMedia(media)}
+                          >
+                            <img
+                              src={media.photo_url}
+                              alt={media.name}
+                              className="w-full h-32 object-cover bg-gray-200"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2214%22%3ENo Image%3C/text%3E%3C/svg%3E';
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-colors flex items-center justify-center">
+                              <p className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">{t('view') || 'View'}</p>
+                            </div>
+                            <p className="text-xs text-gray-600 mt-1 px-1 truncate" title={media.name}>
+                              {media.name}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
               </div>
             ))}
+          </div>
+        )}
+
+        {previewMedia && (
+          <div
+            className="fixed inset-0 bg-black/95 z-50"
+            onClick={() => setPreviewMedia(null)}
+          >
+            <div
+              className="w-full h-full flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-3 bg-black/60 text-white border-b border-white/10">
+                <h3 className="text-sm sm:text-base font-semibold truncate pr-3">{previewMedia.name}</h3>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMedia(null)}
+                  className="text-white/80 hover:text-white transition-colors"
+                  aria-label="Close image preview"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 min-h-0 flex items-center justify-center p-2 sm:p-6">
+                <img
+                  src={previewMedia.photo_url}
+                  alt={previewMedia.name}
+                  className="max-w-full max-h-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22180%22%3E%3Crect fill=%22%23f0f0f0%22 width=%22300%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2216%22%3ENo Image%3C/text%3E%3C/svg%3E';
+                  }}
+                />
+              </div>
+
+              <div className="px-4 py-3 bg-black/60 text-white border-t border-white/10">
+                <p className="text-sm text-white/90">
+                  {previewMedia.description?.trim() || 'No description provided.'}
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </main>
