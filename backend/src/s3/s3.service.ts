@@ -36,7 +36,7 @@ export class S3Service {
                     Key: key,
                     Body: file.buffer,
                     ContentType: file.mimetype,
-                    ACL: 'public-read', // Make it public
+                    // ACL removed - use bucket policy for public access instead
                 },
             });
 
