@@ -29,7 +29,7 @@ export class MediaRepository {
             queryBuilder.andWhere('media.name ILIKE :name', { name: `%${filters.name}%` });
         }
         if (filters.tooth_treatment_id) {
-            queryBuilder.andWhere('media.Tooth_Treatment_id = :toothTreatmentId', { toothTreatmentId: filters.tooth_treatment_id });
+            queryBuilder.andWhere('toothTreatment.id = :toothTreatmentId', { toothTreatmentId: filters.tooth_treatment_id });
         }
 
         const page = filters.page || 1;

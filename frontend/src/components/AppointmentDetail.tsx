@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash, MousePointer, Grid3X3, RectangleHorizontal } from 'lucide-react';
 import Header from './Header';
-import { appointmentService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService } from '../services/api';
-import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto } from '../services/api';
+import { appointmentService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
+import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, Media } from '../services/api';
 
 interface TeethSelectorProps {
   patientTeeth: PatientTooth[];
@@ -221,6 +221,7 @@ const AppointmentDetail = () => {
   const [treatments, setTreatments] = useState<ToothTreatment[]>([]);
   const [teethInfo, setTeethInfo] = useState<Map<number, ToothInfo>>(new Map());
   const [treatmentMedicines, setTreatmentMedicines] = useState<Map<number, ToothTreatmentMedicine[]>>(new Map());
+  const [treatmentMedias, setTreatmentMedias] = useState<Map<number, Media[]>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showEditAppointment, setShowEditAppointment] = useState(false);
@@ -265,6 +266,14 @@ const AppointmentDetail = () => {
   const [newTreatmentForm, setNewTreatmentForm] = useState<CreateTreatmentDto>({ name: '', description: '', price: 0 });
   const [isSubmittingTreatment, setIsSubmittingTreatment] = useState(false);
   const [treatmentError, setTreatmentError] = useState<string>('');
+  const [showAddMediaForTreatment, setShowAddMediaForTreatment] = useState<number | null>(null);
+  const [newMediaForm, setNewMediaForm] = useState<{ name: string; description: string; file: File | null }>({
+    name: '',
+    description: '',
+    file: null,
+  });
+  const [isSubmittingMedia, setIsSubmittingMedia] = useState(false);
+  const [mediaError, setMediaError] = useState<string>('');
 
   useEffect(() => {
     const fetchAppointmentData = async () => {
@@ -315,6 +324,17 @@ const AppointmentDetail = () => {
           medicinesMap.set(treatment.id, medicinesResults[index]);
         });
         setTreatmentMedicines(medicinesMap);
+
+        const mediaPromises = treatmentsData.map(treatment =>
+          mediaService.getAll({ tooth_treatment_id: treatment.id })
+        );
+        const mediaResults = await Promise.all(mediaPromises);
+
+        const mediasMap = new Map<number, Media[]>();
+        treatmentsData.forEach((treatment, index) => {
+          mediasMap.set(treatment.id, mediaResults[index].medias);
+        });
+        setTreatmentMedias(mediasMap);
       } catch (err: any) {
         console.error('Failed to fetch appointment data:', err);
         setError(err.response?.data?.message || 'Failed to fetch appointment details');
@@ -535,6 +555,49 @@ const AppointmentDetail = () => {
       setError(err.response?.data?.message || 'Failed to update treatment');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleAddMedia = async (treatmentId: number) => {
+    if (!newMediaForm.name || !newMediaForm.file) return;
+
+    setIsSubmittingMedia(true);
+    setMediaError('');
+    try {
+      const formData = new FormData();
+      formData.append('name', newMediaForm.name);
+      formData.append('description', newMediaForm.description);
+      formData.append('tooth_treatment_id', treatmentId.toString());
+      formData.append('media', newMediaForm.file);
+
+      await mediaService.create(formData);
+
+      // Refresh medias for this treatment
+      const mediaResult = await mediaService.getAll({ tooth_treatment_id: treatmentId });
+      setTreatmentMedias(prev => new Map(prev).set(treatmentId, mediaResult.medias));
+
+      setShowAddMediaForTreatment(null);
+      setNewMediaForm({ name: '', description: '', file: null });
+    } catch (err: any) {
+      console.error('Failed to add media:', err);
+      setMediaError(err.response?.data?.message || 'Failed to upload media');
+    } finally {
+      setIsSubmittingMedia(false);
+    }
+  };
+
+  const handleDeleteMedia = async (mediaId: number, treatmentId: number) => {
+    if (!window.confirm('Are you sure you want to delete this media?')) return;
+
+    try {
+      await mediaService.delete(mediaId);
+
+      // Refresh medias for this treatment
+      const mediaResult = await mediaService.getAll({ tooth_treatment_id: treatmentId });
+      setTreatmentMedias(prev => new Map(prev).set(treatmentId, mediaResult.medias));
+    } catch (err: any) {
+      console.error('Failed to delete media:', err);
+      setError(err.response?.data?.message || 'Failed to delete media');
     }
   };
 
@@ -1074,6 +1137,50 @@ const AppointmentDetail = () => {
                             </div>
                           )}
 
+                          {(() => {
+                            const medias = treatmentMedias.get(treatment.id) || [];
+                            return medias.length > 0 ? (
+                              <div className="mb-3 p-3 bg-blue-50 rounded-md border border-blue-200">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Grid3X3 className="w-4 h-4 text-blue-600" />
+                                  <p className="text-sm font-medium text-blue-900">Media Gallery ({medias.length})</p>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                  {medias.map((media) => (
+                                    <div key={media.id} className="relative group">
+                                      <img
+                                        src={media.photo_url}
+                                        alt={media.name}
+                                        className="w-full h-20 object-cover rounded-md border border-gray-300"
+                                      />
+                                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity rounded-md flex items-center justify-center">
+                                        <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                                          <button
+                                            onClick={() => {/* TODO: Edit media */}}
+                                            className="p-1 bg-white rounded-full hover:bg-gray-100"
+                                            title="Edit media"
+                                          >
+                                            <Edit className="w-3 h-3 text-gray-700" />
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteMedia(media.id, treatment.id)}
+                                            className="p-1 bg-red-500 rounded-full hover:bg-red-600"
+                                            title="Delete media"
+                                          >
+                                            <Trash className="w-3 h-3 text-white" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                      <p className="text-xs text-gray-600 mt-1 truncate" title={media.name}>
+                                        {media.name}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
+
                           {treatment.description && (
                             <div className="mt-3 pt-3 border-t border-gray-200">
                               <p className="text-sm font-medium text-gray-500 mb-1">Notes:</p>
@@ -1100,13 +1207,22 @@ const AppointmentDetail = () => {
                             </button>
                           </>
                         ) : (
-                          <button
-                            onClick={() => beginEditTreatment(treatment)}
-                            className="flex items-center space-x-1 px-3 py-1.5 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
-                          >
-                            <Edit className="w-4 h-4" />
-                            <span>Edit</span>
-                          </button>
+                          <>
+                            <button
+                              onClick={() => beginEditTreatment(treatment)}
+                              className="flex items-center space-x-1 px-3 py-1.5 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
+                            >
+                              <Edit className="w-4 h-4" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              onClick={() => setShowAddMediaForTreatment(treatment.id)}
+                              className="flex items-center space-x-1 px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span>Add Media</span>
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => setConfirmDeleteTreatmentId(treatment.id)}
@@ -1225,6 +1341,71 @@ const AppointmentDetail = () => {
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                               placeholder="Enter notes"
                             />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {showAddMediaForTreatment === treatment.id && (
+                      <div className="mt-4 rounded-md border border-blue-200 p-4 bg-blue-50/40">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Add Media</h4>
+                        <div className="space-y-3">
+                          <div>
+                            <label htmlFor={`mediaName-${treatment.id}`} className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
+                            <input
+                              id={`mediaName-${treatment.id}`}
+                              type="text"
+                              maxLength={100}
+                              value={newMediaForm.name}
+                              onChange={(e) => setNewMediaForm({ ...newMediaForm, name: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Enter media name"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor={`mediaDescription-${treatment.id}`} className="block text-xs font-medium text-gray-700 mb-1">Description (optional)</label>
+                            <textarea
+                              id={`mediaDescription-${treatment.id}`}
+                              rows={2}
+                              maxLength={300}
+                              value={newMediaForm.description}
+                              onChange={(e) => setNewMediaForm({ ...newMediaForm, description: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Enter description"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor={`mediaFile-${treatment.id}`} className="block text-xs font-medium text-gray-700 mb-1">File *</label>
+                            <input
+                              id={`mediaFile-${treatment.id}`}
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => setNewMediaForm({ ...newMediaForm, file: e.target.files?.[0] || null })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          {mediaError && (
+                            <div className="text-xs text-red-600">{mediaError}</div>
+                          )}
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleAddMedia(treatment.id)}
+                              disabled={isSubmittingMedia || !newMediaForm.name || !newMediaForm.file}
+                              className="flex-1 py-2 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isSubmittingMedia ? 'Uploading...' : 'Upload'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowAddMediaForTreatment(null);
+                                setNewMediaForm({ name: '', description: '', file: null });
+                                setMediaError('');
+                              }}
+                              className="flex-1 py-2 bg-gray-200 text-gray-700 text-xs rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                            >
+                              Cancel
+                            </button>
                           </div>
                         </div>
                       </div>

@@ -284,6 +284,37 @@ export interface GetToothTreatmentTeethDto {
   patient_id?: number;
 }
 
+export interface Media {
+  id: number;
+  photo_url: string;
+  name: string;
+  description: string | null;
+  toothTreatment: {
+    id: number;
+  };
+}
+
+export interface MediaFilters {
+  id?: number;
+  name?: string;
+  tooth_treatment_id?: number;
+  page?: number;
+  limit?: number;
+}
+
+export interface CreateMediaDto {
+  name: string;
+  description?: string;
+  tooth_treatment_id: number;
+}
+
+export interface UpdateMediaDto {
+  name?: string;
+  description?: string;
+  tooth_treatment_id?: number;
+  photo_url?: string;
+}
+
 export const toothTreatmentTeethService = {
   getAll: async (filters?: GetToothTreatmentTeethDto): Promise<ToothTreatmentTeeth[]> => {
     const params = new URLSearchParams();
@@ -455,6 +486,40 @@ export const appointmentService = {
   },
   delete: async (id: number) => {
     const response = await api.delete(`/appointment/${id}`);
+    return response.data;
+  },
+};
+
+export const mediaService = {
+  getAll: async (filters?: MediaFilters): Promise<{ medias: Media[]; total: number }> => {
+    const params = new URLSearchParams();
+    if (filters?.id) params.append('id', filters.id.toString());
+    if (filters?.name) params.append('name', filters.name);
+    if (filters?.tooth_treatment_id) params.append('tooth_treatment_id', filters.tooth_treatment_id.toString());
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+
+    const response = await api.get(`/media?${params.toString()}`);
+    return response.data;
+  },
+  getById: async (id: number): Promise<Media> => {
+    const response = await api.get(`/media/${id}`);
+    return response.data;
+  },
+  create: async (formData: FormData): Promise<Media> => {
+    const response = await api.post('/media', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+  update: async (id: number, media: UpdateMediaDto): Promise<Media> => {
+    const response = await api.patch(`/media/${id}`, media);
+    return response.data;
+  },
+  delete: async (id: number) => {
+    const response = await api.delete(`/media/${id}`);
     return response.data;
   },
 };
