@@ -4,6 +4,7 @@ import { Treatment } from '../../treatment/entities/treatment.entity';
 import { PatientTooth } from '../../patient_tooth/entities/patient_tooth.entity';
 import { ToothTreatmentMedicine } from '../../tooth_treatment_medicine/entities/tooth_treatment_medicine.entity';
 import { ToothTreatmentTeeth } from '../../tooth_treatment_teeth/entities/tooth_treatment_teeth.entity';
+import { Media } from '../../media/entities/media.entity';
 
 @Entity({ name: 'Tooth_Treatment' })
 export class ToothTreatment {
@@ -39,6 +40,9 @@ export class ToothTreatment {
 
     @OneToMany(() => ToothTreatmentTeeth, (ttt) => ttt.toothTreatment)
     toothTreatmentTeeth: ToothTreatmentTeeth[];
+
+    @OneToMany(() => Media, (media) => media.toothTreatment)
+    medias: Media[];
 }
 
 

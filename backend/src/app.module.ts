@@ -26,6 +26,8 @@ import { ToothTreatmentTeeth } from './tooth_treatment_teeth/entities/tooth_trea
 import { Appointment } from './appointment/entities/appointment.entity';
 import { Medicine } from './medicine/entities/medicine.entity';
 import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/tooth_treatment_medicine.entity';
+import { MediaModule } from './media/media.module';
+import { Media } from './media/entities/media.entity';
 
 @Module({
   imports: [
@@ -81,6 +83,7 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
               Appointment,
               Medicine,
               ToothTreatmentMedicine,
+              Media,
             ],
             synchronize: true,
             logging: ['schema', 'error', 'warn'],
@@ -109,6 +112,7 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
               Appointment,
               Medicine,
               ToothTreatmentMedicine,
+              Media,
             ],
             synchronize: true,
             extra: {
@@ -133,6 +137,7 @@ import { ToothTreatmentMedicine } from './tooth_treatment_medicine/entities/toot
     ToothTreatmentMedicineModule,
     AuthModule,
     ContactModule,
+    MediaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
