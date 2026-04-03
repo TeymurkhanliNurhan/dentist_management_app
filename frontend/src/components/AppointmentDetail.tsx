@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash, MousePointer, Grid3X3, RectangleHorizontal } from 'lucide-react';
 import Header from './Header';
 import { appointmentService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService } from '../services/api';
-import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine } from '../services/api';
+import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto } from '../services/api';
 
 interface TeethSelectorProps {
   patientTeeth: PatientTooth[];
@@ -255,6 +255,10 @@ const AppointmentDetail = () => {
   const [editingMedicineIds, setEditingMedicineIds] = useState<number[]>([]);
   const [confirmDeleteTreatmentId, setConfirmDeleteTreatmentId] = useState<number | null>(null);
   const [toothSelectionMode, setToothSelectionMode] = useState<'single' | 'multiple' | 'chin'>('multiple');
+  const [showAddTreatmentInModal, setShowAddTreatmentInModal] = useState(false);
+  const [newTreatmentForm, setNewTreatmentForm] = useState<CreateTreatmentDto>({ name: '', description: '', price: 0 });
+  const [isSubmittingTreatment, setIsSubmittingTreatment] = useState(false);
+  const [treatmentError, setTreatmentError] = useState<string>('');
 
   useEffect(() => {
     const fetchAppointmentData = async () => {
@@ -421,6 +425,27 @@ const AppointmentDetail = () => {
       setError(err.response?.data?.message || 'Failed to create treatment');
     } finally {
       setIsAddingTreatment(false);
+    }
+  };
+
+  const handleAddTreatmentForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTreatmentError('');
+    setIsSubmittingTreatment(true);
+    try {
+      await treatmentService.create(newTreatmentForm);
+      setShowAddTreatmentInModal(false);
+      setNewTreatmentForm({ name: '', description: '', price: 0 });
+      
+      // Refresh treatments list
+      const updatedTreatments = await treatmentService.getAll();
+      setAllTreatments(updatedTreatments);
+      setAvailableTreatments(updatedTreatments);
+    } catch (err: any) {
+      console.error('Failed to create treatment:', err);
+      setTreatmentError(err.response?.data?.message || 'Failed to create treatment');
+    } finally {
+      setIsSubmittingTreatment(false);
     }
   };
 
@@ -722,6 +747,14 @@ const AppointmentDetail = () => {
                       }}
                     />
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddTreatmentInModal(true)}
+                    className="w-full mb-3 flex items-center justify-center space-x-1 px-4 py-2 bg-blue-50 text-blue-600 text-sm rounded-md font-medium border border-blue-200 hover:bg-blue-100 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>New Treatment</span>
+                  </button>
                   <div className="max-h-64 overflow-auto rounded-md border border-gray-200 bg-white">
                     {availableTreatments.length === 0 ? (
                       <div className="p-4 text-sm text-gray-500">No treatments found</div>
@@ -743,6 +776,74 @@ const AppointmentDetail = () => {
                     )}
                   </div>
                 </div>
+
+                {showAddTreatmentInModal && (
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="text-sm font-medium text-gray-900 mb-3">New Treatment</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label htmlFor="modalNewTreatmentName" className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
+                        <input
+                          id="modalNewTreatmentName"
+                          type="text"
+                          maxLength={40}
+                          value={newTreatmentForm.name}
+                          onChange={(e) => setNewTreatmentForm({ ...newTreatmentForm, name: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="modalNewTreatmentDescription" className="block text-xs font-medium text-gray-700 mb-1">Description *</label>
+                        <textarea
+                          id="modalNewTreatmentDescription"
+                          rows={2}
+                          maxLength={300}
+                          value={newTreatmentForm.description}
+                          onChange={(e) => setNewTreatmentForm({ ...newTreatmentForm, description: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="modalNewTreatmentPrice" className="block text-xs font-medium text-gray-700 mb-1">Price *</label>
+                        <input
+                          id="modalNewTreatmentPrice"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={newTreatmentForm.price || ''}
+                          onChange={(e) => setNewTreatmentForm({ ...newTreatmentForm, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+
+                      {treatmentError && (
+                        <div className="text-xs text-red-600">{treatmentError}</div>
+                      )}
+
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleAddTreatmentForm}
+                          disabled={isSubmittingTreatment || !newTreatmentForm.name || !newTreatmentForm.description || newTreatmentForm.price < 0}
+                          className="flex-1 py-2 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isSubmittingTreatment ? 'Creating...' : 'Create'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAddTreatmentInModal(false);
+                            setNewTreatmentForm({ name: '', description: '', price: 0 });
+                            setTreatmentError('');
+                          }}
+                          className="flex-1 py-2 bg-gray-200 text-gray-700 text-xs rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Select Tooth</h3>
