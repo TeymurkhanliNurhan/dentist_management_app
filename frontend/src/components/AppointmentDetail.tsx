@@ -274,6 +274,11 @@ const AppointmentDetail = () => {
   });
   const [isSubmittingMedia, setIsSubmittingMedia] = useState(false);
   const [mediaError, setMediaError] = useState<string>('');
+  const [confirmDeleteMediaId, setConfirmDeleteMediaId] = useState<number | null>(null);
+  const [confirmDeleteMediaTreatmentId, setConfirmDeleteMediaTreatmentId] = useState<number | null>(null);
+  const [editingMediaId, setEditingMediaId] = useState<number | null>(null);
+  const [editingMediaData, setEditingMediaData] = useState<{ name: string; description: string }>({ name: '', description: '' });
+  const [isEditingMedia, setIsEditingMedia] = useState(false);
 
   useEffect(() => {
     const fetchAppointmentData = async () => {
@@ -587,17 +592,54 @@ const AppointmentDetail = () => {
   };
 
   const handleDeleteMedia = async (mediaId: number, treatmentId: number) => {
-    if (!window.confirm('Are you sure you want to delete this media?')) return;
+    setConfirmDeleteMediaId(mediaId);
+    setConfirmDeleteMediaTreatmentId(treatmentId);
+  };
+
+  const confirmDeleteMedia = async () => {
+    if (!confirmDeleteMediaId || !confirmDeleteMediaTreatmentId) return;
 
     try {
-      await mediaService.delete(mediaId);
+      await mediaService.delete(confirmDeleteMediaId);
+
+      // Refresh medias for this treatment
+      const mediaResult = await mediaService.getAll({ tooth_treatment_id: confirmDeleteMediaTreatmentId });
+      setTreatmentMedias(prev => new Map(prev).set(confirmDeleteMediaTreatmentId, mediaResult.medias));
+
+      setConfirmDeleteMediaId(null);
+      setConfirmDeleteMediaTreatmentId(null);
+    } catch (err: any) {
+      console.error('Failed to delete media:', err);
+      setError(err.response?.data?.message || 'Failed to delete media');
+    }
+  };
+
+  const handleEditMedia = (media: Media) => {
+    setEditingMediaId(media.id);
+    setEditingMediaData({ name: media.name, description: media.description || '' });
+  };
+
+  const saveEditMedia = async (treatmentId: number) => {
+    if (!editingMediaId) return;
+
+    setIsEditingMedia(true);
+    try {
+      await mediaService.update(editingMediaId, {
+        name: editingMediaData.name,
+        description: editingMediaData.description,
+      });
 
       // Refresh medias for this treatment
       const mediaResult = await mediaService.getAll({ tooth_treatment_id: treatmentId });
       setTreatmentMedias(prev => new Map(prev).set(treatmentId, mediaResult.medias));
+
+      setEditingMediaId(null);
+      setEditingMediaData({ name: '', description: '' });
     } catch (err: any) {
-      console.error('Failed to delete media:', err);
-      setError(err.response?.data?.message || 'Failed to delete media');
+      console.error('Failed to edit media:', err);
+      setError(err.response?.data?.message || 'Failed to edit media');
+    } finally {
+      setIsEditingMedia(false);
     }
   };
 
@@ -1145,33 +1187,34 @@ const AppointmentDetail = () => {
                                   <Grid3X3 className="w-4 h-4 text-blue-600" />
                                   <p className="text-sm font-medium text-blue-900">Media Gallery ({medias.length})</p>
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                   {medias.map((media) => (
-                                    <div key={media.id} className="relative group">
+                                    <div key={media.id} className="relative group rounded-md overflow-hidden border border-gray-300">
                                       <img
                                         src={media.photo_url}
                                         alt={media.name}
-                                        className="w-full h-20 object-cover rounded-md border border-gray-300"
+                                        className="w-full h-32 object-cover bg-gray-200"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2214%22%3ENo Image%3C/text%3E%3C/svg%3E';
+                                        }}
                                       />
-                                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity rounded-md flex items-center justify-center">
-                                        <div className="opacity-0 group-hover:opacity-100 flex gap-1">
-                                          <button
-                                            onClick={() => {/* TODO: Edit media */}}
-                                            className="p-1 bg-white rounded-full hover:bg-gray-100"
-                                            title="Edit media"
-                                          >
-                                            <Edit className="w-3 h-3 text-gray-700" />
-                                          </button>
-                                          <button
-                                            onClick={() => handleDeleteMedia(media.id, treatment.id)}
-                                            className="p-1 bg-red-500 rounded-full hover:bg-red-600"
-                                            title="Delete media"
-                                          >
-                                            <Trash className="w-3 h-3 text-white" />
-                                          </button>
-                                        </div>
+                                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-opacity flex items-center justify-center gap-2">
+                                        <button
+                                          onClick={() => handleEditMedia(media)}
+                                          className="opacity-0 group-hover:opacity-100 p-2 bg-white rounded-full hover:bg-gray-100 transition-all"
+                                          title="Edit media"
+                                        >
+                                          <Edit className="w-4 h-4 text-blue-600" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteMedia(media.id, treatment.id)}
+                                          className="opacity-0 group-hover:opacity-100 p-2 bg-red-500 rounded-full hover:bg-red-600 transition-all"
+                                          title="Delete media"
+                                        >
+                                          <Trash className="w-4 h-4 text-white" />
+                                        </button>
                                       </div>
-                                      <p className="text-xs text-gray-600 mt-1 truncate" title={media.name}>
+                                      <p className="text-xs text-gray-600 mt-1 px-1 truncate" title={media.name}>
                                         {media.name}
                                       </p>
                                     </div>
@@ -1180,6 +1223,86 @@ const AppointmentDetail = () => {
                               </div>
                             ) : null;
                           })()}
+
+                          {editingMediaId && (
+                            <div className="mt-4 rounded-md border border-blue-200 p-4 bg-blue-50/40">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-3">Edit Media</h4>
+                              <div className="space-y-3">
+                                <div>
+                                  <label htmlFor={`editMediaName-${treatment.id}`} className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
+                                  <input
+                                    id={`editMediaName-${treatment.id}`}
+                                    type="text"
+                                    maxLength={100}
+                                    value={editingMediaData.name}
+                                    onChange={(e) => setEditingMediaData({ ...editingMediaData, name: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Enter media name"
+                                  />
+                                </div>
+                                <div>
+                                  <label htmlFor={`editMediaDescription-${treatment.id}`} className="block text-xs font-medium text-gray-700 mb-1">Description (optional)</label>
+                                  <textarea
+                                    id={`editMediaDescription-${treatment.id}`}
+                                    rows={2}
+                                    maxLength={300}
+                                    value={editingMediaData.description}
+                                    onChange={(e) => setEditingMediaData({ ...editingMediaData, description: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Enter description"
+                                  />
+                                </div>
+                                <div className="flex gap-2 pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => saveEditMedia(treatment.id)}
+                                    disabled={isEditingMedia || !editingMediaData.name}
+                                    className="flex-1 py-2 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {isEditingMedia ? 'Saving...' : 'Save'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingMediaId(null);
+                                      setEditingMediaData({ name: '', description: '' });
+                                    }}
+                                    className="flex-1 py-2 bg-gray-200 text-gray-700 text-xs rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {confirmDeleteMediaId && confirmDeleteMediaTreatmentId === treatment.id && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 rounded-md">
+                              <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-3">Delete Media?</h3>
+                                <p className="text-sm text-gray-600 mb-6">This action cannot be undone. Are you sure you want to delete this media?</p>
+                                <div className="flex gap-3 justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setConfirmDeleteMediaId(null);
+                                      setConfirmDeleteMediaTreatmentId(null);
+                                    }}
+                                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={confirmDeleteMedia}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
                           {treatment.description && (
                             <div className="mt-3 pt-3 border-t border-gray-200">
