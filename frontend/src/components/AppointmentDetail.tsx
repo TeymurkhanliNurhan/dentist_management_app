@@ -227,6 +227,7 @@ const AppointmentDetail = () => {
   const [editedAppointment, setEditedAppointment] = useState({
     startDate: '',
     endDate: '',
+    discountFee: 0,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmDeleteAppointment, setConfirmDeleteAppointment] = useState(false);
@@ -246,6 +247,11 @@ const AppointmentDetail = () => {
   const [allMedicines, setAllMedicines] = useState<Medicine[]>([]);
   const [selectedMedicineIds, setSelectedMedicineIds] = useState<number[]>([]);
   const [medicineQuery, setMedicineQuery] = useState('');
+
+  const [treatmentPage, setTreatmentPage] = useState(1);
+  const [medicinePage, setMedicinePage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
   const [editingTreatmentId, setEditingTreatmentId] = useState<number | null>(null);
   const [editingFields, setEditingFields] = useState<{ treatment_id: number; tooth_ids: number[]; description: string }>({
     treatment_id: 0,
@@ -280,6 +286,7 @@ const AppointmentDetail = () => {
           setEditedAppointment({
             startDate: appointmentData.startDate,
             endDate: appointmentData.endDate || '',
+            discountFee: appointmentData.discountFee || 0,
           });
         }
         setTreatments(treatmentsData);
@@ -329,6 +336,7 @@ const AppointmentDetail = () => {
       await appointmentService.update(appointment.id, {
         startDate: editedAppointment.startDate,
         endDate: editedAppointment.endDate || null,
+        discountFee: editedAppointment.discountFee,
       });
       setShowEditAppointment(false);
       const appointmentsData = await appointmentService.getAll();
@@ -582,6 +590,12 @@ const AppointmentDetail = () => {
     return treatmentTotal + medicineTotal - discount;
   };
 
+  const totalTreatmentPages = Math.max(1, Math.ceil(availableTreatments.length / ITEMS_PER_PAGE));
+  const paginatedTreatments = availableTreatments.slice((treatmentPage - 1) * ITEMS_PER_PAGE, treatmentPage * ITEMS_PER_PAGE);
+
+  const totalMedicinePages = Math.max(1, Math.ceil(availableMedicines.length / ITEMS_PER_PAGE));
+  const paginatedMedicines = availableMedicines.slice((medicinePage - 1) * ITEMS_PER_PAGE, medicinePage * ITEMS_PER_PAGE);
+
   return (
     <div className="min-h-screen bg-blue-50">
       <Header />
@@ -738,6 +752,7 @@ const AppointmentDetail = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                       onChange={(e) => {
                         const q = e.target.value.toLowerCase();
+                        setTreatmentPage(1);
                         if (!q) {
                           setAvailableTreatments(allTreatments);
                         } else {
@@ -759,7 +774,7 @@ const AppointmentDetail = () => {
                     {availableTreatments.length === 0 ? (
                       <div className="p-4 text-sm text-gray-500">No treatments found</div>
                     ) : (
-                      availableTreatments.map(t => (
+                      paginatedTreatments.map(t => (
                         <button
                           key={t.id}
                           type="button"
@@ -775,6 +790,26 @@ const AppointmentDetail = () => {
                       ))
                     )}
                   </div>
+
+                  {totalTreatmentPages > 1 && (
+                    <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                      <span>Page {treatmentPage} of {totalTreatmentPages}</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setTreatmentPage((prev) => Math.max(1, prev - 1))}
+                          disabled={treatmentPage === 1}
+                          className="px-2 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50"
+                        >Prev</button>
+                        <button
+                          type="button"
+                          onClick={() => setTreatmentPage((prev) => Math.min(totalTreatmentPages, prev + 1))}
+                          disabled={treatmentPage === totalTreatmentPages}
+                          className="px-2 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50"
+                        >Next</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {showAddTreatmentInModal && (
@@ -862,6 +897,20 @@ const AppointmentDetail = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Select Medicines (optional)</h3>
+
+                  <div className="mb-3">
+                    <label htmlFor="inlineDescription" className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
+                    <textarea
+                      id="inlineDescription"
+                      rows={3}
+                      maxLength={300}
+                      value={newTreatment.description}
+                      onChange={(e) => setNewTreatment({ ...newTreatment, description: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      placeholder="Enter treatment description/notes"
+                    />
+                  </div>
+
                   <div className="mb-3">
                     <input
                       type="text"
@@ -870,6 +919,7 @@ const AppointmentDetail = () => {
                       onChange={(e) => {
                         const q = e.target.value.toLowerCase();
                         setMedicineQuery(e.target.value);
+                        setMedicinePage(1);
                         if (!q) {
                           setAvailableMedicines(allMedicines);
                         } else {
@@ -884,7 +934,7 @@ const AppointmentDetail = () => {
                     {availableMedicines.length === 0 ? (
                       <div className="p-4 text-sm text-gray-500">No medicines found</div>
                     ) : (
-                      availableMedicines.map((m) => {
+                      paginatedMedicines.map((m) => {
                         const checked = selectedMedicineIds.includes(m.id);
                         return (
                           <label key={m.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 cursor-pointer hover:bg-purple-50">
@@ -912,20 +962,27 @@ const AppointmentDetail = () => {
                       })
                     )}
                   </div>
-                </div>
-              </div>
 
-              <div className="mt-4">
-                <label htmlFor="inlineDescription" className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
-                <textarea
-                  id="inlineDescription"
-                  rows={3}
-                  maxLength={300}
-                  value={newTreatment.description}
-                  onChange={(e) => setNewTreatment({ ...newTreatment, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  placeholder="Enter treatment description/notes"
-                />
+                  {totalMedicinePages > 1 && (
+                    <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                      <span>Page {medicinePage} of {totalMedicinePages}</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setMedicinePage((prev) => Math.max(1, prev - 1))}
+                          disabled={medicinePage === 1}
+                          className="px-2 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50"
+                        >Prev</button>
+                        <button
+                          type="button"
+                          onClick={() => setMedicinePage((prev) => Math.min(totalMedicinePages, prev + 1))}
+                          disabled={medicinePage === totalMedicinePages}
+                          className="px-2 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50"
+                        >Next</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex gap-3 mt-4">
@@ -1217,6 +1274,21 @@ const AppointmentDetail = () => {
                     id="editEndDate"
                     value={editedAppointment.endDate}
                     onChange={(e) => setEditedAppointment({ ...editedAppointment, endDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="editDiscountFee" className="block text-sm font-medium text-gray-700 mb-1">
+                    Discount Fee
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    id="editDiscountFee"
+                    value={editedAppointment.discountFee}
+                    onChange={(e) => setEditedAppointment({ ...editedAppointment, discountFee: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
