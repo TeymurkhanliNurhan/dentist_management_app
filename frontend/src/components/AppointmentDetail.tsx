@@ -392,6 +392,12 @@ const AppointmentDetail = () => {
       const updatedAppointment = appointmentsData.appointments.find(a => a.id === appointment.id);
       if (updatedAppointment) {
         setAppointment(updatedAppointment);
+        // Reset editedAppointment with updated values to sync with appointment state
+        setEditedAppointment({
+          startDate: updatedAppointment.startDate,
+          endDate: updatedAppointment.endDate || '',
+          chargedFee: updatedAppointment.chargedFee ?? updatedAppointment.calculatedFee,
+        });
       }
     } catch (err: any) {
       console.error('Failed to update appointment:', err);
@@ -480,6 +486,13 @@ const AppointmentDetail = () => {
         medicinesMap.set(treatment.id, medicinesResults[index]);
       });
       setTreatmentMedicines(medicinesMap);
+
+      // Refresh appointment to get updated calculatedFee
+      const appointmentsData = await appointmentService.getAll();
+      const updatedAppointment = appointmentsData.appointments.find(a => a.id === appointment.id);
+      if (updatedAppointment) {
+        setAppointment(updatedAppointment);
+      }
     } catch (err: any) {
       console.error('Failed to create treatment:', err);
       setError(err.response?.data?.message || 'Failed to create treatment');
@@ -1781,22 +1794,33 @@ const AppointmentDetail = () => {
                   <label htmlFor="editChargedFee" className="block text-sm font-medium text-gray-700 mb-1">
                     Charged Fee
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    id="editChargedFee"
-                    value={editedAppointment.chargedFee}
-                    onChange={(e) => setEditedAppointment({ ...editedAppointment, chargedFee: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setEditedAppointment({ ...editedAppointment, chargedFee: appointment.calculatedFee })}
-                    className="mt-2 text-xs text-teal-700 hover:text-teal-900"
-                  >
-                    Use calculated fee (${appointment.calculatedFee.toFixed(2)})
-                  </button>
+                  <div className="space-y-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      id="editChargedFee"
+                      value={editedAppointment.chargedFee}
+                      onChange={(e) => setEditedAppointment({ ...editedAppointment, chargedFee: Number(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditedAppointment({ ...editedAppointment, chargedFee: appointment.calculatedFee })}
+                        className="w-full py-1.5 px-3 bg-blue-500 text-white text-sm rounded-md font-medium hover:bg-blue-600 transition-colors"
+                      >
+                        Set as Calculated Fee (${appointment.calculatedFee.toFixed(2)})
+                      </button>
+                      <div className="text-xs text-gray-600 space-y-1">
+                        <p><span className="font-medium">Calculated Fee:</span> ${appointment.calculatedFee.toFixed(2)}</p>
+                        <p><span className="font-medium">Charged Fee:</span> ${editedAppointment.chargedFee.toFixed(2)}</p>
+                        <p className={`font-medium ${editedAppointment.chargedFee > appointment.calculatedFee ? 'text-green-600' : editedAppointment.chargedFee < appointment.calculatedFee ? 'text-red-600' : 'text-gray-600'}`}>
+                          Discount: ${(editedAppointment.chargedFee - appointment.calculatedFee).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex gap-3 pt-4">

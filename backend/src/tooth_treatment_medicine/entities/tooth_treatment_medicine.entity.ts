@@ -17,7 +17,7 @@ export class ToothTreatmentMedicine {
     @JoinColumn({ name: 'Medicine' })
     medicineEntity: Medicine;
 
-    @ManyToOne(() => ToothTreatment, (toothTreatment) => toothTreatment.toothTreatmentMedicines, { nullable: false })
+    @ManyToOne(() => ToothTreatment, (toothTreatment) => toothTreatment.toothTreatmentMedicines, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'Tooth_Treatment' })
     toothTreatmentEntity: ToothTreatment;
 }

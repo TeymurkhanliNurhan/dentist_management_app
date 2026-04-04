@@ -15,7 +15,7 @@ export class Media {
     @Column({ type: 'text', nullable: true })
     description: string | null;
 
-    @ManyToOne(() => ToothTreatment, (toothTreatment) => toothTreatment.medias, { nullable: false })
+    @ManyToOne(() => ToothTreatment, (toothTreatment) => toothTreatment.medias, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'Tooth_Treatment_id' })
     toothTreatment: ToothTreatment;
 }

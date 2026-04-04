@@ -17,11 +17,11 @@ export class ToothTreatment {
     @Column({ type: 'int', nullable: true })
     tooth: number | null;
 
-    @ManyToOne(() => Appointment, (appointment) => appointment.toothTreatments, { nullable: false })
+    @ManyToOne(() => Appointment, (appointment) => appointment.toothTreatments, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'appointment' })
     appointment: Appointment;
 
-    @ManyToOne(() => Treatment, (treatment) => treatment.toothTreatments, { nullable: false })
+    @ManyToOne(() => Treatment, (treatment) => treatment.toothTreatments, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'treatment' })
     treatment: Treatment;
 
