@@ -45,8 +45,10 @@ export class AppointmentRepository {
         if (!appointment) throw new Error('Forbidden');
         if (updates.startDate !== undefined) appointment.startDate = updates.startDate;
         if (updates.endDate !== undefined) appointment.endDate = updates.endDate;
-        if (updates.chargedFee !== undefined) appointment.chargedFee = updates.chargedFee;
-        this.applyFeeRules(appointment);
+        if (updates.chargedFee !== undefined) {
+            appointment.chargedFee = updates.chargedFee;
+            appointment.discountFee = calculateAppointmentDiscountFee(appointment.calculatedFee, appointment.chargedFee);
+        }
         return await this.repo.save(appointment);
     }
 

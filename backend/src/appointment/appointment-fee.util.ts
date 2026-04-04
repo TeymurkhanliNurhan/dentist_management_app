@@ -11,7 +11,9 @@ export const calculateAppointmentCalculatedFee = (appointment: Appointment): num
   const total = (appointment.toothTreatments ?? []).reduce((appointmentTotal, toothTreatment) => {
     const treatmentFee = toNumber(toothTreatment.feeSnapshot ?? toothTreatment.treatment?.price);
     const medicineFee = (toothTreatment.toothTreatmentMedicines ?? []).reduce((medicineTotal, toothTreatmentMedicine) => {
-      return medicineTotal + toNumber(toothTreatmentMedicine.medicinePriceSnapshot ?? toothTreatmentMedicine.medicineEntity?.price);
+      const unitPrice = toNumber(toothTreatmentMedicine.medicinePriceSnapshot ?? toothTreatmentMedicine.medicineEntity?.price);
+      const quantity = Math.max(1, toNumber(toothTreatmentMedicine.quantity || 1));
+      return medicineTotal + unitPrice * quantity;
     }, 0);
 
     return appointmentTotal + treatmentFee + medicineFee;
