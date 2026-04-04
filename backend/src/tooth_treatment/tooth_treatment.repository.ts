@@ -30,9 +30,13 @@ export class ToothTreatmentRepository {
 
         if (!appointment) return;
 
+        const oldCalculatedFee = appointment.calculatedFee;
         appointment.calculatedFee = calculateAppointmentCalculatedFee(appointment);
         appointment.discountFee = calculateAppointmentDiscountFee(appointment.calculatedFee, appointment.chargedFee);
-        await appointmentRepo.save(appointment);
+        
+        if (oldCalculatedFee !== appointment.calculatedFee) {
+            await appointmentRepo.save(appointment);
+        }
     }
 
     async createForDentist(
