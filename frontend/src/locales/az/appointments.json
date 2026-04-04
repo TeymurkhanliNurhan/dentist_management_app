@@ -21,6 +21,8 @@
   "empty": "Randevu tapılmadı",
   "fetchError": "Randevular alınmadı",
   "newAppointment": "Yeni randevu",
+  "pastAppointments": "Keçmiş randevular",
+  "openAppointments": "Cari randevular",
   "pagination": {
     "showing": "{{from}} - {{to}} arası {{total}} randevudan göstərilir",
     "previous": "Əvvəlki",

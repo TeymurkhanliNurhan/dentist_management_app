@@ -21,6 +21,8 @@
   "empty": "Записи не найдены",
   "fetchError": "Не удалось получить записи",
   "newAppointment": "Новая запись",
+  "pastAppointments": "Прошедшие записи",
+  "openAppointments": "Текущие записи",
   "pagination": {
     "showing": "Показано {{from}} - {{to}} из {{total}}",
     "previous": "Предыдущая",

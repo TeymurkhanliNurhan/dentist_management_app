@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash, MousePointer, Grid3X3, RectangleHorizontal } from 'lucide-react';
 import Header from './Header';
 import { appointmentService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
@@ -214,9 +214,19 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
   );
 };
 
+type AppointmentLocationState = { fromPatientId?: number };
+
 const AppointmentDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromPatientIdRaw = (location.state as AppointmentLocationState | null)?.fromPatientId;
+  const fromPatientId =
+    typeof fromPatientIdRaw === 'number' && Number.isFinite(fromPatientIdRaw) && fromPatientIdRaw > 0
+      ? fromPatientIdRaw
+      : undefined;
+  const backPath = fromPatientId != null ? `/patients/${fromPatientId}` : '/appointments';
+  const backButtonLabel = fromPatientId != null ? 'Back to Patient' : 'Back to Appointments';
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [treatments, setTreatments] = useState<ToothTreatment[]>([]);
   const [teethInfo, setTeethInfo] = useState<Map<number, ToothInfo>>(new Map());
@@ -246,7 +256,7 @@ const AppointmentDetail = () => {
   const [isAddingTreatment, setIsAddingTreatment] = useState(false);
   const [availableMedicines, setAvailableMedicines] = useState<Medicine[]>([]);
   const [allMedicines, setAllMedicines] = useState<Medicine[]>([]);
-  const [selectedMedicineIds, setSelectedMedicineIds] = useState<number[]>([]);
+  const [selectedMedicineQuantities, setSelectedMedicineQuantities] = useState<Record<number, number>>({});
   const [medicineQuery, setMedicineQuery] = useState('');
 
   const [treatmentPage, setTreatmentPage] = useState(1);
@@ -259,7 +269,7 @@ const AppointmentDetail = () => {
     tooth_ids: [],
     description: '',
   });
-  const [editingMedicineIds, setEditingMedicineIds] = useState<number[]>([]);
+  const [editingMedicineQuantities, setEditingMedicineQuantities] = useState<Record<number, number>>({});
   const [confirmDeleteTreatmentId, setConfirmDeleteTreatmentId] = useState<number | null>(null);
   const [toothSelectionMode, setToothSelectionMode] = useState<'single' | 'multiple' | 'chin'>('multiple');
   const [showAddTreatmentInModal, setShowAddTreatmentInModal] = useState(false);
@@ -430,7 +440,7 @@ const AppointmentDetail = () => {
         tooth_ids: [],
         description: '',
       });
-      setSelectedMedicineIds([]);
+      setSelectedMedicineQuantities({});
       setShowAddMedicineInModal(false);
       setNewMedicineForm({ name: '', description: '', price: 0 });
       setMedicineError('');
@@ -451,10 +461,14 @@ const AppointmentDetail = () => {
       const createdId = created?.id;
       setShowAddTreatment(false);
       setNewTreatment({ appointment_id: 0, treatment_id: 0, patient_id: 0, tooth_ids: [], description: '' });
-      if (createdId && selectedMedicineIds.length > 0) {
+      const selectedMedicines = Object.entries(selectedMedicineQuantities)
+        .map(([medicineId, quantity]) => ({ medicineId: Number(medicineId), quantity }))
+        .filter(({ quantity }) => quantity > 0);
+
+      if (createdId && selectedMedicines.length > 0) {
         await Promise.all(
-          selectedMedicineIds.map((mid) =>
-            toothTreatmentMedicineService.create({ tooth_treatment_id: createdId, medicine_id: mid })
+          selectedMedicines.map(({ medicineId, quantity }) =>
+            toothTreatmentMedicineService.create({ tooth_treatment_id: createdId, medicine_id: medicineId, quantity })
           )
         );
       }
@@ -541,7 +555,7 @@ const AppointmentDetail = () => {
         setAvailableMedicines(updatedMedicines.filter((m) => m.name.toLowerCase().includes(normalizedQuery)));
       }
 
-      setSelectedMedicineIds((prev) => (prev.includes(createdMedicine.id) ? prev : [...prev, createdMedicine.id]));
+      setSelectedMedicineQuantities((prev) => ({ ...prev, [createdMedicine.id]: prev[createdMedicine.id] ?? 1 }));
       setMedicinePage(1);
     } catch (err: any) {
       console.error('Failed to create medicine:', err);
@@ -575,15 +589,20 @@ const AppointmentDetail = () => {
     });
     try {
       const meds = await toothTreatmentMedicineService.getAll({ tooth_treatment: tt.id });
-      setEditingMedicineIds(meds.map((m) => m.medicine.id));
+      setEditingMedicineQuantities(
+        meds.reduce<Record<number, number>>((acc, med) => {
+          acc[med.medicine.id] = med.quantity;
+          return acc;
+        }, {})
+      );
     } catch (e) {
-      setEditingMedicineIds([]);
+      setEditingMedicineQuantities({});
     }
   };
 
   const cancelEditTreatment = () => {
     setEditingTreatmentId(null);
-    setEditingMedicineIds([]);
+    setEditingMedicineQuantities({});
   };
 
   const saveEditTreatment = async (tt: ToothTreatment) => {
@@ -597,12 +616,18 @@ const AppointmentDetail = () => {
         description: editingFields.description || null,
       });
       const currentMeds = await toothTreatmentMedicineService.getAll({ tooth_treatment: tt.id });
-      const currentIds = currentMeds.map((m) => m.medicine.id);
-      const toAdd = editingMedicineIds.filter((id) => !currentIds.includes(id));
-      const toRemove = currentIds.filter((id) => !editingMedicineIds.includes(id));
+      const currentMap = new Map(currentMeds.map((m) => [m.medicine.id, m.quantity]));
+      const desiredEntries = Object.entries(editingMedicineQuantities)
+        .map(([medicineId, quantity]) => ({ medicineId: Number(medicineId), quantity }))
+        .filter(({ quantity }) => quantity > 0);
+      const desiredIds = new Set(desiredEntries.map(({ medicineId }) => medicineId));
+      const toAdd = desiredEntries.filter(({ medicineId }) => !currentMap.has(medicineId));
+      const toUpdate = desiredEntries.filter(({ medicineId, quantity }) => currentMap.has(medicineId) && currentMap.get(medicineId) !== quantity);
+      const toRemove = currentMeds.filter((med) => !desiredIds.has(med.medicine.id));
       await Promise.all([
-        ...toAdd.map((id) => toothTreatmentMedicineService.create({ tooth_treatment_id: tt.id, medicine_id: id })),
-        ...toRemove.map((id) => toothTreatmentMedicineService.delete(tt.id, id)),
+        ...toAdd.map(({ medicineId, quantity }) => toothTreatmentMedicineService.create({ tooth_treatment_id: tt.id, medicine_id: medicineId, quantity })),
+        ...toUpdate.map(({ medicineId, quantity }) => toothTreatmentMedicineService.updateQuantity(tt.id, medicineId, quantity)),
+        ...toRemove.map((med) => toothTreatmentMedicineService.delete(tt.id, med.medicine.id)),
       ]);
 
       const treatmentsData = await toothTreatmentService.getAll({ appointment: appointment.id });
@@ -717,6 +742,14 @@ const AppointmentDetail = () => {
       <div className="min-h-screen bg-blue-50">
         <Header />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <button
+            type="button"
+            onClick={() => navigate(backPath)}
+            className="flex items-center space-x-2 text-teal-600 hover:text-teal-800 transition-colors mb-6"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">{backButtonLabel}</span>
+          </button>
           <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-600">
             Loading appointment details...
           </div>
@@ -730,6 +763,14 @@ const AppointmentDetail = () => {
       <div className="min-h-screen bg-blue-50">
         <Header />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <button
+            type="button"
+            onClick={() => navigate(backPath)}
+            className="flex items-center space-x-2 text-teal-600 hover:text-teal-800 transition-colors mb-6"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">{backButtonLabel}</span>
+          </button>
           <div className="bg-red-50 border border-red-200 rounded-lg text-red-700 p-4 text-center">
             {error}
           </div>
@@ -743,6 +784,14 @@ const AppointmentDetail = () => {
       <div className="min-h-screen bg-blue-50">
         <Header />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <button
+            type="button"
+            onClick={() => navigate(backPath)}
+            className="flex items-center space-x-2 text-teal-600 hover:text-teal-800 transition-colors mb-6"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">{backButtonLabel}</span>
+          </button>
           <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-600">
             Appointment not found.
           </div>
@@ -769,11 +818,12 @@ const AppointmentDetail = () => {
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <button
-          onClick={() => navigate('/appointments')}
+          type="button"
+          onClick={() => navigate(backPath)}
           className="flex items-center space-x-2 text-teal-600 hover:text-teal-800 transition-colors mb-6"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span className="font-medium">Back to Appointments</span>
+          <span className="font-medium">{backButtonLabel}</span>
         </button>
 
         <div className="bg-white rounded-lg shadow-md p-8 mb-8">
@@ -812,7 +862,7 @@ const AppointmentDetail = () => {
                         if (!appointment) return;
                         try {
                           await appointmentService.delete(appointment.id);
-                          navigate('/appointments');
+                          navigate(backPath);
                         } catch (err: any) {
                           setError(err.response?.data?.message || 'Failed to delete appointment');
                         }
@@ -1199,7 +1249,8 @@ const AppointmentDetail = () => {
                       <div className="p-4 text-sm text-gray-500">No medicines found</div>
                     ) : (
                       paginatedMedicines.map((m) => {
-                        const checked = selectedMedicineIds.includes(m.id);
+                        const quantity = selectedMedicineQuantities[m.id] ?? 0;
+                        const checked = quantity > 0;
                         return (
                           <label key={m.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 cursor-pointer hover:bg-purple-50">
                             <div className="flex items-center gap-3">
@@ -1208,9 +1259,9 @@ const AppointmentDetail = () => {
                                 checked={checked}
                                 onChange={(e) => {
                                   if (e.target.checked) {
-                                    setSelectedMedicineIds([...selectedMedicineIds, m.id]);
+                                    setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: Math.max(1, quantity || 1) });
                                   } else {
-                                    setSelectedMedicineIds(selectedMedicineIds.filter(id => id !== m.id));
+                                    setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: 0 });
                                   }
                                 }}
                                 className="h-4 w-4 text-purple-600 border-gray-300 rounded"
@@ -1220,7 +1271,36 @@ const AppointmentDetail = () => {
                                 <div className="text-xs text-gray-600">{m.description}</div>
                               </div>
                             </div>
-                            <span className="text-sm font-semibold text-gray-700">${m.price.toFixed(2)}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center rounded-md border border-gray-300 bg-white">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: Math.max(0, quantity - 1) })}
+                                  className="px-2 py-1 text-gray-700 hover:bg-gray-100"
+                                >
+                                  −
+                                </button>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  value={quantity}
+                                  onChange={(e) => {
+                                    const next = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                                    setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: next });
+                                  }}
+                                  className="w-16 border-x border-gray-300 px-2 py-1 text-center text-sm"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: Math.max(1, quantity + 1) })}
+                                  className="px-2 py-1 text-gray-700 hover:bg-gray-100"
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <span className="text-sm font-semibold text-gray-700">${(m.price * quantity).toFixed(2)}</span>
+                            </div>
                           </label>
                         );
                       })
@@ -1322,15 +1402,15 @@ const AppointmentDetail = () => {
                               </div>
                               <div className="space-y-2">
                                 {medicines.map((med) => (
-                                  <div key={med.medicine.id} className="flex items-start justify-between">
+                                  <div key={med.medicine.id} className="flex items-start justify-between gap-3">
                                     <div className="text-sm text-purple-700">
-                                      <span className="font-semibold">{med.medicine.name}</span>
+                                      <span className="font-semibold">{med.medicine.name} x {med.quantity}</span>
                                       {med.medicine.description && (
                                         <span className="text-purple-600"> - {med.medicine.description}</span>
                                       )}
                                     </div>
                                     <span className="text-sm font-semibold text-purple-900 ml-2">
-                                      ${med.medicine.price.toFixed(2)}
+                                      ${(med.medicine.price * med.quantity).toFixed(2)}
                                     </span>
                                   </div>
                                 ))}
@@ -1598,7 +1678,8 @@ const AppointmentDetail = () => {
                             <h4 className="text-sm font-semibold text-gray-900 mb-2">Medicines</h4>
                             <div className="max-h-56 overflow-auto rounded-md border border-gray-200 bg-white">
                               {allMedicines.map((m) => {
-                                const checked = editingMedicineIds.includes(m.id);
+                                const quantity = editingMedicineQuantities[m.id] ?? 0;
+                                const checked = quantity > 0;
                                 return (
                                   <label key={m.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 cursor-pointer hover:bg-purple-50">
                                     <div className="flex items-center gap-3">
@@ -1606,8 +1687,8 @@ const AppointmentDetail = () => {
                                         type="checkbox"
                                         checked={checked}
                                         onChange={(e) => {
-                                          if (e.target.checked) setEditingMedicineIds([...editingMedicineIds, m.id]);
-                                          else setEditingMedicineIds(editingMedicineIds.filter((id) => id !== m.id));
+                                          if (e.target.checked) setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: Math.max(1, quantity || 1) });
+                                          else setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: 0 });
                                         }}
                                         className="h-4 w-4 text-purple-600 border-gray-300 rounded"
                                       />
@@ -1616,7 +1697,36 @@ const AppointmentDetail = () => {
                                         <div className="text-xs text-gray-600">{m.description}</div>
                                       </div>
                                     </div>
-                                    <span className="text-sm font-semibold text-gray-700">${m.price.toFixed(2)}</span>
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex items-center rounded-md border border-gray-300 bg-white">
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: Math.max(0, quantity - 1) })}
+                                          className="px-2 py-1 text-gray-700 hover:bg-gray-100"
+                                        >
+                                          −
+                                        </button>
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          step={1}
+                                          value={quantity}
+                                          onChange={(e) => {
+                                            const next = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                                            setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: next });
+                                          }}
+                                          className="w-16 border-x border-gray-300 px-2 py-1 text-center text-sm"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: Math.max(1, quantity + 1) })}
+                                          className="px-2 py-1 text-gray-700 hover:bg-gray-100"
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                      <span className="text-sm font-semibold text-gray-700">${(m.price * quantity).toFixed(2)}</span>
+                                    </div>
                                   </label>
                                 );
                               })}

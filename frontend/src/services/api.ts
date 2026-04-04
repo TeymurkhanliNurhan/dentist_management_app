@@ -392,6 +392,7 @@ export interface ToothTreatmentMedicine {
     price: number;
   };
   tooth_treatment: number;
+  quantity: number;
 }
 
 export interface ToothTreatmentMedicineFilters {
@@ -402,6 +403,7 @@ export interface ToothTreatmentMedicineFilters {
 export interface CreateToothTreatmentMedicineDto {
   tooth_treatment_id: number;
   medicine_id: number;
+  quantity?: number;
 }
 
 export const toothTreatmentMedicineService = {
@@ -415,6 +417,10 @@ export const toothTreatmentMedicineService = {
   },
   create: async (dto: CreateToothTreatmentMedicineDto) => {
     const response = await api.post('/tooth-treatment-medicine', dto);
+    return response.data;
+  },
+  updateQuantity: async (toothTreatmentId: number, medicineId: number, quantity: number) => {
+    const response = await api.patch(`/tooth-treatment-medicine/${toothTreatmentId}/${medicineId}/quantity`, { quantity });
     return response.data;
   },
   delete: async (toothTreatmentId: number, medicineId: number) => {
@@ -439,6 +445,7 @@ export interface Appointment {
 
 export interface AppointmentFilters {
   startDate?: string;
+  patient?: number;
   patientName?: string;
   patientSurname?: string;
   page?: number;
@@ -470,6 +477,7 @@ export const appointmentService = {
   getAll: async (filters?: AppointmentFilters): Promise<PaginatedAppointments> => {
     const params = new URLSearchParams();
     if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.patient !== undefined) params.append('patient', filters.patient.toString());
     if (filters?.patientName) params.append('patientName', filters.patientName);
     if (filters?.patientSurname) params.append('patientSurname', filters.patientSurname);
     if (filters?.page) params.append('page', filters.page.toString());

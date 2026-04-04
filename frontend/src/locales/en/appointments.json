@@ -21,6 +21,8 @@
   "empty": "No appointments found",
   "fetchError": "Failed to fetch appointments",
   "newAppointment": "New Appointment",
+  "pastAppointments": "Past appointments",
+  "openAppointments": "Open appointments",
   "pagination": {
     "showing": "Showing {{from}} to {{to}} of {{total}} appointments",
     "previous": "Previous",

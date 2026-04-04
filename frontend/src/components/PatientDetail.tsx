@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Calendar, Edit, X, Globe } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft, User, Calendar, Edit, X, Globe, Smile, CalendarDays } from 'lucide-react';
 import Header from './Header';
 import TeethDiagram from './TeethDiagram';
-import { patientService } from '../services/api';
-import type { Patient, PatientTooth } from '../services/api';
+import { appointmentService, patientService, toothTreatmentService } from '../services/api';
+import type { Appointment, Patient, PatientTooth, ToothTreatment } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
 const PatientDetail = () => {
@@ -21,6 +21,13 @@ const PatientDetail = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
+
+  const [patientPanel, setPatientPanel] = useState<'teeth' | 'appointments'>('teeth');
+  const [appointmentScope, setAppointmentScope] = useState<'active' | 'past'>('active');
+  const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
+  const [patientTreatments, setPatientTreatments] = useState<ToothTreatment[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  const [appointmentsError, setAppointmentsError] = useState<string | null>(null);
 
   const FETCH_ERROR_KEY = '__fetch_error__';
   const UPDATE_ERROR_KEY = '__update_error__';
@@ -65,6 +72,80 @@ const PatientDetail = () => {
 
     fetchPatientData();
   }, [id]);
+
+  useEffect(() => {
+    if (!patient || patientPanel !== 'appointments') return;
+
+    let cancelled = false;
+    const load = async () => {
+      setAppointmentsLoading(true);
+      setAppointmentsError(null);
+      try {
+        const [apptsRes, treatments] = await Promise.all([
+          appointmentService.getAll({ patient: patient.id }),
+          toothTreatmentService.getAll({ patient: patient.id }),
+        ]);
+        if (cancelled) return;
+        setPatientAppointments(apptsRes.appointments);
+        setPatientTreatments(treatments);
+      } catch (err: unknown) {
+        if (cancelled) return;
+        console.error('Failed to load patient appointments:', err);
+        const message =
+          err && typeof err === 'object' && 'response' in err
+            ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+            : undefined;
+        setAppointmentsError(message || 'appointmentsLoadError');
+      } finally {
+        if (!cancelled) setAppointmentsLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [patient, patientPanel]);
+
+  const treatmentsByAppointmentId = useMemo(() => {
+    const map = new Map<number, ToothTreatment[]>();
+    for (const tt of patientTreatments) {
+      const aid = tt.appointment?.id;
+      if (aid == null) continue;
+      const list = map.get(aid) ?? [];
+      list.push(tt);
+      map.set(aid, list);
+    }
+    return map;
+  }, [patientTreatments]);
+
+  const filteredAppointments = useMemo(() => {
+    const list = patientAppointments.filter((a) =>
+      appointmentScope === 'active' ? a.endDate == null : a.endDate != null,
+    );
+    return [...list].sort((a, b) => {
+      const ta = new Date(a.startDate).getTime();
+      const tb = new Date(b.startDate).getTime();
+      return tb - ta;
+    });
+  }, [patientAppointments, appointmentScope]);
+
+  const formatChargedPrice = (a: Appointment) => {
+    const fee = a.chargedFee ?? a.calculatedFee;
+    if (fee == null) return '—';
+    return `$${Number(fee).toFixed(2)}`;
+  };
+
+  const formatToothList = (tt: ToothTreatment) => {
+    const ids = (tt.toothTreatmentTeeth ?? [])
+      .map((x) => x.toothId)
+      .filter((n): n is number => n != null && !Number.isNaN(n));
+    if (ids.length === 0 && tt.tooth != null) {
+      ids.push(tt.tooth);
+    }
+    const unique = [...new Set(ids)].sort((x, y) => x - y);
+    return unique.length ? unique.join(', ') : '—';
+  };
 
   if (isLoading) {
     return (
@@ -210,8 +291,132 @@ const PatientDetail = () => {
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">{t('teethDiagram')}</h2>
-          <TeethDiagram patientId={patient.id} patientTeeth={patientTeeth} />
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {patientPanel === 'teeth' ? t('teethDiagram') : t('appointments')}
+            </h2>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setPatientPanel('teeth')}
+                className={`p-2.5 rounded-lg border transition-colors ${
+                  patientPanel === 'teeth'
+                    ? 'border-teal-500 bg-teal-50 text-teal-700'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+                aria-label={t('showTeethDiagram')}
+                title={t('showTeethDiagram')}
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPatientPanel('appointments')}
+                className={`p-2.5 rounded-lg border transition-colors ${
+                  patientPanel === 'appointments'
+                    ? 'border-teal-500 bg-teal-50 text-teal-700'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+                aria-label={t('showAppointments')}
+                title={t('showAppointments')}
+              >
+                <CalendarDays className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {patientPanel === 'teeth' ? (
+            <TeethDiagram patientId={patient.id} patientTeeth={patientTeeth} />
+          ) : (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAppointmentScope('active')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    appointmentScope === 'active'
+                      ? 'bg-teal-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {t('activeAppointments')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAppointmentScope('past')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    appointmentScope === 'past'
+                      ? 'bg-teal-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {t('pastAppointments')}
+                </button>
+              </div>
+
+              {appointmentsLoading && (
+                <p className="text-gray-500 text-sm py-6 text-center">{t('loading')}</p>
+              )}
+
+              {!appointmentsLoading && appointmentsError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {appointmentsError === 'appointmentsLoadError' ? t('appointmentsLoadError') : appointmentsError}
+                </div>
+              )}
+
+              {!appointmentsLoading && !appointmentsError && filteredAppointments.length === 0 && (
+                <p className="text-gray-500 text-sm py-4">{t('noAppointments')}</p>
+              )}
+
+              {!appointmentsLoading && !appointmentsError && filteredAppointments.length > 0 && (
+                <ul className="space-y-4">
+                  {filteredAppointments.map((appt) => {
+                    const treatments = treatmentsByAppointmentId.get(appt.id) ?? [];
+                    return (
+                      <li key={appt.id}>
+                        <Link
+                          to={`/appointments/${appt.id}`}
+                          state={{ fromPatientId: patient.id }}
+                          className="block border border-gray-200 rounded-lg p-4 bg-gray-50/80 transition-colors hover:border-teal-400 hover:bg-teal-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2"
+                        >
+                        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                          <div>
+                            <span className="text-gray-500 mr-1">{t('startDate')}:</span>
+                            <span className="font-medium text-gray-900">{appt.startDate}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 mr-1">{t('chargedPrice')}:</span>
+                            <span className="font-medium text-gray-900">{formatChargedPrice(appt)}</span>
+                          </div>
+                        </div>
+                        {treatments.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                              {t('treatments')}
+                            </p>
+                            <ul className="space-y-2">
+                              {treatments.map((tt) => (
+                                <li
+                                  key={tt.id}
+                                  className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-800"
+                                >
+                                  <span className="font-medium">{tt.treatment?.name ?? '—'}</span>
+                                  <span className="text-gray-500">
+                                    {t('toothNumbers')}: {formatToothList(tt)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         {showEditModal && (

@@ -1,21 +1,32 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, X, Globe, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
 import Header from './Header';
 import { appointmentService, patientService } from '../services/api';
-import type { AppointmentFilters, CreateAppointmentDto, Patient, PaginatedAppointments, CreatePatientDto } from '../services/api';
+import type { Appointment, AppointmentFilters, CreateAppointmentDto, Patient, CreatePatientDto } from '../services/api';
 import { useTranslation } from 'react-i18next';
+
+const PAGE_SIZE = 10;
+
+function localDateString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function filterAppointmentsByEnd(appointments: Appointment[], showPast: boolean): Appointment[] {
+  const today = localDateString();
+  if (showPast) {
+    return appointments.filter((a) => a.endDate != null && a.endDate < today);
+  }
+  return appointments.filter((a) => a.endDate == null);
+}
 
 const Appointments = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation('appointments');
-  const [appointmentsData, setAppointmentsData] = useState<PaginatedAppointments>({
-    appointments: [],
-    total: 0,
-    page: 1,
-    limit: 10,
-    totalPages: 0,
-  });
+  const [rawAppointments, setRawAppointments] = useState<Appointment[]>([]);
+  const [listPage, setListPage] = useState(1);
+  const [showPastAppointments, setShowPastAppointments] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [filters, setFilters] = useState<AppointmentFilters>({
     startDate: '',
@@ -61,16 +72,23 @@ const Appointments = () => {
     };
   }, [showLanguageMenu]);
 
-  const fetchAppointments = async (searchFilters?: AppointmentFilters, page: number = 1) => {
+  const buildSearchFilters = (): AppointmentFilters => {
+    const searchFilters: AppointmentFilters = {};
+    if (filters.startDate) searchFilters.startDate = filters.startDate;
+    if (filters.patientName) searchFilters.patientName = filters.patientName;
+    if (filters.patientSurname) searchFilters.patientSurname = filters.patientSurname;
+    return searchFilters;
+  };
+
+  const fetchAppointments = async (searchFilters?: AppointmentFilters, resetPage = true) => {
     setIsLoading(true);
     setError(null);
     try {
       const data = await appointmentService.getAll({
         ...searchFilters,
-        page,
-        limit: 10,
       });
-      setAppointmentsData(data);
+      setRawAppointments(data.appointments);
+      if (resetPage) setListPage(1);
     } catch (err: any) {
       console.error('Failed to fetch appointments:', err);
       setError(err.response?.data?.message || FETCH_ERROR_KEY);
@@ -78,6 +96,19 @@ const Appointments = () => {
       setIsLoading(false);
     }
   };
+
+  const filteredAppointments = useMemo(
+    () => filterAppointmentsByEnd(rawAppointments, showPastAppointments),
+    [rawAppointments, showPastAppointments],
+  );
+
+  const totalFiltered = filteredAppointments.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const effectivePage = Math.min(listPage, totalPages);
+  const displayedAppointments = filteredAppointments.slice(
+    (effectivePage - 1) * PAGE_SIZE,
+    effectivePage * PAGE_SIZE,
+  );
 
   useEffect(() => {
     fetchAppointments();
@@ -113,7 +144,7 @@ const Appointments = () => {
       setNewAppointment({ startDate: '', endDate: '', chargedFee: 0, patient_id: 0 });
       setPatientSearch({ name: '', surname: '' });
       setDateError('');
-      fetchAppointments({}, appointmentsData.page);
+      fetchAppointments(buildSearchFilters(), true);
     } catch (err: any) {
       console.error('Failed to create appointment:', err);
       setError(err.response?.data?.message || CREATE_ERROR_KEY);
@@ -149,16 +180,12 @@ const Appointments = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const searchFilters: AppointmentFilters = {};
-    if (filters.startDate) searchFilters.startDate = filters.startDate;
-    if (filters.patientName) searchFilters.patientName = filters.patientName;
-    if (filters.patientSurname) searchFilters.patientSurname = filters.patientSurname;
-    fetchAppointments(searchFilters, 1);
+    fetchAppointments(buildSearchFilters(), true);
   };
 
   const handleClearSearch = () => {
     setFilters({ startDate: '', patientName: '', patientSurname: '' });
-    fetchAppointments({}, 1);
+    fetchAppointments({}, true);
   };
 
   const filteredPatients = patients.filter((patient) => {
@@ -170,11 +197,7 @@ const Appointments = () => {
   });
 
   const handlePageChange = (newPage: number) => {
-    const searchFilters: AppointmentFilters = {};
-    if (filters.startDate) searchFilters.startDate = filters.startDate;
-    if (filters.patientName) searchFilters.patientName = filters.patientName;
-    if (filters.patientSurname) searchFilters.patientSurname = filters.patientSurname;
-    fetchAppointments(searchFilters, newPage);
+    setListPage(newPage);
   };
 
   const resolvedError = error === FETCH_ERROR_KEY
@@ -235,7 +258,7 @@ const Appointments = () => {
           )}
         </div>
         <div className="mb-6">
-          <div className="flex items-center gap-4 mb-4">
+          <div className="flex flex-wrap items-center gap-4 mb-4">
             <button
               onClick={() => setShowAddModal(true)}
               className="flex items-center space-x-2 px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition-colors shadow-md"
@@ -244,6 +267,29 @@ const Appointments = () => {
               <span>{t('newAppointment')}</span>
             </button>
             <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
+            {showPastAppointments ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPastAppointments(false);
+                  setListPage(1);
+                }}
+                className="px-4 py-2 text-sm font-semibold rounded-lg border border-teal-600 text-teal-700 bg-white hover:bg-teal-50 transition-colors"
+              >
+                {t('openAppointments')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPastAppointments(true);
+                  setListPage(1);
+                }}
+                className="px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+              >
+                {t('pastAppointments')}
+              </button>
+            )}
           </div>
           
           <form onSubmit={handleSearch} className="bg-white rounded-lg shadow p-4 mb-4">
@@ -349,14 +395,14 @@ const Appointments = () => {
                       {t('loading')}
                     </td>
                   </tr>
-                ) : appointmentsData.appointments.length === 0 ? (
+                ) : displayedAppointments.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                       {t('empty')}
                     </td>
                   </tr>
                 ) : (
-                  appointmentsData.appointments.map((appointment) => (
+                  displayedAppointments.map((appointment) => (
                     <tr 
                       key={appointment.id} 
                       onClick={() => navigate(`/appointments/${appointment.id}`)}
@@ -389,19 +435,19 @@ const Appointments = () => {
         </div>
 
         {/* Pagination */}
-        {appointmentsData.totalPages > 1 && (
+        {totalPages > 1 && (
           <div className="mt-6 flex items-center justify-between">
             <div className="text-sm text-gray-700">
               {t('pagination.showing', {
-                from: (appointmentsData.page - 1) * appointmentsData.limit + 1,
-                to: Math.min(appointmentsData.page * appointmentsData.limit, appointmentsData.total),
-                total: appointmentsData.total,
+                from: (effectivePage - 1) * PAGE_SIZE + 1,
+                to: Math.min(effectivePage * PAGE_SIZE, totalFiltered),
+                total: totalFiltered,
               })}
             </div>
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => handlePageChange(appointmentsData.page - 1)}
-                disabled={appointmentsData.page <= 1 || isLoading}
+                onClick={() => handlePageChange(effectivePage - 1)}
+                disabled={effectivePage <= 1 || isLoading}
                 className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
@@ -409,10 +455,10 @@ const Appointments = () => {
               </button>
               
               <div className="flex items-center space-x-1">
-                {Array.from({ length: appointmentsData.totalPages }, (_, i) => i + 1)
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
                   .filter(page => {
-                    const current = appointmentsData.page;
-                    return page === 1 || page === appointmentsData.totalPages || (page >= current - 1 && page <= current + 1);
+                    const current = effectivePage;
+                    return page === 1 || page === totalPages || (page >= current - 1 && page <= current + 1);
                   })
                   .map((page, index, array) => (
                     <React.Fragment key={page}>
@@ -423,7 +469,7 @@ const Appointments = () => {
                         onClick={() => handlePageChange(page)}
                         disabled={isLoading}
                         className={`px-3 py-2 text-sm font-medium rounded-md ${
-                          page === appointmentsData.page
+                          page === effectivePage
                             ? 'bg-teal-500 text-white'
                             : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
                         } disabled:opacity-50 disabled:cursor-not-allowed`}
@@ -435,8 +481,8 @@ const Appointments = () => {
               </div>
 
               <button
-                onClick={() => handlePageChange(appointmentsData.page + 1)}
-                disabled={appointmentsData.page >= appointmentsData.totalPages || isLoading}
+                onClick={() => handlePageChange(effectivePage + 1)}
+                disabled={effectivePage >= totalPages || isLoading}
                 className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('pagination.next')}
