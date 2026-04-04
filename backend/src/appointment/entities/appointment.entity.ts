@@ -14,7 +14,13 @@ export class Appointment {
     @Column({ type: 'date', nullable: true })
     endDate: Date | null;
 
-    @Column({ type: 'int', nullable: true })
+    @Column({ type: 'double precision', nullable: false, default: 0 })
+    calculatedFee: number;
+
+    @Column({ type: 'double precision', nullable: true })
+    chargedFee: number | null;
+
+    @Column({ type: 'double precision', nullable: true })
     discountFee: number | null;
 
     @OneToMany(() => ToothTreatment, (tt) => tt.appointment)
@@ -28,5 +34,3 @@ export class Appointment {
     @JoinColumn({ name: 'patient' })
     patient: Patient;
 }
-
-

@@ -7,7 +7,9 @@ CREATE TABLE Appointment (
     id int  NOT NULL,
     startDate date  NOT NULL,
     endDate date  NOT NULL,
-    discountFee int  NULL,
+    calculatedFee double precision  NOT NULL DEFAULT 0,
+    chargedFee double precision  NULL,
+    discountFee double precision  NULL,
     CONSTRAINT Appointment_pk PRIMARY KEY (id)
 );
 
@@ -56,6 +58,7 @@ CREATE TABLE Tooth_Treatment (
     tooth int  NOT NULL,
     treatment int  NOT NULL,
     appointment int  NOT NULL,
+    feeSnapshot double precision  NOT NULL DEFAULT 0,
     description varchar(300)  NULL,
     CONSTRAINT Tooth_Treatment_pk PRIMARY KEY (id)
 );

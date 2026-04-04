@@ -16,7 +16,7 @@ export class AppointmentService {
       const created = await this.repo.createAppointmentForDentistAndPatient(dentistId, dto.patient_id, {
         startDate: new Date(dto.startDate),
         endDate: dto.endDate ? new Date(dto.endDate) : null,
-        discountFee: dto.discountFee ?? null,
+        chargedFee: dto.chargedFee ?? null,
       });
       const msg = `Dentist with id ${dentistId} created Appointment with id ${created.id}`;
       this.logger.log(msg);
@@ -25,6 +25,8 @@ export class AppointmentService {
         id: created.id,
         startDate: created.startDate.toISOString().slice(0, 10),
         endDate: created.endDate ? created.endDate.toISOString().slice(0, 10) : null,
+        calculatedFee: created.calculatedFee,
+        chargedFee: created.chargedFee,
         discountFee: created.discountFee,
       };
     } catch (e: any) {
@@ -45,7 +47,7 @@ export class AppointmentService {
       const updated = await this.repo.updateAppointmentEnsureOwnership(dentistId, id, {
         startDate: dto.startDate ? new Date(dto.startDate) : undefined,
         endDate: dto.endDate !== undefined ? (dto.endDate ? new Date(dto.endDate) : null) : undefined,
-        discountFee: dto.discountFee !== undefined ? (dto.discountFee ?? null) : undefined,
+        chargedFee: dto.chargedFee !== undefined ? (dto.chargedFee ?? null) : undefined,
       });
       const msg = `Dentist with id ${dentistId} updated Appointment with id ${updated.id}`;
       this.logger.log(msg);
@@ -54,6 +56,8 @@ export class AppointmentService {
         id: updated.id,
         startDate: updated.startDate.toISOString().slice(0, 10),
         endDate: updated.endDate ? updated.endDate.toISOString().slice(0, 10) : null,
+        calculatedFee: updated.calculatedFee,
+        chargedFee: updated.chargedFee,
         discountFee: updated.discountFee,
       };
     } catch (e: any) {
@@ -117,6 +121,8 @@ export class AppointmentService {
             id: appointment.id,
             startDate: startDate.toISOString().slice(0, 10),
             endDate: endDate ? endDate.toISOString().slice(0, 10) : null,
+            calculatedFee: appointment.calculatedFee,
+            chargedFee: appointment.chargedFee,
             discountFee: appointment.discountFee,
             patient: {
               id: typeof appointment.patient === 'object' && appointment.patient?.id 

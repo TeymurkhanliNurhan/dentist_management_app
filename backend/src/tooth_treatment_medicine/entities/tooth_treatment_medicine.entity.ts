@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryColumn, ManyToOne, JoinColumn, Column } from 'typeorm';
 import { Medicine } from '../../medicine/entities/medicine.entity';
 import { ToothTreatment } from '../../tooth_treatment/entities/tooth_treatment.entity';
 
@@ -10,6 +10,9 @@ export class ToothTreatmentMedicine {
     @PrimaryColumn({ type: 'int', name: 'Tooth_Treatment' })
     toothTreatment: number;
 
+    @Column({ type: 'double precision', nullable: false, default: 0 })
+    medicinePriceSnapshot: number;
+
     @ManyToOne(() => Medicine, (medicine) => medicine.toothTreatmentMedicines, { nullable: false })
     @JoinColumn({ name: 'Medicine' })
     medicineEntity: Medicine;
@@ -18,4 +21,3 @@ export class ToothTreatmentMedicine {
     @JoinColumn({ name: 'Tooth_Treatment' })
     toothTreatmentEntity: ToothTreatment;
 }
-

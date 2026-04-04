@@ -4,6 +4,8 @@ import { DataSource, Repository } from 'typeorm';
 import { ToothTreatmentMedicine } from './entities/tooth_treatment_medicine.entity';
 import { ToothTreatment } from '../tooth_treatment/entities/tooth_treatment.entity';
 import { Medicine } from '../medicine/entities/medicine.entity';
+import { Appointment } from '../appointment/entities/appointment.entity';
+import { calculateAppointmentCalculatedFee, calculateAppointmentDiscountFee } from '../appointment/appointment-fee.util';
 
 @Injectable()
 export class ToothTreatmentMedicineRepository {
@@ -11,6 +13,25 @@ export class ToothTreatmentMedicineRepository {
 
     private get repo(): Repository<ToothTreatmentMedicine> {
         return this.dataSource.getRepository(ToothTreatmentMedicine);
+    }
+
+    private async refreshAppointmentFees(appointmentId: number): Promise<void> {
+        const appointmentRepo = this.dataSource.getRepository(Appointment);
+        const appointment = await appointmentRepo.findOne({
+            where: { id: appointmentId },
+            relations: [
+                'toothTreatments',
+                'toothTreatments.treatment',
+                'toothTreatments.toothTreatmentMedicines',
+                'toothTreatments.toothTreatmentMedicines.medicineEntity',
+            ],
+        });
+
+        if (!appointment) return;
+
+        appointment.calculatedFee = calculateAppointmentCalculatedFee(appointment);
+        appointment.discountFee = calculateAppointmentDiscountFee(appointment.calculatedFee, appointment.chargedFee);
+        await appointmentRepo.save(appointment);
     }
 
     async createForDentist(dentistId: number, toothTreatmentId: number, medicineId: number): Promise<ToothTreatmentMedicine> {
@@ -30,10 +51,13 @@ export class ToothTreatmentMedicineRepository {
         const created = this.repo.create({
             medicine: medicineId,
             toothTreatment: toothTreatmentId,
+            medicinePriceSnapshot: medicine.price,
             medicineEntity: medicine,
             toothTreatmentEntity: toothTreatment,
         });
-        return await this.repo.save(created);
+        const saved = await this.repo.save(created);
+        await this.refreshAppointmentFees(toothTreatment.appointment.id);
+        return saved;
     }
 
     async deleteEnsureOwnership(dentistId: number, toothTreatmentId: number, medicineId: number): Promise<void> {
@@ -46,6 +70,7 @@ export class ToothTreatmentMedicineRepository {
         if (!existing) throw new Error('ToothTreatmentMedicine not found');
 
         await this.repo.remove(existing);
+        await this.refreshAppointmentFees(toothTreatment.appointment.id);
     }
 
     async findToothTreatmentMedicinesForDentist(

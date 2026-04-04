@@ -11,16 +11,14 @@ export class CreateAppointmentDto {
     @IsDateString()
     endDate?: string;
 
-    @ApiPropertyOptional({ example: 50 })
+    @ApiPropertyOptional({ example: 500, description: 'Amount charged by the dentist' })
     @IsOptional()
     @IsNumber()
     @Min(0)
-    discountFee?: number;
+    chargedFee?: number;
 
     @ApiProperty({ example: 3, description: 'Patient id' })
     @IsNumber()
     @Min(1)
     patient_id: number;
 }
-
-

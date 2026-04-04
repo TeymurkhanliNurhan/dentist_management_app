@@ -25,6 +25,9 @@ export class ToothTreatment {
     @JoinColumn({ name: 'treatment' })
     treatment: Treatment;
 
+    @Column({ type: 'double precision', nullable: false, default: 0 })
+    feeSnapshot: number;
+
     @ManyToOne(() => PatientTooth, (pt) => pt.toothTreatments, { nullable: true })
     @JoinColumn([
         { name: 'patient', referencedColumnName: 'patient' },
@@ -44,5 +47,3 @@ export class ToothTreatment {
     @OneToMany(() => Media, (media) => media.toothTreatment)
     medias: Media[];
 }
-
-

@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Appointment } from './entities/appointment.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
 import { Patient } from '../patient/entities/patient.entity';
+import { calculateAppointmentCalculatedFee, calculateAppointmentDiscountFee } from './appointment-fee.util';
 
 @Injectable()
 export class AppointmentRepository {
@@ -13,7 +14,13 @@ export class AppointmentRepository {
         return this.dataSource.getRepository(Appointment);
     }
 
-    async createAppointmentForDentistAndPatient(dentistId: number, patientId: number, input: { startDate: Date; endDate: Date | null; discountFee: number | null }): Promise<Appointment> {
+    private applyFeeRules(appointment: Appointment): Appointment {
+        appointment.calculatedFee = calculateAppointmentCalculatedFee(appointment);
+        appointment.discountFee = calculateAppointmentDiscountFee(appointment.calculatedFee, appointment.chargedFee);
+        return appointment;
+    }
+
+    async createAppointmentForDentistAndPatient(dentistId: number, patientId: number, input: { startDate: Date; endDate: Date | null; chargedFee: number | null }): Promise<Appointment> {
         const dentistRepo = this.dataSource.getRepository(Dentist);
         const patientRepo = this.dataSource.getRepository(Patient);
         const [dentist, patient] = await Promise.all([
@@ -23,16 +30,38 @@ export class AppointmentRepository {
         if (!dentist) throw new Error('Dentist not found');
         if (!patient) throw new Error('Patient not found');
         if (patient.dentist?.id !== dentistId) throw new Error('Forbidden');
-        const appointment = this.repo.create({ ...input, dentist, patient });
+        const appointment = this.repo.create({
+            ...input,
+            calculatedFee: 0,
+            discountFee: calculateAppointmentDiscountFee(0, input.chargedFee),
+            dentist,
+            patient,
+        });
         return await this.repo.save(appointment);
     }
 
-    async updateAppointmentEnsureOwnership(dentistId: number, id: number, updates: Partial<{ startDate: Date; endDate: Date | null; discountFee: number | null }>): Promise<Appointment> {
+    async updateAppointmentEnsureOwnership(dentistId: number, id: number, updates: Partial<{ startDate: Date; endDate: Date | null; chargedFee: number | null }>): Promise<Appointment> {
         const appointment = await this.repo.findOne({ where: { id, dentist: { id: dentistId } } });
         if (!appointment) throw new Error('Forbidden');
         if (updates.startDate !== undefined) appointment.startDate = updates.startDate;
         if (updates.endDate !== undefined) appointment.endDate = updates.endDate;
-        if (updates.discountFee !== undefined) appointment.discountFee = updates.discountFee;
+        if (updates.chargedFee !== undefined) appointment.chargedFee = updates.chargedFee;
+        this.applyFeeRules(appointment);
+        return await this.repo.save(appointment);
+    }
+
+    async recalculateAppointmentFees(appointmentId: number): Promise<Appointment> {
+        const appointment = await this.repo.findOne({
+            where: { id: appointmentId },
+            relations: [
+                'toothTreatments',
+                'toothTreatments.treatment',
+                'toothTreatments.toothTreatmentMedicines',
+                'toothTreatments.toothTreatmentMedicines.medicineEntity',
+            ],
+        });
+        if (!appointment) throw new Error('Appointment not found');
+        this.applyFeeRules(appointment);
         return await this.repo.save(appointment);
     }
 
@@ -87,5 +116,3 @@ export class AppointmentRepository {
         return { appointments, total };
     }
 }
-
-
