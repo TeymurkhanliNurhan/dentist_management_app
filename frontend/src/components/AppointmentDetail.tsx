@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash, MousePointer, Grid3X3, RectangleHorizontal } from 'lucide-react';
 import Header from './Header';
 import { appointmentService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
-import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, Media } from '../services/api';
+import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, CreateMedicineDto, Media } from '../services/api';
 
 interface TeethSelectorProps {
   patientTeeth: PatientTooth[];
@@ -228,7 +228,7 @@ const AppointmentDetail = () => {
   const [editedAppointment, setEditedAppointment] = useState({
     startDate: '',
     endDate: '',
-    discountFee: 0,
+    chargedFee: 0,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmDeleteAppointment, setConfirmDeleteAppointment] = useState(false);
@@ -266,6 +266,10 @@ const AppointmentDetail = () => {
   const [newTreatmentForm, setNewTreatmentForm] = useState<CreateTreatmentDto>({ name: '', description: '', price: 0 });
   const [isSubmittingTreatment, setIsSubmittingTreatment] = useState(false);
   const [treatmentError, setTreatmentError] = useState<string>('');
+  const [showAddMedicineInModal, setShowAddMedicineInModal] = useState(false);
+  const [newMedicineForm, setNewMedicineForm] = useState<CreateMedicineDto>({ name: '', description: '', price: 0 });
+  const [isSubmittingMedicine, setIsSubmittingMedicine] = useState(false);
+  const [medicineError, setMedicineError] = useState<string>('');
   const [showAddMediaForTreatment, setShowAddMediaForTreatment] = useState<number | null>(null);
   const [newMediaForm, setNewMediaForm] = useState<{ name: string; description: string; file: File | null }>({
     name: '',
@@ -320,7 +324,7 @@ const AppointmentDetail = () => {
           setEditedAppointment({
             startDate: appointmentData.startDate,
             endDate: appointmentData.endDate || '',
-            discountFee: appointmentData.discountFee || 0,
+            chargedFee: appointmentData.chargedFee ?? appointmentData.calculatedFee,
           });
         }
         setTreatments(treatmentsData);
@@ -381,7 +385,7 @@ const AppointmentDetail = () => {
       await appointmentService.update(appointment.id, {
         startDate: editedAppointment.startDate,
         endDate: editedAppointment.endDate || null,
-        discountFee: editedAppointment.discountFee,
+        chargedFee: editedAppointment.chargedFee,
       });
       setShowEditAppointment(false);
       const appointmentsData = await appointmentService.getAll();
@@ -421,6 +425,9 @@ const AppointmentDetail = () => {
         description: '',
       });
       setSelectedMedicineIds([]);
+      setShowAddMedicineInModal(false);
+      setNewMedicineForm({ name: '', description: '', price: 0 });
+      setMedicineError('');
     } catch (err: any) {
       console.error('Failed to fetch treatments/teeth:', err);
       setError(err.response?.data?.message || 'Failed to load data');
@@ -499,6 +506,35 @@ const AppointmentDetail = () => {
       setTreatmentError(err.response?.data?.message || 'Failed to create treatment');
     } finally {
       setIsSubmittingTreatment(false);
+    }
+  };
+
+  const handleAddMedicineForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMedicineError('');
+    setIsSubmittingMedicine(true);
+    try {
+      const createdMedicine = await medicineService.create(newMedicineForm);
+      setShowAddMedicineInModal(false);
+      setNewMedicineForm({ name: '', description: '', price: 0 });
+
+      const updatedMedicines = await medicineService.getAll();
+      setAllMedicines(updatedMedicines);
+
+      const normalizedQuery = medicineQuery.trim().toLowerCase();
+      if (!normalizedQuery) {
+        setAvailableMedicines(updatedMedicines);
+      } else {
+        setAvailableMedicines(updatedMedicines.filter((m) => m.name.toLowerCase().includes(normalizedQuery)));
+      }
+
+      setSelectedMedicineIds((prev) => (prev.includes(createdMedicine.id) ? prev : [...prev, createdMedicine.id]));
+      setMedicinePage(1);
+    } catch (err: any) {
+      console.error('Failed to create medicine:', err);
+      setMedicineError(err.response?.data?.message || 'Failed to create medicine');
+    } finally {
+      setIsSubmittingMedicine(false);
     }
   };
 
@@ -704,15 +740,8 @@ const AppointmentDetail = () => {
 
   const calculateTotalFee = () => {
     if (!appointment) return 0;
-    
-    const treatmentTotal = treatments.reduce((sum, treatment) => sum + treatment.treatment.price, 0);
-    
-    const medicineTotal = Array.from(treatmentMedicines.values())
-      .flat()
-      .reduce((sum, med) => sum + med.medicine.price, 0);
-    
-    const discount = appointment.discountFee || 0;
-    return treatmentTotal + medicineTotal - discount;
+
+    return appointment.chargedFee ?? appointment.calculatedFee;
   };
 
   const totalTreatmentPages = Math.max(1, Math.ceil(availableTreatments.length / ITEMS_PER_PAGE));
@@ -829,6 +858,26 @@ const AppointmentDetail = () => {
             <div className="flex items-start space-x-3">
               <DollarSign className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
               <div>
+                <p className="text-sm font-medium text-gray-500">Calculated Fee</p>
+                <p className="text-lg text-gray-900 font-semibold">
+                  ${appointment.calculatedFee.toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-3">
+              <DollarSign className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-gray-500">Charged Fee</p>
+                <p className="text-lg text-gray-900 font-semibold">
+                  {appointment.chargedFee !== null ? `$${appointment.chargedFee.toFixed(2)}` : 'N/A'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-3">
+              <DollarSign className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+              <div>
                 <p className="text-sm font-medium text-gray-500">Discount Fee</p>
                 <p className="text-lg text-gray-900 font-semibold">
                   {appointment.discountFee !== null ? `$${appointment.discountFee.toFixed(2)}` : 'N/A'}
@@ -848,7 +897,7 @@ const AppointmentDetail = () => {
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-2 text-right">
-              (Treatments + Medicines - Discount)
+              (Charged fee if set, otherwise calculated fee)
             </p>
           </div>
         </div>
@@ -1054,6 +1103,83 @@ const AppointmentDetail = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                     />
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowAddMedicineInModal(true)}
+                    className="w-full mb-3 flex items-center justify-center space-x-1 px-4 py-2 bg-purple-50 text-purple-700 text-sm rounded-md font-medium border border-purple-200 hover:bg-purple-100 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>New Medicine</span>
+                  </button>
+
+                  {showAddMedicineInModal && (
+                    <div className="border border-purple-200 rounded-lg p-3 mb-3 bg-purple-50/40">
+                      <h4 className="text-sm font-medium text-gray-900 mb-3">New Medicine</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label htmlFor="modalNewMedicineName" className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
+                          <input
+                            id="modalNewMedicineName"
+                            type="text"
+                            maxLength={40}
+                            value={newMedicineForm.name}
+                            onChange={(e) => setNewMedicineForm({ ...newMedicineForm, name: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="modalNewMedicineDescription" className="block text-xs font-medium text-gray-700 mb-1">Description *</label>
+                          <textarea
+                            id="modalNewMedicineDescription"
+                            rows={2}
+                            maxLength={300}
+                            value={newMedicineForm.description}
+                            onChange={(e) => setNewMedicineForm({ ...newMedicineForm, description: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="modalNewMedicinePrice" className="block text-xs font-medium text-gray-700 mb-1">Price *</label>
+                          <input
+                            id="modalNewMedicinePrice"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={newMedicineForm.price || ''}
+                            onChange={(e) => setNewMedicineForm({ ...newMedicineForm, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                        </div>
+
+                        {medicineError && (
+                          <div className="text-xs text-red-600">{medicineError}</div>
+                        )}
+
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={handleAddMedicineForm}
+                            disabled={isSubmittingMedicine || !newMedicineForm.name || !newMedicineForm.description || newMedicineForm.price < 0}
+                            className="flex-1 py-2 bg-purple-600 text-white text-xs rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isSubmittingMedicine ? 'Creating...' : 'Create'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddMedicineInModal(false);
+                              setNewMedicineForm({ name: '', description: '', price: 0 });
+                              setMedicineError('');
+                            }}
+                            className="flex-1 py-2 bg-gray-200 text-gray-700 text-xs rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="max-h-64 overflow-auto rounded-md border border-gray-200 bg-white">
                     {availableMedicines.length === 0 ? (
@@ -1568,9 +1694,50 @@ const AppointmentDetail = () => {
           )}
         </div>
 
+        {previewMedia && (
+          <div
+            className="fixed inset-0 bg-black/95 z-50"
+            onClick={() => setPreviewMedia(null)}
+          >
+            <div
+              className="w-full h-full flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-3 bg-black/60 text-white border-b border-white/10">
+                <h3 className="text-sm sm:text-base font-semibold truncate pr-3">{previewMedia.name}</h3>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMedia(null)}
+                  className="text-white/80 hover:text-white transition-colors"
+                  aria-label="Close image preview"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 min-h-0 flex items-center justify-center p-2 sm:p-6">
+                <img
+                  src={previewMedia.photo_url}
+                  alt={previewMedia.name}
+                  className="max-w-full max-h-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22180%22%3E%3Crect fill=%22%23f0f0f0%22 width=%22300%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2216%22%3ENo Image%3C/text%3E%3C/svg%3E';
+                  }}
+                />
+              </div>
+
+              <div className="px-4 py-3 bg-black/60 text-white border-t border-white/10">
+                <p className="text-sm text-white/90">
+                  {previewMedia.description?.trim() || 'No description provided.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Edit Appointment Modal */}
         {showEditAppointment && appointment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold text-gray-900">Edit Appointment</h2>
@@ -1611,18 +1778,25 @@ const AppointmentDetail = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="editDiscountFee" className="block text-sm font-medium text-gray-700 mb-1">
-                    Discount Fee
+                  <label htmlFor="editChargedFee" className="block text-sm font-medium text-gray-700 mb-1">
+                    Charged Fee
                   </label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
-                    id="editDiscountFee"
-                    value={editedAppointment.discountFee}
-                    onChange={(e) => setEditedAppointment({ ...editedAppointment, discountFee: Number(e.target.value) })}
+                    id="editChargedFee"
+                    value={editedAppointment.chargedFee}
+                    onChange={(e) => setEditedAppointment({ ...editedAppointment, chargedFee: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setEditedAppointment({ ...editedAppointment, chargedFee: appointment.calculatedFee })}
+                    className="mt-2 text-xs text-teal-700 hover:text-teal-900"
+                  >
+                    Use calculated fee (${appointment.calculatedFee.toFixed(2)})
+                  </button>
                 </div>
 
                 <div className="flex gap-3 pt-4">

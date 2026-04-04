@@ -12,7 +12,10 @@
   "table": {
     "date": "Tarix",
     "name": "Xəstənin adı",
-    "surname": "Xəstənin soyadı"
+    "surname": "Xəstənin soyadı",
+    "calculatedFee": "Hesablanmış məbləğ",
+    "chargedFee": "Tutulan məbləğ",
+    "discountFee": "Endirim"
   },
   "loading": "Randevular yüklənir...",
   "empty": "Randevu tapılmadı",
@@ -38,8 +41,9 @@
   "patientBirthDate": "Doğum tarixi *",
   "endDate": "Bitmə tarixi",
   "endDateError": "Bitmə tarixi başlama tarixindən əvvəl ola bilməz",
-  "discountFee": "Endirim haqqı",
-  "discountPlaceholder": "Endirim məbləğini daxil edin",
+  "chargedFee": "Tutulan məbləğ",
+  "chargedPlaceholder": "Tutulan məbləği daxil edin",
+  "calculatedHint": "Tövsiyə olunan məbləğ hesablanmış məbləğə əsaslanır (müalicələr + dərmanlar).",
   "creating": "Yaradılır...",
   "create": "Randevu yarat",
   "cancel": "Ləğv et",

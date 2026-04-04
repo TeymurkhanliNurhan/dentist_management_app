@@ -28,7 +28,7 @@ const Appointments = () => {
   const [newAppointment, setNewAppointment] = useState<CreateAppointmentDto>({
     startDate: '',
     endDate: '',
-    discountFee: 0,
+    chargedFee: 0,
     patient_id: 0,
   });
   const [patientSearch, setPatientSearch] = useState({ name: '', surname: '' });
@@ -110,7 +110,7 @@ const Appointments = () => {
       };
       await appointmentService.create(appointmentData);
       setShowAddModal(false);
-      setNewAppointment({ startDate: '', endDate: '', discountFee: 0, patient_id: 0 });
+      setNewAppointment({ startDate: '', endDate: '', chargedFee: 0, patient_id: 0 });
       setPatientSearch({ name: '', surname: '' });
       setDateError('');
       fetchAppointments({}, appointmentsData.page);
@@ -331,18 +331,27 @@ const Appointments = () => {
                   <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
                     {t('table.surname')}
                   </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
+                    {t('table.calculatedFee')}
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
+                    {t('table.chargedFee')}
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
+                    {t('table.discountFee')}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                       {t('loading')}
                     </td>
                   </tr>
                 ) : appointmentsData.appointments.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                       {t('empty')}
                     </td>
                   </tr>
@@ -361,6 +370,15 @@ const Appointments = () => {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
                         {appointment.patient.surname}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        ${appointment.calculatedFee.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {appointment.chargedFee !== null ? `$${appointment.chargedFee.toFixed(2)}` : '-'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {appointment.discountFee !== null ? `$${appointment.discountFee.toFixed(2)}` : '-'}
                       </td>
                     </tr>
                   ))
@@ -631,19 +649,20 @@ const Appointments = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="newDiscountFee" className="block text-sm font-medium text-gray-700 mb-1">
-                    {t('discountFee')}
+                  <label htmlFor="newChargedFee" className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('chargedFee')}
                   </label>
                   <input
                     type="number"
-                    id="newDiscountFee"
+                    id="newChargedFee"
                     min="0"
                     step="0.01"
-                    value={newAppointment.discountFee || ''}
-                    onChange={(e) => setNewAppointment({ ...newAppointment, discountFee: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+                    value={newAppointment.chargedFee ?? ''}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, chargedFee: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    placeholder={t('discountPlaceholder')}
+                    placeholder={t('chargedPlaceholder')}
                   />
+                  <p className="text-xs text-gray-500 mt-1">{t('calculatedHint')}</p>
                 </div>
 
                 <div className="flex gap-3 pt-4">

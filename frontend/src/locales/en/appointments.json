@@ -12,7 +12,10 @@
   "table": {
     "date": "Date",
     "name": "Patient Name",
-    "surname": "Patient Surname"
+    "surname": "Patient Surname",
+    "calculatedFee": "Calculated Fee",
+    "chargedFee": "Charged Fee",
+    "discountFee": "Discount"
   },
   "loading": "Loading appointments...",
   "empty": "No appointments found",
@@ -38,8 +41,9 @@
   "patientBirthDate": "Birth Date *",
   "endDate": "End Date",
   "endDateError": "End date cannot be earlier than start date",
-  "discountFee": "Discount Fee",
-  "discountPlaceholder": "Enter discount fee",
+  "chargedFee": "Charged Fee",
+  "chargedPlaceholder": "Enter charged fee",
+  "calculatedHint": "Suggested amount is based on calculated fee (treatments + medicines).",
   "creating": "Creating...",
   "create": "Create Appointment",
   "cancel": "Cancel",

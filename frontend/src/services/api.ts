@@ -427,6 +427,8 @@ export interface Appointment {
   id: number;
   startDate: string;
   endDate: string | null;
+  calculatedFee: number;
+  chargedFee: number | null;
   discountFee: number | null;
   patient: {
     id: number;
@@ -454,14 +456,14 @@ export interface PaginatedAppointments {
 export interface CreateAppointmentDto {
   startDate: string;
   endDate?: string;
-  discountFee?: number;
+  chargedFee?: number;
   patient_id: number;
 }
 
 export interface UpdateAppointmentDto {
   startDate?: string;
   endDate?: string | null;
-  discountFee?: number | null;
+  chargedFee?: number | null;
 }
 
 export const appointmentService = {
