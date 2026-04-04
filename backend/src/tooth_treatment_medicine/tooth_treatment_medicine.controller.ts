@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ToothTreatmentMedicineService } from './tooth_treatment_medicine.service';
 import { CreateToothTreatmentMedicineDto } from './dto/create-tooth_treatment_medicine.dto';
 import { GetToothTreatmentMedicineDto } from './dto/get-tooth_treatment_medicine.dto';
+import { UpdateToothTreatmentMedicineDto } from './dto/update-tooth_treatment_medicine.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
 
@@ -31,6 +32,22 @@ export class ToothTreatmentMedicineController {
   async create(@User() user: any, @Body() dto: CreateToothTreatmentMedicineDto) {
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
     return await this.service.create(dentistId, dto);
+  }
+
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
+  @Patch(':tooth_treatment_id/:medicine_id/quantity')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update quantity for a tooth treatment medicine' })
+  @ApiOkResponse({ description: 'Tooth treatment medicine quantity updated' })
+  async updateQuantity(
+    @User() user: any,
+    @Param('tooth_treatment_id', ParseIntPipe) toothTreatmentId: number,
+    @Param('medicine_id', ParseIntPipe) medicineId: number,
+    @Body() dto: UpdateToothTreatmentMedicineDto,
+  ) {
+    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
+    return await this.service.updateQuantity(dentistId, toothTreatmentId, medicineId, dto);
   }
 
   @ApiBearerAuth('bearer')

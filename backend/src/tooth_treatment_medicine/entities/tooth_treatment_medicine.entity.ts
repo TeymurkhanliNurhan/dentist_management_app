@@ -13,6 +13,9 @@ export class ToothTreatmentMedicine {
     @Column({ type: 'double precision', nullable: false, default: 0 })
     medicinePriceSnapshot: number;
 
+    @Column({ type: 'int', nullable: false, default: 1 })
+    quantity: number;
+
     @ManyToOne(() => Medicine, (medicine) => medicine.toothTreatmentMedicines, { nullable: false })
     @JoinColumn({ name: 'Medicine' })
     medicineEntity: Medicine;

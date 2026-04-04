@@ -34,7 +34,7 @@ export class ToothTreatmentMedicineRepository {
         await appointmentRepo.save(appointment);
     }
 
-    async createForDentist(dentistId: number, toothTreatmentId: number, medicineId: number): Promise<ToothTreatmentMedicine> {
+    async createForDentist(dentistId: number, toothTreatmentId: number, medicineId: number, quantity = 1): Promise<ToothTreatmentMedicine> {
         const ttRepo = this.dataSource.getRepository(ToothTreatment);
         const medRepo = this.dataSource.getRepository(Medicine);
 
@@ -46,18 +46,44 @@ export class ToothTreatmentMedicineRepository {
         if (!medicine) throw new Error('Medicine not found or not owned');
 
         const existing = await this.repo.findOne({ where: { medicine: medicineId, toothTreatment: toothTreatmentId } });
-        if (existing) throw new Error('Already exists');
+        if (existing) {
+            existing.quantity += quantity;
+            const updated = await this.repo.save(existing);
+            await this.refreshAppointmentFees(toothTreatment.appointment.id);
+            return updated;
+        }
 
         const created = this.repo.create({
             medicine: medicineId,
             toothTreatment: toothTreatmentId,
             medicinePriceSnapshot: medicine.price,
+            quantity,
             medicineEntity: medicine,
             toothTreatmentEntity: toothTreatment,
         });
         const saved = await this.repo.save(created);
         await this.refreshAppointmentFees(toothTreatment.appointment.id);
         return saved;
+    }
+
+    async updateQuantityEnsureOwnership(
+        dentistId: number,
+        toothTreatmentId: number,
+        medicineId: number,
+        quantity: number,
+    ): Promise<ToothTreatmentMedicine> {
+        const ttRepo = this.dataSource.getRepository(ToothTreatment);
+        const toothTreatment = await ttRepo.findOne({ where: { id: toothTreatmentId }, relations: ['appointment', 'appointment.dentist'] });
+        if (!toothTreatment) throw new Error('ToothTreatment not found');
+        if (toothTreatment.appointment?.dentist?.id !== dentistId) throw new Error('Forbidden');
+
+        const existing = await this.repo.findOne({ where: { medicine: medicineId, toothTreatment: toothTreatmentId } });
+        if (!existing) throw new Error('ToothTreatmentMedicine not found');
+
+        existing.quantity = quantity;
+        const updated = await this.repo.save(existing);
+        await this.refreshAppointmentFees(toothTreatment.appointment.id);
+        return updated;
     }
 
     async deleteEnsureOwnership(dentistId: number, toothTreatmentId: number, medicineId: number): Promise<void> {
