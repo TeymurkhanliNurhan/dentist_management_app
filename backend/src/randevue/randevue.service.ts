@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { RandevueRepository } from './randevue.repository';
 import { CreateRandevueDto } from './dto/create-randevue.dto';
+import { UpdateRandevueDto } from './dto/update-randevue.dto';
 import { GetRandevueQueryDto } from './dto/get-randevue-query.dto';
 import { AppointmentService } from '../appointment/appointment.service';
 import { LogWriter } from '../log-writer';
@@ -126,6 +127,100 @@ export class RandevueService {
             }
             this.logger.error(e?.stack || e?.message);
             throw new BadRequestException('Failed to create randevue');
+        }
+    }
+
+    async update(dentistId: number, id: number, dto: UpdateRandevueDto) {
+        if (!Number.isFinite(dentistId) || dentistId < 1) {
+            throw new BadRequestException('Invalid dentist context');
+        }
+        const row = await this.repo.findByIdForDentist(dentistId, id);
+        if (!row) throw new NotFoundException('Randevue not found');
+
+        let start = row.date instanceof Date ? row.date : new Date(row.date as unknown as string);
+        let end = row.endTime instanceof Date ? row.endTime : new Date(row.endTime as unknown as string);
+
+        if (dto.startDateTime != null) {
+            const s = new Date(dto.startDateTime);
+            if (Number.isNaN(s.getTime())) throw new BadRequestException('Invalid start datetime');
+            start = s;
+        }
+        if (dto.endDateTime != null) {
+            const e = new Date(dto.endDateTime);
+            if (Number.isNaN(e.getTime())) throw new BadRequestException('Invalid end datetime');
+            end = e;
+        }
+        if (end <= start) {
+            throw new BadRequestException('End time must be after start time');
+        }
+
+        row.date = start;
+        row.endTime = end;
+
+        if (dto.patient_id != null && dto.patient_id !== row.patient.id) {
+            const patient = await this.repo.assertPatientOwnedByDentist(dentistId, dto.patient_id);
+            const appt = row.appointment;
+            if (appt && appt.patient && appt.patient.id !== patient.id) {
+                row.appointment = null;
+                if (row.status === 'booked') row.status = 'scheduled';
+            }
+            row.patient = patient;
+        }
+
+        if (dto.note !== undefined) {
+            const trimmed = dto.note.trim();
+            row.note = trimmed === '' ? null : trimmed;
+        }
+
+        const wantsClear = dto.clear_appointment === true;
+        const wantsLink = dto.appointment_id != null;
+        const wantsNew = dto.create_new_appointment === true;
+        const apptIntentCount = [wantsClear, wantsLink, wantsNew].filter(Boolean).length;
+        if (apptIntentCount > 1) {
+            throw new BadRequestException('Only one of clear_appointment, appointment_id, or create_new_appointment is allowed');
+        }
+        if (dto.create_new_appointment === true && dto.appointment_id != null) {
+            throw new BadRequestException('Cannot set both create_new_appointment and appointment_id');
+        }
+        if (wantsClear) {
+            row.appointment = null;
+            if (row.status === 'booked') row.status = 'scheduled';
+        } else if (wantsNew) {
+            if (!dto.appointment_start_date) {
+                throw new BadRequestException('appointment_start_date is required when creating a new appointment');
+            }
+            const created = await this.appointmentService.create(dentistId, {
+                startDate: dto.appointment_start_date,
+                patient_id: row.patient.id,
+                chargedFee: 0,
+            });
+            row.appointment = { id: created.id } as Appointment;
+            row.status = 'booked';
+        } else if (wantsLink) {
+            await this.repo.assertOpenAppointmentForPatient(dentistId, dto.appointment_id!, row.patient.id);
+            row.appointment = { id: dto.appointment_id! } as Appointment;
+            row.status = 'booked';
+        }
+
+        try {
+            await this.repo.saveEntity(row);
+            const reloaded = await this.repo.findByIdForDentist(dentistId, id);
+            if (!reloaded) throw new Error('Failed to reload randevue');
+            const msg = `Dentist ${dentistId} updated Randevue ${id}`;
+            this.logger.log(msg);
+            LogWriter.append('log', RandevueService.name, msg);
+            return this.toResponse(reloaded);
+        } catch (e: any) {
+            if (e?.message?.includes('Forbidden patient')) {
+                throw new BadRequestException("You don't have such a patient");
+            }
+            if (e?.message === 'Patient not found') throw new NotFoundException('Patient not found');
+            if (e?.message === 'Appointment not found') throw new NotFoundException('Appointment not found');
+            if (e?.message === 'Appointment already closed') {
+                throw new BadRequestException('That appointment is already closed (has an end date)');
+            }
+            this.logger.error(e?.stack || e?.message);
+            throw new BadRequestException('Failed to update randevue');
         }
     }
 }

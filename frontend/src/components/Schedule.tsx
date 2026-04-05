@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Header from './Header';
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   appointmentService,
@@ -11,11 +11,15 @@ import {
   type CreateRandevueDto,
   type Patient,
   type Randevue,
+  type UpdateRandevueDto,
 } from '../services/api';
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
+/** First row of the grid (top) — full 24h still shown, order is 08:00 … 23:00 then 00:00 … 07:00 */
+const SCHEDULE_START_HOUR = 8;
+const HOURS_IN_DAY = 24;
+const DISPLAY_HOURS = Array.from({ length: HOURS_IN_DAY }, (_, i) => (SCHEDULE_START_HOUR + i) % HOURS_IN_DAY);
 const HOUR_PX = 48;
-const DAY_PX = HOURS.length * HOUR_PX;
+const DAY_PX = HOURS_IN_DAY * HOUR_PX;
 
 function startOfWeekMonday(d: Date): Date {
   const c = new Date(d);
@@ -67,20 +71,87 @@ function dayBoundsLocal(day: Date): { start: Date; next: Date } {
   return { start, next };
 }
 
-function layoutSegment(
-  day: Date,
-  start: Date,
-  end: Date,
-): { top: number; height: number } | null {
-  const { start: ds, next: dn } = dayBoundsLocal(day);
-  if (end <= ds || start >= dn) return null;
-  const visStart = start > ds ? start : ds;
-  const visEnd = end < dn ? end : dn;
-  if (visEnd <= visStart) return null;
-  const dayMs = dn.getTime() - ds.getTime();
-  const top = ((visStart.getTime() - ds.getTime()) / dayMs) * DAY_PX;
-  const height = ((visEnd.getTime() - visStart.getTime()) / dayMs) * DAY_PX;
-  return { top, height: Math.max(height, 20) };
+/** Y-offset from top of column where 08:00 = 0 and 07:59 = bottom (wraps midnight–08:00 after 23:00). */
+function offsetMsFromScheduleStart(midnight: Date, eightAm: Date, t: Date): number {
+  const tms = t.getTime();
+  if (tms >= eightAm.getTime()) return tms - eightAm.getTime();
+  return 16 * 3600000 + (tms - midnight.getTime());
+}
+
+/**
+ * One or two rectangles when an interval crosses 08:00 on the same calendar day.
+ */
+function layoutSegments(day: Date, start: Date, end: Date): { top: number; height: number }[] {
+  const { start: midnight, next: dayAfter } = dayBoundsLocal(day);
+  if (end <= midnight || start >= dayAfter) return [];
+  const visStart = start > midnight ? start : midnight;
+  const visEnd = end < dayAfter ? end : dayAfter;
+  if (visEnd <= visStart) return [];
+
+  const eightAm = new Date(midnight);
+  eightAm.setHours(SCHEDULE_START_HOUR, 0, 0, 0);
+
+  const totalMs = 24 * 3600000;
+
+  const piece = (a: Date, b: Date): { top: number; height: number } | null => {
+    if (b <= a) return null;
+    const top = (offsetMsFromScheduleStart(midnight, eightAm, a) / totalMs) * DAY_PX;
+    const h =
+      ((offsetMsFromScheduleStart(midnight, eightAm, b) - offsetMsFromScheduleStart(midnight, eightAm, a)) /
+        totalMs) *
+      DAY_PX;
+    return { top, height: Math.max(h, 20) };
+  };
+
+  const out: { top: number; height: number }[] = [];
+  if (visStart < eightAm && visEnd > eightAm) {
+    const p1 = piece(visStart, eightAm);
+    const p2 = piece(eightAm, visEnd);
+    if (p1) out.push(p1);
+    if (p2) out.push(p2);
+  } else {
+    const p = piece(visStart, visEnd);
+    if (p) out.push(p);
+  }
+  return out;
+}
+
+function formatHourLabel24(hour: number): string {
+  return `${String(hour).padStart(2, '0')}:00`;
+}
+
+const BACK_TO_BACK_MAX_GAP_MS = 60_000;
+
+function isBackToBack(prevEnd: Date, nextStart: Date): boolean {
+  const d = nextStart.getTime() - prevEnd.getTime();
+  return d >= 0 && d <= BACK_TO_BACK_MAX_GAP_MS;
+}
+
+function localTimeHm(d: Date): string {
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function tooltipLeft(clientX: number): number {
+  const pad = 14;
+  const w = 280;
+  let x = clientX + pad;
+  if (typeof window !== 'undefined') {
+    x = Math.min(x, window.innerWidth - w - 8);
+    x = Math.max(8, x);
+  }
+  return x;
+}
+
+function tooltipTop(clientY: number): number {
+  const pad = 14;
+  let y = clientY + pad;
+  if (typeof window !== 'undefined') {
+    y = Math.min(y, window.innerHeight - 120);
+    y = Math.max(8, y);
+  }
+  return y;
 }
 
 const Schedule = () => {
@@ -109,7 +180,50 @@ const Schedule = () => {
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const [detailId, setDetailId] = useState<number | null>(null);
+  const [editDate, setEditDate] = useState('');
+  const [editStart, setEditStart] = useState('09:00');
+  const [editEnd, setEditEnd] = useState('10:00');
+  const [editPatientId, setEditPatientId] = useState(0);
+  const [editNote, setEditNote] = useState('');
+  const [detailBusy, setDetailBusy] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailAppointmentChoice, setDetailAppointmentChoice] = useState<AppointmentChoice>('none');
+  const [detailOpenAppointments, setDetailOpenAppointments] = useState<Appointment[]>([]);
+  const [detailApptsLoading, setDetailApptsLoading] = useState(false);
+
+  const [hoverTip, setHoverTip] = useState<{
+    r: Randevue;
+    clientX: number;
+    clientY: number;
+  } | null>(null);
+
   const days = useMemo(() => weekDays(weekAnchor), [weekAnchor]);
+
+  const randevueShadeByDayAndId = useMemo(() => {
+    const map = new Map<string, 0 | 1>();
+    for (const day of days) {
+      const items: { r: Randevue; s: Date; e: Date }[] = [];
+      for (const r of randevues) {
+        const s = new Date(r.date);
+        const e = new Date(r.endTime);
+        if (layoutSegments(day, s, e).length > 0) items.push({ r, s, e });
+      }
+      items.sort((a, b) => a.s.getTime() - b.s.getTime());
+      let shade: 0 | 1 = 0;
+      let prevEnd: Date | null = null;
+      for (const { r, s, e } of items) {
+        if (prevEnd && isBackToBack(prevEnd, s)) {
+          shade = shade === 0 ? 1 : 0;
+        } else {
+          shade = 0;
+        }
+        map.set(`${day.getTime()}-${r.id}`, shade);
+        prevEnd = e;
+      }
+    }
+    return map;
+  }, [randevues, days]);
   const rangeLabel = useMemo(() => {
     const a = days[0];
     const b = days[6];
@@ -140,13 +254,29 @@ const Schedule = () => {
   }, [fetchWeek]);
 
   useEffect(() => {
-    if (!modalOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setModalOpen(false);
+      if (e.key !== 'Escape') return;
+      if (modalOpen) setModalOpen(false);
+      else if (detailId != null) setDetailId(null);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [modalOpen]);
+  }, [modalOpen, detailId]);
+
+  useEffect(() => {
+    if (detailId == null) return;
+    const r = randevues.find((x) => x.id === detailId);
+    if (!r) return;
+    const s = new Date(r.date);
+    const e = new Date(r.endTime);
+    setEditDate(formatYmd(s));
+    setEditStart(localTimeHm(s));
+    setEditEnd(localTimeHm(e));
+    setEditPatientId(r.patient.id);
+    setEditNote(r.note ?? '');
+    setDetailAppointmentChoice(r.appointment ? r.appointment.id : 'none');
+    setDetailError(null);
+  }, [detailId, randevues]);
 
   useEffect(() => {
     let cancelled = false;
@@ -193,7 +323,40 @@ const Schedule = () => {
     };
   }, [patientId]);
 
+  useEffect(() => {
+    if (detailId == null || !editPatientId) {
+      setDetailOpenAppointments([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setDetailApptsLoading(true);
+      try {
+        const res = await appointmentService.getAll({ patient: editPatientId, limit: 200, page: 1 });
+        const open = res.appointments.filter((a) => a.endDate == null);
+        if (!cancelled) {
+          setDetailOpenAppointments(open);
+          setDetailAppointmentChoice((prev) => {
+            if (prev === 'none' || prev === 'new') return prev;
+            if (open.some((a) => a.id === prev)) return prev;
+            const cur = randevues.find((x) => x.id === detailId);
+            if (cur?.appointment?.id === prev) return prev;
+            return 'none';
+          });
+        }
+      } catch {
+        if (!cancelled) setDetailOpenAppointments([]);
+      } finally {
+        if (!cancelled) setDetailApptsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [detailId, editPatientId, randevues]);
+
   const openNewModal = (day?: Date, hour?: number) => {
+    setDetailId(null);
     const baseDay = day ?? new Date();
     setFormDate(formatYmd(baseDay));
     setFormStart(hour != null ? `${String(hour).padStart(2, '0')}:00` : '09:00');
@@ -264,17 +427,64 @@ const Schedule = () => {
     }
   };
 
-  const formatHour = (h: number) =>
-    new Date(2000, 0, 1, h, 0).toLocaleTimeString(i18n.language, {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
+  const openRandevueDetail = (r: Randevue) => {
+    setDetailId(r.id);
+    setModalOpen(false);
+  };
+
+  const handleSaveDetail = async () => {
+    if (detailId == null) return;
+    setDetailError(null);
+    if (!editPatientId) {
+      setDetailError(t('pickPatientError'));
+      return;
+    }
+    const start = combineLocalDateAndTime(editDate, editStart);
+    const end = combineLocalDateAndTime(editDate, editEnd);
+    if (end <= start) {
+      setDetailError(t('timeOrderError'));
+      return;
+    }
+    const hadLink = detailRandevue?.appointment != null;
+    const linkedId = detailRandevue?.appointment?.id ?? null;
+
+    const body: UpdateRandevueDto = {
+      startDateTime: start.toISOString(),
+      endDateTime: end.toISOString(),
+      patient_id: editPatientId,
+      note: editNote,
+    };
+
+    if (detailAppointmentChoice === 'new') {
+      body.create_new_appointment = true;
+      body.appointment_start_date = editDate;
+    } else if (typeof detailAppointmentChoice === 'number') {
+      if (detailAppointmentChoice !== linkedId) {
+        body.appointment_id = detailAppointmentChoice;
+      }
+    } else if (hadLink) {
+      body.clear_appointment = true;
+    }
+
+    setDetailBusy(true);
+    try {
+      await randevueService.update(detailId, body);
+      void fetchWeek();
+    } catch {
+      setDetailError(t('updateError'));
+    } finally {
+      setDetailBusy(false);
+    }
+  };
+
+  const detailRandevue = detailId != null ? randevues.find((x) => x.id === detailId) : undefined;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
 
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="flex flex-1 min-h-0">
+      <main className="flex-1 min-w-0 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 overflow-x-auto">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <CalendarDays className="w-9 h-9 text-violet-600" aria-hidden />
@@ -327,13 +537,13 @@ const Schedule = () => {
             <div className="flex min-w-[720px]">
               <div className="w-14 flex-shrink-0 border-r border-gray-200 bg-gray-50">
                 <div className="h-12 border-b border-gray-200" />
-                {HOURS.map((h) => (
+                {DISPLAY_HOURS.map((h, slot) => (
                   <div
-                    key={h}
-                    className="text-xs text-gray-500 pr-2 text-right border-b border-gray-100 flex items-start justify-end"
+                    key={`${slot}-${h}`}
+                    className="text-xs text-gray-500 pr-2 text-right border-b border-gray-100 flex items-start justify-end tabular-nums"
                     style={{ height: HOUR_PX }}
                   >
-                    {formatHour(h)}
+                    {formatHourLabel24(h)}
                   </div>
                 ))}
               </div>
@@ -357,34 +567,66 @@ const Schedule = () => {
                         {header}
                       </div>
                       <div className="relative" style={{ height: DAY_PX }}>
-                        {HOURS.map((h) => (
+                        {DISPLAY_HOURS.map((h, slot) => (
                           <button
-                            key={h}
+                            key={`${slot}-${h}`}
                             type="button"
-                            className="absolute left-0 right-0 border-b border-gray-100 hover:bg-violet-50/40 transition-colors cursor-pointer"
-                            style={{ top: h * HOUR_PX, height: HOUR_PX }}
+                            className="absolute left-0 right-0 z-[5] border-b border-gray-100 hover:bg-violet-50/40 transition-colors cursor-pointer"
+                            style={{ top: slot * HOUR_PX, height: HOUR_PX }}
                             onClick={() => openNewModal(day, h)}
-                            aria-label={`${t('newRandevue')} ${formatYmd(day)} ${h}:00`}
+                            aria-label={`${t('newRandevue')} ${formatYmd(day)} ${formatHourLabel24(h)}`}
                           />
                         ))}
 
-                        {randevues.map((r) => {
+                        {randevues.flatMap((r) => {
                           const s = new Date(r.date);
                           const e = new Date(r.endTime);
-                          const seg = layoutSegment(day, s, e);
-                          if (!seg) return null;
-                          return (
+                          const segs = layoutSegments(day, s, e);
+                          if (segs.length === 0) return [];
+                          const shade =
+                            randevueShadeByDayAndId.get(`${day.getTime()}-${r.id}`) ?? 0;
+                          const toneClass =
+                            shade === 0
+                              ? 'bg-violet-600 hover:bg-violet-700'
+                              : 'bg-emerald-600 hover:bg-emerald-700';
+                          const focusRingClass =
+                            shade === 0 ? 'focus:ring-violet-300' : 'focus:ring-emerald-300';
+                          return segs.map((seg, segIdx) => (
                             <div
-                              key={`${r.id}-${day.toISOString()}`}
-                              className="absolute left-0.5 right-0.5 rounded-md bg-violet-500 text-white text-xs px-1 py-0.5 shadow-sm overflow-hidden z-10 pointer-events-none"
+                              key={`${r.id}-${day.toISOString()}-${segIdx}`}
+                              role="button"
+                              tabIndex={0}
+                              className={`absolute left-0.5 right-0.5 rounded-md ${toneClass} text-white text-xs px-1 py-0.5 shadow-sm overflow-hidden z-[15] cursor-pointer pointer-events-auto transition-colors focus:outline-none focus:ring-2 ${focusRingClass} focus:ring-offset-1`}
                               style={{ top: seg.top, height: seg.height }}
-                              title={`${r.patient.name} ${r.patient.surname}`}
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                openRandevueDetail(r);
+                              }}
+                              onKeyDown={(ev) => {
+                                if (ev.key === 'Enter' || ev.key === ' ') {
+                                  ev.preventDefault();
+                                  openRandevueDetail(r);
+                                }
+                              }}
+                              onMouseEnter={(ev) =>
+                                setHoverTip({ r, clientX: ev.clientX, clientY: ev.clientY })
+                              }
+                              onMouseMove={(ev) =>
+                                setHoverTip((prev) =>
+                                  prev && prev.r.id === r.id
+                                    ? { r, clientX: ev.clientX, clientY: ev.clientY }
+                                    : prev,
+                                )
+                              }
+                              onMouseLeave={() =>
+                                setHoverTip((prev) => (prev?.r.id === r.id ? null : prev))
+                              }
                             >
-                              <span className="font-semibold leading-tight block truncate">
+                              <span className="font-semibold leading-tight block truncate pointer-events-none">
                                 {r.patient.name} {r.patient.surname}
                               </span>
                             </div>
-                          );
+                          ));
                         })}
                       </div>
                     </div>
@@ -395,6 +637,194 @@ const Schedule = () => {
           </div>
         )}
       </main>
+
+      {detailId != null && (
+        <aside
+          className="w-full max-w-md flex-shrink-0 border-l border-gray-200 bg-white shadow-lg z-40 flex flex-col max-h-[calc(100vh-4rem)] lg:max-h-none lg:min-h-[calc(100vh-5rem)]"
+          aria-label={t('editRandevue')}
+        >
+          <div className="flex items-center justify-between gap-2 p-4 border-b border-gray-100">
+            <h2 className="text-lg font-bold text-gray-900">{t('editRandevue')}</h2>
+            <button
+              type="button"
+              onClick={() => setDetailId(null)}
+              className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+              aria-label={t('closeDetail')}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-4 overflow-y-auto flex-1 space-y-4">
+            {!detailRandevue ? (
+              <p className="text-sm text-gray-600">{t('detailNotFound')}</p>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('date')}</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
+                    <input
+                      type="time"
+                      value={editStart}
+                      onChange={(e) => setEditStart(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
+                    <input
+                      type="time"
+                      value={editEnd}
+                      onChange={(e) => setEditEnd(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('patient')}</label>
+                  <select
+                    value={editPatientId || ''}
+                    onChange={(e) => setEditPatientId(Number(e.target.value) || 0)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  >
+                    <option value="">{t('selectPatient')}</option>
+                    {patients.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.surname}, {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {editPatientId > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-2">{t('openAppointments')}</p>
+                    {detailApptsLoading ? (
+                      <p className="text-sm text-gray-500">…</p>
+                    ) : (
+                      <>
+                        {detailOpenAppointments.length === 0 &&
+                          !(
+                            detailRandevue?.appointment &&
+                            !detailOpenAppointments.some((a) => a.id === detailRandevue.appointment!.id)
+                          ) && <p className="text-sm text-gray-500 mb-2">{t('noOpenAppointments')}</p>}
+                        <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                          <label className="flex items-center gap-2 text-sm cursor-pointer">
+                            <input
+                              type="radio"
+                              name="detail-appt"
+                              checked={detailAppointmentChoice === 'none'}
+                              onChange={() => setDetailAppointmentChoice('none')}
+                            />
+                            {t('noneStandalone')}
+                          </label>
+                          {detailRandevue?.appointment &&
+                            !detailOpenAppointments.some((a) => a.id === detailRandevue.appointment!.id) && (
+                              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="detail-appt"
+                                  checked={detailAppointmentChoice === detailRandevue.appointment.id}
+                                  onChange={() =>
+                                    setDetailAppointmentChoice(detailRandevue.appointment!.id)
+                                  }
+                                />
+                                #{detailRandevue.appointment.id} — {t('currentAppointmentLink')}
+                              </label>
+                            )}
+                          {detailOpenAppointments.map((a) => (
+                            <label key={a.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                              <input
+                                type="radio"
+                                name="detail-appt"
+                                checked={detailAppointmentChoice === a.id}
+                                onChange={() => setDetailAppointmentChoice(a.id)}
+                              />
+                              #{a.id} — {a.startDate}
+                            </label>
+                          ))}
+                          <label className="flex items-center gap-2 text-sm cursor-pointer pt-1 border-t border-gray-100">
+                            <input
+                              type="radio"
+                              name="detail-appt"
+                              checked={detailAppointmentChoice === 'new'}
+                              onChange={() => setDetailAppointmentChoice('new')}
+                            />
+                            {t('newAppointment')}
+                          </label>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">{t('newAppointmentHint')}</p>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('note')}</label>
+                  <textarea
+                    value={editNote}
+                    onChange={(e) => setEditNote(e.target.value)}
+                    rows={4}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+                {detailError && <p className="text-sm text-red-600">{detailError}</p>}
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveDetail()}
+                    disabled={detailBusy}
+                    className="px-4 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    {detailBusy ? t('saving') : t('saveChanges')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </aside>
+      )}
+      </div>
+
+      {hoverTip && (
+        <div
+          className="fixed z-[100] pointer-events-none rounded-lg bg-gray-900 text-white text-xs shadow-xl px-3 py-2.5 max-w-[280px] leading-relaxed"
+          style={{
+            left: tooltipLeft(hoverTip.clientX),
+            top: tooltipTop(hoverTip.clientY),
+          }}
+        >
+          <p className="font-semibold text-sm">
+            {hoverTip.r.patient.name} {hoverTip.r.patient.surname}
+          </p>
+          <p className="text-gray-200 mt-1">
+            {t('tooltipStartDate')}:{' '}
+            {new Date(hoverTip.r.date).toLocaleDateString(i18n.language, {
+              weekday: 'short',
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })}
+          </p>
+          <p className="text-gray-200">
+            {t('startTime')}: {localTimeHm(new Date(hoverTip.r.date))}
+          </p>
+          <p className="text-gray-200">
+            {t('endTime')}: {localTimeHm(new Date(hoverTip.r.endTime))}
+          </p>
+          <p className="text-gray-300 mt-1 border-t border-gray-700 pt-1">
+            {t('note')}: {hoverTip.r.note?.trim() ? hoverTip.r.note : t('noNote')}
+          </p>
+        </div>
+      )}
 
       {modalOpen && (
         <div

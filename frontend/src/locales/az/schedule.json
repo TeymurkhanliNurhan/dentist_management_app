@@ -32,5 +32,14 @@
   "cancel": "Ləğv et",
   "creating": "Saxlanır…",
   "timeOrderError": "Bitmə vaxtı başlama vaxtından sonra olmalıdır.",
-  "pickPatientError": "Xəstə seçin."
+  "pickPatientError": "Xəstə seçin.",
+  "editRandevue": "Randevunu redaktə et",
+  "closeDetail": "Bağla",
+  "saveChanges": "Yadda saxla",
+  "saving": "Saxlanır…",
+  "updateError": "Randevu yenilənmədi.",
+  "detailNotFound": "Bu randevu cədvəldə yoxdur.",
+  "tooltipStartDate": "Başlama tarixi",
+  "noNote": "—",
+  "currentAppointmentLink": "cari bağlantı (açıq siyahıda yoxdur)"
 }

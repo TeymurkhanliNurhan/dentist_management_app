@@ -32,5 +32,14 @@
   "cancel": "Отмена",
   "creating": "Сохранение…",
   "timeOrderError": "Время окончания должно быть позже начала.",
-  "pickPatientError": "Выберите пациента."
+  "pickPatientError": "Выберите пациента.",
+  "editRandevue": "Редактировать запись",
+  "closeDetail": "Закрыть",
+  "saveChanges": "Сохранить",
+  "saving": "Сохранение…",
+  "updateError": "Не удалось обновить запись.",
+  "detailNotFound": "Этой записи больше нет в расписании.",
+  "tooltipStartDate": "Дата начала",
+  "noNote": "—",
+  "currentAppointmentLink": "текущая привязка (нет в списке открытых)"
 }

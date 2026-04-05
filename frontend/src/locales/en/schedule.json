@@ -32,5 +32,14 @@
   "cancel": "Cancel",
   "creating": "Saving…",
   "timeOrderError": "End time must be after start time.",
-  "pickPatientError": "Please select a patient."
+  "pickPatientError": "Please select a patient.",
+  "editRandevue": "Edit randevue",
+  "closeDetail": "Close details",
+  "saveChanges": "Save changes",
+  "saving": "Saving…",
+  "updateError": "Could not update randevue.",
+  "detailNotFound": "This randevue is no longer on the schedule.",
+  "tooltipStartDate": "Start date",
+  "noNote": "—",
+  "currentAppointmentLink": "current link (not in open list)"
 }

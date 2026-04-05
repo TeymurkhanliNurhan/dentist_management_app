@@ -497,6 +497,17 @@ export interface CreateRandevueDto {
   appointment_start_date?: string;
 }
 
+export interface UpdateRandevueDto {
+  startDateTime?: string;
+  endDateTime?: string;
+  patient_id?: number;
+  note?: string;
+  clear_appointment?: boolean;
+  appointment_id?: number;
+  create_new_appointment?: boolean;
+  appointment_start_date?: string;
+}
+
 export const randevueService = {
   getForRange: async (from: string, to: string): Promise<Randevue[]> => {
     const params = new URLSearchParams({ from, to });
@@ -505,6 +516,10 @@ export const randevueService = {
   },
   create: async (dto: CreateRandevueDto): Promise<Randevue> => {
     const response = await api.post<Randevue>('/randevue', dto);
+    return response.data;
+  },
+  update: async (id: number, dto: UpdateRandevueDto): Promise<Randevue> => {
+    const response = await api.patch<Randevue>(`/randevue/${id}`, dto);
     return response.data;
   },
 };

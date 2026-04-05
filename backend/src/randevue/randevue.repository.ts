@@ -75,4 +75,20 @@ export class RandevueRepository {
             relations: ['patient', 'appointment'],
         });
     }
+
+    async findByIdForDentist(dentistId: number, id: number): Promise<Randevue | null> {
+        return this.repo
+            .createQueryBuilder('r')
+            .innerJoinAndSelect('r.patient', 'pt')
+            .innerJoin('pt.dentist', 'dentist')
+            .leftJoinAndSelect('r.appointment', 'appt')
+            .leftJoinAndSelect('appt.patient', 'apptPt')
+            .where('r.id = :id', { id })
+            .andWhere('dentist.id = :dentistId', { dentistId })
+            .getOne();
+    }
+
+    async saveEntity(entity: Randevue): Promise<Randevue> {
+        return this.repo.save(entity);
+    }
 }
