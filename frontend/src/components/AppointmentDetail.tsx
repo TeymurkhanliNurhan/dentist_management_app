@@ -2,8 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash, MousePointer, Grid3X3, RectangleHorizontal } from 'lucide-react';
 import Header from './Header';
-import { appointmentService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
+import { appointmentService, randevueService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
 import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, CreateMedicineDto, Media } from '../services/api';
+
+function combineLocalDateAndTime(dateYmd: string, timeHm: string): Date {
+  const [y, m, d] = dateYmd.split('-').map(Number);
+  const [hh, mm = '0'] = timeHm.split(':');
+  return new Date(y, m - 1, d, Number(hh), Number(mm), 0, 0);
+}
 
 interface TeethSelectorProps {
   patientTeeth: PatientTooth[];
@@ -242,6 +248,13 @@ const AppointmentDetail = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmDeleteAppointment, setConfirmDeleteAppointment] = useState(false);
+  const [showNewRandevuePanel, setShowNewRandevuePanel] = useState(false);
+  const [newRandevueDate, setNewRandevueDate] = useState('');
+  const [newRandevueStart, setNewRandevueStart] = useState('09:00');
+  const [newRandevueEnd, setNewRandevueEnd] = useState('10:00');
+  const [newRandevueNote, setNewRandevueNote] = useState('');
+  const [newRandevueError, setNewRandevueError] = useState('');
+  const [isSubmittingNewRandevue, setIsSubmittingNewRandevue] = useState(false);
   const [showAddTreatment, setShowAddTreatment] = useState(false);
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>([]);
   const [allTreatments, setAllTreatments] = useState<Treatment[]>([]);
@@ -324,6 +337,20 @@ const AppointmentDetail = () => {
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [previewMedia]);
+
+  useEffect(() => {
+    if (!showNewRandevuePanel) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowNewRandevuePanel(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showNewRandevuePanel]);
 
   useEffect(() => {
     const fetchAppointmentData = async () => {
@@ -425,6 +452,43 @@ const AppointmentDetail = () => {
       setError(err.response?.data?.message || 'Failed to update appointment');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const openNewRandevuePanel = () => {
+    if (!appointment) return;
+    setNewRandevueDate(appointment.startDate || new Date().toISOString().slice(0, 10));
+    setNewRandevueStart('09:00');
+    setNewRandevueEnd('10:00');
+    setNewRandevueNote('');
+    setNewRandevueError('');
+    setShowNewRandevuePanel(true);
+  };
+
+  const handleCreateRandevue = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appointment) return;
+    setNewRandevueError('');
+    const start = combineLocalDateAndTime(newRandevueDate, newRandevueStart);
+    const end = combineLocalDateAndTime(newRandevueDate, newRandevueEnd);
+    if (end <= start) {
+      setNewRandevueError('End time must be after start time.');
+      return;
+    }
+    setIsSubmittingNewRandevue(true);
+    try {
+      await randevueService.create({
+        startDateTime: start.toISOString(),
+        endDateTime: end.toISOString(),
+        patient_id: appointment.patient.id,
+        appointment_id: appointment.id,
+        ...(newRandevueNote.trim() ? { note: newRandevueNote.trim() } : {}),
+      });
+      setShowNewRandevuePanel(false);
+    } catch (err: any) {
+      setNewRandevueError(err.response?.data?.message || 'Failed to create randevue.');
+    } finally {
+      setIsSubmittingNewRandevue(false);
     }
   };
 
@@ -886,6 +950,14 @@ const AppointmentDetail = () => {
               >
                 <Trash className="w-4 h-4" />
                 <span>Delete</span>
+              </button>
+              <button
+                type="button"
+                onClick={openNewRandevuePanel}
+                className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-violet-600 text-white rounded-md hover:bg-violet-700 transition-colors min-w-[96px]"
+              >
+                <Calendar className="w-4 h-4" />
+                <span>New randevue</span>
               </button>
 
               {confirmDeleteAppointment && (
@@ -2048,6 +2120,130 @@ const AppointmentDetail = () => {
         )}
 
         {/* Edit Appointment Modal */}
+        {showNewRandevuePanel && appointment && (
+          <div className="fixed inset-0 z-50 flex">
+            <button
+              type="button"
+              className="min-w-0 flex-1 bg-black/40"
+              aria-label="Close panel"
+              onClick={() => setShowNewRandevuePanel(false)}
+            />
+            <div
+              className="flex h-full w-full max-w-md shrink-0 flex-col bg-white shadow-xl"
+              role="dialog"
+              aria-labelledby="new-randevue-title"
+            >
+              <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                <h2 id="new-randevue-title" className="text-xl font-bold text-gray-900">
+                  New randevue
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowNewRandevuePanel(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateRandevue} className="flex flex-1 flex-col overflow-hidden">
+                <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+                    <p>
+                      <span className="font-medium text-gray-900">Patient: </span>
+                      {appointment.patient.name} {appointment.patient.surname}
+                    </p>
+                    <p className="mt-1">
+                      <span className="font-medium text-gray-900">Appointment: </span>#{appointment.id}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="newRandevueDate" className="block text-sm font-medium text-gray-700 mb-1">
+                      Date *
+                    </label>
+                    <input
+                      type="date"
+                      id="newRandevueDate"
+                      required
+                      value={newRandevueDate}
+                      onChange={(e) => setNewRandevueDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="newRandevueStart" className="block text-sm font-medium text-gray-700 mb-1">
+                        Start time *
+                      </label>
+                      <input
+                        type="time"
+                        id="newRandevueStart"
+                        required
+                        value={newRandevueStart}
+                        onChange={(e) => setNewRandevueStart(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="newRandevueEnd" className="block text-sm font-medium text-gray-700 mb-1">
+                        End time *
+                      </label>
+                      <input
+                        type="time"
+                        id="newRandevueEnd"
+                        required
+                        value={newRandevueEnd}
+                        onChange={(e) => setNewRandevueEnd(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="newRandevueNote" className="block text-sm font-medium text-gray-700 mb-1">
+                      Note
+                    </label>
+                    <textarea
+                      id="newRandevueNote"
+                      rows={4}
+                      value={newRandevueNote}
+                      onChange={(e) => setNewRandevueNote(e.target.value)}
+                      placeholder="Optional"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-y min-h-[100px]"
+                    />
+                  </div>
+
+                  {newRandevueError && (
+                    <p className="text-sm text-red-600" role="alert">
+                      {newRandevueError}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-3 border-t border-gray-200 px-6 py-4">
+                  <button
+                    type="submit"
+                    disabled={isSubmittingNewRandevue}
+                    className="flex-1 py-2.5 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmittingNewRandevue ? 'Saving…' : 'Create randevue'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewRandevuePanel(false)}
+                    className="flex-1 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {showEditAppointment && appointment && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
