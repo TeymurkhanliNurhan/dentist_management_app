@@ -2,6 +2,7 @@ import {Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn
 import { Dentist } from '../../dentist/entities/dentist.entity';
 import { PatientTooth } from '../../patient_tooth/entities/patient_tooth.entity';
 import { Appointment } from '../../appointment/entities/appointment.entity';
+import { Randevue } from '../../randevue/entities/randevue.entity';
 
 @Entity({ name: 'Patient' })
 export class Patient {
@@ -26,6 +27,9 @@ export class Patient {
 
     @OneToMany(() => Appointment, (a) => a.patient)
     appointments: Appointment[];
+
+    @OneToMany(() => Randevue, (r) => r.patient)
+    randevues: Randevue[];
 }
 
 

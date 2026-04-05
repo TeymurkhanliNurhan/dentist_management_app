@@ -13,6 +13,7 @@ import { ToothTreatmentMedicine } from './src/tooth_treatment_medicine/entities/
 import { ToothTranslation } from './src/tooth/entities/tooth_translation.entity';
 import { ToothTreatmentTeeth } from './src/tooth_treatment_teeth/entities/tooth_treatment_teeth.entity';
 import { Media } from './src/media/entities/media.entity';
+import { Randevue } from './src/randevue/entities/randevue.entity';
 
 export default new DataSource({
   type: 'postgres',
@@ -31,6 +32,7 @@ export default new DataSource({
     Medicine,
     ToothTreatmentMedicine,
     Media,
+    Randevue,
   ],
   migrations: [
     'src/migrations/*.ts',

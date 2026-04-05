@@ -1,12 +1,18 @@
 import Header from './Header';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { CalendarDays } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('dashboard');
 
-  const services = [
+  const services: {
+    nameKey: string;
+    image: string;
+    path: string;
+    icon?: 'calendar';
+  }[] = [
     {
       nameKey: 'appointments',
       image: '/images/appointment_logo-removebg-preview.png',
@@ -27,6 +33,12 @@ const Dashboard = () => {
       image: '/images/medicine_logo-removebg-preview.png',
       path: '/medicines',
     },
+    {
+      nameKey: 'schedule',
+      image: '',
+      path: '/schedule',
+      icon: 'calendar',
+    },
   ];
 
   return (
@@ -39,7 +51,7 @@ const Dashboard = () => {
           <div className="w-20 h-1 bg-teal-500 mx-auto"></div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 px-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-12 px-8">
           {services.map((service) => (
             <div
               key={service.nameKey}
@@ -47,17 +59,27 @@ const Dashboard = () => {
               className="flex flex-col items-center cursor-pointer group"
             >
               <div className="w-48 h-48 mb-6 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
-                <img
-                  src={service.image}
-                  alt={t(service.nameKey)}
-                  className="w-full h-full object-contain"
-                  style={{ 
-                    maxWidth: '100%', 
-                    maxHeight: '100%',
-                    transform: service.nameKey === 'treatments' ? 'scale(1.3)' : 
-                               service.nameKey === 'patients' ? 'scale(0.8)' : 'scale(1)'
-                  }}
-                />
+                {service.icon === 'calendar' ? (
+                  <div className="w-full h-full flex items-center justify-center rounded-2xl bg-teal-100 text-teal-600 group-hover:bg-teal-200 transition-colors">
+                    <CalendarDays className="w-28 h-28" strokeWidth={1.25} aria-hidden />
+                  </div>
+                ) : (
+                  <img
+                    src={service.image}
+                    alt={t(service.nameKey)}
+                    className="w-full h-full object-contain"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      transform:
+                        service.nameKey === 'treatments'
+                          ? 'scale(1.3)'
+                          : service.nameKey === 'patients'
+                            ? 'scale(0.8)'
+                            : 'scale(1)',
+                    }}
+                  />
+                )}
               </div>
               <h3 className="text-xl font-bold text-teal-700 uppercase tracking-wide">
                 {t(service.nameKey)}

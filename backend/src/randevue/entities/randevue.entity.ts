@@ -16,8 +16,8 @@ export class Randevue {
     @Column({ type: 'varchar', length: 20 })
     status: string;
 
-    @Column({ type: 'text' })
-    note: string;
+    @Column({ type: 'text', nullable: true })
+    note: string | null;
 
     @ManyToOne(() => Patient, (patient) => patient.randevues, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'patient' })

@@ -473,6 +473,42 @@ export interface UpdateAppointmentDto {
   chargedFee?: number | null;
 }
 
+export interface Randevue {
+  id: number;
+  date: string;
+  endTime: string;
+  status: string;
+  note: string | null;
+  patient: {
+    id: number;
+    name: string;
+    surname: string;
+  };
+  appointment: { id: number } | null;
+}
+
+export interface CreateRandevueDto {
+  startDateTime: string;
+  endDateTime: string;
+  patient_id: number;
+  note?: string;
+  appointment_id?: number;
+  create_new_appointment?: boolean;
+  appointment_start_date?: string;
+}
+
+export const randevueService = {
+  getForRange: async (from: string, to: string): Promise<Randevue[]> => {
+    const params = new URLSearchParams({ from, to });
+    const response = await api.get<Randevue[]>(`/randevue?${params.toString()}`);
+    return response.data;
+  },
+  create: async (dto: CreateRandevueDto): Promise<Randevue> => {
+    const response = await api.post<Randevue>('/randevue', dto);
+    return response.data;
+  },
+};
+
 export const appointmentService = {
   getAll: async (filters?: AppointmentFilters): Promise<PaginatedAppointments> => {
     const params = new URLSearchParams();

@@ -39,6 +39,9 @@ import ruPatientDetail from '../locales/ru/patientDetail.json';
 import ruTeethDiagram from '../locales/ru/teethDiagram.json';
 import ruToothDetail from '../locales/ru/toothDetail.json';
 import ruAppointments from '../locales/ru/appointments.json';
+import enSchedule from '../locales/en/schedule.json';
+import azSchedule from '../locales/az/schedule.json';
+import ruSchedule from '../locales/ru/schedule.json';
 
 i18n
   .use(LanguageDetector)
@@ -63,6 +66,7 @@ i18n
         teethDiagram: enTeethDiagram,
         toothDetail: enToothDetail,
         appointments: enAppointments,
+        schedule: enSchedule,
       },
       az: {
         login: azLogin,
@@ -77,6 +81,7 @@ i18n
         teethDiagram: azTeethDiagram,
         toothDetail: azToothDetail,
         appointments: azAppointments,
+        schedule: azSchedule,
       },
       ru: {
         login: ruLogin,
@@ -91,6 +96,7 @@ i18n
         teethDiagram: ruTeethDiagram,
         toothDetail: ruToothDetail,
         appointments: ruAppointments,
+        schedule: ruSchedule,
       },
     },
     detection: {
