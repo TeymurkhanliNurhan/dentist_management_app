@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash, MousePointer, Grid3X3, RectangleHorizontal } from 'lucide-react';
 import Header from './Header';
 import { appointmentService, randevueService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
-import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, CreateMedicineDto, Media } from '../services/api';
+import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, CreateMedicineDto, Media, TreatmentPricePer } from '../services/api';
 
 function combineLocalDateAndTime(dateYmd: string, timeHm: string): Date {
   const [y, m, d] = dateYmd.split('-').map(Number);
@@ -286,7 +286,12 @@ const AppointmentDetail = () => {
   const [confirmDeleteTreatmentId, setConfirmDeleteTreatmentId] = useState<number | null>(null);
   const [toothSelectionMode, setToothSelectionMode] = useState<'single' | 'multiple' | 'chin'>('multiple');
   const [showAddTreatmentInModal, setShowAddTreatmentInModal] = useState(false);
-  const [newTreatmentForm, setNewTreatmentForm] = useState<CreateTreatmentDto>({ name: '', description: '', price: 0 });
+  const [newTreatmentForm, setNewTreatmentForm] = useState<CreateTreatmentDto>({
+    name: '',
+    description: '',
+    price: 0,
+    pricePer: null,
+  });
   const [isSubmittingTreatment, setIsSubmittingTreatment] = useState(false);
   const [treatmentError, setTreatmentError] = useState<string>('');
   const [showAddMedicineInModal, setShowAddMedicineInModal] = useState(false);
@@ -627,8 +632,8 @@ const AppointmentDetail = () => {
     try {
       await treatmentService.create(newTreatmentForm);
       setShowAddTreatmentInModal(false);
-      setNewTreatmentForm({ name: '', description: '', price: 0 });
-      
+      setNewTreatmentForm({ name: '', description: '', price: 0, pricePer: null });
+
       // Refresh treatments list
       const updatedTreatments = await treatmentService.getAll();
       setAllTreatments(updatedTreatments);
@@ -1200,6 +1205,27 @@ const AppointmentDetail = () => {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                         />
                       </div>
+                      <div>
+                        <label htmlFor="modalNewTreatmentPricePer" className="block text-xs font-medium text-gray-700 mb-1">
+                          Price basis
+                        </label>
+                        <select
+                          id="modalNewTreatmentPricePer"
+                          value={newTreatmentForm.pricePer ?? ''}
+                          onChange={(e) =>
+                            setNewTreatmentForm({
+                              ...newTreatmentForm,
+                              pricePer: e.target.value === '' ? null : (e.target.value as TreatmentPricePer),
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                        >
+                          <option value="">Not set (one line price)</option>
+                          <option value="tooth">Per tooth</option>
+                          <option value="chin">Per jaw (upper / lower)</option>
+                          <option value="mouth">Per mouth</option>
+                        </select>
+                      </div>
 
                       {treatmentError && (
                         <div className="text-xs text-red-600">{treatmentError}</div>
@@ -1218,7 +1244,7 @@ const AppointmentDetail = () => {
                           type="button"
                           onClick={() => {
                             setShowAddTreatmentInModal(false);
-                            setNewTreatmentForm({ name: '', description: '', price: 0 });
+                            setNewTreatmentForm({ name: '', description: '', price: 0, pricePer: null });
                             setTreatmentError('');
                           }}
                           className="flex-1 py-2 bg-gray-200 text-gray-700 text-xs rounded-lg font-medium hover:bg-gray-300 transition-colors"
@@ -1649,9 +1675,22 @@ const AppointmentDetail = () => {
                             </div>
                           )}
                           
-                          <div className="flex items-center gap-4 text-sm mb-3">
+                          <div className="flex flex-wrap items-center gap-4 text-sm mb-3">
                             <span className="text-gray-500">
-                              Price: <span className="font-medium text-gray-900">${treatment.treatment.price.toFixed(2)}</span>
+                              Unit price:{' '}
+                              <span className="font-medium text-gray-900">${treatment.treatment.price.toFixed(2)}</span>
+                              <span className="text-gray-600">
+                                {treatment.treatment.pricePer === 'tooth' && ' (× each selected tooth)'}
+                                {treatment.treatment.pricePer === 'chin' && ' (× each jaw with selected teeth)'}
+                                {treatment.treatment.pricePer === 'mouth' && ' (flat per placement)'}
+                                {treatment.treatment.pricePer == null && ' (single line amount)'}
+                              </span>
+                            </span>
+                            <span className="text-gray-500">
+                              Line total:{' '}
+                              <span className="font-semibold text-teal-700">
+                                ${(typeof treatment.feeSnapshot === 'number' ? treatment.feeSnapshot : treatment.treatment.price).toFixed(2)}
+                              </span>
                             </span>
                           </div>
 

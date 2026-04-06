@@ -17,6 +17,7 @@ export class TreatmentService {
         name: dto.name,
         price: dto.price,
         description: dto.description,
+        pricePer: dto.pricePer ?? null,
       });
       const msg = `Dentist with id ${dentistId} created Treatment with id ${created.id}`;
       this.logger.log(msg);
@@ -26,6 +27,7 @@ export class TreatmentService {
         name: created.name,
         price: created.price,
         description: created.description,
+        pricePer: created.pricePer,
       };
     } catch (e: any) {
       if (e?.message?.includes('Dentist not found')) throw new BadRequestException('Dentist not found');
@@ -39,6 +41,7 @@ export class TreatmentService {
         name: dto.name,
         price: dto.price,
         description: dto.description,
+        pricePer: dto.pricePer,
       });
       const msg = `Dentist with id ${dentistId} updated Treatment with id ${updated.id}`;
       this.logger.log(msg);
@@ -48,6 +51,7 @@ export class TreatmentService {
         name: updated.name,
         price: updated.price,
         description: updated.description,
+        pricePer: updated.pricePer,
       };
     } catch (e: any) {
       if (e?.message?.includes('Forbidden')) {
@@ -75,6 +79,7 @@ export class TreatmentService {
         name: treatment.name,
         price: treatment.price,
         description: treatment.description,
+        pricePer: treatment.pricePer,
       }));
     } catch (e: any) {
       throw e;

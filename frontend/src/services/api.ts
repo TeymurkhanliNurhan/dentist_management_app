@@ -188,11 +188,14 @@ export const medicineService = {
   },
 };
 
+export type TreatmentPricePer = 'tooth' | 'chin' | 'mouth';
+
 export interface Treatment {
   id: number;
   name: string;
   description: string;
   price: number;
+  pricePer: TreatmentPricePer | null;
 }
 
 export interface TreatmentFilters {
@@ -203,12 +206,14 @@ export interface CreateTreatmentDto {
   name: string;
   description: string;
   price: number;
+  pricePer?: TreatmentPricePer | null;
 }
 
 export interface UpdateTreatmentDto {
   name?: string;
   description?: string;
   price?: number;
+  pricePer?: TreatmentPricePer | null;
 }
 
 export const treatmentService = {
@@ -233,6 +238,7 @@ export interface ToothTreatment {
   id: number;
   patient: number;
   tooth: number;
+  feeSnapshot: number;
   appointment: {
     id: number;
     startDate: string;
@@ -243,6 +249,7 @@ export interface ToothTreatment {
     name: string;
     description: string;
     price: number;
+    pricePer: TreatmentPricePer | null;
   };
   description: string | null;
   toothTreatmentTeeth: {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Plus, X, Edit } from 'lucide-react';
 import Header from './Header';
 import { treatmentService } from '../services/api';
-import type { Treatment, TreatmentFilters, CreateTreatmentDto, UpdateTreatmentDto } from '../services/api';
+import type { Treatment, TreatmentFilters, CreateTreatmentDto, UpdateTreatmentDto, TreatmentPricePer } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
 const Treatments = () => {
@@ -20,11 +20,13 @@ const Treatments = () => {
     name: '',
     description: '',
     price: 0,
+    pricePer: null,
   });
   const [updatedTreatment, setUpdatedTreatment] = useState<UpdateTreatmentDto>({
     name: '',
     description: '',
     price: 0,
+    pricePer: null,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -58,6 +60,13 @@ const Treatments = () => {
     fetchTreatments();
   };
 
+  const pricePerLabel = (p: Treatment['pricePer']) => {
+    if (p === 'tooth') return t('form.pricePerTooth');
+    if (p === 'chin') return t('form.pricePerChin');
+    if (p === 'mouth') return t('form.pricePerMouth');
+    return t('form.pricePerUnset');
+  };
+
   const handleAddTreatment = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -65,7 +74,7 @@ const Treatments = () => {
     try {
       await treatmentService.create(newTreatment);
       setShowAddModal(false);
-      setNewTreatment({ name: '', description: '', price: 0 });
+      setNewTreatment({ name: '', description: '', price: 0, pricePer: null });
       fetchTreatments();
     } catch (err: any) {
       console.error('Failed to create treatment:', err);
@@ -81,6 +90,7 @@ const Treatments = () => {
       name: treatment.name,
       description: treatment.description,
       price: treatment.price,
+      pricePer: treatment.pricePer ?? null,
     });
     setShowEditModal(true);
   };
@@ -95,7 +105,7 @@ const Treatments = () => {
       await treatmentService.update(editingTreatment.id, updatedTreatment);
       setShowEditModal(false);
       setEditingTreatment(null);
-      setUpdatedTreatment({ name: '', description: '', price: 0 });
+      setUpdatedTreatment({ name: '', description: '', price: 0, pricePer: null });
       fetchTreatments();
     } catch (err: any) {
       console.error('Failed to update treatment:', err);
@@ -172,19 +182,22 @@ const Treatments = () => {
                     {t('table.price')}
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
+                    {t('table.pricePer')}
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                       {t('loading')}
                     </td>
                   </tr>
                 ) : treatments.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                       {t('empty')}
                     </td>
                   </tr>
@@ -194,6 +207,7 @@ const Treatments = () => {
                       <td className="px-6 py-4 text-sm text-gray-900 font-medium">{treatment.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{treatment.description}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">${treatment.price.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{pricePerLabel(treatment.pricePer)}</td>
                       <td className="px-6 py-4 text-sm">
                         <button
                           onClick={() => handleEditClick(treatment)}
@@ -286,6 +300,29 @@ const Treatments = () => {
                 />
               </div>
 
+              <div>
+                <label htmlFor="newPricePer" className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('form.pricePer')}
+                </label>
+                <select
+                  id="newPricePer"
+                  value={newTreatment.pricePer ?? ''}
+                  onChange={(e) =>
+                    setNewTreatment({
+                      ...newTreatment,
+                      pricePer: e.target.value === '' ? null : (e.target.value as TreatmentPricePer),
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="">{t('form.pricePerUnset')}</option>
+                  <option value="tooth">{t('form.pricePerTooth')}</option>
+                  <option value="chin">{t('form.pricePerChin')}</option>
+                  <option value="mouth">{t('form.pricePerMouth')}</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">{t('form.pricePerPlaceholder')}</p>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
@@ -369,6 +406,28 @@ const Treatments = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   placeholder={t('form.pricePlaceholder')}
                 />
+              </div>
+
+              <div>
+                <label htmlFor="editPricePer" className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('form.pricePer')}
+                </label>
+                <select
+                  id="editPricePer"
+                  value={updatedTreatment.pricePer ?? ''}
+                  onChange={(e) =>
+                    setUpdatedTreatment({
+                      ...updatedTreatment,
+                      pricePer: e.target.value === '' ? null : (e.target.value as TreatmentPricePer),
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="">{t('form.pricePerUnset')}</option>
+                  <option value="tooth">{t('form.pricePerTooth')}</option>
+                  <option value="chin">{t('form.pricePerChin')}</option>
+                  <option value="mouth">{t('form.pricePerMouth')}</option>
+                </select>
               </div>
 
               <div className="flex gap-3 pt-4">

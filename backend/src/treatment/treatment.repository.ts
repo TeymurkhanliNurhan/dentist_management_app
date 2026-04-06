@@ -12,19 +12,33 @@ export class TreatmentRepository {
         return this.dataSource.getRepository(Treatment);
     }
 
-    async createTreatmentForDentist(dentistId: number, input: { name: string; price: number; description: string }): Promise<Treatment> {
+    async createTreatmentForDentist(
+        dentistId: number,
+        input: { name: string; price: number; description: string; pricePer?: Treatment['pricePer'] },
+    ): Promise<Treatment> {
         const dentist = await this.dataSource.getRepository(Dentist).findOne({ where: { id: dentistId } });
         if (!dentist) throw new Error('Dentist not found');
-        const treatment = this.repo.create({ ...input, dentist });
+        const treatment = this.repo.create({
+            name: input.name,
+            price: input.price,
+            description: input.description,
+            pricePer: input.pricePer ?? null,
+            dentist,
+        });
         return await this.repo.save(treatment);
     }
 
-    async updateTreatmentEnsureOwnership(dentistId: number, id: number, updates: Partial<{ name: string; price: number; description: string }>): Promise<Treatment> {
+    async updateTreatmentEnsureOwnership(
+        dentistId: number,
+        id: number,
+        updates: Partial<{ name: string; price: number; description: string; pricePer: Treatment['pricePer'] }>,
+    ): Promise<Treatment> {
         const treatment = await this.repo.findOne({ where: { id, dentist: { id: dentistId } } });
         if (!treatment) throw new Error('Forbidden');
         if (updates.name !== undefined) treatment.name = updates.name;
         if (updates.price !== undefined) treatment.price = updates.price;
         if (updates.description !== undefined) treatment.description = updates.description;
+        if (updates.pricePer !== undefined) treatment.pricePer = updates.pricePer;
         return await this.repo.save(treatment);
     }
 

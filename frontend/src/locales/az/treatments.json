@@ -7,7 +7,8 @@
   "table": {
     "name": "Ad",
     "description": "Təsvir",
-    "price": "Qiymət"
+    "price": "Qiymət",
+    "pricePer": "Qiymət əsasları"
   },
   "loading": "Müalicələr yüklənir...",
   "empty": "Müalicə tapılmadı",
@@ -19,6 +20,12 @@
     "name": "Ad *",
     "description": "Təsvir *",
     "price": "Qiymət *",
+    "pricePer": "Qiymət əsasları",
+    "pricePerPlaceholder": "Qiymət qəbulda necə vurulur",
+    "pricePerUnset": "Təyin edilməyib (tək sətir qiyməti)",
+    "pricePerTooth": "Hər dişə görə",
+    "pricePerChin": "Çənəyə görə (yuxarı və/və ya aşağı)",
+    "pricePerMouth": "Ağıza görə",
     "namePlaceholder": "Müalicənin adını daxil edin",
     "descriptionPlaceholder": "Təsviri daxil edin",
     "pricePlaceholder": "Qiyməti daxil edin"

@@ -117,6 +117,7 @@ export class ToothTreatmentService {
         return {
           id: tt.id,
           patient: tt.patient,
+          feeSnapshot: tt.feeSnapshot,
           appointment: {
             id: tt.appointment?.id,
             startDate: formatDate(tt.appointment?.startDate),
@@ -127,6 +128,7 @@ export class ToothTreatmentService {
             name: tt.treatment?.name,
             description: tt.treatment?.description,
             price: tt.treatment?.price,
+            pricePer: tt.treatment?.pricePer ?? null,
           },
           description: tt.description,
           toothTreatmentTeeth: tt.toothTreatmentTeeth?.map(ttt => ({

@@ -7,7 +7,8 @@
   "table": {
     "name": "Name",
     "description": "Description",
-    "price": "Price"
+    "price": "Price",
+    "pricePer": "Price basis"
   },
   "loading": "Loading treatments...",
   "empty": "No treatments found",
@@ -19,6 +20,12 @@
     "name": "Name *",
     "description": "Description *",
     "price": "Price *",
+    "pricePer": "Price basis",
+    "pricePerPlaceholder": "How this price is multiplied on appointments",
+    "pricePerUnset": "Not set (one line price)",
+    "pricePerTooth": "Per tooth",
+    "pricePerChin": "Per jaw (upper and/or lower)",
+    "pricePerMouth": "Per mouth",
     "namePlaceholder": "Enter treatment name",
     "descriptionPlaceholder": "Enter description",
     "pricePlaceholder": "Enter price"

@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import { TreatmentPricePer } from '../treatment-price-per.enum';
 
 export class UpdateTreatmentDto {
     @ApiPropertyOptional({ example: 'Root Canal' })
@@ -21,6 +22,11 @@ export class UpdateTreatmentDto {
     @MinLength(1)
     @MaxLength(300)
     description?: string;
+
+    @ApiPropertyOptional({ enum: TreatmentPricePer, nullable: true })
+    @IsOptional()
+    @IsEnum(TreatmentPricePer)
+    pricePer?: TreatmentPricePer | null;
 }
 
 
