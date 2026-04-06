@@ -85,4 +85,17 @@ export class PatientService {
             throw e;
         }
     }
+
+    async delete(dentistId: number, id: number): Promise<{ message: string }> {
+        try {
+            await this.patientRepository.deletePatientEnsureOwnership(dentistId, id);
+            const msg = `Dentist with id ${dentistId} deleted Patient with id ${id}`;
+            this.logger.log(msg);
+            LogWriter.append('log', PatientService.name, msg);
+            return { message: 'Patient deleted' };
+        } catch (e: any) {
+            if (e?.message?.includes('Forbidden')) throw new NotFoundException('Patient not found');
+            throw e;
+        }
+    }
 }

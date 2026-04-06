@@ -27,6 +27,10 @@
   },
   "updating": "Yenilənir...",
   "update": "Xəstəni yenilə",
+  "deleting": "Silinir...",
+  "deletePatient": "Xəstəni sil",
+  "confirmDelete": "{{name}} və əlaqəli bütün qeydlər silinsin? Bu əməliyyat geri qaytarıla bilməz.",
   "cancel": "Ləğv et",
-  "updateError": "Xəstə yenilənmədi"
+  "updateError": "Xəstə yenilənmədi",
+  "deleteError": "Xəstə silinmədi"
 }

@@ -27,6 +27,10 @@
   },
   "updating": "Updating...",
   "update": "Update Patient",
+  "deleting": "Deleting...",
+  "deletePatient": "Delete Patient",
+  "confirmDelete": "Delete {{name}} and all related records? This action cannot be undone.",
   "cancel": "Cancel",
-  "updateError": "Failed to update patient"
+  "updateError": "Failed to update patient",
+  "deleteError": "Failed to delete patient"
 }

@@ -67,6 +67,12 @@ export class PatientRepository {
 
         return await queryBuilder.getMany();
     }
+
+    async deletePatientEnsureOwnership(dentistId: number, id: number): Promise<void> {
+        const patient = await this.patientRepo.findOne({ where: { id, dentist: { id: dentistId } } });
+        if (!patient) throw new Error('Forbidden');
+        await this.patientRepo.remove(patient);
+    }
 }
 
 

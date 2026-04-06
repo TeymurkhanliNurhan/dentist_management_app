@@ -137,6 +137,10 @@ export const patientService = {
     const response = await api.patch(`/patient/${id}`, patient);
     return response.data;
   },
+  delete: async (id: number): Promise<{ message: string }> => {
+    const response = await api.delete(`/patient/${id}`);
+    return response.data;
+  },
   getPatientTeeth: async (patientId: number): Promise<PatientTooth[]> => {
     const response = await api.get(`/patient-tooth?patient=${patientId}`);
     return response.data;

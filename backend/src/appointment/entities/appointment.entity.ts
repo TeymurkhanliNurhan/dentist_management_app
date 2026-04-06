@@ -34,7 +34,7 @@ export class Appointment {
     @JoinColumn({ name: 'dentist' })
     dentist: Dentist;
 
-    @ManyToOne(() => Patient, (patient) => patient.appointments, { nullable: false })
+    @ManyToOne(() => Patient, (patient) => patient.appointments, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'patient' })
     patient: Patient;
 }

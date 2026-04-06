@@ -12,7 +12,7 @@ export class PatientTooth {
     @PrimaryColumn({ type: 'int' })
     tooth: number;
 
-    @ManyToOne(() => Patient, (patient) => patient.patientTeeth, { nullable: false })
+    @ManyToOne(() => Patient, (patient) => patient.patientTeeth, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'patient' })
     patientEntity: Patient;
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, User, Calendar, Edit, X, Globe, Smile, CalendarDays } from 'lucide-react';
+import { ArrowLeft, User, Calendar, Edit, X, Globe, Smile, CalendarDays, Trash2 } from 'lucide-react';
 import Header from './Header';
 import TeethDiagram from './TeethDiagram';
 import { appointmentService, patientService, toothTreatmentService } from '../services/api';
@@ -19,6 +19,7 @@ const PatientDetail = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFields, setEditFields] = useState({ name: '', surname: '', birthDate: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
 
@@ -31,6 +32,7 @@ const PatientDetail = () => {
 
   const FETCH_ERROR_KEY = '__fetch_error__';
   const UPDATE_ERROR_KEY = '__update_error__';
+  const DELETE_ERROR_KEY = '__delete_error__';
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -423,7 +425,7 @@ const PatientDetail = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-gray-900">Edit Patient</h2>
+                <h2 className="text-2xl font-bold text-gray-900">{t('editTitle')}</h2>
                 <button
                 onClick={() => {
                   setShowEditModal(false);
@@ -437,7 +439,11 @@ const PatientDetail = () => {
 
             {formError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {formError === UPDATE_ERROR_KEY ? t('updateError') : formError}
+                {formError === UPDATE_ERROR_KEY
+                  ? t('updateError')
+                  : formError === DELETE_ERROR_KEY
+                    ? t('deleteError')
+                    : formError}
               </div>
             )}
 
@@ -507,7 +513,7 @@ const PatientDetail = () => {
                 <div className="flex gap-3 pt-2">
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isDeleting}
                     className="flex-1 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-50"
                   >
                     {isSubmitting ? t('updating') : t('update')}
@@ -518,11 +524,42 @@ const PatientDetail = () => {
                       setShowEditModal(false);
                       setFormError(null);
                     }}
-                    className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                    disabled={isSubmitting || isDeleting}
+                    className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors disabled:opacity-50"
                   >
                     {t('cancel')}
                   </button>
                 </div>
+                <button
+                  type="button"
+                  disabled={isSubmitting || isDeleting}
+                  onClick={async () => {
+                    if (!id || !patient) return;
+                    const confirmed = window.confirm(
+                      t('confirmDelete', { name: `${patient.name} ${patient.surname}` }),
+                    );
+                    if (!confirmed) return;
+
+                    setIsDeleting(true);
+                    setFormError(null);
+                    try {
+                      await patientService.delete(parseInt(id));
+                      setShowEditModal(false);
+                      navigate('/patients');
+                    } catch (err: any) {
+                      console.error('Failed to delete patient:', err);
+                      setFormError(err.response?.data?.message || DELETE_ERROR_KEY);
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  className="w-full py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors disabled:opacity-50"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Trash2 className="w-4 h-4" />
+                    {isDeleting ? t('deleting') : t('deletePatient')}
+                  </span>
+                </button>
               </form>
             </div>
           </div>

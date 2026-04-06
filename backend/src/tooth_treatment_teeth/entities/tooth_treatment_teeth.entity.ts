@@ -11,7 +11,7 @@ export class ToothTreatmentTeeth {
     @JoinColumn({ name: 'tooth_treatment_id' })
     toothTreatment: ToothTreatment;
 
-    @ManyToOne(() => PatientTooth, (pt) => pt.toothTreatmentTeeth, { nullable: false })
+    @ManyToOne(() => PatientTooth, (pt) => pt.toothTreatmentTeeth, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn([
         { name: 'patient_id', referencedColumnName: 'patient' },
         { name: 'tooth_id', referencedColumnName: 'tooth' },
