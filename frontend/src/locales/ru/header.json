@@ -3,6 +3,10 @@
   "mainMenu": "Главное меню",
   "settings": "Настройки",
   "contact": "Контакты",
-  "signOut": "Выйти"
+  "signOut": "Выйти",
+  "signOutConfirmTitle": "Выйти?",
+  "signOutConfirmMessage": "Вы уверены, что хотите выйти?",
+  "signOutConfirmYes": "Выйти",
+  "signOutConfirmNo": "Отмена"
 }
 

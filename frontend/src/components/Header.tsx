@@ -9,6 +9,7 @@ const Header = () => {
   const { t, i18n } = useTranslation('header');
   const [dentistSurname, setDentistSurname] = useState<string>('');
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
 
   // Close language menu when clicking outside
@@ -51,6 +52,7 @@ const Header = () => {
   const handleSignOut = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('dentistId');
+    setShowSignOutConfirm(false);
     navigate('/login');
   };
 
@@ -130,7 +132,8 @@ const Header = () => {
             </button>
 
             <button
-              onClick={handleSignOut}
+              type="button"
+              onClick={() => setShowSignOutConfirm(true)}
               className="flex items-center space-x-2 text-white/90 hover:text-white hover:bg-red-500/20 px-4 py-2.5 rounded-lg transition-all duration-200"
             >
               <LogOut className="w-6 h-6" />
@@ -139,6 +142,38 @@ const Header = () => {
           </nav>
         </div>
       </div>
+
+      {showSignOutConfirm && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sign-out-confirm-title"
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 id="sign-out-confirm-title" className="text-lg font-semibold text-gray-900 mb-2">
+              {t('signOutConfirmTitle')}
+            </h2>
+            <p className="text-sm text-gray-600 mb-6">{t('signOutConfirmMessage')}</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowSignOutConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                {t('signOutConfirmNo')}
+              </button>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                {t('signOutConfirmYes')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

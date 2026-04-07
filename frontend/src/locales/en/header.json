@@ -3,6 +3,10 @@
   "mainMenu": "Main Menu",
   "settings": "Settings",
   "contact": "Contact",
-  "signOut": "Sign Out"
+  "signOut": "Sign Out",
+  "signOutConfirmTitle": "Sign out?",
+  "signOutConfirmMessage": "Are you sure you want to sign out?",
+  "signOutConfirmYes": "Sign out",
+  "signOutConfirmNo": "Cancel"
 }
 

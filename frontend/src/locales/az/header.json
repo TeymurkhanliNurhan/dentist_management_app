@@ -3,6 +3,10 @@
   "mainMenu": "Əsas menyu",
   "settings": "Parametrlər",
   "contact": "Əlaqə",
-  "signOut": "Çıxış"
+  "signOut": "Çıxış",
+  "signOutConfirmTitle": "Çıxış?",
+  "signOutConfirmMessage": "Çıxmaq istədiyinizdən əminsiniz?",
+  "signOutConfirmYes": "Bəli, çıx",
+  "signOutConfirmNo": "Ləğv et"
 }
 
