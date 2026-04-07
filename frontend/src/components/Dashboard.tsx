@@ -1,36 +1,39 @@
 import Header from './Header';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { DASHBOARD_TILE_IMAGES, type DashboardTileKey } from '../lib/dashboardTileImages';
+
+const TILE_IMAGE_QUERY = '?v=2';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('dashboard');
 
-  const services: { nameKey: string; image: string; path: string }[] = [
+  const services: { nameKey: DashboardTileKey; image: string; path: string }[] = [
     {
       nameKey: 'appointments',
-      image: '/images/appointment_logo-removebg-preview.png',
       path: '/appointments',
+      image: `${DASHBOARD_TILE_IMAGES.appointments}${TILE_IMAGE_QUERY}`,
     },
     {
       nameKey: 'patients',
-      image: '/images/patient_logo-removebg-preview.png',
       path: '/patients',
+      image: `${DASHBOARD_TILE_IMAGES.patients}${TILE_IMAGE_QUERY}`,
     },
     {
       nameKey: 'treatments',
-      image: '/images/treatment_logo-removebg-preview.png',
       path: '/treatments',
+      image: `${DASHBOARD_TILE_IMAGES.treatments}${TILE_IMAGE_QUERY}`,
     },
     {
       nameKey: 'medicines',
-      image: '/images/medicine_logo-removebg-preview.png',
       path: '/medicines',
+      image: `${DASHBOARD_TILE_IMAGES.medicines}${TILE_IMAGE_QUERY}`,
     },
     {
       nameKey: 'schedule',
-      image: '/images/schedule.png',
       path: '/schedule',
+      image: `${DASHBOARD_TILE_IMAGES.schedule}${TILE_IMAGE_QUERY}`,
     },
   ];
 
