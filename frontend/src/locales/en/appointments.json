@@ -23,6 +23,7 @@
   "newAppointment": "New Appointment",
   "pastAppointments": "Past appointments",
   "openAppointments": "Open appointments",
+  "allAppointments": "All appointments",
   "pagination": {
     "showing": "Showing {{from}} to {{to}} of {{total}} appointments",
     "previous": "Previous",

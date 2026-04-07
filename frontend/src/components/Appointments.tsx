@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, X, Globe, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
+import { Search, Plus, X, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
 import Header from './Header';
 import { appointmentService, patientService } from '../services/api';
 import type { Appointment, AppointmentFilters, CreateAppointmentDto, Patient, CreatePatientDto } from '../services/api';
@@ -13,20 +13,25 @@ function localDateString(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function filterAppointmentsByEnd(appointments: Appointment[], showPast: boolean): Appointment[] {
+type AppointmentListMode = 'open' | 'past' | 'all';
+
+function filterAppointmentsByEnd(appointments: Appointment[], mode: AppointmentListMode): Appointment[] {
   const today = localDateString();
-  if (showPast) {
+  if (mode === 'past') {
     return appointments.filter((a) => a.endDate != null && a.endDate < today);
   }
-  return appointments.filter((a) => a.endDate == null);
+  if (mode === 'open') {
+    return appointments.filter((a) => a.endDate == null);
+  }
+  return appointments;
 }
 
 const Appointments = () => {
   const navigate = useNavigate();
-  const { t, i18n } = useTranslation('appointments');
+  const { t } = useTranslation('appointments');
   const [rawAppointments, setRawAppointments] = useState<Appointment[]>([]);
   const [listPage, setListPage] = useState(1);
-  const [showPastAppointments, setShowPastAppointments] = useState(false);
+  const [listMode, setListMode] = useState<AppointmentListMode>('open');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [filters, setFilters] = useState<AppointmentFilters>({
     startDate: '',
@@ -45,8 +50,6 @@ const Appointments = () => {
   const [patientSearch, setPatientSearch] = useState({ name: '', surname: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dateError, setDateError] = useState<string>('');
-  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
-  const languageMenuRef = useRef<HTMLDivElement>(null);
   const [showAddPatientInModal, setShowAddPatientInModal] = useState(false);
   const [newPatient, setNewPatient] = useState<CreatePatientDto>({ name: '', surname: '', birthDate: '' });
   const [isSubmittingPatient, setIsSubmittingPatient] = useState(false);
@@ -55,22 +58,6 @@ const Appointments = () => {
   const FETCH_ERROR_KEY = '__appointments_fetch_error__';
   const CREATE_ERROR_KEY = '__appointments_create_error__';
   const DATE_ERROR_KEY = 'endDateError';
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (languageMenuRef.current && !languageMenuRef.current.contains(event.target as Node)) {
-        setShowLanguageMenu(false);
-      }
-    };
-
-    if (showLanguageMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showLanguageMenu]);
 
   const buildSearchFilters = (): AppointmentFilters => {
     const searchFilters: AppointmentFilters = {};
@@ -98,8 +85,8 @@ const Appointments = () => {
   };
 
   const filteredAppointments = useMemo(
-    () => filterAppointmentsByEnd(rawAppointments, showPastAppointments),
-    [rawAppointments, showPastAppointments],
+    () => filterAppointmentsByEnd(rawAppointments, listMode),
+    [rawAppointments, listMode],
   );
 
   const totalFiltered = filteredAppointments.length;
@@ -210,88 +197,10 @@ const Appointments = () => {
     <div className="min-h-screen bg-blue-50">
       <Header />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
-        <div className="absolute top-4 right-4" ref={languageMenuRef}>
-          <button
-            onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-            className="p-2 rounded-lg bg-white/90 hover:bg-white transition-colors shadow-sm"
-            aria-label="Change language"
-          >
-            <Globe className="w-5 h-5 text-gray-700" />
-          </button>
-          {showLanguageMenu && (
-            <div className="absolute top-12 right-0 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[120px] z-50">
-              <button
-                onClick={() => {
-                  i18n.changeLanguage('en');
-                  setShowLanguageMenu(false);
-                }}
-                className={`w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors ${
-                  i18n.language === 'en' ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-gray-700'
-                }`}
-              >
-                English
-              </button>
-              <button
-                onClick={() => {
-                  i18n.changeLanguage('az');
-                  setShowLanguageMenu(false);
-                }}
-                className={`w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors ${
-                  i18n.language === 'az' ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-gray-700'
-                }`}
-              >
-                Azərbaycan
-              </button>
-              <button
-                onClick={() => {
-                  i18n.changeLanguage('ru');
-                  setShowLanguageMenu(false);
-                }}
-                className={`w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors ${
-                  i18n.language === 'ru' ? 'bg-teal-50 text-teal-700 font-semibold' : 'text-gray-700'
-                }`}
-              >
-                Русский
-              </button>
-            </div>
-          )}
-        </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <div className="flex flex-wrap items-center gap-4 mb-4">
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center space-x-2 px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition-colors shadow-md"
-            >
-              <Plus className="w-5 h-5" />
-              <span>{t('newAppointment')}</span>
-            </button>
-            <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
-            {showPastAppointments ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPastAppointments(false);
-                  setListPage(1);
-                }}
-                className="px-4 py-2 text-sm font-semibold rounded-lg border border-teal-600 text-teal-700 bg-white hover:bg-teal-50 transition-colors"
-              >
-                {t('openAppointments')}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPastAppointments(true);
-                  setListPage(1);
-                }}
-                className="px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-              >
-                {t('pastAppointments')}
-              </button>
-            )}
-          </div>
-          
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">{t('title')}</h1>
+
           <form onSubmit={handleSearch} className="bg-white rounded-lg shadow p-4 mb-4">
             <div className="flex flex-wrap gap-3 items-end">
               <div className="flex-1 min-w-[200px]">
@@ -334,27 +243,57 @@ const Appointments = () => {
                   placeholder={t('filters.surnamePlaceholder')}
                 />
               </div>
-              
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex items-center space-x-1 px-4 py-2 bg-teal-500 text-white text-sm rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50"
-                >
-                  <Search className="w-4 h-4" />
-                  <span>{t('search')}</span>
-                </button>
-                
+
+              <div className="w-full sm:w-auto flex flex-col gap-2 items-stretch sm:items-end sm:ml-auto">
                 <button
                   type="button"
-                  onClick={handleClearSearch}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded-md font-medium hover:bg-gray-300 transition-colors"
+                  onClick={() => setShowAddModal(true)}
+                  className="flex items-center justify-center sm:justify-start space-x-2 px-4 py-2.5 bg-teal-500 text-white text-sm rounded-md font-semibold hover:bg-teal-600 transition-colors shadow-sm w-full sm:w-auto"
                 >
-                  {t('clear')}
+                  <Plus className="w-5 h-5 shrink-0" />
+                  <span>{t('newAppointment')}</span>
                 </button>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="flex items-center space-x-1 px-4 py-2 bg-teal-500 text-white text-sm rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50"
+                  >
+                    <Search className="w-4 h-4" />
+                    <span>{t('search')}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded-md font-medium hover:bg-gray-300 transition-colors"
+                  >
+                    {t('clear')}
+                  </button>
+                </div>
               </div>
             </div>
           </form>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            {(['open', 'past', 'all'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => {
+                  setListMode(mode);
+                  setListPage(1);
+                }}
+                className={`px-4 py-2 text-sm font-semibold rounded-lg border transition-colors ${
+                  listMode === mode
+                    ? 'border-teal-600 text-teal-700 bg-teal-50'
+                    : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                }`}
+              >
+                {mode === 'open' ? t('openAppointments') : mode === 'past' ? t('pastAppointments') : t('allAppointments')}
+              </button>
+            ))}
+          </div>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">

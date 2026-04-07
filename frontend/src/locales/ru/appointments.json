@@ -23,6 +23,7 @@
   "newAppointment": "Новая запись",
   "pastAppointments": "Прошедшие записи",
   "openAppointments": "Текущие записи",
+  "allAppointments": "Все записи",
   "pagination": {
     "showing": "Показано {{from}} - {{to}} из {{total}}",
     "previous": "Предыдущая",

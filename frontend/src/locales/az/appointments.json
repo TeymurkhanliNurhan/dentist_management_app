@@ -23,6 +23,7 @@
   "newAppointment": "Yeni randevu",
   "pastAppointments": "Keçmiş randevular",
   "openAppointments": "Cari randevular",
+  "allAppointments": "Bütün randevular",
   "pagination": {
     "showing": "{{from}} - {{to}} arası {{total}} randevudan göstərilir",
     "previous": "Əvvəlki",
