@@ -8,6 +8,10 @@ RUN npm ci
 
 COPY . .
 
+# Browser-visible API root (must include /api). Override when building for staging/production.
+ARG VITE_API_BASE_URL=http://localhost:3000/api
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 RUN find src -type f \( -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "setupTests.ts" \) -delete 2>/dev/null || true && \
     find src -type d -name "__tests__" -prune -exec rm -rf {} + 2>/dev/null || true && \
     find src -type d -name "__mocks__" -prune -exec rm -rf {} + 2>/dev/null || true && \

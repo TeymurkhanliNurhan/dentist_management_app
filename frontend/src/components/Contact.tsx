@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Mail, X, Send, Upload, Phone } from 'lucide-react';
 import Header from './Header';
+import { API_BASE_URL } from '../services/api';
 
 const Contact = () => {
   const [contactInfo, setContactInfo] = useState<{ email: string; phone: string } | null>(null);
@@ -17,7 +18,7 @@ const Contact = () => {
   useEffect(() => {
     const fetchContactInfo = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/contact/info', {
+        const response = await fetch(`${API_BASE_URL}/contact/info`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('access_token')}`,
           },
@@ -77,7 +78,7 @@ const Contact = () => {
         formDataToSend.append('files', file);
       });
 
-      const response = await fetch('http://localhost:3000/api/contact', {
+      const response = await fetch(`${API_BASE_URL}/contact`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('access_token')}`,
