@@ -3,7 +3,7 @@ import type { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } f
 
 /** Set VITE_API_BASE_URL at build time for staging/production (e.g. https://api.example.com/api). */
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || 'http://localhost:3000/api';
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, '') || 'http://localhost:3000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -14,6 +14,14 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
+    if (config.baseURL) {
+      config.baseURL = config.baseURL.replace(/\/+$/, '');
+    }
+    if (config.url) {
+      const normalizedPath = config.url.replace(/\/{2,}/g, '/');
+      config.url = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
+    }
+
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -27,41 +35,41 @@ api.interceptors.request.use(
 
 export const authService = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    const response = await api.post<LoginResponse>('/Auth/SignIn', credentials);
+    const response = await api.post<LoginResponse>('/auth/signin', credentials);
     return response.data;
   },
   register: async (registerData: RegisterRequest): Promise<RegisterResponse> => {
-    const response = await api.post<RegisterResponse>('/Auth/Register', registerData);
+    const response = await api.post<RegisterResponse>('/auth/register', registerData);
     return response.data;
   },
   verifyEmail: async (email: string, code: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/Auth/VerifyEmail', {
+    const response = await api.post<{ message: string }>('/auth/verifyemail', {
       gmail: email,
       code,
     });
     return response.data;
   },
   resendVerificationCode: async (email: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/Auth/ResendVerificationCode', {
+    const response = await api.post<{ message: string }>('/auth/resendverificationcode', {
       gmail: email,
     });
     return response.data;
   },
   forgotPassword: async (email: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/Auth/password-reset/code-request', {
+    const response = await api.post<{ message: string }>('/auth/password-reset/code-request', {
       email,
     });
     return response.data;
   },
   verifyResetCode: async (email: string, code: string): Promise<{ valid: boolean }> => {
-    const response = await api.post<{ valid: boolean }>('/Auth/password-resets/code-verification', {
+    const response = await api.post<{ valid: boolean }>('/auth/password-resets/code-verification', {
       email,
       code,
     });
     return response.data;
   },
   resetPassword: async (email: string, newPassword: string, confirmPassword: string): Promise<{ success: boolean; message: string }> => {
-    const response = await api.post<{ success: boolean; message: string }>('/Auth/password-resets', {
+    const response = await api.post<{ success: boolean; message: string }>('/auth/password-resets', {
       email,
       newPassword,
       confirmPassword,

@@ -59,7 +59,7 @@ describe('authService', () => {
       const result = await authService.login(credentials);
 
       expect(result).toEqual(mockResponse.data);
-      expect(axiosInstance.post).toHaveBeenCalledWith('/Auth/SignIn', credentials);
+      expect(axiosInstance.post).toHaveBeenCalledWith('/auth/signin', credentials);
     });
 
     it('should throw error on failed login', async () => {
@@ -108,7 +108,7 @@ describe('authService', () => {
       const result = await authService.register(registerData);
 
       expect(result).toEqual(mockResponse.data);
-      expect(axiosInstance.post).toHaveBeenCalledWith('/Auth/Register', registerData);
+      expect(axiosInstance.post).toHaveBeenCalledWith('/auth/register', registerData);
     });
   });
 
@@ -127,7 +127,7 @@ describe('authService', () => {
       const result = await authService.verifyEmail('test@example.com', '123456');
 
       expect(result).toEqual(mockResponse.data);
-      expect(axiosInstance.post).toHaveBeenCalledWith('/Auth/VerifyEmail', {
+      expect(axiosInstance.post).toHaveBeenCalledWith('/auth/verifyemail', {
         gmail: 'test@example.com',
         code: '123456',
       });
@@ -149,7 +149,7 @@ describe('authService', () => {
       const result = await authService.forgotPassword('test@example.com');
 
       expect(result).toEqual(mockResponse.data);
-      expect(axiosInstance.post).toHaveBeenCalledWith('/Auth/password-reset/code-request', {
+      expect(axiosInstance.post).toHaveBeenCalledWith('/auth/password-reset/code-request', {
         email: 'test@example.com',
       });
     });
