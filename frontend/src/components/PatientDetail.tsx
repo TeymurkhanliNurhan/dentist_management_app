@@ -139,13 +139,18 @@ const PatientDetail = () => {
   };
 
   const formatToothList = (tt: ToothTreatment) => {
-    const ids = (tt.toothTreatmentTeeth ?? [])
+    const toothIds = (tt.toothTreatmentTeeth ?? [])
       .map((x) => x.toothId)
       .filter((n): n is number => n != null && !Number.isNaN(n));
-    if (ids.length === 0 && tt.tooth != null) {
-      ids.push(tt.tooth);
+    if (toothIds.length === 0 && tt.tooth != null) {
+      toothIds.push(tt.tooth);
     }
-    const unique = [...new Set(ids)].sort((x, y) => x - y);
+
+    const toothNumbers = toothIds
+      .map((id) => patientTeeth.find((pt) => pt.tooth === id)?.toothNumber)
+      .filter((n): n is number => n != null && !Number.isNaN(n));
+
+    const unique = [...new Set(toothNumbers)].sort((x, y) => x - y);
     return unique.length ? unique.join(', ') : '—';
   };
 
