@@ -11,9 +11,7 @@ function combineLocalDateAndTime(dateYmd: string, timeHm: string): Date {
   return new Date(y, m - 1, d, Number(hh), Number(mm), 0, 0);
 }
 
-type TeethSelectionMode = 'multiple' | 'chin' | 'single';
-
-type AddTreatmentLayoutMode = 'oneTreatmentManyTeeth' | 'oneToothManyTreatments';
+type TeethSelectionMode = 'multiple' | 'chin';
 
 function MultiToothIcon({ className }: { className?: string }) {
   return (
@@ -45,31 +43,15 @@ function ChinArcTeethIcon({ className }: { className?: string }) {
   );
 }
 
-function SingleToothIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" width="16" height="16" aria-hidden>
-      <circle cx="12" cy="12" r="6" fill="currentColor" />
-    </svg>
-  );
-}
-
 interface TeethSelectorProps {
   patientTeeth: PatientTooth[];
   selectedToothIds: number[];
   onSelectionChange: (toothIds: number[]) => void;
   selectionMode: TeethSelectionMode;
   onSelectionModeChange: (mode: TeethSelectionMode) => void;
-  hideSelectionModeToggle?: boolean;
 }
 
-const TeethSelector = ({
-  patientTeeth,
-  selectedToothIds,
-  onSelectionChange,
-  selectionMode,
-  onSelectionModeChange,
-  hideSelectionModeToggle = false,
-}: TeethSelectorProps) => {
+const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, selectionMode, onSelectionModeChange }: TeethSelectorProps) => {
   const [isPermanent, setIsPermanent] = useState(true);
 
   const hasToothNumber = (toothNumber: number) =>
@@ -111,12 +93,6 @@ const TeethSelector = ({
         newSelection = newSelection.filter((id) => id !== toothId);
       } else {
         newSelection.push(toothId);
-      }
-    } else if (selectionMode === 'single') {
-      if (newSelection.includes(toothId)) {
-        newSelection = [];
-      } else {
-        newSelection = [toothId];
       }
     } else if (selectionMode === 'chin') {
       const isUpper = isUpperTooth(toothNumber);
@@ -172,36 +148,24 @@ const TeethSelector = ({
   return (
     <div className="w-full">
       <div className="mb-2 flex justify-between items-center">
-        {!hideSelectionModeToggle ? (
-          <div className="flex space-x-2">
-            <button
-              type="button"
-              onClick={() => onSelectionModeChange('multiple')}
-              className={`p-2 rounded-md transition-colors ${selectionMode === 'multiple' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-              title="Multiple teeth selection"
-            >
-              <MultiToothIcon className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onSelectionModeChange('chin')}
-              className={`p-2 rounded-md transition-colors ${selectionMode === 'chin' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-              title="Jaw selection (upper or lower arch)"
-            >
-              <ChinArcTeethIcon className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onSelectionModeChange('single')}
-              className={`p-2 rounded-md transition-colors ${selectionMode === 'single' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-              title="Single tooth"
-            >
-              <SingleToothIcon className="w-4 h-4" />
-            </button>
-          </div>
-        ) : (
-          <span className="text-xs text-gray-600">Select one tooth</span>
-        )}
+        <div className="flex space-x-2">
+          <button
+            type="button"
+            onClick={() => onSelectionModeChange('multiple')}
+            className={`p-2 rounded-md transition-colors ${selectionMode === 'multiple' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            title="Multiple teeth selection"
+          >
+            <MultiToothIcon className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectionModeChange('chin')}
+            className={`p-2 rounded-md transition-colors ${selectionMode === 'chin' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            title="Jaw selection (upper or lower arch)"
+          >
+            <ChinArcTeethIcon className="w-4 h-4" />
+          </button>
+        </div>
 
         <button
           onClick={() => setIsPermanent(!isPermanent)}
@@ -348,7 +312,6 @@ const AppointmentDetail = () => {
   const [editingMedicineQuantities, setEditingMedicineQuantities] = useState<Record<number, number>>({});
   const [confirmDeleteTreatmentId, setConfirmDeleteTreatmentId] = useState<number | null>(null);
   const [toothSelectionMode, setToothSelectionMode] = useState<TeethSelectionMode>('multiple');
-  const [addTreatmentLayoutMode, setAddTreatmentLayoutMode] = useState<AddTreatmentLayoutMode>('oneTreatmentManyTeeth');
   const [selectedTreatmentIds, setSelectedTreatmentIds] = useState<number[]>([]);
   const [showAddTreatmentInModal, setShowAddTreatmentInModal] = useState(false);
   const [newTreatmentForm, setNewTreatmentForm] = useState<CreateTreatmentDto>({
@@ -585,7 +548,6 @@ const AppointmentDetail = () => {
         tooth_ids: [],
         description: '',
       });
-      setAddTreatmentLayoutMode('oneTreatmentManyTeeth');
       setSelectedTreatmentIds([]);
       setToothSelectionMode('multiple');
       setSelectedMedicineQuantities({});
@@ -635,36 +597,24 @@ const AppointmentDetail = () => {
         }
       };
 
-      if (addTreatmentLayoutMode === 'oneToothManyTreatments') {
-        if (newTreatment.tooth_ids.length !== 1) {
-          setError('Select exactly one tooth when adding multiple treatments.');
-          return;
-        }
-        if (selectedTreatmentIds.length === 0) {
-          setError('Select at least one treatment.');
-          return;
-        }
-        for (const tid of selectedTreatmentIds) {
+      if (selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0) {
+        setError('Select at least one treatment and at least one tooth.');
+        return;
+      }
+      for (const tid of selectedTreatmentIds) {
+        for (const toothId of newTreatment.tooth_ids) {
           const created = await toothTreatmentService.create({
             ...newTreatment,
             treatment_id: tid,
-            tooth_ids: newTreatment.tooth_ids,
+            tooth_ids: [toothId],
           });
           await attachMedicinesAndMedia(created?.id);
         }
-      } else {
-        if (newTreatment.treatment_id === 0 || newTreatment.tooth_ids.length === 0) {
-          setError('Select a treatment and at least one tooth.');
-          return;
-        }
-        const created = await toothTreatmentService.create(newTreatment);
-        await attachMedicinesAndMedia(created?.id);
       }
 
       setShowAddTreatment(false);
       setNewTreatment({ appointment_id: 0, treatment_id: 0, patient_id: 0, tooth_ids: [], description: '' });
       setSelectedTreatmentIds([]);
-      setAddTreatmentLayoutMode('oneTreatmentManyTeeth');
       setToothSelectionMode('multiple');
 
       const treatmentsData = await toothTreatmentService.getAll({ appointment: appointment.id });
@@ -736,11 +686,7 @@ const AppointmentDetail = () => {
       const updatedTreatments = await treatmentService.getAll();
       setAllTreatments(updatedTreatments);
       setAvailableTreatments(updatedTreatments);
-      if (addTreatmentLayoutMode === 'oneToothManyTreatments') {
-        setSelectedTreatmentIds((prev) => (prev.includes(createdTreatment.id) ? prev : [...prev, createdTreatment.id]));
-      } else {
-        setNewTreatment((prev) => ({ ...prev, treatment_id: createdTreatment.id }));
-      }
+      setSelectedTreatmentIds((prev) => (prev.includes(createdTreatment.id) ? prev : [...prev, createdTreatment.id]));
     } catch (err: any) {
       console.error('Failed to create treatment:', err);
       setTreatmentError(err.response?.data?.message || 'Failed to create treatment');
@@ -1200,52 +1146,12 @@ const AppointmentDetail = () => {
 
           {showAddTreatment && appointment && (
             <div className="mb-8 border border-teal-200 rounded-lg p-6 bg-teal-50/40">
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">Layout:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAddTreatmentLayoutMode('oneTreatmentManyTeeth');
-                    setSelectedTreatmentIds([]);
-                    setToothSelectionMode('multiple');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                    addTreatmentLayoutMode === 'oneTreatmentManyTeeth'
-                      ? 'bg-teal-600 text-white border-teal-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  One treatment, multiple teeth
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAddTreatmentLayoutMode('oneToothManyTreatments');
-                    setSelectedTreatmentIds([]);
-                    setToothSelectionMode('single');
-                    setNewTreatment((prev) => ({
-                      ...prev,
-                      treatment_id: 0,
-                      tooth_ids: prev.tooth_ids.length === 1 ? prev.tooth_ids : [],
-                    }));
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                    addTreatmentLayoutMode === 'oneToothManyTreatments'
-                      ? 'bg-teal-600 text-white border-teal-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  One tooth, multiple treatments
-                </button>
-              </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                    {addTreatmentLayoutMode === 'oneTreatmentManyTeeth' ? 'Select treatment' : 'Select treatments'}
-                  </h3>
-                  {addTreatmentLayoutMode === 'oneToothManyTreatments' && (
-                    <p className="text-xs text-gray-600 mb-2">Choose one or more procedures for the same tooth.</p>
-                  )}
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Select treatments</h3>
+                  <p className="text-xs text-gray-600 mb-2">
+                    Select one or more treatments and one or more teeth. Each tooth–treatment pair becomes its own row.
+                  </p>
                   <div className="mb-3">
                     <input
                       type="text"
@@ -1274,21 +1180,6 @@ const AppointmentDetail = () => {
                   <div className="max-h-64 overflow-auto rounded-md border border-gray-200 bg-white">
                     {availableTreatments.length === 0 ? (
                       <div className="p-4 text-sm text-gray-500">No treatments found</div>
-                    ) : addTreatmentLayoutMode === 'oneTreatmentManyTeeth' ? (
-                      paginatedTreatments.map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => setNewTreatment({ ...newTreatment, treatment_id: t.id })}
-                          className={`w-full text-left px-4 py-2 border-b last:border-b-0 hover:bg-teal-50 transition-colors ${newTreatment.treatment_id === t.id ? 'bg-teal-100' : ''}`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-gray-900">{t.name}</span>
-                            <span className="text-sm font-semibold text-gray-700">${t.price.toFixed(2)}</span>
-                          </div>
-                          <p className="text-xs text-gray-600 mt-1">{t.description}</p>
-                        </button>
-                      ))
                     ) : (
                       paginatedTreatments.map((t) => {
                         const checked = selectedTreatmentIds.includes(t.id);
@@ -1431,17 +1322,14 @@ const AppointmentDetail = () => {
                 )}
 
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                    {addTreatmentLayoutMode === 'oneToothManyTreatments' ? 'Select one tooth' : 'Select teeth'}
-                  </h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Select teeth</h3>
                   <div className="w-full max-w-xl mx-auto bg-white rounded-lg p-3 shadow-sm">
                     <TeethSelector
                       patientTeeth={patientTeeth}
                       onSelectionChange={(toothIds) => setNewTreatment({ ...newTreatment, tooth_ids: toothIds })}
                       selectedToothIds={newTreatment.tooth_ids}
-                      selectionMode={addTreatmentLayoutMode === 'oneToothManyTreatments' ? 'single' : toothSelectionMode}
+                      selectionMode={toothSelectionMode}
                       onSelectionModeChange={setToothSelectionMode}
-                      hideSelectionModeToggle={addTreatmentLayoutMode === 'oneToothManyTreatments'}
                     />
                   </div>
                 </div>
@@ -1450,11 +1338,9 @@ const AppointmentDetail = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Select Medicines (optional)</h3>
-                  {addTreatmentLayoutMode === 'oneToothManyTreatments' && (
-                    <p className="text-xs text-gray-600 mb-2">
-                      Description, medicines, and media are applied to each treatment row created for that tooth.
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-600 mb-2">
+                    Description, medicines, and media are applied to each new tooth–treatment row created in this step.
+                  </p>
 
                   <div className="mb-3">
                     <label htmlFor="inlineDescription" className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
@@ -1796,18 +1682,17 @@ const AppointmentDetail = () => {
                   type="button"
                   onClick={handleAddTreatment}
                   disabled={
-                    isAddingTreatment ||
-                    (addTreatmentLayoutMode === 'oneTreatmentManyTeeth'
-                      ? newTreatment.treatment_id === 0 || newTreatment.tooth_ids.length === 0
-                      : selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length !== 1)
+                    isAddingTreatment || selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0
                   }
                   className="px-5 py-2 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isAddingTreatment
                     ? 'Adding...'
-                    : addTreatmentLayoutMode === 'oneToothManyTreatments'
-                      ? `Add ${selectedTreatmentIds.length} treatment${selectedTreatmentIds.length === 1 ? '' : 's'}`
-                      : 'Add Treatment'}
+                    : selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0
+                      ? 'Add treatments'
+                      : `Add ${selectedTreatmentIds.length * newTreatment.tooth_ids.length} row${
+                          selectedTreatmentIds.length * newTreatment.tooth_ids.length === 1 ? '' : 's'
+                        }`}
                 </button>
                 <button
                   onClick={() => {
@@ -1817,7 +1702,6 @@ const AppointmentDetail = () => {
                     setNewTreatmentMediaFileKey((k) => k + 1);
                     setPendingMediaForNewTreatment([]);
                     setNewTreatmentMediaError('');
-                    setAddTreatmentLayoutMode('oneTreatmentManyTeeth');
                     setSelectedTreatmentIds([]);
                     setToothSelectionMode('multiple');
                   }}
