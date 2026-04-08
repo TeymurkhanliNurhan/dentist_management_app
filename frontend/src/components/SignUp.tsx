@@ -145,18 +145,22 @@ const SignUp = () => {
       <div className="w-full max-w-md relative py-8 px-6 bg-white/60 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/40">
         
         {/* Language Switcher */}
-        <div className="absolute top-4 right-4 relative" style={{ zIndex: 20 }} ref={languageMenuRef}>
-          <button
-            onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-            className="p-2 rounded-lg bg-white/80 hover:bg-white transition-colors shadow-sm"
-            aria-label="Change language"
-          >
-            <img src={currentLanguage.flag} alt={currentLanguage.label} className="w-6 h-6 rounded-full object-cover" />
-          </button>
-          {showLanguageMenu && (
-            <div className="absolute top-12 right-0 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[120px]">
+        <div className="absolute top-4 right-4 z-20" ref={languageMenuRef}>
+          <div className="relative inline-block">
+            <button
+              type="button"
+              onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+              className="p-2 rounded-lg bg-white/80 hover:bg-white transition-colors shadow-sm"
+              aria-label="Change language"
+              aria-expanded={showLanguageMenu}
+            >
+              <img src={currentLanguage.flag} alt={currentLanguage.label} className="w-6 h-6 rounded-full object-cover" />
+            </button>
+            {showLanguageMenu && (
+              <div className="absolute right-0 top-full z-50 mt-1.5 flex flex-col rounded-lg border border-gray-200 bg-white shadow-lg overflow-hidden min-w-[120px]">
               {languages.map((language) => (
                 <button
+                  type="button"
                   key={language.code}
                   onClick={() => {
                     i18n.changeLanguage(language.code);
@@ -170,8 +174,9 @@ const SignUp = () => {
                   <img src={language.flag} alt={language.label} className="w-6 h-6 rounded-full object-cover" />
                 </button>
               ))}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
         
         <button
