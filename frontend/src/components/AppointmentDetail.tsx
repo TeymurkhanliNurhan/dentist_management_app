@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash, MousePointer, Grid3X3, RectangleHorizontal } from 'lucide-react';
+import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash } from 'lucide-react';
 import Header from './Header';
 import { appointmentService, randevueService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
 import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, CreateMedicineDto, Media, TreatmentPricePer } from '../services/api';
@@ -11,12 +11,44 @@ function combineLocalDateAndTime(dateYmd: string, timeHm: string): Date {
   return new Date(y, m - 1, d, Number(hh), Number(mm), 0, 0);
 }
 
+type TeethSelectionMode = 'multiple' | 'chin';
+
+function MultiToothIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="16" height="16" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M12 2.5c-1.9 0-3.2 1.4-3.5 3.4-.2 1.1-.4 2.4-.8 3.5-.3.9-.5 1.8-.4 2.7.1 1.1.4 2.1.6 3.2.2 1.4 1.3 2.5 2.7 2.7.2 0 .3.1.5.1h.2c1.5-.1 2.7-1.3 2.9-2.8.2-1 .5-2 .6-3.1.1-.9 0-1.8-.3-2.6-.4-1.1-.6-2.3-.8-3.5C15.2 3.9 13.9 2.5 12 2.5z"
+      />
+    </svg>
+  );
+}
+
+function ChinArcTeethIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      <path d="M4.5 13.5c2.8 5 12.2 5 15 0" />
+      <path d="M7 15v2M9.5 16v2M12 16.5v2M14.5 16v2M17 15v2" />
+    </svg>
+  );
+}
+
 interface TeethSelectorProps {
   patientTeeth: PatientTooth[];
   selectedToothIds: number[];
   onSelectionChange: (toothIds: number[]) => void;
-  selectionMode: 'single' | 'multiple' | 'chin';
-  onSelectionModeChange: (mode: 'single' | 'multiple' | 'chin') => void;
+  selectionMode: TeethSelectionMode;
+  onSelectionModeChange: (mode: TeethSelectionMode) => void;
 }
 
 const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, selectionMode, onSelectionModeChange }: TeethSelectorProps) => {
@@ -56,9 +88,7 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
 
     let newSelection: number[] = [...selectedToothIds];
 
-    if (selectionMode === 'single') {
-      newSelection = [toothId];
-    } else if (selectionMode === 'multiple') {
+    if (selectionMode === 'multiple') {
       if (newSelection.includes(toothId)) {
         newSelection = newSelection.filter((id) => id !== toothId);
       } else {
@@ -102,7 +132,9 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
         onClick={() => enabled && possibleToothId && handleToothClick(number)}
         className={`absolute z-10 w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition-all select-none ${
           enabled
-            ? `text-black cursor-pointer hover:bg-teal-500 hover:text-white hover:scale-110 ${isSelected ? 'bg-teal-600 text-white scale-110' : ''}`
+            ? isSelected
+              ? 'cursor-pointer bg-teal-600 text-white scale-110 shadow-sm hover:bg-teal-700'
+              : 'cursor-pointer text-black hover:scale-110 hover:bg-gray-400/20 hover:ring-2 hover:ring-gray-500/35'
             : 'text-gray-400 cursor-not-allowed opacity-50'
         }`}
         style={{ top, left, pointerEvents: 'auto' }}
@@ -118,25 +150,20 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
       <div className="mb-2 flex justify-between items-center">
         <div className="flex space-x-2">
           <button
-            onClick={() => onSelectionModeChange('single')}
-            className={`p-2 rounded-md transition-colors ${selectionMode === 'single' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            title="Single tooth selection"
-          >
-            <MousePointer size={16} />
-          </button>
-          <button
+            type="button"
             onClick={() => onSelectionModeChange('multiple')}
             className={`p-2 rounded-md transition-colors ${selectionMode === 'multiple' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
             title="Multiple teeth selection"
           >
-            <Grid3X3 size={16} />
+            <MultiToothIcon className="w-4 h-4" />
           </button>
           <button
+            type="button"
             onClick={() => onSelectionModeChange('chin')}
             className={`p-2 rounded-md transition-colors ${selectionMode === 'chin' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            title="Chin selection (select all upper or lower teeth)"
+            title="Jaw selection (upper or lower arch)"
           >
-            <RectangleHorizontal size={16} />
+            <ChinArcTeethIcon className="w-4 h-4" />
           </button>
         </div>
 
@@ -284,7 +311,7 @@ const AppointmentDetail = () => {
   });
   const [editingMedicineQuantities, setEditingMedicineQuantities] = useState<Record<number, number>>({});
   const [confirmDeleteTreatmentId, setConfirmDeleteTreatmentId] = useState<number | null>(null);
-  const [toothSelectionMode, setToothSelectionMode] = useState<'single' | 'multiple' | 'chin'>('multiple');
+  const [toothSelectionMode, setToothSelectionMode] = useState<TeethSelectionMode>('multiple');
   const [showAddTreatmentInModal, setShowAddTreatmentInModal] = useState(false);
   const [newTreatmentForm, setNewTreatmentForm] = useState<CreateTreatmentDto>({
     name: '',
