@@ -95,10 +95,10 @@ export class AppointmentRepository {
             queryBuilder.andWhere('appointment.patient = :patient', { patient: filters.patient });
         }
         if (filters.patientName !== undefined) {
-            queryBuilder.andWhere('LOWER(patient.name) LIKE LOWER(:patientName)', { patientName: `%${filters.patientName}%` });
+            queryBuilder.andWhere('LOWER(patient.name) LIKE LOWER(:patientName)', { patientName: `${filters.patientName}%` });
         }
         if (filters.patientSurname !== undefined) {
-            queryBuilder.andWhere('LOWER(patient.surname) LIKE LOWER(:patientSurname)', { patientSurname: `%${filters.patientSurname}%` });
+            queryBuilder.andWhere('LOWER(patient.surname) LIKE LOWER(:patientSurname)', { patientSurname: `${filters.patientSurname}%` });
         }
 
         // Add ordering by startDate descending

@@ -176,10 +176,10 @@ const Appointments = () => {
   };
 
   const filteredPatients = patients.filter((patient) => {
-    const nameMatch = patientSearch.name === '' || 
-      patient.name.toLowerCase().includes(patientSearch.name.toLowerCase());
-    const surnameMatch = patientSearch.surname === '' || 
-      patient.surname.toLowerCase().includes(patientSearch.surname.toLowerCase());
+    const nameMatch = patientSearch.name === '' ||
+      patient.name.toLowerCase().startsWith(patientSearch.name.toLowerCase());
+    const surnameMatch = patientSearch.surname === '' ||
+      patient.surname.toLowerCase().startsWith(patientSearch.surname.toLowerCase());
     return nameMatch && surnameMatch;
   });
 

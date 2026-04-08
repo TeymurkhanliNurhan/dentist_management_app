@@ -56,10 +56,10 @@ export class PatientRepository {
             queryBuilder.andWhere('patient.id = :id', { id: filters.id });
         }
         if (filters.name !== undefined) {
-            queryBuilder.andWhere('LOWER(patient.name) LIKE LOWER(:name)', { name: `%${filters.name}%` });
+            queryBuilder.andWhere('LOWER(patient.name) LIKE LOWER(:name)', { name: `${filters.name}%` });
         }
         if (filters.surname !== undefined) {
-            queryBuilder.andWhere('LOWER(patient.surname) LIKE LOWER(:surname)', { surname: `%${filters.surname}%` });
+            queryBuilder.andWhere('LOWER(patient.surname) LIKE LOWER(:surname)', { surname: `${filters.surname}%` });
         }
         if (filters.birthdate !== undefined) {
             queryBuilder.andWhere('patient.birthDate = :birthDate', { birthDate: filters.birthdate });
