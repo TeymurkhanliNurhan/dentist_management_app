@@ -904,24 +904,44 @@ const Schedule = () => {
 
               {showNewPatient && (
                 <div className="border border-violet-100 rounded-lg p-3 bg-violet-50/50 space-y-2">
-                  <input
-                    placeholder={t('newPatientName')}
-                    value={newPatient.name}
-                    onChange={(e) => setNewPatient((x) => ({ ...x, name: e.target.value }))}
-                    className="w-full border rounded px-2 py-1.5 text-sm"
-                  />
-                  <input
-                    placeholder={t('newPatientSurname')}
-                    value={newPatient.surname}
-                    onChange={(e) => setNewPatient((x) => ({ ...x, surname: e.target.value }))}
-                    className="w-full border rounded px-2 py-1.5 text-sm"
-                  />
-                  <input
-                    type="date"
-                    value={newPatient.birthDate}
-                    onChange={(e) => setNewPatient((x) => ({ ...x, birthDate: e.target.value }))}
-                    className="w-full border rounded px-2 py-1.5 text-sm"
-                  />
+                  <div>
+                    <label htmlFor="schedule-new-patient-name" className="block text-xs font-medium text-gray-700 mb-0.5">
+                      {t('newPatientName')}
+                    </label>
+                    <input
+                      id="schedule-new-patient-name"
+                      type="text"
+                      autoComplete="given-name"
+                      value={newPatient.name}
+                      onChange={(e) => setNewPatient((x) => ({ ...x, name: e.target.value }))}
+                      className="w-full border rounded px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="schedule-new-patient-surname" className="block text-xs font-medium text-gray-700 mb-0.5">
+                      {t('newPatientSurname')}
+                    </label>
+                    <input
+                      id="schedule-new-patient-surname"
+                      type="text"
+                      autoComplete="family-name"
+                      value={newPatient.surname}
+                      onChange={(e) => setNewPatient((x) => ({ ...x, surname: e.target.value }))}
+                      className="w-full border rounded px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="schedule-new-patient-birth" className="block text-xs font-medium text-gray-700 mb-0.5">
+                      {t('newPatientBirth')}
+                    </label>
+                    <input
+                      id="schedule-new-patient-birth"
+                      type="date"
+                      value={newPatient.birthDate}
+                      onChange={(e) => setNewPatient((x) => ({ ...x, birthDate: e.target.value }))}
+                      className="w-full border rounded px-2 py-1.5 text-sm"
+                    />
+                  </div>
                   <button
                     type="button"
                     disabled={patientFormBusy}

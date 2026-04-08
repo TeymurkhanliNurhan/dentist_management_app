@@ -18,6 +18,7 @@
   "empty": "No patients found",
   "addNew": "Add New Patient",
   "addTitle": "Add New Patient",
+  "formIntro": "Enter the patient's name, surname, and birth date.",
   "form": {
     "name": "Name *",
     "surname": "Surname *",

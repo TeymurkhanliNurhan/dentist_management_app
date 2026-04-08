@@ -18,6 +18,7 @@
   "empty": "Xəstə tapılmadı",
   "addNew": "Yeni xəstə əlavə et",
   "addTitle": "Yeni xəstə əlavə et",
+  "formIntro": "Ad, soyad və doğum tarixini daxil edin.",
   "form": {
     "name": "Ad *",
     "surname": "Soyad *",

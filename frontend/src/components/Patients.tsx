@@ -258,6 +258,7 @@ const Patients = () => {
                 <X className="w-6 h-6" />
               </button>
             </div>
+            <p className="text-sm text-gray-600 mb-4">{t('formIntro')}</p>
 
             <form onSubmit={handleAddPatient} className="space-y-4">
               <div>
