@@ -2,6 +2,7 @@ import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Staff } from '../../staff/entities/staff.entity';
 import { Medicine } from '../../medicine/entities/medicine.entity';
 import { Patient } from '../../patient/entities/patient.entity';
+import { Room } from '../../room/entities/room.entity';
 
 @Entity({ name: 'Clinic' })
 export class Clinic {
@@ -22,4 +23,7 @@ export class Clinic {
 
   @OneToMany(() => Patient, (patient) => patient.clinic)
   patients: Patient[];
+
+  @OneToMany(() => Room, (room) => room.clinic)
+  rooms: Room[];
 }

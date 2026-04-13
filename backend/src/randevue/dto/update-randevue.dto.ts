@@ -46,4 +46,21 @@ export class UpdateRandevueDto {
     @ValidateIf((o) => o.create_new_appointment === true)
     @IsDateString()
     appointment_start_date?: string;
+
+    @ApiPropertyOptional({ description: 'Room in the same clinic as the patient' })
+    @IsOptional()
+    @IsNumber()
+    @Min(1)
+    room_id?: number;
+
+    @ApiPropertyOptional({ description: 'Nurse in the same clinic as the patient' })
+    @IsOptional()
+    @IsNumber()
+    @Min(1)
+    nurse_id?: number;
+
+    @ApiPropertyOptional({ description: 'Remove assigned nurse from this randevue' })
+    @IsOptional()
+    @IsBoolean()
+    clear_nurse?: boolean;
 }

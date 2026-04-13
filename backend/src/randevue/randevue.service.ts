@@ -7,6 +7,9 @@ import { AppointmentService } from '../appointment/appointment.service';
 import { LogWriter } from '../log-writer';
 import { Randevue } from './entities/randevue.entity';
 import { Appointment } from '../appointment/entities/appointment.entity';
+import { Patient } from '../patient/entities/patient.entity';
+import { Room } from '../room/entities/room.entity';
+import { Nurse } from '../nurse/entities/nurse.entity';
 
 @Injectable()
 export class RandevueService {
@@ -16,6 +19,18 @@ export class RandevueService {
         private readonly repo: RandevueRepository,
         private readonly appointmentService: AppointmentService,
     ) {}
+
+    private async resolveRoomForPatient(patient: Patient, roomId?: number): Promise<Room> {
+        const clinicId = patient.clinic.id;
+        if (roomId != null) {
+            return await this.repo.assertRoomBelongsToClinic(roomId, clinicId);
+        }
+        const fallback = await this.repo.findDefaultGeneralRoomForClinic(clinicId);
+        if (!fallback) {
+            throw new BadRequestException('No default room configured for this clinic');
+        }
+        return fallback;
+    }
 
     private toResponse(r: Randevue) {
         return {
@@ -32,6 +47,10 @@ export class RandevueService {
                   }
                 : undefined,
             appointment: r.appointment ? { id: r.appointment.id } : null,
+            room: r.room
+                ? { id: r.room.id, number: r.room.number, description: r.room.description }
+                : undefined,
+            nurse: r.nurse ? { id: r.nurse.id } : null,
         };
     }
 
@@ -100,6 +119,12 @@ export class RandevueService {
         try {
             const appointmentEntity = linkedAppointmentId != null ? ({ id: linkedAppointmentId } as Appointment) : null;
 
+            const room = await this.resolveRoomForPatient(patient, dto.room_id);
+            let nurse: Nurse | null = null;
+            if (dto.nurse_id != null) {
+                nurse = await this.repo.assertNurseBelongsToClinic(dto.nurse_id, patient.clinic.id);
+            }
+
             const saved = await this.repo.saveRandevue({
                 date: start,
                 endTime: end,
@@ -107,6 +132,8 @@ export class RandevueService {
                 note,
                 patient,
                 appointment: appointmentEntity,
+                room,
+                nurse,
             });
 
             const reloaded = await this.repo.findByIdWithRelations(saved.id);
@@ -125,6 +152,12 @@ export class RandevueService {
             if (e?.message === 'Appointment already closed') {
                 throw new BadRequestException('That appointment is already closed (has an end date)');
             }
+            if (e?.message === 'Invalid room') {
+                throw new BadRequestException('Room is not in this clinic');
+            }
+            if (e?.message === 'Invalid nurse') {
+                throw new BadRequestException('Nurse is not in this clinic');
+            }
             this.logger.error(e?.stack || e?.message);
             throw new BadRequestException('Failed to create randevue');
         }
@@ -136,6 +169,7 @@ export class RandevueService {
         }
         const row = await this.repo.findByIdForDentist(dentistId, id);
         if (!row) throw new NotFoundException('Randevue not found');
+        const originalPatientId = row.patient.id;
 
         let start = row.date instanceof Date ? row.date : new Date(row.date as unknown as string);
         let end = row.endTime instanceof Date ? row.endTime : new Date(row.endTime as unknown as string);
@@ -202,6 +236,25 @@ export class RandevueService {
             row.status = 'booked';
         }
 
+        if (dto.clear_nurse === true && dto.nurse_id != null) {
+            throw new BadRequestException('Cannot set both clear_nurse and nurse_id');
+        }
+
+        const clinicId = row.patient.clinic.id;
+        if (dto.room_id != null) {
+            row.room = await this.repo.assertRoomBelongsToClinic(dto.room_id, clinicId);
+        } else if (dto.patient_id != null && dto.patient_id !== originalPatientId) {
+            row.room = await this.resolveRoomForPatient(row.patient);
+        }
+
+        if (dto.clear_nurse === true) {
+            row.nurse = null;
+        } else if (dto.nurse_id != null) {
+            row.nurse = await this.repo.assertNurseBelongsToClinic(dto.nurse_id, row.patient.clinic.id);
+        } else if (dto.patient_id != null && dto.patient_id !== originalPatientId) {
+            row.nurse = null;
+        }
+
         try {
             await this.repo.saveEntity(row);
             const reloaded = await this.repo.findByIdForDentist(dentistId, id);
@@ -218,6 +271,12 @@ export class RandevueService {
             if (e?.message === 'Appointment not found') throw new NotFoundException('Appointment not found');
             if (e?.message === 'Appointment already closed') {
                 throw new BadRequestException('That appointment is already closed (has an end date)');
+            }
+            if (e?.message === 'Invalid room') {
+                throw new BadRequestException('Room is not in this clinic');
+            }
+            if (e?.message === 'Invalid nurse') {
+                throw new BadRequestException('Nurse is not in this clinic');
             }
             this.logger.error(e?.stack || e?.message);
             throw new BadRequestException('Failed to update randevue');

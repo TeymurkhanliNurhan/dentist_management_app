@@ -38,4 +38,16 @@ export class CreateRandevueDto {
     @ValidateIf((o) => o.create_new_appointment === true)
     @IsDateString()
     appointment_start_date?: string;
+
+    @ApiPropertyOptional({ description: 'Clinic room; defaults to the general dentistry room for the patient clinic' })
+    @IsOptional()
+    @IsNumber()
+    @Min(1)
+    room_id?: number;
+
+    @ApiPropertyOptional({ description: 'Nurse from the same clinic as the patient (optional)' })
+    @IsOptional()
+    @IsNumber()
+    @Min(1)
+    nurse_id?: number;
 }

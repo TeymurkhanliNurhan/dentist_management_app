@@ -1,6 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Appointment } from '../../appointment/entities/appointment.entity';
 import { Patient } from '../../patient/entities/patient.entity';
+import { Room } from '../../room/entities/room.entity';
+import { Nurse } from '../../nurse/entities/nurse.entity';
 
 @Entity({ name: 'Randevue' })
 export class Randevue {
@@ -29,4 +31,12 @@ export class Randevue {
     })
     @JoinColumn({ name: 'appointment' })
     appointment: Appointment | null;
+
+    @ManyToOne(() => Room, (room) => room.randevues, { nullable: false, onDelete: 'RESTRICT' })
+    @JoinColumn({ name: 'room' })
+    room: Room;
+
+    @ManyToOne(() => Nurse, (nurse) => nurse.randevues, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'nurse' })
+    nurse: Nurse | null;
 }

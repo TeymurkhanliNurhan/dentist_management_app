@@ -1,5 +1,6 @@
-import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Staff } from '../../staff/entities/staff.entity';
+import { Randevue } from '../../randevue/entities/randevue.entity';
 
 @Entity({ name: 'Nurse' })
 export class Nurse {
@@ -12,4 +13,7 @@ export class Nurse {
   @OneToOne(() => Staff, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'staffId' })
   staff: Staff;
+
+  @OneToMany(() => Randevue, (randevue) => randevue.nurse)
+  randevues: Randevue[];
 }

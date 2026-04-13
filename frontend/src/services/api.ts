@@ -508,6 +508,8 @@ export interface Randevue {
     surname: string;
   };
   appointment: { id: number } | null;
+  room?: { id: number; number: string; description: string };
+  nurse: { id: number } | null;
 }
 
 export interface CreateRandevueDto {
@@ -518,6 +520,8 @@ export interface CreateRandevueDto {
   appointment_id?: number;
   create_new_appointment?: boolean;
   appointment_start_date?: string;
+  room_id?: number;
+  nurse_id?: number;
 }
 
 export interface UpdateRandevueDto {
@@ -529,6 +533,9 @@ export interface UpdateRandevueDto {
   appointment_id?: number;
   create_new_appointment?: boolean;
   appointment_start_date?: string;
+  room_id?: number;
+  nurse_id?: number;
+  clear_nurse?: boolean;
 }
 
 export const randevueService = {
