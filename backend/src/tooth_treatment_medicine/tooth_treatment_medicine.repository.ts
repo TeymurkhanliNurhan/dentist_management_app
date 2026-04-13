@@ -42,7 +42,14 @@ export class ToothTreatmentMedicineRepository {
         if (!toothTreatment) throw new Error('ToothTreatment not found');
         if (toothTreatment.appointment?.dentist?.id !== dentistId) throw new Error('Forbidden');
 
-        const medicine = await medRepo.findOne({ where: { id: medicineId, dentist: { id: dentistId } } });
+        const dentist = await this.dataSource.getRepository(Appointment).findOne({
+            where: { id: toothTreatment.appointment.id },
+            relations: ['dentist', 'dentist.staff'],
+        });
+        const clinicId = dentist?.dentist?.staff?.clinicId;
+        if (!clinicId) throw new Error('Forbidden');
+
+        const medicine = await medRepo.findOne({ where: { id: medicineId, clinic: { id: clinicId } } });
         if (!medicine) throw new Error('Medicine not found or not owned');
 
         const existing = await this.repo.findOne({ where: { medicine: medicineId, toothTreatment: toothTreatmentId } });

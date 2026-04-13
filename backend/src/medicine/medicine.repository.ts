@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Medicine } from './entities/medicine.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
+import { Clinic } from '../clinic/entities/clinic.entity';
 
 @Injectable()
 export class MedicineRepository {
@@ -12,15 +13,26 @@ export class MedicineRepository {
         return this.dataSource.getRepository(Medicine);
     }
 
+    private async getClinicForDentist(dentistId: number): Promise<Clinic> {
+        const dentist = await this.dataSource.getRepository(Dentist).findOne({
+            where: { id: dentistId },
+            relations: ['staff'],
+        });
+        if (!dentist?.staff?.clinicId) throw new Error('Dentist not found');
+        const clinic = await this.dataSource.getRepository(Clinic).findOne({ where: { id: dentist.staff.clinicId } });
+        if (!clinic) throw new Error('Clinic not found');
+        return clinic;
+    }
+
     async createMedicineForDentist(dentistId: number, input: { name: string; description: string; price: number }): Promise<Medicine> {
-        const dentist = await this.dataSource.getRepository(Dentist).findOne({ where: { id: dentistId } });
-        if (!dentist) throw new Error('Dentist not found');
-        const med = this.repo.create({ ...input, dentist });
+        const clinic = await this.getClinicForDentist(dentistId);
+        const med = this.repo.create({ ...input, clinic });
         return await this.repo.save(med);
     }
 
     async updateMedicineEnsureOwnership(dentistId: number, id: number, updates: Partial<{ name: string; description: string; price: number }>): Promise<Medicine> {
-        const med = await this.repo.findOne({ where: { id, dentist: { id: dentistId } } });
+        const clinic = await this.getClinicForDentist(dentistId);
+        const med = await this.repo.findOne({ where: { id, clinic: { id: clinic.id } } });
         if (!med) throw new Error('Forbidden');
         if (updates.name !== undefined) med.name = updates.name;
         if (updates.description !== undefined) med.description = updates.description;
@@ -32,9 +44,10 @@ export class MedicineRepository {
         dentistId: number,
         filters: { id?: number; name?: string },
     ): Promise<Medicine[]> {
+        const clinic = await this.getClinicForDentist(dentistId);
         const queryBuilder = this.repo
             .createQueryBuilder('medicine')
-            .where('medicine.dentist = :dentistId', { dentistId });
+            .where('medicine.clinicId = :clinicId', { clinicId: clinic.id });
 
         if (filters.id !== undefined) {
             queryBuilder.andWhere('medicine.id = :id', { id: filters.id });

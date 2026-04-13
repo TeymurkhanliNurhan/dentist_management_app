@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { ToothTreatmentMedicine } from '../../tooth_treatment_medicine/entities/tooth_treatment_medicine.entity';
-import { Dentist } from '../../dentist/entities/dentist.entity';
+import { Clinic } from '../../clinic/entities/clinic.entity';
 
 @Entity({ name: 'Medicine' })
 export class Medicine {
@@ -19,8 +19,8 @@ export class Medicine {
     @OneToMany(() => ToothTreatmentMedicine, (ttm) => ttm.medicineEntity)
     toothTreatmentMedicines: ToothTreatmentMedicine[];
 
-    @ManyToOne(() => Dentist, (dentist) => dentist.medicines, { nullable: false })
-    @JoinColumn({ name: 'dentist' })
-    dentist: Dentist;
+    @ManyToOne(() => Clinic, (clinic) => clinic.medicines, { nullable: false, onDelete: 'RESTRICT' })
+    @JoinColumn({ name: 'clinicId' })
+    clinic: Clinic;
 }
 
