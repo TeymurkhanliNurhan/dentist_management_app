@@ -35,6 +35,7 @@ import { Clinic } from './clinic/entities/clinic.entity';
 import { Staff } from './staff/entities/staff.entity';
 import { Nurse } from './nurse/entities/nurse.entity';
 import { FrontDeskWorker } from './front_desk_worker/entities/front_desk_worker.entity';
+import { Director } from './director/entities/director.entity';
 import { StaffModule } from './staff/staff.module';
 
 @Module({
@@ -97,6 +98,7 @@ import { StaffModule } from './staff/staff.module';
               Staff,
               Nurse,
               FrontDeskWorker,
+              Director,
             ],
             synchronize: true,
             logging: ['schema', 'error', 'warn'],
@@ -131,6 +133,7 @@ import { StaffModule } from './staff/staff.module';
               Staff,
               Nurse,
               FrontDeskWorker,
+              Director,
             ],
             synchronize: true,
             extra: {

@@ -18,6 +18,7 @@ import { Clinic } from './src/clinic/entities/clinic.entity';
 import { Staff } from './src/staff/entities/staff.entity';
 import { Nurse } from './src/nurse/entities/nurse.entity';
 import { FrontDeskWorker } from './src/front_desk_worker/entities/front_desk_worker.entity';
+import { Director } from './src/director/entities/director.entity';
 
 export default new DataSource({
   type: 'postgres',
@@ -27,6 +28,7 @@ export default new DataSource({
     Clinic,
     Dentist,
     FrontDeskWorker,
+    Director,
     Nurse,
     Staff,
     Patient,

@@ -3,6 +3,7 @@ import { Clinic } from '../../clinic/entities/clinic.entity';
 import { Dentist } from '../../dentist/entities/dentist.entity';
 import { Nurse } from '../../nurse/entities/nurse.entity';
 import { FrontDeskWorker } from '../../front_desk_worker/entities/front_desk_worker.entity';
+import { Director } from '../../director/entities/director.entity';
 
 @Entity({ name: 'Staff' })
 export class Staff {
@@ -57,4 +58,7 @@ export class Staff {
 
   @OneToOne(() => FrontDeskWorker, (frontDeskWorker) => frontDeskWorker.staff)
   frontDeskWorker: FrontDeskWorker;
+
+  @OneToOne(() => Director, (director) => director.staff)
+  director: Director;
 }
