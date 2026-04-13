@@ -31,6 +31,9 @@ import { S3Module } from './s3/s3.module';
 import { Media } from './media/entities/media.entity';
 import { Randevue } from './randevue/entities/randevue.entity';
 import { RandevueModule } from './randevue/randevue.module';
+import { Clinic } from './clinic/entities/clinic.entity';
+import { Staff } from './staff/entities/staff.entity';
+import { StaffModule } from './staff/staff.module';
 
 @Module({
   imports: [
@@ -88,6 +91,8 @@ import { RandevueModule } from './randevue/randevue.module';
               ToothTreatmentMedicine,
               Media,
               Randevue,
+              Clinic,
+              Staff,
             ],
             synchronize: true,
             logging: ['schema', 'error', 'warn'],
@@ -118,6 +123,8 @@ import { RandevueModule } from './randevue/randevue.module';
               ToothTreatmentMedicine,
               Media,
               Randevue,
+              Clinic,
+              Staff,
             ],
             synchronize: true,
             extra: {
@@ -145,6 +152,7 @@ import { RandevueModule } from './randevue/randevue.module';
     MediaModule,
     S3Module,
     RandevueModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [AppService],
