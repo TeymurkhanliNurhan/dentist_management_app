@@ -19,6 +19,9 @@ import { Staff } from './src/staff/entities/staff.entity';
 import { Nurse } from './src/nurse/entities/nurse.entity';
 import { FrontDeskWorker } from './src/front_desk_worker/entities/front_desk_worker.entity';
 import { Director } from './src/director/entities/director.entity';
+import { Room } from './src/room/entities/room.entity';
+import { WorkingHours } from './src/working_hours/entities/working_hours.entity';
+import { BlockingHours } from './src/blocking_hours/entities/blocking_hours.entity';
 
 export default new DataSource({
   type: 'postgres',
@@ -31,6 +34,9 @@ export default new DataSource({
     Director,
     Nurse,
     Staff,
+    Room,
+    WorkingHours,
+    BlockingHours,
     Patient,
     PatientTooth,
     Tooth,

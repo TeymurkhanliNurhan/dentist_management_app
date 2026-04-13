@@ -37,6 +37,9 @@ import { Nurse } from './nurse/entities/nurse.entity';
 import { FrontDeskWorker } from './front_desk_worker/entities/front_desk_worker.entity';
 import { Director } from './director/entities/director.entity';
 import { StaffModule } from './staff/staff.module';
+import { Room } from './room/entities/room.entity';
+import { WorkingHours } from './working_hours/entities/working_hours.entity';
+import { BlockingHours } from './blocking_hours/entities/blocking_hours.entity';
 
 @Module({
   imports: [
@@ -99,6 +102,9 @@ import { StaffModule } from './staff/staff.module';
               Nurse,
               FrontDeskWorker,
               Director,
+              Room,
+              WorkingHours,
+              BlockingHours,
             ],
             synchronize: true,
             logging: ['schema', 'error', 'warn'],
@@ -134,6 +140,9 @@ import { StaffModule } from './staff/staff.module';
               Nurse,
               FrontDeskWorker,
               Director,
+              Room,
+              WorkingHours,
+              BlockingHours,
             ],
             synchronize: true,
             extra: {

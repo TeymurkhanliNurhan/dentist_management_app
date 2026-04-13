@@ -1,9 +1,11 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Clinic } from '../../clinic/entities/clinic.entity';
 import { Dentist } from '../../dentist/entities/dentist.entity';
 import { Nurse } from '../../nurse/entities/nurse.entity';
 import { FrontDeskWorker } from '../../front_desk_worker/entities/front_desk_worker.entity';
 import { Director } from '../../director/entities/director.entity';
+import { WorkingHours } from '../../working_hours/entities/working_hours.entity';
+import { BlockingHours } from '../../blocking_hours/entities/blocking_hours.entity';
 
 @Entity({ name: 'Staff' })
 export class Staff {
@@ -61,4 +63,10 @@ export class Staff {
 
   @OneToOne(() => Director, (director) => director.staff)
   director: Director;
+
+  @OneToMany(() => WorkingHours, (workingHours) => workingHours.staff)
+  workingHours: WorkingHours[];
+
+  @OneToMany(() => BlockingHours, (blockingHours) => blockingHours.staff)
+  blockingHours: BlockingHours[];
 }
