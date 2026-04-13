@@ -8,7 +8,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { EmailModule } from '../email/email.module';
 import { PasswordReset } from './entities/password-reset.entity';
 import { RedisClientProvider } from '../redis.provider';
-import { Dentist } from '../dentist/entities/dentist.entity';
 
 @Module({
   imports: [
@@ -16,7 +15,7 @@ import { Dentist } from '../dentist/entities/dentist.entity';
       secret: process.env.JWT_SECRET || 'dev_secret_change_me',
       signOptions: { expiresIn: '7d' },
     }),
-    TypeOrmModule.forFeature([PasswordReset, Dentist]),
+    TypeOrmModule.forFeature([PasswordReset]),
     EmailModule,
   ],
   controllers: [AuthController],

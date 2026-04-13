@@ -5,12 +5,17 @@ import { UpdateDentistDto } from './dto/update-dentist.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { Dentist } from './entities/dentist.entity';
 import * as bcrypt from 'bcrypt';
+import { DataSource } from 'typeorm';
+import { Staff } from '../staff/entities/staff.entity';
 
 @Injectable()
 export class DentistService {
     private readonly logger = new Logger(DentistService.name);
 
-    constructor(private readonly dentistRepository: DentistRepository) {}
+    constructor(
+        private readonly dentistRepository: DentistRepository,
+        private readonly dataSource: DataSource,
+    ) {}
 
     async findOne(id: number) {
         const dentist = await this.dentistRepository.findById(id);
@@ -19,7 +24,12 @@ export class DentistService {
             LogWriter.append('warn', DentistService.name, `Dentist with id ${id} not found`);
             throw new NotFoundException(`Dentist with id ${id} not found`);
         }
-        const { password, ...dentistWithoutPassword } = dentist;
+        const { password: _password, ...staffWithoutPassword } = dentist.staff;
+        const dentistWithoutPassword = {
+            id: dentist.id,
+            staffId: dentist.staffId,
+            staff: staffWithoutPassword,
+        };
         this.logger.log(`Dentist with id ${id} retrieved`);
         LogWriter.append('log', DentistService.name, `Dentist with id ${id} retrieved`);
         return dentistWithoutPassword;
@@ -33,19 +43,30 @@ export class DentistService {
             throw new NotFoundException(`Dentist with id ${id} not found`);
         }
 
-        const updates: Partial<Dentist> = {};
+        const staffUpdates: Partial<Dentist['staff']> = {};
         if (updateDentistDto.name !== undefined) {
-            updates.name = updateDentistDto.name;
+            staffUpdates.name = updateDentistDto.name;
         }
         if (updateDentistDto.surname !== undefined) {
-            updates.surname = updateDentistDto.surname;
+            staffUpdates.surname = updateDentistDto.surname;
         }
         if (updateDentistDto.birthDate !== undefined) {
-            updates.birthDate = new Date(updateDentistDto.birthDate);
+            staffUpdates.birthDate = new Date(updateDentistDto.birthDate);
         }
 
-        const updated = await this.dentistRepository.update(id, updates);
-        const { password, ...dentistWithoutPassword } = updated;
+        if (Object.keys(staffUpdates).length > 0) {
+            await this.dataSource.getRepository(Staff).update(dentist.staffId, staffUpdates);
+        }
+        const updated = await this.dentistRepository.findById(id);
+        if (!updated) {
+            throw new NotFoundException(`Dentist with id ${id} not found`);
+        }
+        const { password: _updatedPassword, ...updatedStaffWithoutPassword } = updated.staff;
+        const dentistWithoutPassword = {
+            id: updated.id,
+            staffId: updated.staffId,
+            staff: updatedStaffWithoutPassword,
+        };
         this.logger.log(`Dentist with id ${id} updated`);
         LogWriter.append('log', DentistService.name, `Dentist with id ${id} updated`);
         return dentistWithoutPassword;
@@ -65,7 +86,7 @@ export class DentistService {
             throw new BadRequestException('New password and confirm password do not match');
         }
 
-        const isCurrentPasswordValid = await bcrypt.compare(updatePasswordDto.currentPassword, dentist.password);
+        const isCurrentPasswordValid = await bcrypt.compare(updatePasswordDto.currentPassword, dentist.staff.password);
         if (!isCurrentPasswordValid) {
             this.logger.warn(`Password update failed: invalid current password for dentist ${id}`);
             LogWriter.append('warn', DentistService.name, `Password update failed: invalid current password for dentist ${id}`);
@@ -73,7 +94,7 @@ export class DentistService {
         }
 
         const hashedNewPassword = await bcrypt.hash(updatePasswordDto.newPassword, 10);
-        const updated = await this.dentistRepository.update(id, { password: hashedNewPassword });
+        await this.dataSource.getRepository(Staff).update(dentist.staffId, { password: hashedNewPassword });
         this.logger.log(`Password updated for dentist with id ${id}`);
         LogWriter.append('log', DentistService.name, `Password updated for dentist with id ${id}`);
         return { message: 'Password updated successfully' };

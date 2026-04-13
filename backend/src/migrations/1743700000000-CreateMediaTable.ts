@@ -41,15 +41,22 @@ export class CreateMediaTable1743700000000 implements MigrationInterface {
             true,
         );
 
-        await queryRunner.createForeignKey(
-            'Media',
-            new TableForeignKey({
-                columnNames: ['Tooth_Treatment_id'],
-                referencedColumnNames: ['id'],
-                referencedTableName: 'Tooth_Treatment',
-                onDelete: 'CASCADE',
-            }),
+        const mediaTable = await queryRunner.getTable('Media');
+        const hasMediaFk = mediaTable?.foreignKeys.some(
+            (fk) =>
+                fk.columnNames.includes('Tooth_Treatment_id') && fk.referencedTableName === 'Tooth_Treatment',
         );
+        if (!hasMediaFk) {
+            await queryRunner.createForeignKey(
+                'Media',
+                new TableForeignKey({
+                    columnNames: ['Tooth_Treatment_id'],
+                    referencedColumnNames: ['id'],
+                    referencedTableName: 'Tooth_Treatment',
+                    onDelete: 'CASCADE',
+                }),
+            );
+        }
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {

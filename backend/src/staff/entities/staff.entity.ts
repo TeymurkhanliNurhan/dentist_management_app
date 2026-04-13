@@ -1,5 +1,8 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Clinic } from '../../clinic/entities/clinic.entity';
+import { Dentist } from '../../dentist/entities/dentist.entity';
+import { Nurse } from '../../nurse/entities/nurse.entity';
+import { FrontDeskWorker } from '../../front_desk_worker/entities/front_desk_worker.entity';
 
 @Entity({ name: 'Staff' })
 export class Staff {
@@ -21,6 +24,15 @@ export class Staff {
   @Column({ type: 'varchar', length: 255 })
   password: string;
 
+  @Column({ type: 'boolean', default: false })
+  isEmailVerified: boolean;
+
+  @Column({ type: 'varchar', length: 6, nullable: true })
+  verificationCode: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  verificationCodeExpiry: Date | null;
+
   @Column({ type: 'boolean', default: true })
   active: boolean;
 
@@ -36,4 +48,13 @@ export class Staff {
   @ManyToOne(() => Clinic, (clinic) => clinic.staffMembers, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'clinicId' })
   clinic: Clinic;
+
+  @OneToOne(() => Dentist, (dentist) => dentist.staff)
+  dentist: Dentist;
+
+  @OneToOne(() => Nurse, (nurse) => nurse.staff)
+  nurse: Nurse;
+
+  @OneToOne(() => FrontDeskWorker, (frontDeskWorker) => frontDeskWorker.staff)
+  frontDeskWorker: FrontDeskWorker;
 }

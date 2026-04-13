@@ -28,15 +28,21 @@ export class AddPatientToRandevue1770000000001 implements MigrationInterface {
 
         await queryRunner.query(`DELETE FROM "Randevue" WHERE patient IS NULL`);
 
-        await queryRunner.createForeignKey(
-            'Randevue',
-            new TableForeignKey({
-                columnNames: ['patient'],
-                referencedColumnNames: ['id'],
-                referencedTableName: 'Patient',
-                onDelete: 'CASCADE',
-            }),
+        const randevueAfter = await queryRunner.getTable('Randevue');
+        const hasPatientFk = randevueAfter?.foreignKeys.some(
+            (fk) => fk.columnNames.includes('patient') && fk.referencedTableName === 'Patient',
         );
+        if (!hasPatientFk) {
+            await queryRunner.createForeignKey(
+                'Randevue',
+                new TableForeignKey({
+                    columnNames: ['patient'],
+                    referencedColumnNames: ['id'],
+                    referencedTableName: 'Patient',
+                    onDelete: 'CASCADE',
+                }),
+            );
+        }
 
         await queryRunner.query(`ALTER TABLE "Randevue" ALTER COLUMN "patient" SET NOT NULL`);
     }

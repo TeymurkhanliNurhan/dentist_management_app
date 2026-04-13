@@ -51,25 +51,45 @@ export class CreateRandevueTable1770000000000 implements MigrationInterface {
             true,
         );
 
-        await queryRunner.createForeignKey(
-            'Randevue',
-            new TableForeignKey({
-                columnNames: ['patient'],
-                referencedColumnNames: ['id'],
-                referencedTableName: 'Patient',
-                onDelete: 'CASCADE',
-            }),
-        );
+        let randevueTable = await queryRunner.getTable('Randevue');
+        if (!randevueTable) {
+            return;
+        }
 
-        await queryRunner.createForeignKey(
-            'Randevue',
-            new TableForeignKey({
-                columnNames: ['appointment'],
-                referencedColumnNames: ['id'],
-                referencedTableName: 'Appointment',
-                onDelete: 'SET NULL',
-            }),
+        const hasFkPatient = randevueTable.foreignKeys.some(
+            (fk) => fk.columnNames.includes('patient') && fk.referencedTableName === 'Patient',
         );
+        if (!hasFkPatient) {
+            await queryRunner.createForeignKey(
+                'Randevue',
+                new TableForeignKey({
+                    columnNames: ['patient'],
+                    referencedColumnNames: ['id'],
+                    referencedTableName: 'Patient',
+                    onDelete: 'CASCADE',
+                }),
+            );
+        }
+
+        randevueTable = await queryRunner.getTable('Randevue');
+        if (!randevueTable) {
+            return;
+        }
+
+        const hasFkAppointment = randevueTable.foreignKeys.some(
+            (fk) => fk.columnNames.includes('appointment') && fk.referencedTableName === 'Appointment',
+        );
+        if (!hasFkAppointment) {
+            await queryRunner.createForeignKey(
+                'Randevue',
+                new TableForeignKey({
+                    columnNames: ['appointment'],
+                    referencedColumnNames: ['id'],
+                    referencedTableName: 'Appointment',
+                    onDelete: 'SET NULL',
+                }),
+            );
+        }
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {

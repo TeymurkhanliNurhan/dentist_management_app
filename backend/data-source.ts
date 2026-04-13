@@ -14,13 +14,21 @@ import { ToothTranslation } from './src/tooth/entities/tooth_translation.entity'
 import { ToothTreatmentTeeth } from './src/tooth_treatment_teeth/entities/tooth_treatment_teeth.entity';
 import { Media } from './src/media/entities/media.entity';
 import { Randevue } from './src/randevue/entities/randevue.entity';
+import { Clinic } from './src/clinic/entities/clinic.entity';
+import { Staff } from './src/staff/entities/staff.entity';
+import { Nurse } from './src/nurse/entities/nurse.entity';
+import { FrontDeskWorker } from './src/front_desk_worker/entities/front_desk_worker.entity';
 
 export default new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   entities: [
+    Clinic,
     Dentist,
+    FrontDeskWorker,
+    Nurse,
+    Staff,
     Patient,
     PatientTooth,
     Tooth,

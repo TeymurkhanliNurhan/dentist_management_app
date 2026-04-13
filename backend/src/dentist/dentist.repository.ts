@@ -19,15 +19,20 @@ export class DentistRepository {
 		this.logger.debug(`findById called with id ${id}`);
 		LogWriter.append('debug', DentistRepository.name, `findById called with id ${id}`);
 		const repository = this.dataSource.getRepository(Dentist);
-		return repository.findOne({ where: { id } });
+		return repository.findOne({ where: { id }, relations: ['staff'] });
 	}
 
 	async update(id: number, updates: Partial<Dentist>): Promise<Dentist> {
 		this.logger.debug(`update called with id ${id}`);
 		LogWriter.append('debug', DentistRepository.name, `update called with id ${id}`);
 		const repository = this.dataSource.getRepository(Dentist);
-		await repository.update(id, updates);
-		const updated = await repository.findOne({ where: { id } });
+		const current = await repository.findOne({ where: { id }, relations: ['staff'] });
+		if (!current) {
+			throw new Error(`Dentist with id ${id} not found before update`);
+		}
+		const merged = repository.merge(current, updates);
+		await repository.save(merged);
+		const updated = await repository.findOne({ where: { id }, relations: ['staff'] });
 		if (!updated) {
 			throw new Error(`Dentist with id ${id} not found after update`);
 		}

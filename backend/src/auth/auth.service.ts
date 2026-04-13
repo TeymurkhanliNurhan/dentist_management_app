@@ -2,7 +2,6 @@ import { Injectable, ConflictException, UnauthorizedException, Logger, BadReques
 import * as bcrypt from 'bcrypt';
 import { AuthRepository } from './auth.repository';
 import { RegisterDto } from './dto/register.dto';
-import { Dentist } from '../dentist/entities/dentist.entity';
 import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { LoginResponseDto } from './dto/login-response.dto';
@@ -12,8 +11,6 @@ import { EmailService } from '../email/email.service';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import Redis from 'ioredis';
-import {InjectRepository} from "@nestjs/typeorm";
-import {Repository} from "typeorm";
 
 @Injectable()
 export class AuthService {
@@ -21,8 +18,6 @@ export class AuthService {
     private readonly authRepository: AuthRepository,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
-    @InjectRepository(Dentist)
-    private readonly dentistRepository: Repository<Dentist>,
     @Inject('REDIS_CLIENT') private readonly redisClient: Redis,
   ) {}
   private readonly logger = new Logger(AuthService.name);
@@ -59,17 +54,16 @@ export class AuthService {
       this.logger.error(`Failed to send verification email: ${error.message}`);
     }
 
-    const { password, ...dentistWithoutPassword } = newDentist as any;
-    this.logger.log(`Dentist registered with id ${dentistWithoutPassword.id}, verification email sent`);
-    LogWriter.append('log', AuthService.name, `Dentist registered with id ${dentistWithoutPassword.id}, verification email sent`);
+    this.logger.log(`Dentist registered with id ${newDentist.id}, verification email sent`);
+    LogWriter.append('log', AuthService.name, `Dentist registered with id ${newDentist.id}, verification email sent`);
     return {
       message: 'Registration successful! Please check your email for the verification code.',
       dentist: {
-        id: dentistWithoutPassword.id,
-        name: dentistWithoutPassword.name,
-        surname: dentistWithoutPassword.surname,
-        birthDate: (dentistWithoutPassword.birthDate as Date).toISOString().slice(0, 10),
-        gmail: dentistWithoutPassword.gmail,
+        id: newDentist.id,
+        name: newDentist.staff.name,
+        surname: newDentist.staff.surname,
+        birthDate: (newDentist.staff.birthDate as Date).toISOString().slice(0, 10),
+        gmail: newDentist.staff.gmail,
       },
     };
   }
@@ -82,20 +76,22 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isMatch = await bcrypt.compare(loginDto.password, user.password);
+    const isMatch = await bcrypt.compare(loginDto.password, user.staff.password);
     if (!isMatch) {
       this.logger.warn('SignIn failed: password mismatch');
       LogWriter.append('warn', AuthService.name, 'SignIn failed: password mismatch');
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (!user.isEmailVerified) {
+    if (!user.staff.isEmailVerified) {
       this.logger.warn(`SignIn failed: email not verified for user ${user.id}`);
       LogWriter.append('warn', AuthService.name, `SignIn failed: email not verified for user ${user.id}`);
-      throw new UnauthorizedException('Please verify your email address before signing in. Check your inbox for the verification code.');
+      throw new UnauthorizedException(
+        'Please verify your email address before signing in. Check your inbox for the verification code.',
+      );
     }
 
-    const payload = { sub: user.id, gmail: user.gmail };
+    const payload = { sub: user.id, gmail: user.staff.gmail };
     const access_token = await this.jwtService.signAsync(payload);
     this.logger.log(`Dentist with id ${user.id} signed in`);
     LogWriter.append('log', AuthService.name, `Dentist with id ${user.id} signed in`);
@@ -108,19 +104,19 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    if (user.isEmailVerified) {
+    if (user.staff.isEmailVerified) {
       throw new BadRequestException('Email is already verified');
     }
 
-    if (!user.verificationCode || !user.verificationCodeExpiry) {
+    if (!user.staff.verificationCode || !user.staff.verificationCodeExpiry) {
       throw new BadRequestException('No verification code found. Please request a new one.');
     }
 
-    if (new Date() > user.verificationCodeExpiry) {
+    if (new Date() > user.staff.verificationCodeExpiry) {
       throw new BadRequestException('Verification code has expired. Please request a new one.');
     }
 
-    if (user.verificationCode !== verifyEmailDto.code) {
+    if (user.staff.verificationCode !== verifyEmailDto.code) {
       throw new BadRequestException('Invalid verification code');
     }
 
@@ -141,7 +137,7 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    if (user.isEmailVerified) {
+    if (user.staff.isEmailVerified) {
       throw new BadRequestException('Email is already verified');
     }
 
@@ -200,14 +196,15 @@ export class AuthService {
       return { success: false, message: 'Reset code not verified for this email.' };
     }
 
-    const person = await this.dentistRepository.findOne({ where: { gmail: email } });
+    const person = await this.authRepository.findUserByEmail(email);
     if (!person) {
       return { success: false, message: 'No user found with this email.' };
     }
 
     const bcrypt_salt_rounds = 10;
-    person.password = await bcrypt.hash(newPassword, bcrypt_salt_rounds);
-    await this.dentistRepository.save(person);
+    await this.authRepository.updateUser(person.id, {
+      password: await bcrypt.hash(newPassword, bcrypt_salt_rounds),
+    });
 
     await this.redisClient.del(`reset:${email}`);
     await this.redisClient.del(`verified:${email}`);

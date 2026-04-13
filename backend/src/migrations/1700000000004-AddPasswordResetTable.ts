@@ -36,6 +36,7 @@ export class AddPasswordResetTable1700000000004 implements MigrationInterface {
                   },
               ],
           }),
+          true,
         );
     }
 
