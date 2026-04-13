@@ -14,7 +14,7 @@ export class PatientService {
 
     async create(dentistId: number, dto: CreatePatientDto): Promise<PatientCreateResponseDto> {
         try {
-            const created = await this.patientRepository.createPatientForDentist(dentistId, {
+            const { patient: created, clinicId } = await this.patientRepository.createPatientForDentist(dentistId, {
                 name: dto.name,
                 surname: dto.surname,
                 birthDate: new Date(dto.birthDate),
@@ -27,7 +27,7 @@ export class PatientService {
                 name: created.name,
                 surname: created.surname,
                 birthDate: created.birthDate.toISOString().slice(0, 10),
-                dentist: { id: dentistId },
+                clinic: { id: clinicId },
             };
         } catch (e: any) {
             if (e?.message?.includes('Dentist not found')) throw new BadRequestException('Dentist not found');

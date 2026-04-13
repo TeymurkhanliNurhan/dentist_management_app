@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Patient } from './entities/patient.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
+import { Clinic } from '../clinic/entities/clinic.entity';
 
 @Injectable()
 export class PatientRepository {
@@ -10,6 +11,15 @@ export class PatientRepository {
 
     private get patientRepo(): Repository<Patient> {
         return this.dataSource.getRepository(Patient);
+    }
+
+    async getClinicIdForDentist(dentistId: number): Promise<number> {
+        const dentist = await this.dataSource.getRepository(Dentist).findOne({
+            where: { id: dentistId },
+            relations: ['staff'],
+        });
+        if (!dentist?.staff) throw new Error('Dentist not found');
+        return dentist.staff.clinicId;
     }
 
     async getNextPatientId(): Promise<number> {
@@ -21,22 +31,28 @@ export class PatientRepository {
         return Number(max) + 1;
     }
 
-    async createPatientForDentist(dentistId: number, input: { name: string; surname: string; birthDate: Date }): Promise<Patient> {
-        const dentistRef = await this.dataSource.getRepository(Dentist).findOne({ where: { id: dentistId } });
-        if (!dentistRef) throw new Error('Dentist not found');
+    async createPatientForDentist(
+        dentistId: number,
+        input: { name: string; surname: string; birthDate: Date },
+    ): Promise<{ patient: Patient; clinicId: number }> {
+        const clinicId = await this.getClinicIdForDentist(dentistId);
+        const clinicRef = await this.dataSource.getRepository(Clinic).findOne({ where: { id: clinicId } });
+        if (!clinicRef) throw new Error('Dentist not found');
         const nextId = await this.getNextPatientId();
         const patient = this.patientRepo.create({
             id: nextId,
             name: input.name,
             surname: input.surname,
             birthDate: input.birthDate,
-            dentist: dentistRef,
+            clinic: clinicRef,
         });
-        return await this.patientRepo.save(patient);
+        const saved = await this.patientRepo.save(patient);
+        return { patient: saved, clinicId };
     }
 
     async updatePatientEnsureOwnership(dentistId: number, id: number, updates: Partial<{ name: string; surname: string; birthDate: Date }>): Promise<Patient> {
-        const patient = await this.patientRepo.findOne({ where: { id, dentist: { id: dentistId } } });
+        const clinicId = await this.getClinicIdForDentist(dentistId);
+        const patient = await this.patientRepo.findOne({ where: { id, clinic: { id: clinicId } } });
         if (!patient) throw new Error('Forbidden');
         if (updates.name !== undefined) patient.name = updates.name;
         if (updates.surname !== undefined) patient.surname = updates.surname;
@@ -48,9 +64,10 @@ export class PatientRepository {
         dentistId: number,
         filters: { id?: number; name?: string; surname?: string; birthdate?: string },
     ): Promise<Patient[]> {
+        const clinicId = await this.getClinicIdForDentist(dentistId);
         const queryBuilder = this.patientRepo
             .createQueryBuilder('patient')
-            .where('patient.dentist = :dentistId', { dentistId });
+            .where('patient.clinicId = :clinicId', { clinicId });
 
         if (filters.id !== undefined) {
             queryBuilder.andWhere('patient.id = :id', { id: filters.id });
@@ -69,7 +86,8 @@ export class PatientRepository {
     }
 
     async deletePatientEnsureOwnership(dentistId: number, id: number): Promise<void> {
-        const patient = await this.patientRepo.findOne({ where: { id, dentist: { id: dentistId } } });
+        const clinicId = await this.getClinicIdForDentist(dentistId);
+        const patient = await this.patientRepo.findOne({ where: { id, clinic: { id: clinicId } } });
         if (!patient) throw new Error('Forbidden');
         await this.patientRepo.remove(patient);
     }

@@ -24,12 +24,12 @@ export class AppointmentRepository {
         const dentistRepo = this.dataSource.getRepository(Dentist);
         const patientRepo = this.dataSource.getRepository(Patient);
         const [dentist, patient] = await Promise.all([
-            dentistRepo.findOne({ where: { id: dentistId } }),
-            patientRepo.findOne({ where: { id: patientId }, relations: ['dentist'] }),
+            dentistRepo.findOne({ where: { id: dentistId }, relations: ['staff'] }),
+            patientRepo.findOne({ where: { id: patientId }, relations: ['clinic'] }),
         ]);
-        if (!dentist) throw new Error('Dentist not found');
-        if (!patient) throw new Error('Patient not found');
-        if (patient.dentist?.id !== dentistId) throw new Error('Forbidden');
+        if (!dentist?.staff) throw new Error('Dentist not found');
+        if (!patient?.clinic) throw new Error('Patient not found');
+        if (patient.clinic.id !== dentist.staff.clinicId) throw new Error('Forbidden');
         const appointment = this.repo.create({
             ...input,
             calculatedFee: 0,

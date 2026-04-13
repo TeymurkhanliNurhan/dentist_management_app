@@ -98,6 +98,8 @@ export interface Patient {
   name: string;
   surname: string;
   birthDate: string;
+  /** Present on POST /patient response; patients belong to a clinic. */
+  clinic?: { id: number };
 }
 
 export interface PatientFilters {

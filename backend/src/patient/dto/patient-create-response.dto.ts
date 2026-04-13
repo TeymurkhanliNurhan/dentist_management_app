@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-class DentistRefDto {
-    @ApiProperty({ example: 2 })
+class ClinicRefDto {
+    @ApiProperty({ example: 1 })
     id: number;
 }
 
@@ -18,8 +18,8 @@ export class PatientCreateResponseDto {
     @ApiProperty({ example: '2000-05-10' })
     birthDate: string;
 
-    @ApiProperty({ type: DentistRefDto })
-    dentist: DentistRefDto;
+    @ApiProperty({ type: ClinicRefDto })
+    clinic: ClinicRefDto;
 }
 
 

@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { PatientTooth } from './entities/patient_tooth.entity';
 import { Patient } from '../patient/entities/patient.entity';
+import { Dentist } from '../dentist/entities/dentist.entity';
 
 @Injectable()
 export class PatientToothRepository {
@@ -20,10 +21,14 @@ export class PatientToothRepository {
         dentistId: number,
         filters: { patient: number; tooth?: number },
     ): Promise<PatientTooth[]> {
-        const patient = await this.patientRepo.findOne({
-            where: { id: filters.patient, dentist: { id: dentistId } },
-            relations: ['dentist'],
-        });
+        const patient = await this.patientRepo
+            .createQueryBuilder('p')
+            .innerJoin('p.clinic', 'pc')
+            .innerJoin(Dentist, 'd', 'd.id = :dentistId', { dentistId })
+            .innerJoin('d.staff', 'ds')
+            .where('p.id = :patientId', { patientId: filters.patient })
+            .andWhere('pc.id = ds.clinicId')
+            .getOne();
 
         if (!patient) {
             throw new Error('Patient not found or Forbidden');

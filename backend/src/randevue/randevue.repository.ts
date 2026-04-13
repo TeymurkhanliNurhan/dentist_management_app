@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Randevue } from './entities/randevue.entity';
 import { Patient } from '../patient/entities/patient.entity';
 import { Appointment } from '../appointment/entities/appointment.entity';
+import { Dentist } from '../dentist/entities/dentist.entity';
 
 @Injectable()
 export class RandevueRepository {
@@ -18,9 +19,11 @@ export class RandevueRepository {
         return this.repo
             .createQueryBuilder('r')
             .innerJoinAndSelect('r.patient', 'pt')
-            .innerJoin('pt.dentist', 'dentist')
+            .innerJoin('pt.clinic', 'pclinic')
+            .innerJoin(Dentist, 'dentist', 'dentist.id = :dentistId', { dentistId })
+            .innerJoin('dentist.staff', 'dstaff')
             .leftJoinAndSelect('r.appointment', 'appt')
-            .where('dentist.id = :dentistId', { dentistId })
+            .where('pclinic.id = dstaff.clinicId')
             .andWhere('r.date < :toBound', { toBound: to })
             .andWhere('r.endTime > :fromBound', { fromBound: from })
             .orderBy('r.date', 'ASC')
@@ -29,9 +32,14 @@ export class RandevueRepository {
 
     async assertPatientOwnedByDentist(dentistId: number, patientId: number): Promise<Patient> {
         const patientRepo = this.dataSource.getRepository(Patient);
-        const patient = await patientRepo.findOne({ where: { id: patientId }, relations: ['dentist'] });
-        if (!patient) throw new Error('Patient not found');
-        if (patient.dentist?.id !== dentistId) throw new Error('Forbidden patient');
+        const dentistRepo = this.dataSource.getRepository(Dentist);
+        const [patient, dentist] = await Promise.all([
+            patientRepo.findOne({ where: { id: patientId }, relations: ['clinic'] }),
+            dentistRepo.findOne({ where: { id: dentistId }, relations: ['staff'] }),
+        ]);
+        if (!patient?.clinic) throw new Error('Patient not found');
+        if (!dentist?.staff) throw new Error('Forbidden patient');
+        if (patient.clinic.id !== dentist.staff.clinicId) throw new Error('Forbidden patient');
         return patient;
     }
 
@@ -80,11 +88,13 @@ export class RandevueRepository {
         return this.repo
             .createQueryBuilder('r')
             .innerJoinAndSelect('r.patient', 'pt')
-            .innerJoin('pt.dentist', 'dentist')
+            .innerJoin('pt.clinic', 'pclinic')
+            .innerJoin(Dentist, 'dentist', 'dentist.id = :dentistId', { dentistId })
+            .innerJoin('dentist.staff', 'dstaff')
             .leftJoinAndSelect('r.appointment', 'appt')
             .leftJoinAndSelect('appt.patient', 'apptPt')
             .where('r.id = :id', { id })
-            .andWhere('dentist.id = :dentistId', { dentistId })
+            .andWhere('pclinic.id = dstaff.clinicId')
             .getOne();
     }
 
