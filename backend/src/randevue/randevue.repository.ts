@@ -54,8 +54,14 @@ export class RandevueRepository {
     dentistId: number,
     from: Date,
     to: Date,
+    filters?: {
+      dentist?: number;
+      room?: number;
+      nurse?: number;
+      patient?: number;
+    },
   ): Promise<Randevue[]> {
-    return this.repo
+    const qb = this.repo
       .createQueryBuilder('r')
       .innerJoinAndSelect('r.patient', 'pt')
       .innerJoinAndSelect('pt.clinic', 'ptclinic')
@@ -65,9 +71,24 @@ export class RandevueRepository {
       .leftJoinAndSelect('r.dentist', 'rdentist')
       .where('r.dentist = :dentistId', { dentistId })
       .andWhere('r.date < :toBound', { toBound: to })
-      .andWhere('r.endTime > :fromBound', { fromBound: from })
-      .orderBy('r.date', 'ASC')
-      .getMany();
+      .andWhere('r.endTime > :fromBound', { fromBound: from });
+
+    if (filters?.dentist != null) {
+      qb.andWhere('rdentist.id = :filterDentistId', {
+        filterDentistId: filters.dentist,
+      });
+    }
+    if (filters?.room != null) {
+      qb.andWhere('rm.id = :filterRoomId', { filterRoomId: filters.room });
+    }
+    if (filters?.nurse != null) {
+      qb.andWhere('nv.id = :filterNurseId', { filterNurseId: filters.nurse });
+    }
+    if (filters?.patient != null) {
+      qb.andWhere('pt.id = :filterPatientId', { filterPatientId: filters.patient });
+    }
+
+    return qb.orderBy('r.date', 'ASC').getMany();
   }
 
   async assertPatientOwnedByDentist(

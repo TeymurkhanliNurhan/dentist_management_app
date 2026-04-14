@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -9,6 +10,12 @@ import {
 } from 'class-validator';
 
 export class UpdateMedicineDto {
+  @ApiPropertyOptional({ example: 1, description: 'Clinic id' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  clinic_id?: number;
+
   @ApiPropertyOptional({ example: 'Amoxicillin' })
   @IsOptional()
   @IsString()

@@ -9,6 +9,12 @@ import {
 } from 'class-validator';
 
 export class UpdateToothTreatmentDto {
+  @ApiPropertyOptional({ example: 1, description: 'Dentist id' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  dentist_id?: number;
+
   @ApiPropertyOptional({ example: 2, description: 'Treatment id' })
   @IsOptional()
   @IsInt()

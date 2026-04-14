@@ -37,4 +37,11 @@ export class GetToothTreatmentDto {
   @IsInt()
   @Min(1)
   treatment?: number;
+
+  @ApiPropertyOptional({ example: 1, description: 'Dentist ID' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  dentist?: number;
 }

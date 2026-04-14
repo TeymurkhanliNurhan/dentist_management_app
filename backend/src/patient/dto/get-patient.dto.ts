@@ -33,4 +33,11 @@ export class GetPatientDto {
   @IsOptional()
   @IsDateString()
   birthdate?: string;
+
+  @ApiPropertyOptional({ example: 1, description: 'Clinic ID' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  clinic_id?: number;
 }

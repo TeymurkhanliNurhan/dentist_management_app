@@ -92,6 +92,12 @@ export class RandevueService {
       dentistId,
       from,
       to,
+      {
+        dentist: dto.dentist,
+        room: dto.room,
+        nurse: dto.nurse,
+        patient: dto.patient,
+      },
     );
     const msg = `Dentist ${dentistId} listed ${list.length} randevue(s) for range`;
     this.logger.log(msg);

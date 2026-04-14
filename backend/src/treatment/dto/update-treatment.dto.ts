@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -11,6 +12,12 @@ import {
 import { TreatmentPricePer } from '../treatment-price-per.enum';
 
 export class UpdateTreatmentDto {
+  @ApiPropertyOptional({ example: 1, description: 'Clinic id' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  clinic_id?: number;
+
   @ApiPropertyOptional({ example: 'Root Canal' })
   @IsOptional()
   @IsString()

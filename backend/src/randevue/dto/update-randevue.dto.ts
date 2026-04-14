@@ -26,6 +26,12 @@ export class UpdateRandevueDto {
   @Min(1)
   patient_id?: number;
 
+  @ApiPropertyOptional({ example: 1, description: 'Dentist id' })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  dentist_id?: number;
+
   @ApiPropertyOptional({ description: 'Note text; send empty string to clear' })
   @IsOptional()
   @IsString()

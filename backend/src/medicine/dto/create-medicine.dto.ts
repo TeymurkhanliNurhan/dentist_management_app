@@ -1,7 +1,19 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsInt,
+  IsNumber,
+  IsString,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export class CreateMedicineDto {
+  @ApiProperty({ example: 1, description: 'Clinic id' })
+  @IsInt()
+  @Min(1)
+  clinic_id: number;
+
   @ApiProperty({ example: 'Amoxicillin' })
   @IsString()
   @MinLength(1)
