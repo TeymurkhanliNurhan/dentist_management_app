@@ -41,6 +41,10 @@ import { Room } from './room/entities/room.entity';
 import { WorkingHours } from './working_hours/entities/working_hours.entity';
 import { BlockingHours } from './blocking_hours/entities/blocking_hours.entity';
 import { DentistTreatment } from './dentist_treatment/entities/dentist_treatment.entity';
+import { FrontDeskWorkerModule } from './front_desk_worker/front_desk_worker.module';
+import { DirectorModule } from './director/director.module';
+import { WorkingHoursModule } from './working_hours/working_hours.module';
+import { BlockingHoursModule } from './blocking_hours/blocking_hours.module';
 
 @Module({
   imports: [
@@ -185,6 +189,10 @@ import { DentistTreatment } from './dentist_treatment/entities/dentist_treatment
     S3Module,
     RandevueModule,
     StaffModule,
+    FrontDeskWorkerModule,
+    DirectorModule,
+    WorkingHoursModule,
+    BlockingHoursModule,
   ],
   controllers: [AppController],
   providers: [AppService],
