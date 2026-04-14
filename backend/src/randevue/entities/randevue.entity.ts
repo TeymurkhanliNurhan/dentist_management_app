@@ -3,6 +3,7 @@ import { Appointment } from '../../appointment/entities/appointment.entity';
 import { Patient } from '../../patient/entities/patient.entity';
 import { Room } from '../../room/entities/room.entity';
 import { Nurse } from '../../nurse/entities/nurse.entity';
+import { Dentist } from '../../dentist/entities/dentist.entity';
 
 @Entity({ name: 'Randevue' })
 export class Randevue {
@@ -39,4 +40,8 @@ export class Randevue {
     @ManyToOne(() => Nurse, (nurse) => nurse.randevues, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'nurse' })
     nurse: Nurse | null;
+
+    @ManyToOne(() => Dentist, (dentist) => dentist.randevues, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'dentist' })
+    dentist: Dentist | null;
 }

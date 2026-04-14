@@ -3,6 +3,7 @@ import { Staff } from '../../staff/entities/staff.entity';
 import { Medicine } from '../../medicine/entities/medicine.entity';
 import { Patient } from '../../patient/entities/patient.entity';
 import { Room } from '../../room/entities/room.entity';
+import { Treatment } from '../../treatment/entities/treatment.entity';
 
 @Entity({ name: 'Clinic' })
 export class Clinic {
@@ -20,6 +21,9 @@ export class Clinic {
 
   @OneToMany(() => Medicine, (medicine) => medicine.clinic)
   medicines: Medicine[];
+
+  @OneToMany(() => Treatment, (treatment) => treatment.clinic)
+  treatments: Treatment[];
 
   @OneToMany(() => Patient, (patient) => patient.clinic)
   patients: Patient[];

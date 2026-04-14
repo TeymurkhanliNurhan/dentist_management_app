@@ -4,6 +4,7 @@ import { DataSource, Repository, In, Brackets } from 'typeorm';
 import { ToothTreatment } from './entities/tooth_treatment.entity';
 import { Appointment } from '../appointment/entities/appointment.entity';
 import { Treatment } from '../treatment/entities/treatment.entity';
+import { Dentist } from '../dentist/entities/dentist.entity';
 import { PatientTooth } from '../patient_tooth/entities/patient_tooth.entity';
 import { ToothTreatmentTeeth } from '../tooth_treatment_teeth/entities/tooth_treatment_teeth.entity';
 import { calculateAppointmentCalculatedFee, calculateAppointmentDiscountFee } from '../appointment/appointment-fee.util';
@@ -15,6 +16,12 @@ export class ToothTreatmentRepository {
 
     private get repo(): Repository<ToothTreatment> {
         return this.dataSource.getRepository(ToothTreatment);
+    }
+
+    private async getClinicIdForDentist(dentistId: number): Promise<number> {
+        const dentist = await this.dataSource.getRepository(Dentist).findOne({ where: { id: dentistId }, relations: ['staff'] });
+        if (!dentist?.staff) throw new Error('Dentist not found');
+        return dentist.staff.clinicId;
     }
 
     private async computeFeeSnapshotForTreatment(
@@ -70,7 +77,8 @@ export class ToothTreatmentRepository {
         if (appointment.dentist?.id !== dentistId) throw new Error('Forbidden');
         if (appointment.patient?.id !== input.patientId) throw new Error('InvalidPatientForAppointment');
 
-        const treatment = await treatmentRepo.findOne({ where: { id: input.treatmentId, dentist: { id: dentistId } } });
+        const clinicId = await this.getClinicIdForDentist(dentistId);
+        const treatment = await treatmentRepo.findOne({ where: { id: input.treatmentId, clinic: { id: clinicId } } });
         if (!treatment) throw new Error('Treatment not found or not owned');
 
         for (const toothId of input.toothIds) {
@@ -127,7 +135,10 @@ export class ToothTreatmentRepository {
         if (current.appointment?.dentist?.id !== dentistId) throw new Error('Forbidden');
 
         if (updates.treatmentId !== undefined) {
-            const treatment = await this.dataSource.getRepository(Treatment).findOne({ where: { id: updates.treatmentId, dentist: { id: dentistId } } });
+            const clinicId = await this.getClinicIdForDentist(dentistId);
+            const treatment = await this.dataSource
+                .getRepository(Treatment)
+                .findOne({ where: { id: updates.treatmentId, clinic: { id: clinicId } } });
             if (!treatment) throw new Error('Treatment not found or not owned');
             current.treatment = treatment;
         }
@@ -179,8 +190,9 @@ export class ToothTreatmentRepository {
 
         const treatmentRepo = this.dataSource.getRepository(Treatment);
         const treatmentIdForFee = current.treatment.id;
+        const clinicIdForFee = await this.getClinicIdForDentist(dentistId);
         const freshTreatment = await treatmentRepo.findOne({
-            where: { id: treatmentIdForFee, dentist: { id: dentistId } },
+            where: { id: treatmentIdForFee, clinic: { id: clinicIdForFee } },
         });
         if (!freshTreatment) throw new Error('Treatment not found or not owned');
         current.treatment = freshTreatment;

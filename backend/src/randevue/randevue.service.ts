@@ -8,6 +8,7 @@ import { LogWriter } from '../log-writer';
 import { Randevue } from './entities/randevue.entity';
 import { Appointment } from '../appointment/entities/appointment.entity';
 import { Patient } from '../patient/entities/patient.entity';
+import { Dentist } from '../dentist/entities/dentist.entity';
 import { Room } from '../room/entities/room.entity';
 import { Nurse } from '../nurse/entities/nurse.entity';
 
@@ -51,6 +52,7 @@ export class RandevueService {
                 ? { id: r.room.id, number: r.room.number, description: r.room.description }
                 : undefined,
             nurse: r.nurse ? { id: r.nurse.id } : null,
+            dentist: r.dentist ? { id: r.dentist.id } : null,
         };
     }
 
@@ -134,6 +136,7 @@ export class RandevueService {
                 appointment: appointmentEntity,
                 room,
                 nurse,
+                dentistId,
             });
 
             const reloaded = await this.repo.findByIdWithRelations(saved.id);
@@ -199,6 +202,7 @@ export class RandevueService {
                 if (row.status === 'booked') row.status = 'scheduled';
             }
             row.patient = patient;
+            row.dentist = { id: dentistId } as Dentist;
         }
 
         if (dto.note !== undefined) {

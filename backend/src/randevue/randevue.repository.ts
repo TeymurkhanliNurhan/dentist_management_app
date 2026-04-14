@@ -46,12 +46,11 @@ export class RandevueRepository {
             .createQueryBuilder('r')
             .innerJoinAndSelect('r.patient', 'pt')
             .innerJoinAndSelect('pt.clinic', 'ptclinic')
-            .innerJoin(Dentist, 'dentist', 'dentist.id = :dentistId', { dentistId })
-            .innerJoin('dentist.staff', 'dstaff')
             .leftJoinAndSelect('r.appointment', 'appt')
             .leftJoinAndSelect('r.room', 'rm')
             .leftJoinAndSelect('r.nurse', 'nv')
-            .where('ptclinic.id = dstaff.clinicId')
+            .leftJoinAndSelect('r.dentist', 'rdentist')
+            .where('r.dentist = :dentistId', { dentistId })
             .andWhere('r.date < :toBound', { toBound: to })
             .andWhere('r.endTime > :fromBound', { fromBound: from })
             .orderBy('r.date', 'ASC')
@@ -95,6 +94,7 @@ export class RandevueRepository {
         appointment: Appointment | null;
         room: Room;
         nurse: Nurse | null;
+        dentistId: number;
     }): Promise<Randevue> {
         const row = this.repo.create({
             date: input.date,
@@ -105,6 +105,7 @@ export class RandevueRepository {
             appointment: input.appointment,
             room: input.room,
             nurse: input.nurse,
+            dentist: { id: input.dentistId } as Dentist,
         });
         return this.repo.save(row);
     }
@@ -112,7 +113,7 @@ export class RandevueRepository {
     async findByIdWithRelations(id: number): Promise<Randevue | null> {
         return this.repo.findOne({
             where: { id },
-            relations: ['patient', 'appointment', 'room', 'nurse'],
+            relations: ['patient', 'appointment', 'room', 'nurse', 'dentist'],
         });
     }
 
@@ -121,14 +122,13 @@ export class RandevueRepository {
             .createQueryBuilder('r')
             .innerJoinAndSelect('r.patient', 'pt')
             .innerJoinAndSelect('pt.clinic', 'ptclinic')
-            .innerJoin(Dentist, 'dentist', 'dentist.id = :dentistId', { dentistId })
-            .innerJoin('dentist.staff', 'dstaff')
             .leftJoinAndSelect('r.appointment', 'appt')
             .leftJoinAndSelect('appt.patient', 'apptPt')
             .leftJoinAndSelect('r.room', 'rm')
             .leftJoinAndSelect('r.nurse', 'nv')
+            .leftJoinAndSelect('r.dentist', 'rdentist')
             .where('r.id = :id', { id })
-            .andWhere('ptclinic.id = dstaff.clinicId')
+            .andWhere('r.dentist = :dentistId', { dentistId })
             .getOne();
     }
 

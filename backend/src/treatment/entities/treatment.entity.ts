@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { ToothTreatment } from '../../tooth_treatment/entities/tooth_treatment.entity';
-import { Dentist } from '../../dentist/entities/dentist.entity';
+import { Clinic } from '../../clinic/entities/clinic.entity';
 import { TreatmentPricePer } from '../treatment-price-per.enum';
 
 @Entity({ name: 'Treatment' })
@@ -23,9 +23,9 @@ export class Treatment {
     @OneToMany(() => ToothTreatment, (tt) => tt.treatment)
     toothTreatments: ToothTreatment[];
 
-    @ManyToOne(() => Dentist, (dentist) => dentist.treatments, { nullable: false })
-    @JoinColumn({ name: 'dentist' })
-    dentist: Dentist;
+    @ManyToOne(() => Clinic, (clinic) => clinic.treatments, { nullable: false, onDelete: 'RESTRICT' })
+    @JoinColumn({ name: 'clinicId' })
+    clinic: Clinic;
 }
 
 

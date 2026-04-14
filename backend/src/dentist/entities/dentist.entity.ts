@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, OneToMany, OneToOne, JoinColumn, Column } from 'typeorm';
-import { Treatment } from '../../treatment/entities/treatment.entity';
 import { Appointment } from '../../appointment/entities/appointment.entity';
 import { Staff } from '../../staff/entities/staff.entity';
+import { Randevue } from '../../randevue/entities/randevue.entity';
 
 @Entity({name: 'Dentist'})
 export class Dentist {
@@ -15,9 +15,9 @@ export class Dentist {
     @JoinColumn({ name: 'staffId' })
     staff: Staff;
 
-    @OneToMany(() => Treatment, (treatment) => treatment.dentist)
-    treatments: Treatment[];
-
     @OneToMany(() => Appointment, (appointment) => appointment.dentist)
     appointments: Appointment[];
+
+    @OneToMany(() => Randevue, (randevue) => randevue.dentist)
+    randevues: Randevue[];
 }

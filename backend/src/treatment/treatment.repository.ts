@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Treatment } from './entities/treatment.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
+import { Clinic } from '../clinic/entities/clinic.entity';
 
 @Injectable()
 export class TreatmentRepository {
@@ -16,14 +17,15 @@ export class TreatmentRepository {
         dentistId: number,
         input: { name: string; price: number; description: string; pricePer?: Treatment['pricePer'] },
     ): Promise<Treatment> {
-        const dentist = await this.dataSource.getRepository(Dentist).findOne({ where: { id: dentistId } });
-        if (!dentist) throw new Error('Dentist not found');
+        const dentist = await this.dataSource.getRepository(Dentist).findOne({ where: { id: dentistId }, relations: ['staff'] });
+        if (!dentist?.staff) throw new Error('Dentist not found');
+        const clinicId = dentist.staff.clinicId;
         const treatment = this.repo.create({
             name: input.name,
             price: input.price,
             description: input.description,
             pricePer: input.pricePer ?? null,
-            dentist,
+            clinic: { id: clinicId } as Clinic,
         });
         return await this.repo.save(treatment);
     }
@@ -33,7 +35,10 @@ export class TreatmentRepository {
         id: number,
         updates: Partial<{ name: string; price: number; description: string; pricePer: Treatment['pricePer'] }>,
     ): Promise<Treatment> {
-        const treatment = await this.repo.findOne({ where: { id, dentist: { id: dentistId } } });
+        const dentist = await this.dataSource.getRepository(Dentist).findOne({ where: { id: dentistId }, relations: ['staff'] });
+        if (!dentist?.staff) throw new Error('Dentist not found');
+        const clinicId = dentist.staff.clinicId;
+        const treatment = await this.repo.findOne({ where: { id, clinic: { id: clinicId } } });
         if (!treatment) throw new Error('Forbidden');
         if (updates.name !== undefined) treatment.name = updates.name;
         if (updates.price !== undefined) treatment.price = updates.price;
@@ -46,9 +51,12 @@ export class TreatmentRepository {
         dentistId: number,
         filters: { id?: number; name?: string },
     ): Promise<Treatment[]> {
+        const dentist = await this.dataSource.getRepository(Dentist).findOne({ where: { id: dentistId }, relations: ['staff'] });
+        if (!dentist?.staff) throw new Error('Dentist not found');
+        const clinicId = dentist.staff.clinicId;
         const queryBuilder = this.repo
             .createQueryBuilder('treatment')
-            .where('treatment.dentist = :dentistId', { dentistId });
+            .where('treatment.clinicId = :clinicId', { clinicId });
 
         if (filters.id !== undefined) {
             queryBuilder.andWhere('treatment.id = :id', { id: filters.id });

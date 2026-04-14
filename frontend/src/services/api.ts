@@ -510,6 +510,7 @@ export interface Randevue {
   appointment: { id: number } | null;
   room?: { id: number; number: string; description: string };
   nurse: { id: number } | null;
+  dentist?: { id: number } | null;
 }
 
 export interface CreateRandevueDto {
