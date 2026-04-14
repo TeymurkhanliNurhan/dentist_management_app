@@ -9,4 +9,3 @@ import { EmailModule } from '../email/email.module';
   providers: [ContactService],
 })
 export class ContactModule {}
-

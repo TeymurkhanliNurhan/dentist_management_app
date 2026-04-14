@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { AppointmentRepository } from './appointment.repository';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
@@ -13,25 +18,33 @@ export class AppointmentService {
 
   async create(dentistId: number, dto: CreateAppointmentDto) {
     try {
-      const created = await this.repo.createAppointmentForDentistAndPatient(dentistId, dto.patient_id, {
-        startDate: new Date(dto.startDate),
-        endDate: dto.endDate ? new Date(dto.endDate) : null,
-        chargedFee: dto.chargedFee ?? null,
-      });
+      const created = await this.repo.createAppointmentForDentistAndPatient(
+        dentistId,
+        dto.patient_id,
+        {
+          startDate: new Date(dto.startDate),
+          endDate: dto.endDate ? new Date(dto.endDate) : null,
+          chargedFee: dto.chargedFee ?? null,
+        },
+      );
       const msg = `Dentist with id ${dentistId} created Appointment with id ${created.id}`;
       this.logger.log(msg);
       LogWriter.append('log', AppointmentService.name, msg);
       return {
         id: created.id,
         startDate: created.startDate.toISOString().slice(0, 10),
-        endDate: created.endDate ? created.endDate.toISOString().slice(0, 10) : null,
+        endDate: created.endDate
+          ? created.endDate.toISOString().slice(0, 10)
+          : null,
         calculatedFee: created.calculatedFee,
         chargedFee: created.chargedFee,
         discountFee: created.discountFee,
       };
     } catch (e: any) {
-      if (e?.message?.includes('Dentist not found')) throw new BadRequestException('Dentist not found');
-      if (e?.message?.includes('Patient not found')) throw new NotFoundException('Patient not found');
+      if (e?.message?.includes('Dentist not found'))
+        throw new BadRequestException('Dentist not found');
+      if (e?.message?.includes('Patient not found'))
+        throw new NotFoundException('Patient not found');
       if (e?.message?.includes('Forbidden')) {
         const warn = `Dentist with id ${dentistId} attempted to create Appointment for non-owned Patient with id ${dto.patient_id}`;
         this.logger.warn(warn);
@@ -44,18 +57,30 @@ export class AppointmentService {
 
   async patch(dentistId: number, id: number, dto: UpdateAppointmentDto) {
     try {
-      const updated = await this.repo.updateAppointmentEnsureOwnership(dentistId, id, {
-        startDate: dto.startDate ? new Date(dto.startDate) : undefined,
-        endDate: dto.endDate !== undefined ? (dto.endDate ? new Date(dto.endDate) : null) : undefined,
-        chargedFee: dto.chargedFee !== undefined ? (dto.chargedFee ?? null) : undefined,
-      });
+      const updated = await this.repo.updateAppointmentEnsureOwnership(
+        dentistId,
+        id,
+        {
+          startDate: dto.startDate ? new Date(dto.startDate) : undefined,
+          endDate:
+            dto.endDate !== undefined
+              ? dto.endDate
+                ? new Date(dto.endDate)
+                : null
+              : undefined,
+          chargedFee:
+            dto.chargedFee !== undefined ? (dto.chargedFee ?? null) : undefined,
+        },
+      );
       const msg = `Dentist with id ${dentistId} updated Appointment with id ${updated.id}`;
       this.logger.log(msg);
       LogWriter.append('log', AppointmentService.name, msg);
       return {
         id: updated.id,
         startDate: updated.startDate.toISOString().slice(0, 10),
-        endDate: updated.endDate ? updated.endDate.toISOString().slice(0, 10) : null,
+        endDate: updated.endDate
+          ? updated.endDate.toISOString().slice(0, 10)
+          : null,
         calculatedFee: updated.calculatedFee,
         chargedFee: updated.chargedFee,
         discountFee: updated.discountFee,
@@ -67,7 +92,8 @@ export class AppointmentService {
         LogWriter.append('warn', AppointmentService.name, warn);
         throw new BadRequestException("You don't have such an appointment");
       }
-      if (e?.message?.includes('Appointment not found')) throw new NotFoundException('Appointment not found');
+      if (e?.message?.includes('Appointment not found'))
+        throw new NotFoundException('Appointment not found');
       throw new BadRequestException('Failed to update appointment');
     }
   }
@@ -86,37 +112,40 @@ export class AppointmentService {
         LogWriter.append('warn', AppointmentService.name, warn);
         throw new BadRequestException("You don't have such an appointment");
       }
-      if (e?.message?.includes('Appointment not found')) throw new NotFoundException('Appointment not found');
+      if (e?.message?.includes('Appointment not found'))
+        throw new NotFoundException('Appointment not found');
       throw new BadRequestException('Failed to delete appointment');
     }
   }
 
   async findAll(dentistId: number, dto: GetAppointmentDto) {
     try {
-      const { appointments, total } = await this.repo.findAppointmentsForDentist(dentistId, {
-        id: dto.id,
-        startDate: dto.startDate,
-        endDate: dto.endDate,
-        patient: dto.patient,
-        patientName: dto.patientName,
-        patientSurname: dto.patientSurname,
-        page: dto.page,
-        limit: dto.limit,
-      });
+      const { appointments, total } =
+        await this.repo.findAppointmentsForDentist(dentistId, {
+          id: dto.id,
+          startDate: dto.startDate,
+          endDate: dto.endDate,
+          patient: dto.patient,
+          patientName: dto.patientName,
+          patientSurname: dto.patientSurname,
+          page: dto.page,
+          limit: dto.limit,
+        });
       const msg = `Dentist with id ${dentistId} retrieved ${appointments.length} appointment(s) out of ${total}`;
       this.logger.log(msg);
       LogWriter.append('log', AppointmentService.name, msg);
       return {
-        appointments: appointments.map(appointment => {
-          const startDate = appointment.startDate instanceof Date 
-            ? appointment.startDate 
-            : new Date(appointment.startDate);
-          const endDate = appointment.endDate 
-            ? (appointment.endDate instanceof Date 
-              ? appointment.endDate 
-              : new Date(appointment.endDate))
+        appointments: appointments.map((appointment) => {
+          const startDate =
+            appointment.startDate instanceof Date
+              ? appointment.startDate
+              : new Date(appointment.startDate);
+          const endDate = appointment.endDate
+            ? appointment.endDate instanceof Date
+              ? appointment.endDate
+              : new Date(appointment.endDate)
             : null;
-          
+
           return {
             id: appointment.id,
             startDate: startDate.toISOString().slice(0, 10),
@@ -125,15 +154,21 @@ export class AppointmentService {
             chargedFee: appointment.chargedFee,
             discountFee: appointment.discountFee,
             patient: {
-              id: typeof appointment.patient === 'object' && appointment.patient?.id 
-                ? appointment.patient.id 
-                : appointment.patient,
-              name: typeof appointment.patient === 'object' && appointment.patient?.name 
-                ? appointment.patient.name 
-                : null,
-              surname: typeof appointment.patient === 'object' && appointment.patient?.surname 
-                ? appointment.patient.surname 
-                : null,
+              id:
+                typeof appointment.patient === 'object' &&
+                appointment.patient?.id
+                  ? appointment.patient.id
+                  : appointment.patient,
+              name:
+                typeof appointment.patient === 'object' &&
+                appointment.patient?.name
+                  ? appointment.patient.name
+                  : null,
+              surname:
+                typeof appointment.patient === 'object' &&
+                appointment.patient?.surname
+                  ? appointment.patient.surname
+                  : null,
             },
           };
         }),

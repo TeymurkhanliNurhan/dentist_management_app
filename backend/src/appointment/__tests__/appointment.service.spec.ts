@@ -52,11 +52,15 @@ describe('AppointmentService', () => {
       discountFee: 50,
     });
 
-    expect(repoMock.createAppointmentForDentistAndPatient).toHaveBeenCalledWith(7, 3, {
-      startDate: new Date('2025-11-15'),
-      endDate: null,
-      chargedFee: 200,
-    });
+    expect(repoMock.createAppointmentForDentistAndPatient).toHaveBeenCalledWith(
+      7,
+      3,
+      {
+        startDate: new Date('2025-11-15'),
+        endDate: null,
+        chargedFee: 200,
+      },
+    );
   });
 
   it('should include fee fields when updating an appointment', async () => {

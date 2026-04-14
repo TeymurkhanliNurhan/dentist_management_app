@@ -1,26 +1,35 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToMany,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { ToothTreatmentMedicine } from '../../tooth_treatment_medicine/entities/tooth_treatment_medicine.entity';
 import { Clinic } from '../../clinic/entities/clinic.entity';
 
 @Entity({ name: 'Medicine' })
 export class Medicine {
-    @PrimaryGeneratedColumn()
-    id: number;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column({ type: 'varchar', length: 40 })
-    name: string;
+  @Column({ type: 'varchar', length: 40 })
+  name: string;
 
-    @Column({ type: 'varchar', length: 300 })
-    description: string;
+  @Column({ type: 'varchar', length: 300 })
+  description: string;
 
-    @Column({ type: 'double precision' })
-    price: number;
+  @Column({ type: 'double precision' })
+  price: number;
 
-    @OneToMany(() => ToothTreatmentMedicine, (ttm) => ttm.medicineEntity)
-    toothTreatmentMedicines: ToothTreatmentMedicine[];
+  @OneToMany(() => ToothTreatmentMedicine, (ttm) => ttm.medicineEntity)
+  toothTreatmentMedicines: ToothTreatmentMedicine[];
 
-    @ManyToOne(() => Clinic, (clinic) => clinic.medicines, { nullable: false, onDelete: 'RESTRICT' })
-    @JoinColumn({ name: 'clinicId' })
-    clinic: Clinic;
+  @ManyToOne(() => Clinic, (clinic) => clinic.medicines, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn({ name: 'clinicId' })
+  clinic: Clinic;
 }
-

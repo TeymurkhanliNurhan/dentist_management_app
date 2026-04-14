@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { TreatmentRepository } from './treatment.repository';
 import { CreateTreatmentDto } from './dto/create-treatment.dto';
 import { UpdateTreatmentDto } from './dto/update-treatment.dto';
@@ -30,19 +35,24 @@ export class TreatmentService {
         pricePer: created.pricePer,
       };
     } catch (e: any) {
-      if (e?.message?.includes('Dentist not found')) throw new BadRequestException('Dentist not found');
+      if (e?.message?.includes('Dentist not found'))
+        throw new BadRequestException('Dentist not found');
       throw new BadRequestException('Failed to create treatment');
     }
   }
 
   async patch(dentistId: number, id: number, dto: UpdateTreatmentDto) {
     try {
-      const updated = await this.repo.updateTreatmentEnsureOwnership(dentistId, id, {
-        name: dto.name,
-        price: dto.price,
-        description: dto.description,
-        pricePer: dto.pricePer,
-      });
+      const updated = await this.repo.updateTreatmentEnsureOwnership(
+        dentistId,
+        id,
+        {
+          name: dto.name,
+          price: dto.price,
+          description: dto.description,
+          pricePer: dto.pricePer,
+        },
+      );
       const msg = `Dentist with id ${dentistId} updated Treatment with id ${updated.id}`;
       this.logger.log(msg);
       LogWriter.append('log', TreatmentService.name, msg);
@@ -60,7 +70,8 @@ export class TreatmentService {
         LogWriter.append('warn', TreatmentService.name, warn);
         throw new BadRequestException("You don't have such a treatment");
       }
-      if (e?.message?.includes('Treatment not found')) throw new NotFoundException('Treatment not found');
+      if (e?.message?.includes('Treatment not found'))
+        throw new NotFoundException('Treatment not found');
       throw new BadRequestException('Failed to update treatment');
     }
   }

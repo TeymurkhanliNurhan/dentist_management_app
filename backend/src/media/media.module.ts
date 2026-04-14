@@ -5,8 +5,8 @@ import { MediaRepository } from './media.repository';
 import { S3Module } from '../s3/s3.module';
 
 @Module({
-    imports: [S3Module],
-    controllers: [MediaController],
-    providers: [MediaService, MediaRepository]
+  imports: [S3Module],
+  controllers: [MediaController],
+  providers: [MediaService, MediaRepository],
 })
 export class MediaModule {}

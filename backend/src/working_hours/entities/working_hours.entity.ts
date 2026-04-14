@@ -1,4 +1,10 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Staff } from '../../staff/entities/staff.entity';
 
 @Entity({ name: 'Working_hours' })
@@ -18,7 +24,10 @@ export class WorkingHours {
   @Column({ name: 'staff', type: 'int' })
   staffId: number;
 
-  @ManyToOne(() => Staff, (staff) => staff.workingHours, { nullable: false, onDelete: 'RESTRICT' })
+  @ManyToOne(() => Staff, (staff) => staff.workingHours, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
   @JoinColumn({ name: 'staff' })
   staff: Staff;
 }

@@ -5,7 +5,9 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * ensure Staff has verification columns, copy from Dentist when still present,
  * then drop verification columns from Dentist.
  */
-export class StaffEmailVerificationFromDentist1773000000001 implements MigrationInterface {
+export class StaffEmailVerificationFromDentist1773000000001
+  implements MigrationInterface
+{
   name = 'StaffEmailVerificationFromDentist1773000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -56,8 +58,14 @@ export class StaffEmailVerificationFromDentist1773000000001 implements Migration
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "Staff" DROP COLUMN IF EXISTS "isEmailVerified"`);
-    await queryRunner.query(`ALTER TABLE "Staff" DROP COLUMN IF EXISTS "verificationCode"`);
-    await queryRunner.query(`ALTER TABLE "Staff" DROP COLUMN IF EXISTS "verificationCodeExpiry"`);
+    await queryRunner.query(
+      `ALTER TABLE "Staff" DROP COLUMN IF EXISTS "isEmailVerified"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "Staff" DROP COLUMN IF EXISTS "verificationCode"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "Staff" DROP COLUMN IF EXISTS "verificationCodeExpiry"`,
+    );
   }
 }

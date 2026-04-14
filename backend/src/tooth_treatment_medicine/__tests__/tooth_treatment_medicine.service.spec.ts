@@ -20,11 +20,12 @@ describe('ToothTreatmentMedicineService', () => {
       ],
     }).compile();
 
-    service = module.get<ToothTreatmentMedicineService>(ToothTreatmentMedicineService);
+    service = module.get<ToothTreatmentMedicineService>(
+      ToothTreatmentMedicineService,
+    );
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
 });
-

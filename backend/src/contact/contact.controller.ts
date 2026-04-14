@@ -1,6 +1,20 @@
-import { Controller, Post, Get, UseInterceptors, UploadedFiles, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  UseInterceptors,
+  UploadedFiles,
+  Body,
+  UseGuards,
+} from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiConsumes,
+  ApiBody,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { ContactService } from './contact.service';
 import { ContactDto } from './dto/contact.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
@@ -43,4 +57,3 @@ export class ContactController {
     return this.contactService.sendContactEmail(contactDto, files);
   }
 }
-

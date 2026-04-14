@@ -5,11 +5,15 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * columns often remain until this migration (or manual SQL) runs.
  * Safe to run multiple times (idempotent).
  */
-export class SlimDentistDropLegacyColumns1773000000002 implements MigrationInterface {
+export class SlimDentistDropLegacyColumns1773000000002
+  implements MigrationInterface
+{
   name = 'SlimDentistDropLegacyColumns1773000000002';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "Dentist" ADD COLUMN IF NOT EXISTS "staffId" integer`);
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" ADD COLUMN IF NOT EXISTS "staffId" integer`,
+    );
 
     await queryRunner.query(`
       UPDATE "Dentist" d
@@ -19,7 +23,9 @@ export class SlimDentistDropLegacyColumns1773000000002 implements MigrationInter
         AND d."id" = s."id"
     `);
 
-    await queryRunner.query(`UPDATE "Dentist" SET "staffId" = 1 WHERE "id" = 1 AND "staffId" IS NULL`);
+    await queryRunner.query(
+      `UPDATE "Dentist" SET "staffId" = 1 WHERE "id" = 1 AND "staffId" IS NULL`,
+    );
 
     await queryRunner.query(`
       DO $$
@@ -116,7 +122,9 @@ export class SlimDentistDropLegacyColumns1773000000002 implements MigrationInter
     ];
 
     for (const col of legacyColumns) {
-      await queryRunner.query(`ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "${col}"`);
+      await queryRunner.query(
+        `ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "${col}"`,
+      );
     }
   }
 

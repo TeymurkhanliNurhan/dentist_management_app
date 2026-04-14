@@ -41,7 +41,11 @@ export class AuthRepository {
     });
     if (!staff?.dentist) {
       this.logger.debug('findUserByEmail: no staff/dentist for email');
-      LogWriter.append('debug', AuthRepository.name, 'findUserByEmail: no staff/dentist for email');
+      LogWriter.append(
+        'debug',
+        AuthRepository.name,
+        'findUserByEmail: no staff/dentist for email',
+      );
       return null;
     }
     staff.dentist.staff = staff;
@@ -97,25 +101,42 @@ export class AuthRepository {
       }),
     );
     this.logger.log(`Dentist persisted with id ${saved.id}`);
-    LogWriter.append('log', AuthRepository.name, `Dentist persisted with id ${saved.id}`);
-    return dentistRepository.findOneOrFail({ where: { id: saved.id }, relations: ['staff'] });
+    LogWriter.append(
+      'log',
+      AuthRepository.name,
+      `Dentist persisted with id ${saved.id}`,
+    );
+    return dentistRepository.findOneOrFail({
+      where: { id: saved.id },
+      relations: ['staff'],
+    });
   }
 
   async updateUser(id: number, updates: Partial<Staff>): Promise<Dentist> {
     const dentistRepository = this.getDentistRepository();
-    const dentist = await dentistRepository.findOne({ where: { id }, relations: ['staff'] });
+    const dentist = await dentistRepository.findOne({
+      where: { id },
+      relations: ['staff'],
+    });
     if (!dentist) {
       throw new Error(`Dentist with id ${id} not found`);
     }
 
     const staffRepository = this.getStaffRepository();
     await staffRepository.update(dentist.staffId, updates);
-    const updated = await dentistRepository.findOne({ where: { id }, relations: ['staff'] });
+    const updated = await dentistRepository.findOne({
+      where: { id },
+      relations: ['staff'],
+    });
     if (!updated) {
       throw new Error(`Dentist with id ${id} not found after update`);
     }
     this.logger.log(`Dentist with id ${id} updated`);
-    LogWriter.append('log', AuthRepository.name, `Dentist with id ${id} updated`);
+    LogWriter.append(
+      'log',
+      AuthRepository.name,
+      `Dentist with id ${id} updated`,
+    );
     return updated;
   }
 }

@@ -1,4 +1,12 @@
-import { Injectable, ConflictException, UnauthorizedException, Logger, BadRequestException, NotFoundException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+  Inject,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthRepository } from './auth.repository';
 import { RegisterDto } from './dto/register.dto';
@@ -23,10 +31,16 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   async register(registerDto: RegisterDto): Promise<RegisterResponseDto> {
-    const existingUser = await this.authRepository.findUserByEmail(registerDto.gmail);
+    const existingUser = await this.authRepository.findUserByEmail(
+      registerDto.gmail,
+    );
     if (existingUser) {
       this.logger.warn('Registration attempted with existing email');
-      LogWriter.append('warn', AuthService.name, 'Registration attempted with existing email');
+      LogWriter.append(
+        'warn',
+        AuthService.name,
+        'Registration attempted with existing email',
+      );
       throw new ConflictException('A dentist with this email already exists');
     }
 
@@ -49,20 +63,30 @@ export class AuthService {
     });
 
     try {
-      await this.emailService.sendVerificationEmail(registerDto.gmail, verificationCode);
+      await this.emailService.sendVerificationEmail(
+        registerDto.gmail,
+        verificationCode,
+      );
     } catch (error) {
       this.logger.error(`Failed to send verification email: ${error.message}`);
     }
 
-    this.logger.log(`Dentist registered with id ${newDentist.id}, verification email sent`);
-    LogWriter.append('log', AuthService.name, `Dentist registered with id ${newDentist.id}, verification email sent`);
+    this.logger.log(
+      `Dentist registered with id ${newDentist.id}, verification email sent`,
+    );
+    LogWriter.append(
+      'log',
+      AuthService.name,
+      `Dentist registered with id ${newDentist.id}, verification email sent`,
+    );
     return {
-      message: 'Registration successful! Please check your email for the verification code.',
+      message:
+        'Registration successful! Please check your email for the verification code.',
       dentist: {
         id: newDentist.id,
         name: newDentist.staff.name,
         surname: newDentist.staff.surname,
-        birthDate: (newDentist.staff.birthDate as Date).toISOString().slice(0, 10),
+        birthDate: newDentist.staff.birthDate.toISOString().slice(0, 10),
         gmail: newDentist.staff.gmail,
       },
     };
@@ -72,20 +96,35 @@ export class AuthService {
     const user = await this.authRepository.findUserByEmail(loginDto.gmail);
     if (!user) {
       this.logger.warn('SignIn failed: email not found');
-      LogWriter.append('warn', AuthService.name, 'SignIn failed: email not found');
+      LogWriter.append(
+        'warn',
+        AuthService.name,
+        'SignIn failed: email not found',
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isMatch = await bcrypt.compare(loginDto.password, user.staff.password);
+    const isMatch = await bcrypt.compare(
+      loginDto.password,
+      user.staff.password,
+    );
     if (!isMatch) {
       this.logger.warn('SignIn failed: password mismatch');
-      LogWriter.append('warn', AuthService.name, 'SignIn failed: password mismatch');
+      LogWriter.append(
+        'warn',
+        AuthService.name,
+        'SignIn failed: password mismatch',
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
     if (!user.staff.isEmailVerified) {
       this.logger.warn(`SignIn failed: email not verified for user ${user.id}`);
-      LogWriter.append('warn', AuthService.name, `SignIn failed: email not verified for user ${user.id}`);
+      LogWriter.append(
+        'warn',
+        AuthService.name,
+        `SignIn failed: email not verified for user ${user.id}`,
+      );
       throw new UnauthorizedException(
         'Please verify your email address before signing in. Check your inbox for the verification code.',
       );
@@ -94,12 +133,20 @@ export class AuthService {
     const payload = { sub: user.id, gmail: user.staff.gmail };
     const access_token = await this.jwtService.signAsync(payload);
     this.logger.log(`Dentist with id ${user.id} signed in`);
-    LogWriter.append('log', AuthService.name, `Dentist with id ${user.id} signed in`);
+    LogWriter.append(
+      'log',
+      AuthService.name,
+      `Dentist with id ${user.id} signed in`,
+    );
     return { access_token, dentistId: user.id };
   }
 
-  async verifyEmail(verifyEmailDto: VerifyEmailDto): Promise<{ message: string }> {
-    const user = await this.authRepository.findUserByEmail(verifyEmailDto.gmail);
+  async verifyEmail(
+    verifyEmailDto: VerifyEmailDto,
+  ): Promise<{ message: string }> {
+    const user = await this.authRepository.findUserByEmail(
+      verifyEmailDto.gmail,
+    );
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -109,11 +156,15 @@ export class AuthService {
     }
 
     if (!user.staff.verificationCode || !user.staff.verificationCodeExpiry) {
-      throw new BadRequestException('No verification code found. Please request a new one.');
+      throw new BadRequestException(
+        'No verification code found. Please request a new one.',
+      );
     }
 
     if (new Date() > user.staff.verificationCodeExpiry) {
-      throw new BadRequestException('Verification code has expired. Please request a new one.');
+      throw new BadRequestException(
+        'Verification code has expired. Please request a new one.',
+      );
     }
 
     if (user.staff.verificationCode !== verifyEmailDto.code) {
@@ -127,11 +178,17 @@ export class AuthService {
     });
 
     this.logger.log(`Email verified for user ${user.id}`);
-    LogWriter.append('log', AuthService.name, `Email verified for user ${user.id}`);
+    LogWriter.append(
+      'log',
+      AuthService.name,
+      `Email verified for user ${user.id}`,
+    );
     return { message: 'Email verified successfully! You can now sign in.' };
   }
 
-  async resendVerificationCode(resendDto: ResendVerificationDto): Promise<{ message: string }> {
+  async resendVerificationCode(
+    resendDto: ResendVerificationDto,
+  ): Promise<{ message: string }> {
     const user = await this.authRepository.findUserByEmail(resendDto.gmail);
     if (!user) {
       throw new NotFoundException('User not found');
@@ -151,49 +208,87 @@ export class AuthService {
     });
 
     try {
-      await this.emailService.sendVerificationEmail(resendDto.gmail, verificationCode);
+      await this.emailService.sendVerificationEmail(
+        resendDto.gmail,
+        verificationCode,
+      );
       this.logger.log(`Verification code resent to ${resendDto.gmail}`);
-      LogWriter.append('log', AuthService.name, `Verification code resent to ${resendDto.gmail}`);
+      LogWriter.append(
+        'log',
+        AuthService.name,
+        `Verification code resent to ${resendDto.gmail}`,
+      );
       return { message: 'Verification code has been resent to your email.' };
     } catch (error) {
-      this.logger.error(`Failed to resend verification email: ${error.message}`);
-      throw new BadRequestException('Failed to send verification email. Please try again later.');
+      this.logger.error(
+        `Failed to resend verification email: ${error.message}`,
+      );
+      throw new BadRequestException(
+        'Failed to send verification email. Please try again later.',
+      );
     }
   }
-  async forgotPassword(email: string): Promise<{ message: string }>{
+  async forgotPassword(email: string): Promise<{ message: string }> {
     const user = await this.authRepository.findUserByEmail(email);
     if (!user) {
-      this.logger.warn(`Password reset requested for non-existent email: ${email}`);
-      return { message: 'If an account with this email exists, a reset code has been sent.' };
+      this.logger.warn(
+        `Password reset requested for non-existent email: ${email}`,
+      );
+      return {
+        message:
+          'If an account with this email exists, a reset code has been sent.',
+      };
     }
 
-    const floorNumberWithSixZeroes=1000000
-    const hugeRangeForRandom=9000000;
-    const code = Math.floor(floorNumberWithSixZeroes+ Math.random()*hugeRangeForRandom).toString();
+    const floorNumberWithSixZeroes = 1000000;
+    const hugeRangeForRandom = 9000000;
+    const code = Math.floor(
+      floorNumberWithSixZeroes + Math.random() * hugeRangeForRandom,
+    ).toString();
 
-    const secondsInMinute=60;
-    const shortExpirationTimeForResetPasswordInMinutes=5;
-    await this.redisClient.set(`reset:${email}`, code, 'EX', shortExpirationTimeForResetPasswordInMinutes * secondsInMinute);
+    const secondsInMinute = 60;
+    const shortExpirationTimeForResetPasswordInMinutes = 5;
+    await this.redisClient.set(
+      `reset:${email}`,
+      code,
+      'EX',
+      shortExpirationTimeForResetPasswordInMinutes * secondsInMinute,
+    );
 
     try {
       await this.emailService.sendPasswordResetEmail(email, code);
       this.logger.log(`Password reset code sent to ${email}`);
-      return { message: 'If an account with this email exists, a reset code has been sent to your email.' };
+      return {
+        message:
+          'If an account with this email exists, a reset code has been sent to your email.',
+      };
     } catch (error) {
-      this.logger.error(`Failed to send password reset email to ${email}: ${error.message}`);
+      this.logger.error(
+        `Failed to send password reset email to ${email}: ${error.message}`,
+      );
       await this.redisClient.del(`reset:${email}`);
-      return { message: 'If an account with this email exists, a reset code has been sent to your email.' };
+      return {
+        message:
+          'If an account with this email exists, a reset code has been sent to your email.',
+      };
     }
   }
 
-  async resetPassword(email: string, newPassword: string, confirmPassword: string): Promise<{ success: boolean; message: string }> {
+  async resetPassword(
+    email: string,
+    newPassword: string,
+    confirmPassword: string,
+  ): Promise<{ success: boolean; message: string }> {
     if (newPassword !== confirmPassword) {
       return { success: false, message: 'Passwords do not match.' };
     }
 
     const verified = await this.redisClient.get(`verified:${email}`);
     if (!verified) {
-      return { success: false, message: 'Reset code not verified for this email.' };
+      return {
+        success: false,
+        message: 'Reset code not verified for this email.',
+      };
     }
 
     const person = await this.authRepository.findUserByEmail(email);
@@ -212,7 +307,7 @@ export class AuthService {
     this.logger.log(`Password reset for ${email}`);
     return { success: true, message: 'Password reset successful.' };
   }
-  
+
   async verifyResetCode(email: string, code: string): Promise<boolean> {
     const storedCode = await this.redisClient.get(`reset:${email}`);
     if (storedCode !== code) return false;

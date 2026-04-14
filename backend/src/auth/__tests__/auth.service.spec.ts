@@ -96,8 +96,12 @@ describe('AuthService', () => {
         staff: { gmail: 'john@example.com' },
       } as Dentist);
 
-      await expect(service.register(registerDto)).rejects.toThrow(ConflictException);
-      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(registerDto.gmail);
+      await expect(service.register(registerDto)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(
+        registerDto.gmail,
+      );
     });
 
     it('should successfully register a new user', async () => {
@@ -105,7 +109,7 @@ describe('AuthService', () => {
       mockedBcrypt.hash.mockResolvedValueOnce('hashedPassword' as never);
       mockEmailService.generateVerificationCode.mockReturnValueOnce('123456');
       mockEmailService.sendVerificationEmail.mockResolvedValueOnce(undefined);
-      
+
       const mockDentist = {
         id: 1,
         staffId: 1,
@@ -121,7 +125,9 @@ describe('AuthService', () => {
 
       const result = await service.register(registerDto);
 
-      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(registerDto.gmail);
+      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(
+        registerDto.gmail,
+      );
       expect(mockedBcrypt.hash).toHaveBeenCalledWith(registerDto.password, 10);
       expect(mockEmailService.generateVerificationCode).toHaveBeenCalled();
       expect(mockEmailService.sendVerificationEmail).toHaveBeenCalled();
@@ -148,34 +154,46 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException if user does not exist', async () => {
       mockAuthRepository.findUserByEmail.mockResolvedValueOnce(null);
 
-      await expect(service.signIn(loginDto)).rejects.toThrow(UnauthorizedException);
-      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(loginDto.gmail);
+      await expect(service.signIn(loginDto)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(
+        loginDto.gmail,
+      );
     });
 
     it('should throw UnauthorizedException if password is incorrect', async () => {
       mockAuthRepository.findUserByEmail.mockResolvedValueOnce(mockDentist);
       mockedBcrypt.compare.mockResolvedValueOnce(false as never);
 
-      await expect(service.signIn(loginDto)).rejects.toThrow(UnauthorizedException);
-      expect(mockedBcrypt.compare).toHaveBeenCalledWith(loginDto.password, mockDentist.staff.password);
+      await expect(service.signIn(loginDto)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockedBcrypt.compare).toHaveBeenCalledWith(
+        loginDto.password,
+        mockDentist.staff.password,
+      );
     });
 
     it('should successfully login and return access token', async () => {
       mockAuthRepository.findUserByEmail.mockResolvedValueOnce(mockDentist);
       mockedBcrypt.compare.mockResolvedValueOnce(true as never);
-      mockJwtService.signAsync = jest.fn().mockResolvedValueOnce('mock-jwt-token');
+      mockJwtService.signAsync = jest
+        .fn()
+        .mockResolvedValueOnce('mock-jwt-token');
 
       const result = await service.signIn(loginDto);
 
-      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(loginDto.gmail);
-      expect(mockedBcrypt.compare).toHaveBeenCalledWith(loginDto.password, mockDentist.staff.password);
+      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(
+        loginDto.gmail,
+      );
+      expect(mockedBcrypt.compare).toHaveBeenCalledWith(
+        loginDto.password,
+        mockDentist.staff.password,
+      );
       expect(mockJwtService.signAsync).toHaveBeenCalled();
       expect(result).toHaveProperty('access_token');
       expect(result.access_token).toBe('mock-jwt-token');
     });
   });
 });
-
-
-
-

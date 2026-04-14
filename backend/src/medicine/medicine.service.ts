@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { MedicineRepository } from './medicine.repository';
 import { CreateMedicineDto } from './dto/create-medicine.dto';
 import { UpdateMedicineDto } from './dto/update-medicine.dto';
@@ -34,11 +39,15 @@ export class MedicineService {
 
   async patch(dentistId: number, id: number, dto: UpdateMedicineDto) {
     try {
-      const updated = await this.repo.updateMedicineEnsureOwnership(dentistId, id, {
-        name: dto.name,
-        description: dto.description,
-        price: dto.price,
-      });
+      const updated = await this.repo.updateMedicineEnsureOwnership(
+        dentistId,
+        id,
+        {
+          name: dto.name,
+          description: dto.description,
+          price: dto.price,
+        },
+      );
       const msg = `Dentist with id ${dentistId} updated Medicine with id ${updated.id}`;
       this.logger.log(msg);
       LogWriter.append('log', MedicineService.name, msg);
@@ -49,8 +58,10 @@ export class MedicineService {
         price: updated.price,
       };
     } catch (e: any) {
-      if (e?.message?.includes('Forbidden')) throw new BadRequestException("You don't have such a medicine");
-      if (e?.message?.includes('Medicine not found')) throw new NotFoundException('Medicine not found');
+      if (e?.message?.includes('Forbidden'))
+        throw new BadRequestException("You don't have such a medicine");
+      if (e?.message?.includes('Medicine not found'))
+        throw new NotFoundException('Medicine not found');
       throw new BadRequestException('Failed to update medicine');
     }
   }
@@ -75,4 +86,3 @@ export class MedicineService {
     }
   }
 }
-

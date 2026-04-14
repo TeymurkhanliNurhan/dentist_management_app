@@ -1,4 +1,10 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Room } from '../../room/entities/room.entity';
 import { Staff } from '../../staff/entities/staff.entity';
 
@@ -19,11 +25,17 @@ export class BlockingHours {
   @Column({ name: 'room', type: 'int', nullable: true })
   roomId: number | null;
 
-  @ManyToOne(() => Staff, (staff) => staff.blockingHours, { nullable: true, onDelete: 'RESTRICT' })
+  @ManyToOne(() => Staff, (staff) => staff.blockingHours, {
+    nullable: true,
+    onDelete: 'RESTRICT',
+  })
   @JoinColumn({ name: 'staff' })
   staff: Staff | null;
 
-  @ManyToOne(() => Room, (room) => room.blockingHours, { nullable: true, onDelete: 'RESTRICT' })
+  @ManyToOne(() => Room, (room) => room.blockingHours, {
+    nullable: true,
+    onDelete: 'RESTRICT',
+  })
   @JoinColumn({ name: 'room' })
   room: Room | null;
 }

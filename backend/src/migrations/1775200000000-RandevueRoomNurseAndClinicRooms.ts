@@ -6,11 +6,15 @@ const GENERAL_ROOM_DESCRIPTION = 'Ümumi stomotologiya otağı';
  * Room belongs to Clinic; one default general dentistry room per clinic.
  * Randevue: required room FK, optional nurse FK; existing rows get clinic room via patient.
  */
-export class RandevueRoomNurseAndClinicRooms1775200000000 implements MigrationInterface {
+export class RandevueRoomNurseAndClinicRooms1775200000000
+  implements MigrationInterface
+{
   name = 'RandevueRoomNurseAndClinicRooms1775200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "Room" ADD COLUMN IF NOT EXISTS "clinicId" integer`);
+    await queryRunner.query(
+      `ALTER TABLE "Room" ADD COLUMN IF NOT EXISTS "clinicId" integer`,
+    );
 
     const esc = GENERAL_ROOM_DESCRIPTION.replace(/'/g, "''");
     await queryRunner.query(`
@@ -57,8 +61,12 @@ export class RandevueRoomNurseAndClinicRooms1775200000000 implements MigrationIn
       END$$;
     `);
 
-    await queryRunner.query(`ALTER TABLE "Randevue" ADD COLUMN IF NOT EXISTS "room" integer`);
-    await queryRunner.query(`ALTER TABLE "Randevue" ADD COLUMN IF NOT EXISTS "nurse" integer`);
+    await queryRunner.query(
+      `ALTER TABLE "Randevue" ADD COLUMN IF NOT EXISTS "room" integer`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "Randevue" ADD COLUMN IF NOT EXISTS "nurse" integer`,
+    );
 
     await queryRunner.query(`
       UPDATE "Randevue" r

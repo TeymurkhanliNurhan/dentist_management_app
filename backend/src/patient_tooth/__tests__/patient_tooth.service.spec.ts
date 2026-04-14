@@ -16,4 +16,3 @@ describe('PatientToothService', () => {
     expect(service).toBeDefined();
   });
 });
-

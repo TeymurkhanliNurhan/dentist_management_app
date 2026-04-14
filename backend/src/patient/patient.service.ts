@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { PatientRepository } from './patient.repository';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
@@ -9,93 +14,117 @@ import { LogWriter } from '../log-writer';
 
 @Injectable()
 export class PatientService {
-    constructor(private readonly patientRepository: PatientRepository) {}
-    private readonly logger = new Logger(PatientService.name);
+  constructor(private readonly patientRepository: PatientRepository) {}
+  private readonly logger = new Logger(PatientService.name);
 
-    async create(dentistId: number, dto: CreatePatientDto): Promise<PatientCreateResponseDto> {
-        try {
-            const { patient: created, clinicId } = await this.patientRepository.createPatientForDentist(dentistId, {
-                name: dto.name,
-                surname: dto.surname,
-                birthDate: new Date(dto.birthDate),
-            });
-            const msg = `Dentist with id ${dentistId} created Patient with id ${created.id}`;
-            this.logger.log(msg);
-            LogWriter.append('log', PatientService.name, msg);
-            return {
-                id: created.id,
-                name: created.name,
-                surname: created.surname,
-                birthDate: created.birthDate.toISOString().slice(0, 10),
-                clinic: { id: clinicId },
-            };
-        } catch (e: any) {
-            if (e?.message?.includes('Dentist not found')) throw new BadRequestException('Dentist not found');
-            throw e;
-        }
+  async create(
+    dentistId: number,
+    dto: CreatePatientDto,
+  ): Promise<PatientCreateResponseDto> {
+    try {
+      const { patient: created, clinicId } =
+        await this.patientRepository.createPatientForDentist(dentistId, {
+          name: dto.name,
+          surname: dto.surname,
+          birthDate: new Date(dto.birthDate),
+        });
+      const msg = `Dentist with id ${dentistId} created Patient with id ${created.id}`;
+      this.logger.log(msg);
+      LogWriter.append('log', PatientService.name, msg);
+      return {
+        id: created.id,
+        name: created.name,
+        surname: created.surname,
+        birthDate: created.birthDate.toISOString().slice(0, 10),
+        clinic: { id: clinicId },
+      };
+    } catch (e: any) {
+      if (e?.message?.includes('Dentist not found'))
+        throw new BadRequestException('Dentist not found');
+      throw e;
     }
+  }
 
-    async patch(dentistId: number, id: number, dto: UpdatePatientDto): Promise<PatientUpdateResponseDto> {
-        try {
-            const updated = await this.patientRepository.updatePatientEnsureOwnership(dentistId, id, {
-                name: dto.name,
-                surname: dto.surname,
-                birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
-            });
-            const msg = `Dentist with id ${dentistId} updated Patient with id ${updated.id}`;
-            this.logger.log(msg);
-            LogWriter.append('log', PatientService.name, msg);
-            return {
-                id: updated.id,
-                name: updated.name,
-                surname: updated.surname,
-                birthDate: updated.birthDate.toISOString().slice(0, 10),
-            };
-        } catch (e: any) {
-            if (e?.message?.includes('Patient not found')) throw new NotFoundException('Patient not found');
-            if (e?.message?.includes('Forbidden')) throw new BadRequestException("You don't have such a patient");
-            if (e?.message?.includes('Dentist not found')) throw new BadRequestException('Dentist not found');
-            throw e;
-        }
+  async patch(
+    dentistId: number,
+    id: number,
+    dto: UpdatePatientDto,
+  ): Promise<PatientUpdateResponseDto> {
+    try {
+      const updated = await this.patientRepository.updatePatientEnsureOwnership(
+        dentistId,
+        id,
+        {
+          name: dto.name,
+          surname: dto.surname,
+          birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
+        },
+      );
+      const msg = `Dentist with id ${dentistId} updated Patient with id ${updated.id}`;
+      this.logger.log(msg);
+      LogWriter.append('log', PatientService.name, msg);
+      return {
+        id: updated.id,
+        name: updated.name,
+        surname: updated.surname,
+        birthDate: updated.birthDate.toISOString().slice(0, 10),
+      };
+    } catch (e: any) {
+      if (e?.message?.includes('Patient not found'))
+        throw new NotFoundException('Patient not found');
+      if (e?.message?.includes('Forbidden'))
+        throw new BadRequestException("You don't have such a patient");
+      if (e?.message?.includes('Dentist not found'))
+        throw new BadRequestException('Dentist not found');
+      throw e;
     }
+  }
 
-    async findAll(dentistId: number, dto: GetPatientDto): Promise<PatientUpdateResponseDto[]> {
-        try {
-            const patients = await this.patientRepository.findPatientsForDentist(dentistId, {
-                id: dto.id,
-                name: dto.name,
-                surname: dto.surname,
-                birthdate: dto.birthdate,
-            });
-            const msg = `Dentist with id ${dentistId} retrieved ${patients.length} patient(s)`;
-            this.logger.log(msg);
-            LogWriter.append('log', PatientService.name, msg);
-            return patients.map((patient) => {
-                const birthDate = patient.birthDate instanceof Date 
-                    ? patient.birthDate 
-                    : new Date(patient.birthDate);
-                return {
-                    id: patient.id,
-                    name: patient.name,
-                    surname: patient.surname,
-                    birthDate: birthDate.toISOString().slice(0, 10),
-                };
-            });
-        } catch (e: any) {
-            throw e;
-        }
+  async findAll(
+    dentistId: number,
+    dto: GetPatientDto,
+  ): Promise<PatientUpdateResponseDto[]> {
+    try {
+      const patients = await this.patientRepository.findPatientsForDentist(
+        dentistId,
+        {
+          id: dto.id,
+          name: dto.name,
+          surname: dto.surname,
+          birthdate: dto.birthdate,
+        },
+      );
+      const msg = `Dentist with id ${dentistId} retrieved ${patients.length} patient(s)`;
+      this.logger.log(msg);
+      LogWriter.append('log', PatientService.name, msg);
+      return patients.map((patient) => {
+        const birthDate =
+          patient.birthDate instanceof Date
+            ? patient.birthDate
+            : new Date(patient.birthDate);
+        return {
+          id: patient.id,
+          name: patient.name,
+          surname: patient.surname,
+          birthDate: birthDate.toISOString().slice(0, 10),
+        };
+      });
+    } catch (e: any) {
+      throw e;
     }
+  }
 
-    async delete(dentistId: number, id: number): Promise<{ message: string }> {
-        try {
-            await this.patientRepository.deletePatientEnsureOwnership(dentistId, id);
-            const msg = `Dentist with id ${dentistId} deleted Patient with id ${id}`;
-            this.logger.log(msg);
-            LogWriter.append('log', PatientService.name, msg);
-            return { message: 'Patient deleted' };
-        } catch (e: any) {
-            if (e?.message?.includes('Forbidden')) throw new NotFoundException('Patient not found');
-            throw e;
-        }
+  async delete(dentistId: number, id: number): Promise<{ message: string }> {
+    try {
+      await this.patientRepository.deletePatientEnsureOwnership(dentistId, id);
+      const msg = `Dentist with id ${dentistId} deleted Patient with id ${id}`;
+      this.logger.log(msg);
+      LogWriter.append('log', PatientService.name, msg);
+      return { message: 'Patient deleted' };
+    } catch (e: any) {
+      if (e?.message?.includes('Forbidden'))
+        throw new NotFoundException('Patient not found');
+      throw e;
     }
+  }
 }

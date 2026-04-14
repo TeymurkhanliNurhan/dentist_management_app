@@ -5,7 +5,6 @@ import { MedicineRepository } from './medicine.repository';
 
 @Module({
   controllers: [MedicineController],
-  providers: [MedicineService, MedicineRepository]
+  providers: [MedicineService, MedicineRepository],
 })
 export class MedicineModule {}
-

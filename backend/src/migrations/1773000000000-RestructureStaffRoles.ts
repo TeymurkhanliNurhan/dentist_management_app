@@ -24,7 +24,9 @@ export class RestructureStaffRoles1773000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`ALTER TABLE "Dentist" ADD COLUMN IF NOT EXISTS "staffId" integer`);
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" ADD COLUMN IF NOT EXISTS "staffId" integer`,
+    );
 
     await queryRunner.query(`
       UPDATE "Dentist" d
@@ -34,7 +36,9 @@ export class RestructureStaffRoles1773000000000 implements MigrationInterface {
         AND d."id" = s."id"
     `);
 
-    await queryRunner.query(`UPDATE "Dentist" SET "staffId" = 1 WHERE "id" = 1 AND "staffId" IS NULL`);
+    await queryRunner.query(
+      `UPDATE "Dentist" SET "staffId" = 1 WHERE "id" = 1 AND "staffId" IS NULL`,
+    );
 
     await queryRunner.query(`
       DO $$
@@ -81,7 +85,9 @@ export class RestructureStaffRoles1773000000000 implements MigrationInterface {
       END$$;
     `);
 
-    await queryRunner.query(`ALTER TABLE "Dentist" ALTER COLUMN "staffId" SET NOT NULL`);
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" ALTER COLUMN "staffId" SET NOT NULL`,
+    );
 
     await queryRunner.query(`
       ALTER TABLE "Staff" ADD COLUMN IF NOT EXISTS "isEmailVerified" boolean NOT NULL DEFAULT false
@@ -111,20 +117,42 @@ export class RestructureStaffRoles1773000000000 implements MigrationInterface {
       END$$;
     `);
 
-    await queryRunner.query(`ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "name"`);
-    await queryRunner.query(`ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "surname"`);
-    await queryRunner.query(`ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "birthDate"`);
-    await queryRunner.query(`ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "gmail"`);
-    await queryRunner.query(`ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "password"`);
-    await queryRunner.query(`ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "isEmailVerified"`);
-    await queryRunner.query(`ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "verificationCode"`);
-    await queryRunner.query(`ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "verificationCodeExpiry"`);
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "name"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "surname"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "birthDate"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "gmail"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "password"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "isEmailVerified"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "verificationCode"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "verificationCodeExpiry"`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "Dentist" DROP CONSTRAINT IF EXISTS "FK_Dentist_staffId"`);
-    await queryRunner.query(`ALTER TABLE "Dentist" DROP CONSTRAINT IF EXISTS "UQ_Dentist_staffId"`);
-    await queryRunner.query(`ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "staffId"`);
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" DROP CONSTRAINT IF EXISTS "FK_Dentist_staffId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" DROP CONSTRAINT IF EXISTS "UQ_Dentist_staffId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "Dentist" DROP COLUMN IF EXISTS "staffId"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "Nurse"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "FrontDeskWorker"`);
   }

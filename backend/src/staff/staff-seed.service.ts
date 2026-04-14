@@ -27,9 +27,13 @@ export class StaffSeedService implements OnApplicationBootstrap {
         continue;
       }
 
-      const staffBySameId = await staffRepository.findOne({ where: { id: dentist.id } });
+      const staffBySameId = await staffRepository.findOne({
+        where: { id: dentist.id },
+      });
       if (staffBySameId) {
-        await dentistRepository.update(dentist.id, { staffId: staffBySameId.id });
+        await dentistRepository.update(dentist.id, {
+          staffId: staffBySameId.id,
+        });
       }
     }
 

@@ -16,13 +16,18 @@ export class RegisterDto {
   @IsDateString()
   birthDate: string;
 
-  @ApiProperty({ example: 'john.doe@example.com', description: 'Email address' })
+  @ApiProperty({
+    example: 'john.doe@example.com',
+    description: 'Email address',
+  })
   @IsEmail()
   gmail: string;
 
-  @ApiProperty({ example: 'password123', description: 'Password (min 6 characters)' })
+  @ApiProperty({
+    example: 'password123',
+    description: 'Password (min 6 characters)',
+  })
   @IsString()
   @MinLength(6)
   password: string;
 }
-

@@ -1,5 +1,24 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ToothTreatmentService } from './tooth_treatment.service';
 import { CreateToothTreatmentDto } from './dto/create-tooth_treatment.dto';
 import { UpdateToothTreatmentDto } from './dto/update-tooth_treatment.dto';
@@ -55,10 +74,7 @@ export class ToothTreatmentController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete tooth treatment by id' })
   @ApiOkResponse({ description: 'Tooth treatment deleted' })
-  async delete(
-    @User() user: any,
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  async delete(@User() user: any, @Param('id', ParseIntPipe) id: number) {
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
     return await this.service.delete(dentistId, id);
   }

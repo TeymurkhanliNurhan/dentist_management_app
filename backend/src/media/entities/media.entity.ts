@@ -1,21 +1,30 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { ToothTreatment } from '../../tooth_treatment/entities/tooth_treatment.entity';
 
 @Entity({ name: 'Media' })
 export class Media {
-    @PrimaryGeneratedColumn()
-    id: number;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column({ type: 'varchar', length: 500 })
-    photo_url: string;
+  @Column({ type: 'varchar', length: 500 })
+  photo_url: string;
 
-    @Column({ type: 'text' })
-    name: string;
+  @Column({ type: 'text' })
+  name: string;
 
-    @Column({ type: 'text', nullable: true })
-    description: string | null;
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
 
-    @ManyToOne(() => ToothTreatment, (toothTreatment) => toothTreatment.medias, { nullable: false, onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'Tooth_Treatment_id' })
-    toothTreatment: ToothTreatment;
+  @ManyToOne(() => ToothTreatment, (toothTreatment) => toothTreatment.medias, {
+    nullable: false,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'Tooth_Treatment_id' })
+  toothTreatment: ToothTreatment;
 }

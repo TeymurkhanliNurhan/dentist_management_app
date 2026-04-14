@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { ToothTreatmentRepository } from './tooth_treatment.repository';
 import { CreateToothTreatmentDto } from './dto/create-tooth_treatment.dto';
 import { UpdateToothTreatmentDto } from './dto/update-tooth_treatment.dto';
@@ -31,10 +36,14 @@ export class ToothTreatmentService {
         description: created.description,
       };
     } catch (e: any) {
-      if (e?.message?.includes('Appointment not found')) throw new NotFoundException('Appointment not found');
-      if (e?.message?.includes('Treatment not found')) throw new NotFoundException('Treatment not found');
-      if (e?.message?.includes('PatientTooth not found')) throw new NotFoundException(e.message);
-      if (e?.message?.includes('InvalidPatientForAppointment')) throw new BadRequestException('Patient mismatch for appointment');
+      if (e?.message?.includes('Appointment not found'))
+        throw new NotFoundException('Appointment not found');
+      if (e?.message?.includes('Treatment not found'))
+        throw new NotFoundException('Treatment not found');
+      if (e?.message?.includes('PatientTooth not found'))
+        throw new NotFoundException(e.message);
+      if (e?.message?.includes('InvalidPatientForAppointment'))
+        throw new BadRequestException('Patient mismatch for appointment');
       if (e?.message?.includes('Forbidden')) {
         const warn = `Dentist with id ${dentistId} attempted to create ToothTreatment for non-owned resources`;
         this.logger.warn(warn);
@@ -63,8 +72,10 @@ export class ToothTreatmentService {
         description: updated.description,
       };
     } catch (e: any) {
-      if (e?.message?.includes('ToothTreatment not found')) throw new NotFoundException('ToothTreatment not found');
-      if (e?.message?.includes('Treatment not found')) throw new NotFoundException('Treatment not found');
+      if (e?.message?.includes('ToothTreatment not found'))
+        throw new NotFoundException('ToothTreatment not found');
+      if (e?.message?.includes('Treatment not found'))
+        throw new NotFoundException('Treatment not found');
       if (e?.message?.includes('Forbidden')) {
         const warn = `Dentist with id ${dentistId} attempted to update ToothTreatment with id ${id} without ownership`;
         this.logger.warn(warn);
@@ -83,7 +94,8 @@ export class ToothTreatmentService {
       LogWriter.append('log', ToothTreatmentService.name, msg);
       return { message: 'Tooth treatment deleted successfully' };
     } catch (e: any) {
-      if (e?.message?.includes('ToothTreatment not found')) throw new NotFoundException('ToothTreatment not found');
+      if (e?.message?.includes('ToothTreatment not found'))
+        throw new NotFoundException('ToothTreatment not found');
       if (e?.message?.includes('Forbidden')) {
         const warn = `Dentist with id ${dentistId} attempted to delete ToothTreatment with id ${id} without ownership`;
         this.logger.warn(warn);
@@ -96,19 +108,26 @@ export class ToothTreatmentService {
 
   async findAll(dentistId: number, dto: GetToothTreatmentDto) {
     try {
-      this.logger.log(`ToothTreatmentService.findAll called with dentistId=${dentistId}, filters=${JSON.stringify(dto)}`);
-      const toothTreatments = await this.repo.findToothTreatmentsForDentist(dentistId, {
-        id: dto.id,
-        appointment: dto.appointment,
-        tooth: dto.tooth,
-        patient: dto.patient,
-        treatment: dto.treatment,
-      });
+      this.logger.log(
+        `ToothTreatmentService.findAll called with dentistId=${dentistId}, filters=${JSON.stringify(dto)}`,
+      );
+      const toothTreatments = await this.repo.findToothTreatmentsForDentist(
+        dentistId,
+        {
+          id: dto.id,
+          appointment: dto.appointment,
+          tooth: dto.tooth,
+          patient: dto.patient,
+          treatment: dto.treatment,
+        },
+      );
       const msg = `Dentist with id ${dentistId} retrieved ${toothTreatments.length} tooth treatment(s)`;
       this.logger.log(msg);
       LogWriter.append('log', ToothTreatmentService.name, msg);
-      return toothTreatments.map(tt => {
-        const formatDate = (date: Date | string | null | undefined): string | null => {
+      return toothTreatments.map((tt) => {
+        const formatDate = (
+          date: Date | string | null | undefined,
+        ): string | null => {
           if (!date) return null;
           if (typeof date === 'string') return date;
           return date.toISOString().slice(0, 10);
@@ -131,11 +150,12 @@ export class ToothTreatmentService {
             pricePer: tt.treatment?.pricePer ?? null,
           },
           description: tt.description,
-          toothTreatmentTeeth: tt.toothTreatmentTeeth?.map(ttt => ({
-            id: ttt.id,
-            toothId: ttt.patientTooth?.tooth,
-            patientId: ttt.patientTooth?.patient,
-          })) || [],
+          toothTreatmentTeeth:
+            tt.toothTreatmentTeeth?.map((ttt) => ({
+              id: ttt.id,
+              toothId: ttt.patientTooth?.tooth,
+              patientId: ttt.patientTooth?.patient,
+            })) || [],
         };
       });
     } catch (e: any) {

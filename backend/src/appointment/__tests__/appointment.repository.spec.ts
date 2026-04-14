@@ -33,7 +33,9 @@ describe('AppointmentRepository', () => {
       dentist: { id: 7 },
     });
 
-    const updated = await repository.updateAppointmentEnsureOwnership(7, 11, { chargedFee: 430 });
+    const updated = await repository.updateAppointmentEnsureOwnership(7, 11, {
+      chargedFee: 430,
+    });
 
     expect(updated.calculatedFee).toBe(500);
     expect(updated.discountFee).toBe(70);
@@ -55,9 +57,7 @@ describe('AppointmentRepository', () => {
       toothTreatments: [
         {
           feeSnapshot: 100,
-          toothTreatmentMedicines: [
-            { medicinePriceSnapshot: 20 },
-          ],
+          toothTreatmentMedicines: [{ medicinePriceSnapshot: 20 }],
         },
       ],
     });
@@ -76,4 +76,3 @@ describe('AppointmentRepository', () => {
     );
   });
 });
-

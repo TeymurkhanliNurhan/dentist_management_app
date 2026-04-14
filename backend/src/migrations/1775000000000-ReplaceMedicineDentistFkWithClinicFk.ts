@@ -4,11 +4,15 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Move Medicine ownership from Dentist to Clinic.
  * Safe to run multiple times (idempotent).
  */
-export class ReplaceMedicineDentistFkWithClinicFk1775000000000 implements MigrationInterface {
+export class ReplaceMedicineDentistFkWithClinicFk1775000000000
+  implements MigrationInterface
+{
   name = 'ReplaceMedicineDentistFkWithClinicFk1775000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "Medicine" ADD COLUMN IF NOT EXISTS "clinicId" integer`);
+    await queryRunner.query(
+      `ALTER TABLE "Medicine" ADD COLUMN IF NOT EXISTS "clinicId" integer`,
+    );
 
     await queryRunner.query(`
       DO $$
@@ -79,7 +83,9 @@ export class ReplaceMedicineDentistFkWithClinicFk1775000000000 implements Migrat
       END$$;
     `);
 
-    await queryRunner.query(`ALTER TABLE "Medicine" DROP COLUMN IF EXISTS "dentist"`);
+    await queryRunner.query(
+      `ALTER TABLE "Medicine" DROP COLUMN IF EXISTS "dentist"`,
+    );
   }
 
   public async down(): Promise<void> {

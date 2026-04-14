@@ -5,127 +5,165 @@ import { ToothTreatmentMedicine } from './entities/tooth_treatment_medicine.enti
 import { ToothTreatment } from '../tooth_treatment/entities/tooth_treatment.entity';
 import { Medicine } from '../medicine/entities/medicine.entity';
 import { Appointment } from '../appointment/entities/appointment.entity';
-import { calculateAppointmentCalculatedFee, calculateAppointmentDiscountFee } from '../appointment/appointment-fee.util';
+import {
+  calculateAppointmentCalculatedFee,
+  calculateAppointmentDiscountFee,
+} from '../appointment/appointment-fee.util';
 
 @Injectable()
 export class ToothTreatmentMedicineRepository {
-    constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-    private get repo(): Repository<ToothTreatmentMedicine> {
-        return this.dataSource.getRepository(ToothTreatmentMedicine);
+  private get repo(): Repository<ToothTreatmentMedicine> {
+    return this.dataSource.getRepository(ToothTreatmentMedicine);
+  }
+
+  private async refreshAppointmentFees(appointmentId: number): Promise<void> {
+    const appointmentRepo = this.dataSource.getRepository(Appointment);
+    const appointment = await appointmentRepo.findOne({
+      where: { id: appointmentId },
+      relations: [
+        'toothTreatments',
+        'toothTreatments.treatment',
+        'toothTreatments.toothTreatmentMedicines',
+        'toothTreatments.toothTreatmentMedicines.medicineEntity',
+      ],
+    });
+
+    if (!appointment) return;
+
+    appointment.calculatedFee = calculateAppointmentCalculatedFee(appointment);
+    appointment.discountFee = calculateAppointmentDiscountFee(
+      appointment.calculatedFee,
+      appointment.chargedFee,
+    );
+    await appointmentRepo.save(appointment);
+  }
+
+  async createForDentist(
+    dentistId: number,
+    toothTreatmentId: number,
+    medicineId: number,
+    quantity = 1,
+  ): Promise<ToothTreatmentMedicine> {
+    const ttRepo = this.dataSource.getRepository(ToothTreatment);
+    const medRepo = this.dataSource.getRepository(Medicine);
+
+    const toothTreatment = await ttRepo.findOne({
+      where: { id: toothTreatmentId },
+      relations: ['appointment', 'appointment.dentist'],
+    });
+    if (!toothTreatment) throw new Error('ToothTreatment not found');
+    if (toothTreatment.appointment?.dentist?.id !== dentistId)
+      throw new Error('Forbidden');
+
+    const dentist = await this.dataSource.getRepository(Appointment).findOne({
+      where: { id: toothTreatment.appointment.id },
+      relations: ['dentist', 'dentist.staff'],
+    });
+    const clinicId = dentist?.dentist?.staff?.clinicId;
+    if (!clinicId) throw new Error('Forbidden');
+
+    const medicine = await medRepo.findOne({
+      where: { id: medicineId, clinic: { id: clinicId } },
+    });
+    if (!medicine) throw new Error('Medicine not found or not owned');
+
+    const existing = await this.repo.findOne({
+      where: { medicine: medicineId, toothTreatment: toothTreatmentId },
+    });
+    if (existing) {
+      existing.quantity += quantity;
+      const updated = await this.repo.save(existing);
+      await this.refreshAppointmentFees(toothTreatment.appointment.id);
+      return updated;
     }
 
-    private async refreshAppointmentFees(appointmentId: number): Promise<void> {
-        const appointmentRepo = this.dataSource.getRepository(Appointment);
-        const appointment = await appointmentRepo.findOne({
-            where: { id: appointmentId },
-            relations: [
-                'toothTreatments',
-                'toothTreatments.treatment',
-                'toothTreatments.toothTreatmentMedicines',
-                'toothTreatments.toothTreatmentMedicines.medicineEntity',
-            ],
-        });
+    const created = this.repo.create({
+      medicine: medicineId,
+      toothTreatment: toothTreatmentId,
+      medicinePriceSnapshot: medicine.price,
+      quantity,
+      medicineEntity: medicine,
+      toothTreatmentEntity: toothTreatment,
+    });
+    const saved = await this.repo.save(created);
+    await this.refreshAppointmentFees(toothTreatment.appointment.id);
+    return saved;
+  }
 
-        if (!appointment) return;
+  async updateQuantityEnsureOwnership(
+    dentistId: number,
+    toothTreatmentId: number,
+    medicineId: number,
+    quantity: number,
+  ): Promise<ToothTreatmentMedicine> {
+    const ttRepo = this.dataSource.getRepository(ToothTreatment);
+    const toothTreatment = await ttRepo.findOne({
+      where: { id: toothTreatmentId },
+      relations: ['appointment', 'appointment.dentist'],
+    });
+    if (!toothTreatment) throw new Error('ToothTreatment not found');
+    if (toothTreatment.appointment?.dentist?.id !== dentistId)
+      throw new Error('Forbidden');
 
-        appointment.calculatedFee = calculateAppointmentCalculatedFee(appointment);
-        appointment.discountFee = calculateAppointmentDiscountFee(appointment.calculatedFee, appointment.chargedFee);
-        await appointmentRepo.save(appointment);
+    const existing = await this.repo.findOne({
+      where: { medicine: medicineId, toothTreatment: toothTreatmentId },
+    });
+    if (!existing) throw new Error('ToothTreatmentMedicine not found');
+
+    existing.quantity = quantity;
+    const updated = await this.repo.save(existing);
+    await this.refreshAppointmentFees(toothTreatment.appointment.id);
+    return updated;
+  }
+
+  async deleteEnsureOwnership(
+    dentistId: number,
+    toothTreatmentId: number,
+    medicineId: number,
+  ): Promise<void> {
+    const ttRepo = this.dataSource.getRepository(ToothTreatment);
+    const toothTreatment = await ttRepo.findOne({
+      where: { id: toothTreatmentId },
+      relations: ['appointment', 'appointment.dentist'],
+    });
+    if (!toothTreatment) throw new Error('ToothTreatment not found');
+    if (toothTreatment.appointment?.dentist?.id !== dentistId)
+      throw new Error('Forbidden');
+
+    const existing = await this.repo.findOne({
+      where: { medicine: medicineId, toothTreatment: toothTreatmentId },
+    });
+    if (!existing) throw new Error('ToothTreatmentMedicine not found');
+
+    await this.repo.remove(existing);
+    await this.refreshAppointmentFees(toothTreatment.appointment.id);
+  }
+
+  async findToothTreatmentMedicinesForDentist(
+    dentistId: number,
+    filters: { medicine?: number; toothTreatment?: number },
+  ): Promise<ToothTreatmentMedicine[]> {
+    const queryBuilder = this.repo
+      .createQueryBuilder('ttm')
+      .leftJoinAndSelect('ttm.medicineEntity', 'medicine')
+      .leftJoinAndSelect('ttm.toothTreatmentEntity', 'toothTreatment')
+      .leftJoinAndSelect('toothTreatment.appointment', 'appointment')
+      .leftJoinAndSelect('appointment.dentist', 'dentist')
+      .where('dentist.id = :dentistId', { dentistId });
+
+    if (filters.medicine !== undefined) {
+      queryBuilder.andWhere('ttm.medicine = :medicine', {
+        medicine: filters.medicine,
+      });
+    }
+    if (filters.toothTreatment !== undefined) {
+      queryBuilder.andWhere('ttm.toothTreatment = :toothTreatment', {
+        toothTreatment: filters.toothTreatment,
+      });
     }
 
-    async createForDentist(dentistId: number, toothTreatmentId: number, medicineId: number, quantity = 1): Promise<ToothTreatmentMedicine> {
-        const ttRepo = this.dataSource.getRepository(ToothTreatment);
-        const medRepo = this.dataSource.getRepository(Medicine);
-
-        const toothTreatment = await ttRepo.findOne({ where: { id: toothTreatmentId }, relations: ['appointment', 'appointment.dentist'] });
-        if (!toothTreatment) throw new Error('ToothTreatment not found');
-        if (toothTreatment.appointment?.dentist?.id !== dentistId) throw new Error('Forbidden');
-
-        const dentist = await this.dataSource.getRepository(Appointment).findOne({
-            where: { id: toothTreatment.appointment.id },
-            relations: ['dentist', 'dentist.staff'],
-        });
-        const clinicId = dentist?.dentist?.staff?.clinicId;
-        if (!clinicId) throw new Error('Forbidden');
-
-        const medicine = await medRepo.findOne({ where: { id: medicineId, clinic: { id: clinicId } } });
-        if (!medicine) throw new Error('Medicine not found or not owned');
-
-        const existing = await this.repo.findOne({ where: { medicine: medicineId, toothTreatment: toothTreatmentId } });
-        if (existing) {
-            existing.quantity += quantity;
-            const updated = await this.repo.save(existing);
-            await this.refreshAppointmentFees(toothTreatment.appointment.id);
-            return updated;
-        }
-
-        const created = this.repo.create({
-            medicine: medicineId,
-            toothTreatment: toothTreatmentId,
-            medicinePriceSnapshot: medicine.price,
-            quantity,
-            medicineEntity: medicine,
-            toothTreatmentEntity: toothTreatment,
-        });
-        const saved = await this.repo.save(created);
-        await this.refreshAppointmentFees(toothTreatment.appointment.id);
-        return saved;
-    }
-
-    async updateQuantityEnsureOwnership(
-        dentistId: number,
-        toothTreatmentId: number,
-        medicineId: number,
-        quantity: number,
-    ): Promise<ToothTreatmentMedicine> {
-        const ttRepo = this.dataSource.getRepository(ToothTreatment);
-        const toothTreatment = await ttRepo.findOne({ where: { id: toothTreatmentId }, relations: ['appointment', 'appointment.dentist'] });
-        if (!toothTreatment) throw new Error('ToothTreatment not found');
-        if (toothTreatment.appointment?.dentist?.id !== dentistId) throw new Error('Forbidden');
-
-        const existing = await this.repo.findOne({ where: { medicine: medicineId, toothTreatment: toothTreatmentId } });
-        if (!existing) throw new Error('ToothTreatmentMedicine not found');
-
-        existing.quantity = quantity;
-        const updated = await this.repo.save(existing);
-        await this.refreshAppointmentFees(toothTreatment.appointment.id);
-        return updated;
-    }
-
-    async deleteEnsureOwnership(dentistId: number, toothTreatmentId: number, medicineId: number): Promise<void> {
-        const ttRepo = this.dataSource.getRepository(ToothTreatment);
-        const toothTreatment = await ttRepo.findOne({ where: { id: toothTreatmentId }, relations: ['appointment', 'appointment.dentist'] });
-        if (!toothTreatment) throw new Error('ToothTreatment not found');
-        if (toothTreatment.appointment?.dentist?.id !== dentistId) throw new Error('Forbidden');
-
-        const existing = await this.repo.findOne({ where: { medicine: medicineId, toothTreatment: toothTreatmentId } });
-        if (!existing) throw new Error('ToothTreatmentMedicine not found');
-
-        await this.repo.remove(existing);
-        await this.refreshAppointmentFees(toothTreatment.appointment.id);
-    }
-
-    async findToothTreatmentMedicinesForDentist(
-        dentistId: number,
-        filters: { medicine?: number; toothTreatment?: number },
-    ): Promise<ToothTreatmentMedicine[]> {
-        const queryBuilder = this.repo
-            .createQueryBuilder('ttm')
-            .leftJoinAndSelect('ttm.medicineEntity', 'medicine')
-            .leftJoinAndSelect('ttm.toothTreatmentEntity', 'toothTreatment')
-            .leftJoinAndSelect('toothTreatment.appointment', 'appointment')
-            .leftJoinAndSelect('appointment.dentist', 'dentist')
-            .where('dentist.id = :dentistId', { dentistId });
-
-        if (filters.medicine !== undefined) {
-            queryBuilder.andWhere('ttm.medicine = :medicine', { medicine: filters.medicine });
-        }
-        if (filters.toothTreatment !== undefined) {
-            queryBuilder.andWhere('ttm.toothTreatment = :toothTreatment', { toothTreatment: filters.toothTreatment });
-        }
-
-        return await queryBuilder.getMany();
-    }
+    return await queryBuilder.getMany();
+  }
 }
-

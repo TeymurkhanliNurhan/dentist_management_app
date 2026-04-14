@@ -20,12 +20,12 @@ describe('ToothTreatmentMedicineController', () => {
       ],
     }).compile();
 
-    controller = module.get<ToothTreatmentMedicineController>(ToothTreatmentMedicineController);
+    controller = module.get<ToothTreatmentMedicineController>(
+      ToothTreatmentMedicineController,
+    );
   });
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
   });
 });
-
-

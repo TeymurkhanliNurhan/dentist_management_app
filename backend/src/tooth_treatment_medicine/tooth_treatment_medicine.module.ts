@@ -5,7 +5,6 @@ import { ToothTreatmentMedicineRepository } from './tooth_treatment_medicine.rep
 
 @Module({
   controllers: [ToothTreatmentMedicineController],
-  providers: [ToothTreatmentMedicineService, ToothTreatmentMedicineRepository]
+  providers: [ToothTreatmentMedicineService, ToothTreatmentMedicineRepository],
 })
 export class ToothTreatmentMedicineModule {}
-

@@ -16,4 +16,3 @@ describe('DentistController', () => {
     expect(controller).toBeDefined();
   });
 });
-

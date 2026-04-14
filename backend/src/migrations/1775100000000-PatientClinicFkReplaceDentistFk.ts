@@ -4,11 +4,15 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Patient belongs to Clinic (0..* patients per clinic) instead of Dentist.
  * Rows with dentist = 1 are assigned clinicId = 1 as requested.
  */
-export class PatientClinicFkReplaceDentistFk1775100000000 implements MigrationInterface {
+export class PatientClinicFkReplaceDentistFk1775100000000
+  implements MigrationInterface
+{
   name = 'PatientClinicFkReplaceDentistFk1775100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "Patient" ADD COLUMN IF NOT EXISTS "clinicId" integer`);
+    await queryRunner.query(
+      `ALTER TABLE "Patient" ADD COLUMN IF NOT EXISTS "clinicId" integer`,
+    );
 
     await queryRunner.query(`
       DO $$
@@ -83,7 +87,9 @@ export class PatientClinicFkReplaceDentistFk1775100000000 implements MigrationIn
       END$$;
     `);
 
-    await queryRunner.query(`ALTER TABLE "Patient" DROP COLUMN IF EXISTS "dentist"`);
+    await queryRunner.query(
+      `ALTER TABLE "Patient" DROP COLUMN IF EXISTS "dentist"`,
+    );
   }
 
   public async down(): Promise<void> {

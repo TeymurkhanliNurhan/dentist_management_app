@@ -40,6 +40,7 @@ import { StaffModule } from './staff/staff.module';
 import { Room } from './room/entities/room.entity';
 import { WorkingHours } from './working_hours/entities/working_hours.entity';
 import { BlockingHours } from './blocking_hours/entities/blocking_hours.entity';
+import { DentistTreatmentModule } from './dentist_treatment/dentist_treatment.module';
 import { DentistTreatment } from './dentist_treatment/entities/dentist_treatment.entity';
 import { FrontDeskWorkerModule } from './front_desk_worker/front_desk_worker.module';
 import { DirectorModule } from './director/director.module';
@@ -193,6 +194,7 @@ import { BlockingHoursModule } from './blocking_hours/blocking_hours.module';
     DirectorModule,
     WorkingHoursModule,
     BlockingHoursModule,
+    DentistTreatmentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

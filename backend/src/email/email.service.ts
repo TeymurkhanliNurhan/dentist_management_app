@@ -9,10 +9,13 @@ export class EmailService {
 
   constructor(private configService: ConfigService) {
     const gmailUser = this.configService.get<string>('GMAIL_USER');
-    const gmailAppPassword = this.configService.get<string>('GMAIL_APP_PASSWORD');
+    const gmailAppPassword =
+      this.configService.get<string>('GMAIL_APP_PASSWORD');
 
     if (!gmailUser || !gmailAppPassword) {
-      this.logger.warn('Gmail credentials not configured. Email service will not work.');
+      this.logger.warn(
+        'Gmail credentials not configured. Email service will not work.',
+      );
     } else {
       this.transporter = nodemailer.createTransport({
         service: 'gmail',
@@ -33,7 +36,9 @@ export class EmailService {
 
   async sendVerificationEmail(email: string, code: string): Promise<void> {
     if (!this.transporter) {
-      throw new Error('Email service not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
+      throw new Error(
+        'Email service not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.',
+      );
     }
 
     const mailOptions = {
@@ -57,14 +62,19 @@ export class EmailService {
       await this.transporter.sendMail(mailOptions);
       this.logger.log(`Verification email sent to ${email}`);
     } catch (error) {
-      this.logger.error(`Failed to send verification email to ${email}:`, error);
+      this.logger.error(
+        `Failed to send verification email to ${email}:`,
+        error,
+      );
       throw new Error('Failed to send verification email');
     }
   }
 
   async sendPasswordResetEmail(email: string, code: string): Promise<void> {
     if (!this.transporter) {
-      throw new Error('Email service not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
+      throw new Error(
+        'Email service not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.',
+      );
     }
 
     const mailOptions = {
@@ -88,7 +98,10 @@ export class EmailService {
       await this.transporter.sendMail(mailOptions);
       this.logger.log(`Password reset email sent to ${email}`);
     } catch (error) {
-      this.logger.error(`Failed to send password reset email to ${email}:`, error);
+      this.logger.error(
+        `Failed to send password reset email to ${email}:`,
+        error,
+      );
       throw new Error('Failed to send password reset email');
     }
   }
@@ -100,7 +113,9 @@ export class EmailService {
     attachments?: Express.Multer.File[],
   ): Promise<void> {
     if (!this.transporter) {
-      throw new Error('Email service not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
+      throw new Error(
+        'Email service not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.',
+      );
     }
 
     const mailOptions: any = {
@@ -135,12 +150,15 @@ export class EmailService {
       this.logger.log(`Email result: ${JSON.stringify(result)}`);
     } catch (error: any) {
       this.logger.error(`Failed to send contact email to ${to}:`, error);
-      this.logger.error(`Error code: ${error.code}, Error message: ${error.message}`);
+      this.logger.error(
+        `Error code: ${error.code}, Error message: ${error.message}`,
+      );
       if (error.response) {
         this.logger.error(`Error response: ${JSON.stringify(error.response)}`);
       }
-      throw new Error(`Failed to send contact email: ${error.message || 'Unknown error'}`);
+      throw new Error(
+        `Failed to send contact email: ${error.message || 'Unknown error'}`,
+      );
     }
   }
 }
-

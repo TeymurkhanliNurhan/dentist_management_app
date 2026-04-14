@@ -1,4 +1,11 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { BlockingHours } from '../../blocking_hours/entities/blocking_hours.entity';
 import { Clinic } from '../../clinic/entities/clinic.entity';
 import { Randevue } from '../../randevue/entities/randevue.entity';
@@ -17,7 +24,10 @@ export class Room {
   @Column({ type: 'int' })
   clinicId: number;
 
-  @ManyToOne(() => Clinic, (clinic) => clinic.rooms, { nullable: false, onDelete: 'RESTRICT' })
+  @ManyToOne(() => Clinic, (clinic) => clinic.rooms, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
   @JoinColumn({ name: 'clinicId' })
   clinic: Clinic;
 

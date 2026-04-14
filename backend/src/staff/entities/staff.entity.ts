@@ -1,4 +1,12 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Clinic } from '../../clinic/entities/clinic.entity';
 import { Dentist } from '../../dentist/entities/dentist.entity';
 import { Nurse } from '../../nurse/entities/nurse.entity';
@@ -48,7 +56,10 @@ export class Staff {
   @Column({ type: 'int' })
   clinicId: number;
 
-  @ManyToOne(() => Clinic, (clinic) => clinic.staffMembers, { nullable: false, onDelete: 'RESTRICT' })
+  @ManyToOne(() => Clinic, (clinic) => clinic.staffMembers, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
   @JoinColumn({ name: 'clinicId' })
   clinic: Clinic;
 

@@ -5,11 +5,15 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * rows with dentist = 1 get clinicId = 1 as requested.
  * Randevue: optional Dentist FK; existing rows get dentist = patient's clinicId (legacy 1:1 id alignment).
  */
-export class TreatmentClinicFkAndRandevueDentistFk1775300000000 implements MigrationInterface {
+export class TreatmentClinicFkAndRandevueDentistFk1775300000000
+  implements MigrationInterface
+{
   name = 'TreatmentClinicFkAndRandevueDentistFk1775300000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "Treatment" ADD COLUMN IF NOT EXISTS "clinicId" integer`);
+    await queryRunner.query(
+      `ALTER TABLE "Treatment" ADD COLUMN IF NOT EXISTS "clinicId" integer`,
+    );
 
     await queryRunner.query(`
       DO $$
@@ -84,9 +88,13 @@ export class TreatmentClinicFkAndRandevueDentistFk1775300000000 implements Migra
       END$$;
     `);
 
-    await queryRunner.query(`ALTER TABLE "Treatment" DROP COLUMN IF EXISTS "dentist"`);
+    await queryRunner.query(
+      `ALTER TABLE "Treatment" DROP COLUMN IF EXISTS "dentist"`,
+    );
 
-    await queryRunner.query(`ALTER TABLE "Randevue" ADD COLUMN IF NOT EXISTS "dentist" integer`);
+    await queryRunner.query(
+      `ALTER TABLE "Randevue" ADD COLUMN IF NOT EXISTS "dentist" integer`,
+    );
 
     await queryRunner.query(`
       UPDATE "Randevue" r

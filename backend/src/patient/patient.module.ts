@@ -5,6 +5,6 @@ import { PatientRepository } from './patient.repository';
 
 @Module({
   controllers: [PatientController],
-  providers: [PatientService, PatientRepository]
+  providers: [PatientService, PatientRepository],
 })
 export class PatientModule {}

@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateRoomWorkingAndBlockingHours1774000000000 implements MigrationInterface {
+export class CreateRoomWorkingAndBlockingHours1774000000000
+  implements MigrationInterface
+{
   name = 'CreateRoomWorkingAndBlockingHours1774000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

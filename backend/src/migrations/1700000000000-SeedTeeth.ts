@@ -1,10 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class SeedTeeth1700000000000 implements MigrationInterface {
-    name = 'SeedTeeth1700000000000';
+  name = 'SeedTeeth1700000000000';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
         INSERT INTO "Tooth" (id, number, permanent, upper_jaw, name) VALUES
         (1, 51, false, true,  'Central incisor'),
         (2, 52, false, true,  'Lateral incisor'),
@@ -61,9 +61,9 @@ export class SeedTeeth1700000000000 implements MigrationInterface {
         (51, 47, true, false, '2nd Molar'),
         (52, 48, true, false, '3rd Molar');
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`DELETE FROM "Tooth" WHERE id BETWEEN 1 AND 52;`);
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`DELETE FROM "Tooth" WHERE id BETWEEN 1 AND 52;`);
+  }
 }
