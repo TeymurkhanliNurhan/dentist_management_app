@@ -40,6 +40,7 @@ import { StaffModule } from './staff/staff.module';
 import { Room } from './room/entities/room.entity';
 import { WorkingHours } from './working_hours/entities/working_hours.entity';
 import { BlockingHours } from './blocking_hours/entities/blocking_hours.entity';
+import { DentistTreatment } from './dentist_treatment/entities/dentist_treatment.entity';
 
 @Module({
   imports: [
@@ -49,24 +50,26 @@ import { BlockingHours } from './blocking_hours/entities/blocking_hours.entity';
         const databaseUrl = process.env.DATABASE_URL;
         console.log('DATABASE_URL:', databaseUrl ? 'Set (hidden)' : 'NOT SET');
         console.log('DB_SSL:', process.env.DB_SSL);
-        
+
         if (!databaseUrl) {
           throw new Error('DATABASE_URL environment variable is not set');
         }
-        
+
         try {
-          const match = databaseUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
-          
+          const match = databaseUrl.match(
+            /^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/,
+          );
+
           if (!match) {
             throw new Error('Invalid PostgreSQL URL format');
           }
-          
+
           const username = decodeURIComponent(match[1]);
           const password = decodeURIComponent(match[2]);
           const host = match[3];
           const port = parseInt(match[4]);
           const database = match[5];
-          
+
           console.log('Parsed connection:', {
             host,
             port,
@@ -74,7 +77,7 @@ import { BlockingHours } from './blocking_hours/entities/blocking_hours.entity';
             username: username ? `${username.substring(0, 20)}...` : 'NOT SET',
             passwordSet: password ? 'Yes' : 'No',
           });
-          
+
           return {
             type: 'postgres',
             host,
@@ -82,7 +85,10 @@ import { BlockingHours } from './blocking_hours/entities/blocking_hours.entity';
             username,
             password,
             database,
-            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+            ssl:
+              process.env.DB_SSL === 'true'
+                ? { rejectUnauthorized: false }
+                : false,
             entities: [
               Dentist,
               Patient,
@@ -90,6 +96,7 @@ import { BlockingHours } from './blocking_hours/entities/blocking_hours.entity';
               Tooth,
               ToothTranslation,
               Treatment,
+              DentistTreatment,
               ToothTreatment,
               ToothTreatmentTeeth,
               Appointment,
@@ -116,11 +123,17 @@ import { BlockingHours } from './blocking_hours/entities/blocking_hours.entity';
             },
           };
         } catch (error) {
-          console.error('Error parsing DATABASE_URL, falling back to URL string:', error);
+          console.error(
+            'Error parsing DATABASE_URL, falling back to URL string:',
+            error,
+          );
           return {
             type: 'postgres',
             url: databaseUrl,
-            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+            ssl:
+              process.env.DB_SSL === 'true'
+                ? { rejectUnauthorized: false }
+                : false,
             entities: [
               Dentist,
               Patient,
@@ -128,6 +141,7 @@ import { BlockingHours } from './blocking_hours/entities/blocking_hours.entity';
               Tooth,
               ToothTranslation,
               Treatment,
+              DentistTreatment,
               ToothTreatment,
               ToothTreatmentTeeth,
               Appointment,
