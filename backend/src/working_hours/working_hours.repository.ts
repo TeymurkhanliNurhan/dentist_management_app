@@ -66,13 +66,18 @@ export class WorkingHoursRepository {
       .innerJoinAndSelect('wh.staff', 'staff')
       .where('staff.clinicId = :clinicId', { clinicId });
 
-    if (filters.id !== undefined) qb.andWhere('wh.id = :id', { id: filters.id });
+    if (filters.id !== undefined)
+      qb.andWhere('wh.id = :id', { id: filters.id });
     if (filters.dayOfWeek !== undefined)
-      qb.andWhere('wh.dayOfWeek = :dayOfWeek', { dayOfWeek: filters.dayOfWeek });
+      qb.andWhere('wh.dayOfWeek = :dayOfWeek', {
+        dayOfWeek: filters.dayOfWeek,
+      });
     if (filters.staffId !== undefined)
       qb.andWhere('wh.staffId = :staffId', { staffId: filters.staffId });
     if (filters.startTime !== undefined)
-      qb.andWhere('wh.startTime = :startTime', { startTime: filters.startTime });
+      qb.andWhere('wh.startTime = :startTime', {
+        startTime: filters.startTime,
+      });
     if (filters.endTime !== undefined)
       qb.andWhere('wh.endTime = :endTime', { endTime: filters.endTime });
 

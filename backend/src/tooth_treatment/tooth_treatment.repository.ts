@@ -32,10 +32,12 @@ export class ToothTreatmentRepository {
   private async getDentistForAppointmentClinic(
     appointmentId: number,
   ): Promise<Dentist> {
-    const appointment = await this.dataSource.getRepository(Appointment).findOne({
-      where: { id: appointmentId },
-      relations: ['patient', 'patient.clinic'],
-    });
+    const appointment = await this.dataSource
+      .getRepository(Appointment)
+      .findOne({
+        where: { id: appointmentId },
+        relations: ['patient', 'patient.clinic'],
+      });
     if (!appointment?.patient?.clinic?.id) {
       throw new Error('Clinic not found for appointment');
     }

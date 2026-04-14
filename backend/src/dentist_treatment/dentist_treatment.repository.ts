@@ -13,7 +13,10 @@ export class DentistTreatmentRepository {
     return this.dataSource.getRepository(DentistTreatment);
   }
 
-  async createLink(treatment: number, dentist: number): Promise<DentistTreatment> {
+  async createLink(
+    treatment: number,
+    dentist: number,
+  ): Promise<DentistTreatment> {
     const treatmentExists = await this.dataSource
       .getRepository(Treatment)
       .exist({ where: { id: treatment } });

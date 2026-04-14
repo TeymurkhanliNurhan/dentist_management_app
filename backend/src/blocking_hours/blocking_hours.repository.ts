@@ -82,13 +82,16 @@ export class BlockingHoursRepository {
         { clinicId },
       );
 
-    if (filters.id !== undefined) qb.andWhere('bh.id = :id', { id: filters.id });
+    if (filters.id !== undefined)
+      qb.andWhere('bh.id = :id', { id: filters.id });
     if (filters.staffId !== undefined)
       qb.andWhere('bh.staffId = :staffId', { staffId: filters.staffId });
     if (filters.roomId !== undefined)
       qb.andWhere('bh.roomId = :roomId', { roomId: filters.roomId });
     if (filters.startTime !== undefined)
-      qb.andWhere('bh.startTime = :startTime', { startTime: filters.startTime });
+      qb.andWhere('bh.startTime = :startTime', {
+        startTime: filters.startTime,
+      });
     if (filters.endTime !== undefined)
       qb.andWhere('bh.endTime = :endTime', { endTime: filters.endTime });
 
@@ -128,7 +131,8 @@ export class BlockingHoursRepository {
     }
     if (updates.startTime !== undefined)
       existing.startTime = new Date(updates.startTime);
-    if (updates.endTime !== undefined) existing.endTime = new Date(updates.endTime);
+    if (updates.endTime !== undefined)
+      existing.endTime = new Date(updates.endTime);
 
     return await this.repo.save(existing);
   }

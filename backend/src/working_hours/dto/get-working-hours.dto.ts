@@ -10,7 +10,10 @@ export class GetWorkingHoursDto {
   @Min(1)
   id?: number;
 
-  @ApiPropertyOptional({ example: 2, description: '0 (Sunday) to 6 (Saturday)' })
+  @ApiPropertyOptional({
+    example: 2,
+    description: '0 (Sunday) to 6 (Saturday)',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

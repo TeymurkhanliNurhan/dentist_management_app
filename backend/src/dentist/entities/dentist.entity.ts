@@ -10,6 +10,7 @@ import { Appointment } from '../../appointment/entities/appointment.entity';
 import { Staff } from '../../staff/entities/staff.entity';
 import { Randevue } from '../../randevue/entities/randevue.entity';
 import { DentistTreatment } from '../../dentist_treatment/entities/dentist_treatment.entity';
+import { Room } from '../../room/entities/room.entity';
 
 @Entity({ name: 'Dentist' })
 export class Dentist {
@@ -31,4 +32,7 @@ export class Dentist {
 
   @OneToMany(() => DentistTreatment, (dt) => dt.dentistEntity)
   dentistTreatments: DentistTreatment[];
+
+  @OneToMany(() => Room, (room) => room.dentist)
+  rooms: Room[];
 }

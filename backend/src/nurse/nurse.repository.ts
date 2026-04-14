@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { FrontDeskWorker } from './entities/front_desk_worker.entity';
+import { Nurse } from './entities/nurse.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
 import { Staff } from '../staff/entities/staff.entity';
 
 @Injectable()
-export class FrontDeskWorkerRepository {
+export class NurseRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  private get repo(): Repository<FrontDeskWorker> {
-    return this.dataSource.getRepository(FrontDeskWorker);
+  private get repo(): Repository<Nurse> {
+    return this.dataSource.getRepository(Nurse);
   }
 
   private async getClinicIdForDentist(dentistId: number): Promise<number> {
@@ -33,7 +33,7 @@ export class FrontDeskWorkerRepository {
   async createForDentist(
     dentistId: number,
     input: { staffId: number },
-  ): Promise<FrontDeskWorker> {
+  ): Promise<Nurse> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const staff = await this.ensureStaffInClinic(input.staffId, clinicId);
     const created = this.repo.create({ staffId: staff.id });
@@ -43,17 +43,17 @@ export class FrontDeskWorkerRepository {
   async findForDentist(
     dentistId: number,
     filters: { id?: number; staffId?: number },
-  ): Promise<FrontDeskWorker[]> {
+  ): Promise<Nurse[]> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const qb = this.repo
-      .createQueryBuilder('fdw')
-      .innerJoinAndSelect('fdw.staff', 'staff')
+      .createQueryBuilder('nurse')
+      .innerJoinAndSelect('nurse.staff', 'staff')
       .where('staff.clinicId = :clinicId', { clinicId });
 
     if (filters.id !== undefined)
-      qb.andWhere('fdw.id = :id', { id: filters.id });
+      qb.andWhere('nurse.id = :id', { id: filters.id });
     if (filters.staffId !== undefined)
-      qb.andWhere('fdw.staffId = :staffId', { staffId: filters.staffId });
+      qb.andWhere('nurse.staffId = :staffId', { staffId: filters.staffId });
 
     return await qb.getMany();
   }
@@ -62,12 +62,12 @@ export class FrontDeskWorkerRepository {
     dentistId: number,
     id: number,
     updates: { staffId?: number },
-  ): Promise<FrontDeskWorker> {
+  ): Promise<Nurse> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const existing = await this.repo
-      .createQueryBuilder('fdw')
-      .innerJoinAndSelect('fdw.staff', 'staff')
-      .where('fdw.id = :id', { id })
+      .createQueryBuilder('nurse')
+      .innerJoinAndSelect('nurse.staff', 'staff')
+      .where('nurse.id = :id', { id })
       .andWhere('staff.clinicId = :clinicId', { clinicId })
       .getOne();
     if (!existing) throw new Error('Forbidden');
@@ -83,9 +83,9 @@ export class FrontDeskWorkerRepository {
   async deleteForDentist(dentistId: number, id: number): Promise<void> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const existing = await this.repo
-      .createQueryBuilder('fdw')
-      .innerJoin('fdw.staff', 'staff')
-      .where('fdw.id = :id', { id })
+      .createQueryBuilder('nurse')
+      .innerJoin('nurse.staff', 'staff')
+      .where('nurse.id = :id', { id })
       .andWhere('staff.clinicId = :clinicId', { clinicId })
       .getOne();
     if (!existing) throw new Error('Forbidden');

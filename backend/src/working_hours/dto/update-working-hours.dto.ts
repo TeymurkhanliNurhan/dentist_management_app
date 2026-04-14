@@ -3,7 +3,10 @@ import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 
 export class UpdateWorkingHoursDto {
-  @ApiPropertyOptional({ example: 2, description: '0 (Sunday) to 6 (Saturday)' })
+  @ApiPropertyOptional({
+    example: 2,
+    description: '0 (Sunday) to 6 (Saturday)',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

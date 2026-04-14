@@ -46,6 +46,8 @@ import { FrontDeskWorkerModule } from './front_desk_worker/front_desk_worker.mod
 import { DirectorModule } from './director/director.module';
 import { WorkingHoursModule } from './working_hours/working_hours.module';
 import { BlockingHoursModule } from './blocking_hours/blocking_hours.module';
+import { RoomModule } from './room/room.module';
+import { NurseModule } from './nurse/nurse.module';
 
 @Module({
   imports: [
@@ -195,6 +197,8 @@ import { BlockingHoursModule } from './blocking_hours/blocking_hours.module';
     WorkingHoursModule,
     BlockingHoursModule,
     DentistTreatmentModule,
+    RoomModule,
+    NurseModule,
   ],
   controllers: [AppController],
   providers: [AppService],
