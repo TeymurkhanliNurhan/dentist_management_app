@@ -11,18 +11,24 @@ export class PatientClinicFkReplaceDentistFk1775100000000 implements MigrationIn
     await queryRunner.query(`ALTER TABLE "Patient" ADD COLUMN IF NOT EXISTS "clinicId" integer`);
 
     await queryRunner.query(`
-      UPDATE "Patient" p
-      SET "clinicId" = s."clinicId"
-      FROM "Dentist" d
-      INNER JOIN "Staff" s ON s."id" = d."staffId"
-      WHERE p."clinicId" IS NULL
-        AND p."dentist" = d."id"
-    `);
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = 'Patient' AND column_name = 'dentist'
+        ) THEN
+          UPDATE "Patient" p
+          SET "clinicId" = s."clinicId"
+          FROM "Dentist" d
+          INNER JOIN "Staff" s ON s."id" = d."staffId"
+          WHERE p."clinicId" IS NULL
+            AND p."dentist" = d."id";
 
-    await queryRunner.query(`
-      UPDATE "Patient"
-      SET "clinicId" = 1
-      WHERE "dentist" = 1
+          UPDATE "Patient"
+          SET "clinicId" = 1
+          WHERE "dentist" = 1;
+        END IF;
+      END$$;
     `);
 
     await queryRunner.query(`

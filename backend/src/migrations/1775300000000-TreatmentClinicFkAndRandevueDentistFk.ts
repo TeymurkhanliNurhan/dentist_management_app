@@ -12,18 +12,24 @@ export class TreatmentClinicFkAndRandevueDentistFk1775300000000 implements Migra
     await queryRunner.query(`ALTER TABLE "Treatment" ADD COLUMN IF NOT EXISTS "clinicId" integer`);
 
     await queryRunner.query(`
-      UPDATE "Treatment" t
-      SET "clinicId" = s."clinicId"
-      FROM "Dentist" d
-      INNER JOIN "Staff" s ON s."id" = d."staffId"
-      WHERE t."clinicId" IS NULL
-        AND t."dentist" = d."id"
-    `);
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = 'Treatment' AND column_name = 'dentist'
+        ) THEN
+          UPDATE "Treatment" t
+          SET "clinicId" = s."clinicId"
+          FROM "Dentist" d
+          INNER JOIN "Staff" s ON s."id" = d."staffId"
+          WHERE t."clinicId" IS NULL
+            AND t."dentist" = d."id";
 
-    await queryRunner.query(`
-      UPDATE "Treatment"
-      SET "clinicId" = 1
-      WHERE "dentist" = 1
+          UPDATE "Treatment"
+          SET "clinicId" = 1
+          WHERE "dentist" = 1;
+        END IF;
+      END$$;
     `);
 
     await queryRunner.query(`
