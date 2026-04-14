@@ -5,10 +5,15 @@ import { dentistService, authService } from '../services/api';
 
 interface Dentist {
   id: number;
-  name: string;
-  surname: string;
-  birthDate: string;
-  gmail: string;
+  staffId: number;
+  staff: {
+    id: number;
+    name: string;
+    surname: string;
+    birthDate: string;
+    gmail: string;
+    clinicId: number;
+  };
 }
 
 const Settings = () => {
@@ -42,9 +47,9 @@ const Settings = () => {
         const dentistData = await dentistService.getById(parseInt(dentistId));
         setDentist(dentistData);
         setEditFields({
-          name: dentistData.name || '',
-          surname: dentistData.surname || '',
-          birthDate: dentistData.birthDate ? dentistData.birthDate.split('T')[0] : '',
+          name: dentistData.staff?.name || '',
+          surname: dentistData.staff?.surname || '',
+          birthDate: dentistData.staff?.birthDate ? dentistData.staff.birthDate.split('T')[0] : '',
         });
       } catch (err: any) {
         console.error('Failed to fetch dentist data:', err);
@@ -60,9 +65,9 @@ const Settings = () => {
   const handleEdit = () => {
     if (dentist) {
       setEditFields({
-        name: dentist.name || '',
-        surname: dentist.surname || '',
-        birthDate: dentist.birthDate ? dentist.birthDate.split('T')[0] : '',
+        name: dentist.staff?.name || '',
+        surname: dentist.staff?.surname || '',
+        birthDate: dentist.staff?.birthDate ? dentist.staff.birthDate.split('T')[0] : '',
       });
       setShowEditModal(true);
       setError('');
@@ -144,7 +149,7 @@ const Settings = () => {
     setSuccess('');
 
     try {
-      await authService.forgotPassword(dentist.gmail);
+      await authService.forgotPassword(dentist.staff.gmail);
       setSuccess('Reset code has been sent to your email.');
       setForgotPasswordStep('code');
     } catch (err: any) {
@@ -163,7 +168,7 @@ const Settings = () => {
     setSuccess('');
 
     try {
-      const result = await authService.verifyResetCode(dentist.gmail, forgotPasswordFields.code);
+      const result = await authService.verifyResetCode(dentist.staff.gmail, forgotPasswordFields.code);
       if (result.valid) {
         setSuccess('Code verified successfully!');
         setForgotPasswordStep('password');
@@ -199,7 +204,7 @@ const Settings = () => {
 
     try {
       const result = await authService.resetPassword(
-        dentist.gmail,
+        dentist.staff.gmail,
         forgotPasswordFields.newPassword,
         forgotPasswordFields.confirmPassword
       );
@@ -288,7 +293,7 @@ const Settings = () => {
                   <User className="w-5 h-5 text-teal-600 mt-1" />
                   <div>
                     <p className="text-sm font-medium text-gray-500">Name</p>
-                    <p className="text-lg text-gray-900">{dentist.name}</p>
+                    <p className="text-lg text-gray-900">{dentist.staff.name}</p>
                   </div>
                 </div>
 
@@ -296,7 +301,7 @@ const Settings = () => {
                   <User className="w-5 h-5 text-teal-600 mt-1" />
                   <div>
                     <p className="text-sm font-medium text-gray-500">Surname</p>
-                    <p className="text-lg text-gray-900">{dentist.surname}</p>
+                    <p className="text-lg text-gray-900">{dentist.staff.surname}</p>
                   </div>
                 </div>
 
@@ -305,7 +310,7 @@ const Settings = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Birth Date</p>
                     <p className="text-lg text-gray-900">
-                      {dentist.birthDate ? new Date(dentist.birthDate).toLocaleDateString() : 'Not set'}
+                      {dentist.staff.birthDate ? new Date(dentist.staff.birthDate).toLocaleDateString() : 'Not set'}
                     </p>
                   </div>
                 </div>
@@ -314,7 +319,7 @@ const Settings = () => {
                   <User className="w-5 h-5 text-teal-600 mt-1" />
                   <div>
                     <p className="text-sm font-medium text-gray-500">Email</p>
-                    <p className="text-lg text-gray-900">{dentist.gmail}</p>
+                    <p className="text-lg text-gray-900">{dentist.staff.gmail}</p>
                   </div>
                 </div>
               </div>
@@ -630,7 +635,7 @@ const Settings = () => {
 
             {dentist && (
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
-                Verification code has been sent to: <strong>{dentist.gmail}</strong>
+                Verification code has been sent to: <strong>{dentist.staff.gmail}</strong>
               </div>
             )}
 

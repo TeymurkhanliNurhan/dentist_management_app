@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Mail, Lock, Eye, EyeOff, ChevronLeft, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { authService } from '../services/api';
+import { authService, dentistService } from '../services/api';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -61,6 +61,18 @@ const Login = () => {
       const data = await authService.login(formData);
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('dentistId', data.dentistId.toString());
+      try {
+        const dentistProfile = await dentistService.getById(data.dentistId);
+        const staffId = dentistProfile?.staffId;
+        const clinicId = dentistProfile?.staff?.clinicId;
+        const isDentist = staffId != null && dentistProfile?.staff?.id === staffId;
+
+        if (staffId != null) localStorage.setItem('staffId', String(staffId));
+        if (clinicId != null) localStorage.setItem('clinicId', String(clinicId));
+        localStorage.setItem('role', isDentist ? 'dentist' : 'staff');
+      } catch {
+        // Keep login resilient if profile fetch fails.
+      }
       
       
       setSuccess(t('loginSuccessful'));

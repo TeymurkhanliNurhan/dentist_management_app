@@ -33,13 +33,9 @@ const Header = () => {
     const fetchDentistInfo = async () => {
       try {
         const dentistId = localStorage.getItem('dentistId');
-        console.log('Dentist ID from localStorage:', dentistId);
         if (dentistId) {
           const dentist = await dentistService.getById(parseInt(dentistId));
-          console.log('Fetched dentist info:', dentist);
-          setDentistSurname(dentist.surname);
-        } else {
-          console.log('No dentistId found in localStorage');
+          setDentistSurname(dentist?.staff?.surname || '');
         }
       } catch (error) {
         console.error('Failed to fetch dentist info:', error);
@@ -52,6 +48,9 @@ const Header = () => {
   const handleSignOut = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('dentistId');
+    localStorage.removeItem('staffId');
+    localStorage.removeItem('clinicId');
+    localStorage.removeItem('role');
     setShowSignOutConfirm(false);
     navigate('/login');
   };

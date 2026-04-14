@@ -93,6 +93,41 @@ export const dentistService = {
   },
 };
 
+export interface DentistProfile {
+  id: number;
+  staffId: number;
+  staff: {
+    id: number;
+    name: string;
+    surname: string;
+    birthDate: string;
+    gmail: string;
+    clinicId: number;
+  };
+}
+
+let currentDentistProfilePromise: Promise<DentistProfile | null> | null = null;
+
+const getCurrentDentistProfile = async (): Promise<DentistProfile | null> => {
+  if (currentDentistProfilePromise) return currentDentistProfilePromise;
+
+  currentDentistProfilePromise = (async () => {
+    const dentistIdRaw = localStorage.getItem('dentistId');
+    if (!dentistIdRaw) return null;
+    const dentistId = Number(dentistIdRaw);
+    if (!Number.isFinite(dentistId) || dentistId <= 0) return null;
+
+    try {
+      const profile = await dentistService.getById(dentistId);
+      return profile as DentistProfile;
+    } catch {
+      return null;
+    }
+  })();
+
+  return currentDentistProfilePromise;
+};
+
 export interface Patient {
   id: number;
   name: string;
@@ -168,6 +203,7 @@ export interface Medicine {
 
 export interface MedicineFilters {
   name?: string;
+  clinic_id?: number;
 }
 
 export interface CreateMedicineDto {
@@ -185,7 +221,11 @@ export interface UpdateMedicineDto {
 export const medicineService = {
   getAll: async (filters?: MedicineFilters): Promise<Medicine[]> => {
     const params = new URLSearchParams();
+    const effectiveClinicId =
+      filters?.clinic_id ??
+      (await getCurrentDentistProfile())?.staff?.clinicId;
     if (filters?.name) params.append('name', filters.name);
+    if (effectiveClinicId) params.append('clinic_id', effectiveClinicId.toString());
     
     const response = await api.get(`/medicine?${params.toString()}`);
     return response.data;
@@ -212,6 +252,7 @@ export interface Treatment {
 
 export interface TreatmentFilters {
   name?: string;
+  clinic_id?: number;
 }
 
 export interface CreateTreatmentDto {
@@ -231,7 +272,11 @@ export interface UpdateTreatmentDto {
 export const treatmentService = {
   getAll: async (filters?: TreatmentFilters): Promise<Treatment[]> => {
     const params = new URLSearchParams();
+    const effectiveClinicId =
+      filters?.clinic_id ??
+      (await getCurrentDentistProfile())?.staff?.clinicId;
     if (filters?.name) params.append('name', filters.name);
+    if (effectiveClinicId) params.append('clinic_id', effectiveClinicId.toString());
     
     const response = await api.get(`/treatment?${params.toString()}`);
     return response.data;
