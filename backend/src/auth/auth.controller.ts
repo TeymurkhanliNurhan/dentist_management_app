@@ -97,7 +97,9 @@ export class AuthController {
 
   @Public()
   @Post('password-reset/code-request')
-  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<{ message: string; code?: string }> {
     return this.authService.forgotPassword(dto.email);
   }
 

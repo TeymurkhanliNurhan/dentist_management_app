@@ -238,7 +238,9 @@ export class AuthService {
       );
     }
   }
-  async forgotPassword(email: string): Promise<{ message: string }> {
+  async forgotPassword(
+    email: string,
+  ): Promise<{ message: string; code?: string }> {
     const user = await this.authRepository.findUserByEmail(email);
     if (!user) {
       this.logger.warn(
@@ -271,6 +273,7 @@ export class AuthService {
       return {
         message:
           'If an account with this email exists, a reset code has been sent to your email.',
+        code,
       };
     } catch (error) {
       this.logger.error(
