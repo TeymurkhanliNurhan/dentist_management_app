@@ -279,10 +279,10 @@ export class AuthService {
       this.logger.error(
         `Failed to send password reset email to ${email}: ${error.message}`,
       );
-      await this.redisClient.del(`reset:${email}`);
       return {
         message:
           'If an account with this email exists, a reset code has been sent to your email.',
+        code,
       };
     }
   }
