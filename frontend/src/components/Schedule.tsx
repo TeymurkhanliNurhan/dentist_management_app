@@ -1,6 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Header from './Header';
-import { ChevronLeft, ChevronRight, CalendarDays, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Bell,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Package,
+  Settings,
+  Users,
+  Wallet,
+  X,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   API_BASE_URL,
@@ -186,10 +201,18 @@ interface DentistColumn {
   };
 }
 
+interface StaffSummary {
+  name?: string;
+  surname?: string;
+}
+
 const Schedule = () => {
+  const navigate = useNavigate();
   const { t, i18n } = useTranslation('schedule');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [directorStaff, setDirectorStaff] = useState<StaffSummary | null>(null);
   const [weekAnchor, setWeekAnchor] = useState(() => startOfWeekMonday(new Date()));
   const [dayAnchor, setDayAnchor] = useState(() => {
     const d = new Date();
@@ -239,6 +262,36 @@ const Schedule = () => {
     clientX: number;
     clientY: number;
   } | null>(null);
+
+  useEffect(() => {
+    const fetchDirectorStaff = async () => {
+      if (!isDirector) {
+        setDirectorStaff(null);
+        return;
+      }
+
+      const staffIdRaw = localStorage.getItem('staffId');
+      const staffId = Number(staffIdRaw);
+      if (!Number.isFinite(staffId) || staffId <= 0) {
+        setDirectorStaff(null);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/staff?id=${staffId}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+        });
+        if (!res.ok) throw new Error('Failed to load staff');
+        const data = await res.json();
+        const staff = Array.isArray(data) ? data[0] : data;
+        setDirectorStaff({ name: staff?.name, surname: staff?.surname });
+      } catch {
+        setDirectorStaff(null);
+      }
+    };
+
+    void fetchDirectorStaff();
+  }, [isDirector]);
 
   const days = useMemo(() => weekDays(weekAnchor), [weekAnchor]);
   const rangeLabel = useMemo(() => {
@@ -638,12 +691,114 @@ const Schedule = () => {
     return map;
   }, [dayAnchor, days, randevues, viewMode]);
 
+  const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
+  const directorMenuItems = [
+    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+    { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
+    { label: 'Inventory', icon: Package, path: '/medicines' },
+    { label: 'Staff/Doctors', icon: Users, path: '/settings' },
+    { label: 'Finance', icon: Wallet, path: '/appointments' },
+  ];
+  const directorFooterItems = [
+    { label: 'Help', icon: CircleHelp },
+    { label: 'Logout', icon: LogOut },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Header />
+    <div className={isDirector ? 'min-h-screen bg-[#f4f6f8] text-slate-700' : 'min-h-screen bg-slate-50 flex flex-col'}>
+      {!isDirector && <Header />}
+
+      {isDirector && (
+        <header className="h-16 border-b border-slate-200 bg-white px-6">
+          <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen((prev) => !prev)}
+                className="rounded-md border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100"
+                aria-label={isSidebarOpen ? 'Collapse menu' : 'Expand menu'}
+              >
+                <Menu size={16} />
+              </button>
+              <span className="text-sm font-semibold text-slate-900">Precision Dental</span>
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Admin Portal
+              </span>
+            </div>
+
+            <div className="hidden lg:flex flex-1 max-w-md">
+              <input
+                type="text"
+                readOnly
+                value=""
+                placeholder="Search appointments..."
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button type="button" className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Notifications">
+                <Bell size={16} />
+              </button>
+              <button type="button" onClick={() => navigate('/settings')} className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Open settings">
+                <Settings size={16} />
+              </button>
+              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5">
+                <div className="h-7 w-7 rounded-full bg-slate-200" />
+                <div className="leading-tight">
+                  <p className="text-xs font-semibold text-slate-700">{directorDisplayName || '-'}</p>
+                  <p className="text-[10px] text-slate-400">Clinic Director</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+      )}
+
+      <div className={isDirector ? 'mx-auto flex w-full max-w-[1600px] min-h-[calc(100vh-4rem)]' : 'flex flex-1 min-h-0'}>
+        {isDirector && (
+          <aside
+            className={`relative border-r border-slate-200 bg-[#f0f3f7] transition-all duration-300 ${
+              isSidebarOpen ? 'w-64' : 'w-20'
+            }`}
+          >
+            <div className="flex h-full flex-col justify-between py-6">
+              <nav className="space-y-1 px-3">
+                {directorMenuItems.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => navigate(item.path)}
+                    className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition ${
+                      item.path === '/schedule'
+                        ? 'bg-white text-slate-800 shadow-sm'
+                        : 'text-slate-500 hover:bg-white/80'
+                    }`}
+                  >
+                    <item.icon size={16} />
+                    {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
+                  </button>
+                ))}
+              </nav>
+
+              <div className="space-y-1 px-3">
+                {directorFooterItems.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
+                  >
+                    <item.icon size={16} />
+                    {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
+        )}
 
       <div className="flex flex-1 min-h-0">
-      <main className="flex-1 min-w-0 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 overflow-x-auto">
+      <main className={isDirector ? 'flex-1 min-w-0 px-6 py-6 overflow-x-auto' : 'flex-1 min-w-0 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 overflow-x-auto'}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <CalendarDays className="w-9 h-9 text-violet-600" aria-hidden />
@@ -1041,6 +1196,7 @@ const Schedule = () => {
           </div>
         </aside>
       )}
+      </div>
       </div>
 
       {hoverTip && (
