@@ -3,6 +3,7 @@ import Header from './Header';
 import { ChevronLeft, ChevronRight, CalendarDays, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
+  API_BASE_URL,
   appointmentService,
   patientService,
   randevueService,
@@ -71,7 +72,7 @@ function dayBoundsLocal(day: Date): { start: Date; next: Date } {
   return { start, next };
 }
 
-/** Y-offset from top of column where 08:00 = 0 and 07:59 = bottom (wraps midnight–08:00 after 23:00). */
+/** Y-offset from top of column where 08:00 = 0 and 07:59 = bottom (wraps midnight-08:00 after 23:00). */
 function offsetMsFromScheduleStart(midnight: Date, eightAm: Date, t: Date): number {
   const tms = t.getTime();
   if (tms >= eightAm.getTime()) return tms - eightAm.getTime();
@@ -154,10 +155,51 @@ function tooltipTop(clientY: number): number {
   return y;
 }
 
+function toApiIsoLocalDayBounds(day: Date): { from: string; to: string } {
+  const fromDate = new Date(day);
+  fromDate.setHours(0, 0, 0, 0);
+  const toDate = new Date(fromDate);
+  toDate.setDate(toDate.getDate() + 1);
+  return { from: fromDate.toISOString(), to: toDate.toISOString() };
+}
+
+function overlapsHourSlot(start: Date, end: Date, day: Date, hour: number): boolean {
+  const slotStart = new Date(day);
+  slotStart.setHours(hour, 0, 0, 0);
+  const slotEnd = new Date(slotStart);
+  slotEnd.setHours(slotStart.getHours() + 1, 0, 0, 0);
+  return start < slotEnd && end > slotStart;
+}
+
+type ScheduleViewMode = 'weekly' | 'dailyRooms' | 'dailyDentists';
+
+interface RoomColumn {
+  id: number;
+  number: string;
+  description: string;
+}
+
+interface DentistColumn {
+  id: number;
+  staff?: {
+    surname?: string;
+  };
+}
+
 const Schedule = () => {
   const { t, i18n } = useTranslation('schedule');
+  const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
+  const isDirector = role === 'director';
   const [weekAnchor, setWeekAnchor] = useState(() => startOfWeekMonday(new Date()));
+  const [dayAnchor, setDayAnchor] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [viewMode, setViewMode] = useState<ScheduleViewMode>('weekly');
   const [randevues, setRandevues] = useState<Randevue[]>([]);
+  const [rooms, setRooms] = useState<RoomColumn[]>([]);
+  const [dentists, setDentists] = useState<DentistColumn[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -199,8 +241,26 @@ const Schedule = () => {
   } | null>(null);
 
   const days = useMemo(() => weekDays(weekAnchor), [weekAnchor]);
+  const rangeLabel = useMemo(() => {
+    if (isDirector && viewMode !== 'weekly') {
+      return dayAnchor.toLocaleDateString(i18n.language, {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    }
+    const a = days[0];
+    const b = days[6];
+    const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+    const y = a.getFullYear() !== b.getFullYear();
+    const left = a.toLocaleDateString(i18n.language, y ? { ...opts, year: 'numeric' } : opts);
+    const right = b.toLocaleDateString(i18n.language, { ...opts, year: 'numeric' });
+    return `${left} – ${right}`;
+  }, [dayAnchor, days, i18n.language, isDirector, viewMode]);
 
   const randevueShadeByDayAndId = useMemo(() => {
+    if (isDirector) return new Map<string, 0 | 1>();
     const map = new Map<string, 0 | 1>();
     for (const day of days) {
       const items: { r: Randevue; s: Date; e: Date }[] = [];
@@ -223,35 +283,52 @@ const Schedule = () => {
       }
     }
     return map;
-  }, [randevues, days]);
-  const rangeLabel = useMemo(() => {
-    const a = days[0];
-    const b = days[6];
-    const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
-    const y = a.getFullYear() !== b.getFullYear();
-    const left = a.toLocaleDateString(i18n.language, y ? { ...opts, year: 'numeric' } : opts);
-    const right = b.toLocaleDateString(i18n.language, { ...opts, year: 'numeric' });
-    return `${left} – ${right}`;
-  }, [days, i18n.language]);
+  }, [days, isDirector, randevues]);
 
-  const fetchWeek = useCallback(async () => {
+  const fetchSchedule = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const { from, to } = weekRangeIso(weekAnchor);
-      const data = await randevueService.getForRange(from, to);
-      setRandevues(data);
+      if (!isDirector) {
+        const range = weekRangeIso(weekAnchor);
+        const randevueData = await randevueService.getForRange(range.from, range.to);
+        setRandevues(randevueData);
+        setRooms([]);
+        setDentists([]);
+      } else {
+        const range =
+          viewMode === 'weekly' ? weekRangeIso(weekAnchor) : toApiIsoLocalDayBounds(dayAnchor);
+
+        const [randevueData, roomsRes, dentistsRes] = await Promise.all([
+          randevueService.getForRange(range.from, range.to),
+          fetch(`${API_BASE_URL}/room`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+          }),
+          fetch(`${API_BASE_URL}/dentist`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+          }),
+        ]);
+
+        const roomsData = roomsRes.ok ? ((await roomsRes.json()) as RoomColumn[]) : [];
+        const dentistsData = dentistsRes.ok ? ((await dentistsRes.json()) as DentistColumn[]) : [];
+
+        setRandevues(randevueData);
+        setRooms(Array.isArray(roomsData) ? roomsData : []);
+        setDentists(Array.isArray(dentistsData) ? dentistsData : []);
+      }
     } catch {
       setLoadError(t('loadError'));
       setRandevues([]);
+      setRooms([]);
+      setDentists([]);
     } finally {
       setLoading(false);
     }
-  }, [weekAnchor, t]);
+  }, [dayAnchor, isDirector, t, viewMode, weekAnchor]);
 
   useEffect(() => {
-    void fetchWeek();
-  }, [fetchWeek]);
+    void fetchSchedule();
+  }, [fetchSchedule]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -419,7 +496,7 @@ const Schedule = () => {
     try {
       await randevueService.create(body);
       setModalOpen(false);
-      void fetchWeek();
+      void fetchSchedule();
     } catch {
       setSubmitError(t('createError'));
     } finally {
@@ -469,7 +546,7 @@ const Schedule = () => {
     setDetailBusy(true);
     try {
       await randevueService.update(detailId, body);
-      void fetchWeek();
+      void fetchSchedule();
     } catch {
       setDetailError(t('updateError'));
     } finally {
@@ -478,6 +555,88 @@ const Schedule = () => {
   };
 
   const detailRandevue = detailId != null ? randevues.find((x) => x.id === detailId) : undefined;
+
+  const dentistSurnameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const d of dentists) {
+      if (d.id && d.staff?.surname) map.set(d.id, d.staff.surname);
+    }
+    return map;
+  }, [dentists]);
+
+  const roomTitleById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const room of rooms) {
+      const label = room.number ? `Room ${room.number}` : room.description || `Room #${room.id}`;
+      map.set(room.id, label);
+    }
+    return map;
+  }, [rooms]);
+
+  const weeklyColumns = days.map((day) => ({
+    key: day.toISOString(),
+    label: day.toLocaleDateString(i18n.language, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    }),
+    day,
+    isToday: formatYmd(day) === formatYmd(new Date()),
+  }));
+
+  const roomColumns = rooms.map((room) => ({
+    key: `room-${room.id}`,
+    label: room.number ? `Room ${room.number}` : room.description || `Room #${room.id}`,
+    roomId: room.id,
+  }));
+
+  const dentistColumns = dentists.map((dentist) => ({
+    key: `dentist-${dentist.id}`,
+    label: `Dr. ${dentist.staff?.surname || '#' + dentist.id}`,
+    dentistId: dentist.id,
+  }));
+
+  const activeColumns =
+    viewMode === 'weekly'
+      ? weeklyColumns
+      : viewMode === 'dailyRooms'
+        ? roomColumns
+        : dentistColumns;
+
+  const randevuesByColumnAndHour = useMemo(() => {
+    const map = new Map<string, Randevue[]>();
+    const push = (key: string, r: Randevue) => {
+      const list = map.get(key);
+      if (list) list.push(r);
+      else map.set(key, [r]);
+    };
+
+    for (const r of randevues) {
+      const start = new Date(r.date);
+      const end = new Date(r.endTime);
+      for (const hour of DISPLAY_HOURS) {
+        if (viewMode === 'weekly') {
+          for (const day of days) {
+            if (!overlapsHourSlot(start, end, day, hour)) continue;
+            push(`day:${formatYmd(day)}|hour:${hour}`, r);
+          }
+        } else if (viewMode === 'dailyRooms') {
+          if (!r.room?.id) continue;
+          if (!overlapsHourSlot(start, end, dayAnchor, hour)) continue;
+          push(`room:${r.room.id}|hour:${hour}`, r);
+        } else {
+          if (!r.dentist?.id) continue;
+          if (!overlapsHourSlot(start, end, dayAnchor, hour)) continue;
+          push(`dentist:${r.dentist.id}|hour:${hour}`, r);
+        }
+      }
+    }
+
+    for (const list of map.values()) {
+      list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }
+    return map;
+  }, [dayAnchor, days, randevues, viewMode]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -497,27 +656,68 @@ const Schedule = () => {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setWeekAnchor(startOfWeekMonday(new Date()))}
+              onClick={() => {
+                if (!isDirector || viewMode === 'weekly') {
+                  setWeekAnchor(startOfWeekMonday(new Date()));
+                } else {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  setDayAnchor(today);
+                }
+              }}
               className="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
             >
               {t('today')}
             </button>
             <button
               type="button"
-              onClick={() => setWeekAnchor((w) => addDays(w, -7))}
+              onClick={() =>
+                !isDirector || viewMode === 'weekly'
+                  ? setWeekAnchor((w) => addDays(w, -7))
+                  : setDayAnchor((d) => addDays(d, -1))
+              }
               className="p-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              aria-label={t('prevWeek')}
+              aria-label={!isDirector || viewMode === 'weekly' ? t('prevWeek') : t('prevDay')}
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button
               type="button"
-              onClick={() => setWeekAnchor((w) => addDays(w, 7))}
+              onClick={() =>
+                !isDirector || viewMode === 'weekly'
+                  ? setWeekAnchor((w) => addDays(w, 7))
+                  : setDayAnchor((d) => addDays(d, 1))
+              }
               className="p-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              aria-label={t('nextWeek')}
+              aria-label={!isDirector || viewMode === 'weekly' ? t('nextWeek') : t('nextDay')}
             >
               <ChevronRight className="w-5 h-5" />
             </button>
+            {isDirector && (
+              <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden bg-white">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('weekly')}
+                  className={`px-3 py-2 text-sm font-medium ${viewMode === 'weekly' ? 'bg-violet-100 text-violet-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {t('viewWeekly')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('dailyRooms')}
+                  className={`px-3 py-2 text-sm font-medium border-l border-gray-300 ${viewMode === 'dailyRooms' ? 'bg-violet-100 text-violet-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {t('viewDailyRooms')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('dailyDentists')}
+                  className={`px-3 py-2 text-sm font-medium border-l border-gray-300 ${viewMode === 'dailyDentists' ? 'bg-violet-100 text-violet-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {t('viewDailyDentists')}
+                </button>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => openNewModal()}
@@ -549,85 +749,134 @@ const Schedule = () => {
               </div>
 
               <div className="flex flex-1">
-                {days.map((day) => {
-                  const header = day.toLocaleDateString(i18n.language, {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short',
-                  });
-                  const isToday = formatYmd(day) === formatYmd(new Date());
+                {(isDirector ? activeColumns : weeklyColumns).map((column) => {
+                  const weeklyColumn = column as (typeof weeklyColumns)[number];
+                  const isWeekly = !isDirector || viewMode === 'weekly';
+                  const cellDay = isWeekly ? weeklyColumn.day : dayAnchor;
+                  const isToday = isWeekly ? weeklyColumn.isToday : formatYmd(dayAnchor) === formatYmd(new Date());
+
+                  const getCellKey = (hour: number) => {
+                    if (viewMode === 'weekly') return `day:${formatYmd(weeklyColumn.day)}|hour:${hour}`;
+                    if (viewMode === 'dailyRooms') return `room:${(column as (typeof roomColumns)[number]).roomId}|hour:${hour}`;
+                    return `dentist:${(column as (typeof dentistColumns)[number]).dentistId}|hour:${hour}`;
+                  };
 
                   return (
-                    <div key={day.toISOString()} className="flex-1 min-w-[100px] border-r border-gray-200 last:border-r-0">
+                    <div key={column.key} className="flex-1 min-w-[150px] border-r border-gray-200 last:border-r-0">
                       <div
-                        className={`h-12 border-b border-gray-200 flex items-center justify-center text-sm font-medium ${
+                        className={`h-12 border-b border-gray-200 flex items-center justify-center text-sm font-medium px-2 text-center ${
                           isToday ? 'text-violet-700 bg-violet-50' : 'text-gray-800'
                         }`}
                       >
-                        {header}
+                        {column.label}
                       </div>
                       <div className="relative" style={{ height: DAY_PX }}>
-                        {DISPLAY_HOURS.map((h, slot) => (
-                          <button
-                            key={`${slot}-${h}`}
-                            type="button"
-                            className="absolute left-0 right-0 z-[5] border-b border-gray-100 hover:bg-violet-50/40 transition-colors cursor-pointer"
-                            style={{ top: slot * HOUR_PX, height: HOUR_PX }}
-                            onClick={() => openNewModal(day, h)}
-                            aria-label={`${t('newRandevue')} ${formatYmd(day)} ${formatHourLabel24(h)}`}
-                          />
-                        ))}
-
-                        {randevues.flatMap((r) => {
-                          const s = new Date(r.date);
-                          const e = new Date(r.endTime);
-                          const segs = layoutSegments(day, s, e);
-                          if (segs.length === 0) return [];
-                          const shade =
-                            randevueShadeByDayAndId.get(`${day.getTime()}-${r.id}`) ?? 0;
-                          const toneClass =
-                            shade === 0
-                              ? 'bg-violet-600 hover:bg-violet-700'
-                              : 'bg-emerald-600 hover:bg-emerald-700';
-                          const focusRingClass =
-                            shade === 0 ? 'focus:ring-violet-300' : 'focus:ring-emerald-300';
-                          return segs.map((seg, segIdx) => (
-                            <div
-                              key={`${r.id}-${day.toISOString()}-${segIdx}`}
-                              role="button"
-                              tabIndex={0}
-                              className={`absolute left-0.5 right-0.5 rounded-md ${toneClass} text-white text-xs px-1 py-0.5 shadow-sm overflow-hidden z-[15] cursor-pointer pointer-events-auto transition-colors focus:outline-none focus:ring-2 ${focusRingClass} focus:ring-offset-1`}
-                              style={{ top: seg.top, height: seg.height }}
-                              onClick={(ev) => {
-                                ev.stopPropagation();
-                                openRandevueDetail(r);
-                              }}
-                              onKeyDown={(ev) => {
-                                if (ev.key === 'Enter' || ev.key === ' ') {
-                                  ev.preventDefault();
-                                  openRandevueDetail(r);
-                                }
-                              }}
-                              onMouseEnter={(ev) =>
-                                setHoverTip({ r, clientX: ev.clientX, clientY: ev.clientY })
-                              }
-                              onMouseMove={(ev) =>
-                                setHoverTip((prev) =>
-                                  prev && prev.r.id === r.id
-                                    ? { r, clientX: ev.clientX, clientY: ev.clientY }
-                                    : prev,
-                                )
-                              }
-                              onMouseLeave={() =>
-                                setHoverTip((prev) => (prev?.r.id === r.id ? null : prev))
-                              }
+                        {DISPLAY_HOURS.map((h, slot) => {
+                          if (!isDirector) {
+                            return (
+                              <button
+                                key={`${column.key}-${slot}-${h}`}
+                                type="button"
+                                className="absolute left-0 right-0 z-[5] border-b border-gray-100 hover:bg-violet-50/40 transition-colors cursor-pointer"
+                                style={{ top: slot * HOUR_PX, height: HOUR_PX }}
+                                onClick={() => openNewModal(cellDay, h)}
+                                aria-label={`${t('newRandevue')} ${formatYmd(cellDay)} ${formatHourLabel24(h)}`}
+                              />
+                            );
+                          }
+                          const list = randevuesByColumnAndHour.get(getCellKey(h)) ?? [];
+                          return (
+                            <button
+                              key={`${column.key}-${slot}-${h}`}
+                              type="button"
+                              className="absolute left-0 right-0 z-[5] border-b border-gray-100 hover:bg-violet-50/40 transition-colors cursor-pointer px-1 py-0.5 text-left"
+                              style={{ top: slot * HOUR_PX, height: HOUR_PX }}
+                              onClick={() => openNewModal(cellDay, h)}
+                              aria-label={`${t('newRandevue')} ${formatYmd(cellDay)} ${formatHourLabel24(h)}`}
                             >
-                              <span className="font-semibold leading-tight block truncate pointer-events-none">
-                                {r.patient.name} {r.patient.surname}
-                              </span>
-                            </div>
-                          ));
+                              <div className="space-y-0.5">
+                                {list.map((r) => (
+                                  <div
+                                    key={`${column.key}-${h}-${r.id}`}
+                                    role="button"
+                                    tabIndex={0}
+                                    className="rounded bg-violet-600 hover:bg-violet-700 text-white text-[10px] px-1 py-0.5 shadow-sm overflow-hidden pointer-events-auto transition-colors focus:outline-none focus:ring-1 focus:ring-violet-300"
+                                    onClick={(ev) => {
+                                      ev.stopPropagation();
+                                      openRandevueDetail(r);
+                                    }}
+                                    onKeyDown={(ev) => {
+                                      if (ev.key === 'Enter' || ev.key === ' ') {
+                                        ev.preventDefault();
+                                        openRandevueDetail(r);
+                                      }
+                                    }}
+                                    onMouseEnter={(ev) => setHoverTip({ r, clientX: ev.clientX, clientY: ev.clientY })}
+                                    onMouseMove={(ev) =>
+                                      setHoverTip((prev) =>
+                                        prev && prev.r.id === r.id ? { r, clientX: ev.clientX, clientY: ev.clientY } : prev,
+                                      )
+                                    }
+                                    onMouseLeave={() => setHoverTip((prev) => (prev?.r.id === r.id ? null : prev))}
+                                  >
+                                    <p className="leading-tight truncate">
+                                      {roomTitleById.get(r.room?.id ?? 0) || t('roomUnknown')}
+                                    </p>
+                                    <p className="leading-tight truncate">
+                                      {`Dr. ${dentistSurnameById.get(r.dentist?.id ?? 0) || t('dentistUnknown')}`}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </button>
+                          );
                         })}
+                        {!isDirector &&
+                          randevues.flatMap((r) => {
+                            const s = new Date(r.date);
+                            const e = new Date(r.endTime);
+                            const segs = layoutSegments(weeklyColumn.day, s, e);
+                            if (segs.length === 0) return [];
+                            const shade = randevueShadeByDayAndId.get(`${weeklyColumn.day.getTime()}-${r.id}`) ?? 0;
+                            const toneClass = shade === 0 ? 'bg-violet-600 hover:bg-violet-700' : 'bg-emerald-600 hover:bg-emerald-700';
+                            const focusRingClass = shade === 0 ? 'focus:ring-violet-300' : 'focus:ring-emerald-300';
+                            return segs.map((seg, segIdx) => (
+                              <div
+                                key={`${r.id}-${weeklyColumn.day.toISOString()}-${segIdx}`}
+                                role="button"
+                                tabIndex={0}
+                                className={`absolute left-0.5 right-0.5 rounded-md ${toneClass} text-white text-xs px-1 py-0.5 shadow-sm overflow-hidden z-[15] cursor-pointer pointer-events-auto transition-colors focus:outline-none focus:ring-2 ${focusRingClass} focus:ring-offset-1`}
+                                style={{ top: seg.top, height: seg.height }}
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  openRandevueDetail(r);
+                                }}
+                                onKeyDown={(ev) => {
+                                  if (ev.key === 'Enter' || ev.key === ' ') {
+                                    ev.preventDefault();
+                                    openRandevueDetail(r);
+                                  }
+                                }}
+                                onMouseEnter={(ev) =>
+                                  setHoverTip({ r, clientX: ev.clientX, clientY: ev.clientY })
+                                }
+                                onMouseMove={(ev) =>
+                                  setHoverTip((prev) =>
+                                    prev && prev.r.id === r.id
+                                      ? { r, clientX: ev.clientX, clientY: ev.clientY }
+                                      : prev,
+                                  )
+                                }
+                                onMouseLeave={() =>
+                                  setHoverTip((prev) => (prev?.r.id === r.id ? null : prev))
+                                }
+                              >
+                                <span className="font-semibold leading-tight block truncate pointer-events-none">
+                                  {r.patient.name} {r.patient.surname}
+                                </span>
+                              </div>
+                            ));
+                          })}
                       </div>
                     </div>
                   );

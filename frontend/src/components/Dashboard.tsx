@@ -2,7 +2,7 @@ import Header from './Header';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DASHBOARD_TILE_IMAGES, type DashboardTileKey } from '../lib/dashboardTileImages';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CalendarDays,
   ChevronLeft,
@@ -15,14 +15,58 @@ import {
   Users,
   Wallet,
 } from 'lucide-react';
+import api from '../services/api';
 
 const TILE_IMAGE_QUERY = '?v=2';
+
+interface StaffSummary {
+  name?: string;
+  surname?: string;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
+  const [directorStaff, setDirectorStaff] = useState<StaffSummary | null>(null);
+
+  useEffect(() => {
+    const fetchDirectorStaff = async () => {
+      if (role !== 'director') {
+        setDirectorStaff(null);
+        return;
+      }
+
+      const staffIdRaw = localStorage.getItem('staffId');
+      if (!staffIdRaw) {
+        setDirectorStaff(null);
+        return;
+      }
+
+      const staffId = Number(staffIdRaw);
+      if (!Number.isFinite(staffId) || staffId <= 0) {
+        setDirectorStaff(null);
+        return;
+      }
+
+      try {
+        const response = await api.get(`/staff?id=${staffId}`);
+        const staff = Array.isArray(response.data) ? response.data[0] : response.data;
+        setDirectorStaff({
+          name: staff?.name,
+          surname: staff?.surname,
+        });
+      } catch (error) {
+        console.error('Failed to fetch director staff info:', error);
+        setDirectorStaff(null);
+      }
+    };
+
+    void fetchDirectorStaff();
+  }, [role]);
+
+  const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
 
   const services: { nameKey: DashboardTileKey; image: string; path: string }[] = [
     {
@@ -97,7 +141,7 @@ const Dashboard = () => {
               <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5">
                 <div className="h-7 w-7 rounded-full bg-slate-200" />
                 <div className="leading-tight">
-                  <p className="text-xs font-semibold text-slate-700">Dr. Aris Thorne</p>
+                  <p className="text-xs font-semibold text-slate-700">{directorDisplayName || '-'}</p>
                   <p className="text-[10px] text-slate-400">Clinic Director</p>
                 </div>
               </div>
