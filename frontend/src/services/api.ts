@@ -562,6 +562,7 @@ export interface CreateRandevueDto {
   startDateTime: string;
   endDateTime: string;
   patient_id: number;
+  dentist_id?: number;
   note?: string;
   appointment_id?: number;
   create_new_appointment?: boolean;
@@ -574,6 +575,7 @@ export interface UpdateRandevueDto {
   startDateTime?: string;
   endDateTime?: string;
   patient_id?: number;
+  dentist_id?: number;
   note?: string;
   clear_appointment?: boolean;
   appointment_id?: number;

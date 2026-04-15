@@ -197,6 +197,15 @@ interface RoomColumn {
 interface DentistColumn {
   id: number;
   staff?: {
+    name?: string;
+    surname?: string;
+  };
+}
+
+interface NurseColumn {
+  id: number;
+  staff?: {
+    name?: string;
     surname?: string;
   };
 }
@@ -223,6 +232,7 @@ const Schedule = () => {
   const [randevues, setRandevues] = useState<Randevue[]>([]);
   const [rooms, setRooms] = useState<RoomColumn[]>([]);
   const [dentists, setDentists] = useState<DentistColumn[]>([]);
+  const [nurses, setNurses] = useState<NurseColumn[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -230,6 +240,9 @@ const Schedule = () => {
   const [formDate, setFormDate] = useState('');
   const [formStart, setFormStart] = useState('09:00');
   const [formEnd, setFormEnd] = useState('10:00');
+  const [formRoomId, setFormRoomId] = useState<number>(0);
+  const [formDentistId, setFormDentistId] = useState<number>(0);
+  const [formNurseId, setFormNurseId] = useState<number>(0);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState<number>(0);
   const [note, setNote] = useState('');
@@ -348,11 +361,12 @@ const Schedule = () => {
         setRandevues(randevueData);
         setRooms([]);
         setDentists([]);
+        setNurses([]);
       } else {
         const range =
           viewMode === 'weekly' ? weekRangeIso(weekAnchor) : toApiIsoLocalDayBounds(dayAnchor);
 
-        const [randevueData, roomsRes, dentistsRes] = await Promise.all([
+        const [randevueData, roomsRes, dentistsRes, nursesRes] = await Promise.all([
           randevueService.getForRange(range.from, range.to),
           fetch(`${API_BASE_URL}/room`, {
             headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
@@ -360,20 +374,26 @@ const Schedule = () => {
           fetch(`${API_BASE_URL}/dentist`, {
             headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
           }),
+          fetch(`${API_BASE_URL}/nurse`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+          }),
         ]);
 
         const roomsData = roomsRes.ok ? ((await roomsRes.json()) as RoomColumn[]) : [];
         const dentistsData = dentistsRes.ok ? ((await dentistsRes.json()) as DentistColumn[]) : [];
+        const nursesData = nursesRes.ok ? ((await nursesRes.json()) as NurseColumn[]) : [];
 
         setRandevues(randevueData);
         setRooms(Array.isArray(roomsData) ? roomsData : []);
         setDentists(Array.isArray(dentistsData) ? dentistsData : []);
+        setNurses(Array.isArray(nursesData) ? nursesData : []);
       }
     } catch {
       setLoadError(t('loadError'));
       setRandevues([]);
       setRooms([]);
       setDentists([]);
+      setNurses([]);
     } finally {
       setLoading(false);
     }
@@ -494,6 +514,9 @@ const Schedule = () => {
     setNote('');
     setPatientId(0);
     setAppointmentChoice('none');
+    setFormRoomId(0);
+    setFormDentistId(0);
+    setFormNurseId(0);
     setShowNewPatient(false);
     setNewPatient({ name: '', surname: '', birthDate: '' });
     setPatientFormMsg(null);
@@ -537,6 +560,9 @@ const Schedule = () => {
       patient_id: patientId,
     };
     if (note.trim()) body.note = note.trim();
+    if (isDirector && formRoomId > 0) body.room_id = formRoomId;
+    if (isDirector && formDentistId > 0) body.dentist_id = formDentistId;
+    if (isDirector && formNurseId > 0) body.nurse_id = formNurseId;
 
     if (appointmentChoice === 'new') {
       body.create_new_appointment = true;
@@ -1306,6 +1332,58 @@ const Schedule = () => {
                   ))}
                 </select>
               </div>
+
+              {isDirector && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('room')}</label>
+                    <select
+                      value={formRoomId || ''}
+                      onChange={(e) => setFormRoomId(Number(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    >
+                      <option value="">{t('selectRoom')}</option>
+                      {rooms.map((room) => (
+                        <option key={room.id} value={room.id}>
+                          {room.number ? `Room ${room.number}` : room.description || `Room #${room.id}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('doctor')}</label>
+                    <select
+                      value={formDentistId || ''}
+                      onChange={(e) => setFormDentistId(Number(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    >
+                      <option value="">{t('selectDoctor')}</option>
+                      {dentists.map((dentist) => (
+                        <option key={dentist.id} value={dentist.id}>
+                          {`Dr. ${dentist.staff?.surname || `#${dentist.id}`}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('nurse')}</label>
+                    <select
+                      value={formNurseId || ''}
+                      onChange={(e) => setFormNurseId(Number(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    >
+                      <option value="">{t('selectNurse')}</option>
+                      {nurses.map((nurse) => (
+                        <option key={nurse.id} value={nurse.id}>
+                          {nurse.staff?.surname && nurse.staff?.name
+                            ? `${nurse.staff.surname}, ${nurse.staff.name}`
+                            : `#${nurse.id}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
 
               {showNewPatient && (
                 <div className="border border-violet-100 rounded-lg p-3 bg-violet-50/50 space-y-2">
