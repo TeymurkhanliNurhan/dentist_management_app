@@ -30,6 +30,13 @@ export class AuthService {
   ) {}
   private readonly logger = new Logger(AuthService.name);
 
+  private formatBirthDate(birthDate: Date | string): string {
+    if (birthDate instanceof Date) {
+      return birthDate.toISOString().slice(0, 10);
+    }
+    return birthDate;
+  }
+
   async register(registerDto: RegisterDto): Promise<RegisterResponseDto> {
     const existingUser = await this.authRepository.findUserByEmail(
       registerDto.gmail,
@@ -62,22 +69,25 @@ export class AuthService {
       verificationCodeExpiry,
     });
 
+    let verificationEmailSent = true;
     try {
       await this.emailService.sendVerificationEmail(
         registerDto.gmail,
         verificationCode,
       );
     } catch (error) {
+      verificationEmailSent = false;
       this.logger.error(`Failed to send verification email: ${error.message}`);
     }
 
-    this.logger.log(
-      `Dentist registered with id ${newDentist.id}, verification email sent`,
-    );
+    const registrationLogMessage = verificationEmailSent
+      ? `Dentist registered with id ${newDentist.id}, verification email sent`
+      : `Dentist registered with id ${newDentist.id}, but verification email failed`;
+    this.logger.log(registrationLogMessage);
     LogWriter.append(
       'log',
       AuthService.name,
-      `Dentist registered with id ${newDentist.id}, verification email sent`,
+      registrationLogMessage,
     );
     return {
       message:
@@ -86,7 +96,7 @@ export class AuthService {
         id: newDentist.id,
         name: newDentist.staff.name,
         surname: newDentist.staff.surname,
-        birthDate: newDentist.staff.birthDate.toISOString().slice(0, 10),
+        birthDate: this.formatBirthDate(newDentist.staff.birthDate),
         gmail: newDentist.staff.gmail,
       },
     };

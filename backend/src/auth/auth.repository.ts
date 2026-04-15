@@ -64,50 +64,56 @@ export class AuthRepository {
     verificationCode: string | null;
     verificationCodeExpiry: Date | null;
   }): Promise<Dentist> {
-    const dentistRepository = this.getDentistRepository();
-    const staffRepository = this.getStaffRepository();
-    const clinicRepository = this.dataSource.getRepository(Clinic);
+    const savedDentistId = await this.dataSource.transaction(async (manager) => {
+      const clinicRepository = manager.getRepository(Clinic);
+      const staffRepository = manager.getRepository(Staff);
+      const dentistRepository = manager.getRepository(Dentist);
 
-    const existingClinic = await clinicRepository.findOne({ where: {} });
-    const clinic =
-      existingClinic ??
-      (await clinicRepository.save(
-        clinicRepository.create({
-          name: 'Default clinic',
-          address: 'Baku',
+      const existingClinic = await clinicRepository.findOne({ where: {} });
+      const clinic =
+        existingClinic ??
+        (await clinicRepository.save(
+          clinicRepository.create({
+            name: 'Default clinic',
+            address: 'Baku',
+          }),
+        ));
+
+      const staff = await staffRepository.save(
+        staffRepository.create({
+          name: payload.name,
+          surname: payload.surname,
+          birthDate: payload.birthDate,
+          gmail: payload.gmail,
+          password: payload.password,
+          isEmailVerified: payload.isEmailVerified,
+          verificationCode: payload.verificationCode,
+          verificationCodeExpiry: payload.verificationCodeExpiry,
+          active: true,
+          startDate: new Date(),
+          endDate: null,
+          clinicId: clinic.id,
         }),
-      ));
+      );
 
-    const staff = await staffRepository.save(
-      staffRepository.create({
-        name: payload.name,
-        surname: payload.surname,
-        birthDate: payload.birthDate,
-        gmail: payload.gmail,
-        password: payload.password,
-        isEmailVerified: payload.isEmailVerified,
-        verificationCode: payload.verificationCode,
-        verificationCodeExpiry: payload.verificationCodeExpiry,
-        active: true,
-        startDate: new Date(),
-        endDate: null,
-        clinicId: clinic.id,
-      }),
-    );
+      const savedDentist = await dentistRepository.save(
+        dentistRepository.create({
+          staffId: staff.id,
+        }),
+      );
 
-    const saved = await dentistRepository.save(
-      dentistRepository.create({
-        staffId: staff.id,
-      }),
-    );
-    this.logger.log(`Dentist persisted with id ${saved.id}`);
+      return savedDentist.id;
+    });
+
+    const dentistRepository = this.getDentistRepository();
+    this.logger.log(`Dentist persisted with id ${savedDentistId}`);
     LogWriter.append(
       'log',
       AuthRepository.name,
-      `Dentist persisted with id ${saved.id}`,
+      `Dentist persisted with id ${savedDentistId}`,
     );
     return dentistRepository.findOneOrFail({
-      where: { id: saved.id },
+      where: { id: savedDentistId },
       relations: ['staff'],
     });
   }
