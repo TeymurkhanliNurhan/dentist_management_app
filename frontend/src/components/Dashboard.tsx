@@ -2,12 +2,27 @@ import Header from './Header';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DASHBOARD_TILE_IMAGES, type DashboardTileKey } from '../lib/dashboardTileImages';
+import { useMemo, useState } from 'react';
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  LayoutDashboard,
+  LogOut,
+  Package,
+  Settings,
+  Users,
+  Wallet,
+} from 'lucide-react';
 
 const TILE_IMAGE_QUERY = '?v=2';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
 
   const services: { nameKey: DashboardTileKey; image: string; path: string }[] = [
     {
@@ -36,6 +51,104 @@ const Dashboard = () => {
       image: `${DASHBOARD_TILE_IMAGES.schedule}${TILE_IMAGE_QUERY}`,
     },
   ];
+
+  if (role === 'director') {
+    const directorMenuItems = [
+      { label: 'Dashboard', icon: LayoutDashboard },
+      { label: 'Schedule', icon: CalendarDays },
+      { label: 'Inventory', icon: Package },
+      { label: 'Staff/Doctors', icon: Users },
+      { label: 'Finance', icon: Wallet },
+    ];
+
+    const directorFooterItems = [
+      { label: 'Help', icon: CircleHelp },
+      { label: 'Logout', icon: LogOut },
+    ];
+
+    return (
+      <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
+        <header className="h-16 border-b border-slate-200 bg-white px-6">
+          <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen((prev) => !prev)}
+                className="rounded-md border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100"
+                aria-label={isSidebarOpen ? 'Collapse menu' : 'Expand menu'}
+              >
+                {isSidebarOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+              </button>
+              <span className="text-sm font-semibold text-slate-900">Precision Dental</span>
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Admin Portal
+              </span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => navigate('/settings')}
+                className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100"
+                aria-label="Open settings"
+              >
+                <Settings size={16} />
+              </button>
+              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5">
+                <div className="h-7 w-7 rounded-full bg-slate-200" />
+                <div className="leading-tight">
+                  <p className="text-xs font-semibold text-slate-700">Dr. Aris Thorne</p>
+                  <p className="text-[10px] text-slate-400">Clinic Director</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div className="mx-auto flex max-w-[1600px]">
+          <aside
+            className={`relative border-r border-slate-200 bg-[#f0f3f7] transition-all duration-300 ${
+              isSidebarOpen ? 'w-64' : 'w-20'
+            }`}
+          >
+            <div className="flex h-[calc(100vh-4rem)] flex-col justify-between py-6">
+              <nav className="space-y-1 px-3">
+                {directorMenuItems.map((item, index) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition ${
+                      index === 0
+                        ? 'bg-white text-slate-800 shadow-sm'
+                        : 'text-slate-500 hover:bg-white/80'
+                    }`}
+                  >
+                    <item.icon size={16} />
+                    {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
+                  </button>
+                ))}
+              </nav>
+
+              <div className="space-y-1 px-3">
+                {directorFooterItems.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
+                  >
+                    <item.icon size={16} />
+                    {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          <main className="h-[calc(100vh-4rem)] flex-1 bg-[#f9fafb]" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-blue-50">
