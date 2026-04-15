@@ -197,6 +197,7 @@ interface RoomColumn {
 interface DentistColumn {
   id: number;
   staff?: {
+    id?: number;
     name?: string;
     surname?: string;
   };
@@ -205,6 +206,7 @@ interface DentistColumn {
 interface NurseColumn {
   id: number;
   staff?: {
+    id?: number;
     name?: string;
     surname?: string;
   };
@@ -213,6 +215,40 @@ interface NurseColumn {
 interface StaffSummary {
   name?: string;
   surname?: string;
+}
+
+interface WorkingHourRow {
+  id: number;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  staffId: number;
+}
+
+interface BlockingHourRow {
+  id: number;
+  startTime: string;
+  endTime: string;
+  staffId: number | null;
+  roomId: number | null;
+}
+
+const SLOT_MINUTES = 30;
+const TIME_OPTIONS = Array.from({ length: (24 * 60) / SLOT_MINUTES }, (_, i) => {
+  const minutes = i * SLOT_MINUTES;
+  const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const mm = String(minutes % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+});
+
+function hmToMinutes(hm: string): number {
+  const [h, m] = hm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function timeStringToMinutes(value: string): number {
+  const [h, m] = value.split(':');
+  return Number(h) * 60 + Number(m);
 }
 
 const Schedule = () => {
@@ -243,6 +279,8 @@ const Schedule = () => {
   const [formRoomId, setFormRoomId] = useState<number>(0);
   const [formDentistId, setFormDentistId] = useState<number>(0);
   const [formNurseId, setFormNurseId] = useState<number>(0);
+  const [directorWorkingHours, setDirectorWorkingHours] = useState<WorkingHourRow[]>([]);
+  const [directorBlockingHours, setDirectorBlockingHours] = useState<BlockingHourRow[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState<number>(0);
   const [note, setNote] = useState('');
@@ -262,6 +300,9 @@ const Schedule = () => {
   const [editDate, setEditDate] = useState('');
   const [editStart, setEditStart] = useState('09:00');
   const [editEnd, setEditEnd] = useState('10:00');
+  const [detailRoomId, setDetailRoomId] = useState(0);
+  const [detailDentistId, setDetailDentistId] = useState(0);
+  const [detailNurseId, setDetailNurseId] = useState(0);
   const [editPatientId, setEditPatientId] = useState(0);
   const [editNote, setEditNote] = useState('');
   const [detailBusy, setDetailBusy] = useState(false);
@@ -305,6 +346,42 @@ const Schedule = () => {
 
     void fetchDirectorStaff();
   }, [isDirector]);
+
+  useEffect(() => {
+    const fetchDirectorAvailabilityData = async () => {
+      if (!isDirector || !modalOpen || !formDate) {
+        setDirectorWorkingHours([]);
+        setDirectorBlockingHours([]);
+        return;
+      }
+
+      const targetDate = new Date(formDate);
+      targetDate.setHours(0, 0, 0, 0);
+      const dayOfWeek = targetDate.getDay();
+
+      try {
+        const [workingRes, blockingRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/working-hours?dayOfWeek=${dayOfWeek}`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+          }),
+          fetch(`${API_BASE_URL}/blocking-hours`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+          }),
+        ]);
+
+        const workingData = workingRes.ok ? ((await workingRes.json()) as WorkingHourRow[]) : [];
+        const blockingData = blockingRes.ok ? ((await blockingRes.json()) as BlockingHourRow[]) : [];
+
+        setDirectorWorkingHours(Array.isArray(workingData) ? workingData : []);
+        setDirectorBlockingHours(Array.isArray(blockingData) ? blockingData : []);
+      } catch {
+        setDirectorWorkingHours([]);
+        setDirectorBlockingHours([]);
+      }
+    };
+
+    void fetchDirectorAvailabilityData();
+  }, [formDate, isDirector, modalOpen]);
 
   const days = useMemo(() => weekDays(weekAnchor), [weekAnchor]);
   const rangeLabel = useMemo(() => {
@@ -422,6 +499,9 @@ const Schedule = () => {
     setEditDate(formatYmd(s));
     setEditStart(localTimeHm(s));
     setEditEnd(localTimeHm(e));
+    setDetailRoomId(r.room?.id ?? 0);
+    setDetailDentistId(r.dentist?.id ?? 0);
+    setDetailNurseId(r.nurse?.id ?? 0);
     setEditPatientId(r.patient.id);
     setEditNote(r.note ?? '');
     setDetailAppointmentChoice(r.appointment ? r.appointment.id : 'none');
@@ -610,6 +690,12 @@ const Schedule = () => {
       patient_id: editPatientId,
       note: editNote,
     };
+    if (isDirector && detailRoomId > 0) body.room_id = detailRoomId;
+    if (isDirector && detailDentistId > 0) body.dentist_id = detailDentistId;
+    if (isDirector) {
+      if (detailNurseId > 0) body.nurse_id = detailNurseId;
+      else if (detailRandevue?.nurse?.id) body.clear_nurse = true;
+    }
 
     if (detailAppointmentChoice === 'new') {
       body.create_new_appointment = true;
@@ -681,6 +767,299 @@ const Schedule = () => {
       : viewMode === 'dailyRooms'
         ? roomColumns
         : dentistColumns;
+
+  const intervalOverlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) =>
+    aStart < bEnd && aEnd > bStart;
+
+  const staffAvailableAt = useCallback(
+    (staffId: number, dateYmd: string, startHm: string, endHm: string) => {
+      const intervalStart = combineLocalDateAndTime(dateYmd, startHm);
+      const intervalEnd = combineLocalDateAndTime(dateYmd, endHm);
+      if (intervalEnd <= intervalStart) return false;
+
+      const dayOfWeek = intervalStart.getDay();
+      const startMinutes = hmToMinutes(startHm);
+      const endMinutes = hmToMinutes(endHm);
+
+      const hasWorkingWindow = directorWorkingHours.some((wh) => {
+        if (wh.staffId !== staffId || wh.dayOfWeek !== dayOfWeek) return false;
+        const whStart = timeStringToMinutes(wh.startTime);
+        const whEnd = timeStringToMinutes(wh.endTime);
+        return startMinutes >= whStart && endMinutes <= whEnd;
+      });
+      if (!hasWorkingWindow) return false;
+
+      const hasBlocking = directorBlockingHours.some((bh) => {
+        if (bh.staffId !== staffId) return false;
+        return intervalOverlaps(
+          intervalStart,
+          intervalEnd,
+          new Date(bh.startTime),
+          new Date(bh.endTime),
+        );
+      });
+      return !hasBlocking;
+    },
+    [directorBlockingHours, directorWorkingHours],
+  );
+
+  const roomAvailableAt = useCallback(
+    (roomId: number, dateYmd: string, startHm: string, endHm: string) => {
+      const intervalStart = combineLocalDateAndTime(dateYmd, startHm);
+      const intervalEnd = combineLocalDateAndTime(dateYmd, endHm);
+      if (intervalEnd <= intervalStart) return false;
+
+      const hasBlocking = directorBlockingHours.some((bh) => {
+        if (bh.roomId !== roomId) return false;
+        return intervalOverlaps(
+          intervalStart,
+          intervalEnd,
+          new Date(bh.startTime),
+          new Date(bh.endTime),
+        );
+      });
+      return !hasBlocking;
+    },
+    [directorBlockingHours],
+  );
+
+  const availableDentists = useMemo(() => {
+    if (!isDirector || !formDate) return dentists;
+    return dentists.filter((d) => {
+      const staffId = d.staff?.id;
+      if (!staffId) return false;
+      return staffAvailableAt(staffId, formDate, formStart, formEnd);
+    });
+  }, [dentists, formDate, formEnd, formStart, isDirector, staffAvailableAt]);
+
+  const availableNurses = useMemo(() => {
+    if (!isDirector || !formDate) return nurses;
+    return nurses.filter((n) => {
+      const staffId = n.staff?.id;
+      if (!staffId) return false;
+      return staffAvailableAt(staffId, formDate, formStart, formEnd);
+    });
+  }, [formDate, formEnd, formStart, isDirector, nurses, staffAvailableAt]);
+
+  const availableRooms = useMemo(() => {
+    if (!isDirector || !formDate) return rooms;
+    return rooms.filter((r) => roomAvailableAt(r.id, formDate, formStart, formEnd));
+  }, [formDate, formEnd, formStart, isDirector, roomAvailableAt, rooms]);
+
+  const intervalAllowedByCurrentSelections = useCallback(
+    (dateYmd: string, startHm: string, endHm: string) => {
+      if (!isDirector) return true;
+      if (formDentistId > 0) {
+        const d = dentists.find((x) => x.id === formDentistId);
+        if (!d?.staff?.id || !staffAvailableAt(d.staff.id, dateYmd, startHm, endHm)) return false;
+      }
+      if (formNurseId > 0) {
+        const n = nurses.find((x) => x.id === formNurseId);
+        if (!n?.staff?.id || !staffAvailableAt(n.staff.id, dateYmd, startHm, endHm)) return false;
+      }
+      if (formRoomId > 0 && !roomAvailableAt(formRoomId, dateYmd, startHm, endHm)) return false;
+      return true;
+    },
+    [
+      dentists,
+      formDentistId,
+      formNurseId,
+      formRoomId,
+      isDirector,
+      nurses,
+      roomAvailableAt,
+      staffAvailableAt,
+    ],
+  );
+
+  const availableStartTimes = useMemo(() => {
+    if (!isDirector || !formDate) return TIME_OPTIONS;
+    return TIME_OPTIONS.filter((startHm) =>
+      TIME_OPTIONS.some(
+        (endHm) =>
+          hmToMinutes(endHm) > hmToMinutes(startHm) &&
+          intervalAllowedByCurrentSelections(formDate, startHm, endHm),
+      ),
+    );
+  }, [formDate, intervalAllowedByCurrentSelections, isDirector]);
+
+  const availableEndTimes = useMemo(() => {
+    if (!isDirector || !formDate) return TIME_OPTIONS.filter((x) => hmToMinutes(x) > hmToMinutes(formStart));
+    return TIME_OPTIONS.filter(
+      (endHm) =>
+        hmToMinutes(endHm) > hmToMinutes(formStart) &&
+        intervalAllowedByCurrentSelections(formDate, formStart, endHm),
+    );
+  }, [formDate, formStart, intervalAllowedByCurrentSelections, isDirector]);
+
+  const detailIntervalAllowedBySelections = useCallback(
+    (dateYmd: string, startHm: string, endHm: string) => {
+      if (!isDirector) return true;
+      if (detailDentistId > 0) {
+        const d = dentists.find((x) => x.id === detailDentistId);
+        if (!d?.staff?.id || !staffAvailableAt(d.staff.id, dateYmd, startHm, endHm)) return false;
+      }
+      if (detailNurseId > 0) {
+        const n = nurses.find((x) => x.id === detailNurseId);
+        if (!n?.staff?.id || !staffAvailableAt(n.staff.id, dateYmd, startHm, endHm)) return false;
+      }
+      if (detailRoomId > 0 && !roomAvailableAt(detailRoomId, dateYmd, startHm, endHm)) return false;
+      return true;
+    },
+    [
+      dentists,
+      detailDentistId,
+      detailNurseId,
+      detailRoomId,
+      isDirector,
+      nurses,
+      roomAvailableAt,
+      staffAvailableAt,
+    ],
+  );
+
+  const detailAvailableDentists = useMemo(() => {
+    if (!isDirector || !editDate) return dentists;
+    return dentists.filter((d) => {
+      const staffId = d.staff?.id;
+      if (!staffId) return false;
+      return staffAvailableAt(staffId, editDate, editStart, editEnd);
+    });
+  }, [dentists, editDate, editEnd, editStart, isDirector, staffAvailableAt]);
+
+  const detailAvailableNurses = useMemo(() => {
+    if (!isDirector || !editDate) return nurses;
+    return nurses.filter((n) => {
+      const staffId = n.staff?.id;
+      if (!staffId) return false;
+      return staffAvailableAt(staffId, editDate, editStart, editEnd);
+    });
+  }, [editDate, editEnd, editStart, isDirector, nurses, staffAvailableAt]);
+
+  const detailAvailableRooms = useMemo(() => {
+    if (!isDirector || !editDate) return rooms;
+    return rooms.filter((r) => roomAvailableAt(r.id, editDate, editStart, editEnd));
+  }, [editDate, editEnd, editStart, isDirector, roomAvailableAt, rooms]);
+
+  const detailAvailableStartTimes = useMemo(() => {
+    if (!isDirector || !editDate) return TIME_OPTIONS;
+    return TIME_OPTIONS.filter((startHm) =>
+      TIME_OPTIONS.some(
+        (endHm) =>
+          hmToMinutes(endHm) > hmToMinutes(startHm) &&
+          detailIntervalAllowedBySelections(editDate, startHm, endHm),
+      ),
+    );
+  }, [detailIntervalAllowedBySelections, editDate, isDirector]);
+
+  const detailAvailableEndTimes = useMemo(() => {
+    if (!isDirector || !editDate) return TIME_OPTIONS.filter((x) => hmToMinutes(x) > hmToMinutes(editStart));
+    return TIME_OPTIONS.filter(
+      (endHm) =>
+        hmToMinutes(endHm) > hmToMinutes(editStart) &&
+        detailIntervalAllowedBySelections(editDate, editStart, endHm),
+    );
+  }, [detailIntervalAllowedBySelections, editDate, editStart, isDirector]);
+
+  useEffect(() => {
+    if (!isDirector) return;
+
+    if (
+      formDentistId > 0 &&
+      !availableDentists.some((d) => d.id === formDentistId)
+    ) {
+      setFormDentistId(0);
+    }
+    if (
+      formNurseId > 0 &&
+      !availableNurses.some((n) => n.id === formNurseId)
+    ) {
+      setFormNurseId(0);
+    }
+    if (
+      formRoomId > 0 &&
+      !availableRooms.some((r) => r.id === formRoomId)
+    ) {
+      setFormRoomId(0);
+    }
+  }, [
+    availableDentists,
+    availableNurses,
+    availableRooms,
+    formDentistId,
+    formNurseId,
+    formRoomId,
+    isDirector,
+  ]);
+
+  useEffect(() => {
+    if (!isDirector) return;
+    if (!availableStartTimes.includes(formStart)) {
+      setFormStart(availableStartTimes[0] ?? '09:00');
+      return;
+    }
+    if (!availableEndTimes.includes(formEnd)) {
+      const fallback =
+        availableEndTimes.find((x) => hmToMinutes(x) > hmToMinutes(formStart)) ??
+        availableEndTimes[0] ??
+        '10:00';
+      setFormEnd(fallback);
+    }
+  }, [availableEndTimes, availableStartTimes, formEnd, formStart, isDirector]);
+
+  useEffect(() => {
+    if (!isDirector || detailId == null) return;
+
+    if (
+      detailDentistId > 0 &&
+      !detailAvailableDentists.some((d) => d.id === detailDentistId)
+    ) {
+      setDetailDentistId(0);
+    }
+    if (
+      detailNurseId > 0 &&
+      !detailAvailableNurses.some((n) => n.id === detailNurseId)
+    ) {
+      setDetailNurseId(0);
+    }
+    if (
+      detailRoomId > 0 &&
+      !detailAvailableRooms.some((r) => r.id === detailRoomId)
+    ) {
+      setDetailRoomId(0);
+    }
+  }, [
+    detailAvailableDentists,
+    detailAvailableNurses,
+    detailAvailableRooms,
+    detailDentistId,
+    detailId,
+    detailNurseId,
+    detailRoomId,
+    isDirector,
+  ]);
+
+  useEffect(() => {
+    if (!isDirector || detailId == null) return;
+    if (!detailAvailableStartTimes.includes(editStart)) {
+      setEditStart(detailAvailableStartTimes[0] ?? '09:00');
+      return;
+    }
+    if (!detailAvailableEndTimes.includes(editEnd)) {
+      const fallback =
+        detailAvailableEndTimes.find((x) => hmToMinutes(x) > hmToMinutes(editStart)) ??
+        detailAvailableEndTimes[0] ??
+        '10:00';
+      setEditEnd(fallback);
+    }
+  }, [
+    detailAvailableEndTimes,
+    detailAvailableStartTimes,
+    detailId,
+    editEnd,
+    editStart,
+    isDirector,
+  ]);
 
   const randevuesByColumnAndHour = useMemo(() => {
     const map = new Map<string, Randevue[]>();
@@ -1101,21 +1480,49 @@ const Schedule = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
-                    <input
-                      type="time"
-                      value={editStart}
-                      onChange={(e) => setEditStart(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    />
+                    {isDirector ? (
+                      <select
+                        value={editStart}
+                        onChange={(e) => setEditStart(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      >
+                        {detailAvailableStartTimes.map((hm) => (
+                          <option key={hm} value={hm}>
+                            {hm}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="time"
+                        value={editStart}
+                        onChange={(e) => setEditStart(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
-                    <input
-                      type="time"
-                      value={editEnd}
-                      onChange={(e) => setEditEnd(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    />
+                    {isDirector ? (
+                      <select
+                        value={editEnd}
+                        onChange={(e) => setEditEnd(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      >
+                        {detailAvailableEndTimes.map((hm) => (
+                          <option key={hm} value={hm}>
+                            {hm}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="time"
+                        value={editEnd}
+                        onChange={(e) => setEditEnd(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      />
+                    )}
                   </div>
                 </div>
                 <div>
@@ -1133,6 +1540,58 @@ const Schedule = () => {
                     ))}
                   </select>
                 </div>
+
+                {isDirector && (
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('room')}</label>
+                      <select
+                        value={detailRoomId || ''}
+                        onChange={(e) => setDetailRoomId(Number(e.target.value) || 0)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      >
+                        <option value="">{t('selectRoom')}</option>
+                        {detailAvailableRooms.map((room) => (
+                          <option key={room.id} value={room.id}>
+                            {room.number ? `Room ${room.number}` : room.description || `Room #${room.id}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('doctor')}</label>
+                      <select
+                        value={detailDentistId || ''}
+                        onChange={(e) => setDetailDentistId(Number(e.target.value) || 0)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      >
+                        <option value="">{t('selectDoctor')}</option>
+                        {detailAvailableDentists.map((dentist) => (
+                          <option key={dentist.id} value={dentist.id}>
+                            {`Dr. ${dentist.staff?.surname || `#${dentist.id}`}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('nurse')}</label>
+                      <select
+                        value={detailNurseId || ''}
+                        onChange={(e) => setDetailNurseId(Number(e.target.value) || 0)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      >
+                        <option value="">{t('selectNurse')}</option>
+                        {detailAvailableNurses.map((nurse) => (
+                          <option key={nurse.id} value={nurse.id}>
+                            {nurse.staff?.surname && nurse.staff?.name
+                              ? `${nurse.staff.surname}, ${nurse.staff.name}`
+                              : `#${nurse.id}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
 
                 {editPatientId > 0 && (
                   <div>
@@ -1287,21 +1746,49 @@ const Schedule = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
-                  <input
-                    type="time"
-                    value={formStart}
-                    onChange={(e) => setFormStart(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  />
+                  {isDirector ? (
+                    <select
+                      value={formStart}
+                      onChange={(e) => setFormStart(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    >
+                      {availableStartTimes.map((hm) => (
+                        <option key={hm} value={hm}>
+                          {hm}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="time"
+                      value={formStart}
+                      onChange={(e) => setFormStart(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
-                  <input
-                    type="time"
-                    value={formEnd}
-                    onChange={(e) => setFormEnd(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  />
+                  {isDirector ? (
+                    <select
+                      value={formEnd}
+                      onChange={(e) => setFormEnd(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    >
+                      {availableEndTimes.map((hm) => (
+                        <option key={hm} value={hm}>
+                          {hm}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="time"
+                      value={formEnd}
+                      onChange={(e) => setFormEnd(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -1343,7 +1830,7 @@ const Schedule = () => {
                       className="w-full border border-gray-300 rounded-lg px-3 py-2"
                     >
                       <option value="">{t('selectRoom')}</option>
-                      {rooms.map((room) => (
+                      {availableRooms.map((room) => (
                         <option key={room.id} value={room.id}>
                           {room.number ? `Room ${room.number}` : room.description || `Room #${room.id}`}
                         </option>
@@ -1358,7 +1845,7 @@ const Schedule = () => {
                       className="w-full border border-gray-300 rounded-lg px-3 py-2"
                     >
                       <option value="">{t('selectDoctor')}</option>
-                      {dentists.map((dentist) => (
+                      {availableDentists.map((dentist) => (
                         <option key={dentist.id} value={dentist.id}>
                           {`Dr. ${dentist.staff?.surname || `#${dentist.id}`}`}
                         </option>
@@ -1373,7 +1860,7 @@ const Schedule = () => {
                       className="w-full border border-gray-300 rounded-lg px-3 py-2"
                     >
                       <option value="">{t('selectNurse')}</option>
-                      {nurses.map((nurse) => (
+                      {availableNurses.map((nurse) => (
                         <option key={nurse.id} value={nurse.id}>
                           {nurse.staff?.surname && nurse.staff?.name
                             ? `${nurse.staff.surname}, ${nurse.staff.name}`
