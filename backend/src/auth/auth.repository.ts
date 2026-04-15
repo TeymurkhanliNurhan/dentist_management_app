@@ -54,6 +54,21 @@ export class AuthRepository {
     return staff.dentist;
   }
 
+  async findStaffAuthByEmail(email: string): Promise<Staff | null> {
+    const staffRepository = this.getStaffRepository();
+    const staff = await staffRepository.findOne({
+      where: { gmail: email },
+      relations: ['dentist', 'director', 'frontDeskWorker', 'nurse'],
+    });
+    this.logger.debug('findStaffAuthByEmail executed');
+    LogWriter.append(
+      'debug',
+      AuthRepository.name,
+      'findStaffAuthByEmail executed',
+    );
+    return staff;
+  }
+
   async createUser(payload: {
     name: string;
     surname: string;

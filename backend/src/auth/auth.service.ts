@@ -103,8 +103,8 @@ export class AuthService {
   }
 
   async signIn(loginDto: LoginDto): Promise<LoginResponseDto> {
-    const user = await this.authRepository.findUserByEmail(loginDto.gmail);
-    if (!user) {
+    const staff = await this.authRepository.findStaffAuthByEmail(loginDto.gmail);
+    if (!staff) {
       this.logger.warn('SignIn failed: email not found');
       LogWriter.append(
         'warn',
@@ -114,10 +114,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isMatch = await bcrypt.compare(
-      loginDto.password,
-      user.staff.password,
-    );
+    const isMatch = await bcrypt.compare(loginDto.password, staff.password);
     if (!isMatch) {
       this.logger.warn('SignIn failed: password mismatch');
       LogWriter.append(
@@ -128,27 +125,45 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (!user.staff.isEmailVerified) {
-      this.logger.warn(`SignIn failed: email not verified for user ${user.id}`);
+    if (!staff.isEmailVerified) {
+      this.logger.warn(`SignIn failed: email not verified for staff ${staff.id}`);
       LogWriter.append(
         'warn',
         AuthService.name,
-        `SignIn failed: email not verified for user ${user.id}`,
+        `SignIn failed: email not verified for staff ${staff.id}`,
       );
       throw new UnauthorizedException(
         'Please verify your email address before signing in. Check your inbox for the verification code.',
       );
     }
 
-    const payload = { sub: user.id, gmail: user.staff.gmail };
+    const dentistId = staff.dentist?.id;
+    const role = staff.dentist
+      ? 'dentist'
+      : staff.director
+        ? 'director'
+        : staff.frontDeskWorker
+          ? 'frontdesk'
+          : staff.nurse
+            ? 'nurse'
+            : 'staff';
+    const payload = {
+      sub: dentistId ?? staff.id,
+      gmail: staff.gmail,
+      staffId: staff.id,
+      role,
+    };
     const access_token = await this.jwtService.signAsync(payload);
-    this.logger.log(`Dentist with id ${user.id} signed in`);
+    this.logger.log(`Staff with id ${staff.id} signed in as ${role}`);
     LogWriter.append(
       'log',
       AuthService.name,
-      `Dentist with id ${user.id} signed in`,
+      `Staff with id ${staff.id} signed in as ${role}`,
     );
-    return { access_token, dentistId: user.id };
+    return {
+      access_token,
+      dentistId: dentistId ?? staff.id,
+    };
   }
 
   async verifyEmail(
@@ -241,22 +256,24 @@ export class AuthService {
   async forgotPassword(
     email: string,
   ): Promise<{ message: string; code?: string }> {
+    const genericResetMessage =
+      'If an account with this email exists, a reset code has been sent.';
+    const floorNumberWithSixZeroes = 1000000;
+    const hugeRangeForRandom = 9000000;
+    const code = Math.floor(
+      floorNumberWithSixZeroes + Math.random() * hugeRangeForRandom,
+    ).toString();
+
     const user = await this.authRepository.findUserByEmail(email);
     if (!user) {
       this.logger.warn(
         `Password reset requested for non-existent email: ${email}`,
       );
       return {
-        message:
-          'If an account with this email exists, a reset code has been sent.',
+        message: genericResetMessage,
+        code,
       };
     }
-
-    const floorNumberWithSixZeroes = 1000000;
-    const hugeRangeForRandom = 9000000;
-    const code = Math.floor(
-      floorNumberWithSixZeroes + Math.random() * hugeRangeForRandom,
-    ).toString();
 
     const secondsInMinute = 60;
     const shortExpirationTimeForResetPasswordInMinutes = 5;
@@ -271,8 +288,7 @@ export class AuthService {
       await this.emailService.sendPasswordResetEmail(email, code);
       this.logger.log(`Password reset code sent to ${email}`);
       return {
-        message:
-          'If an account with this email exists, a reset code has been sent to your email.',
+        message: genericResetMessage,
         code,
       };
     } catch (error) {
@@ -280,8 +296,7 @@ export class AuthService {
         `Failed to send password reset email to ${email}: ${error.message}`,
       );
       return {
-        message:
-          'If an account with this email exists, a reset code has been sent to your email.',
+        message: genericResetMessage,
         code,
       };
     }
