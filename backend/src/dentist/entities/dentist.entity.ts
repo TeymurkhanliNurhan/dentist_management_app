@@ -1,12 +1,11 @@
 import {
   Entity,
   PrimaryGeneratedColumn,
-  OneToMany,
   OneToOne,
   JoinColumn,
   Column,
+  OneToMany,
 } from 'typeorm';
-import { Appointment } from '../../appointment/entities/appointment.entity';
 import { Staff } from '../../staff/entities/staff.entity';
 import { Randevue } from '../../randevue/entities/randevue.entity';
 import { DentistTreatment } from '../../dentist_treatment/entities/dentist_treatment.entity';
@@ -23,9 +22,6 @@ export class Dentist {
   @OneToOne(() => Staff, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'staffId' })
   staff: Staff;
-
-  @OneToMany(() => Appointment, (appointment) => appointment.dentist)
-  appointments: Appointment[];
 
   @OneToMany(() => Randevue, (randevue) => randevue.dentist)
   randevues: Randevue[];

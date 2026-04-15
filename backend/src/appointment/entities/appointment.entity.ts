@@ -7,9 +7,9 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { ToothTreatment } from '../../tooth_treatment/entities/tooth_treatment.entity';
-import { Dentist } from '../../dentist/entities/dentist.entity';
 import { Patient } from '../../patient/entities/patient.entity';
 import { Randevue } from '../../randevue/entities/randevue.entity';
+import { Clinic } from '../../clinic/entities/clinic.entity';
 
 @Entity({ name: 'Appointment' })
 export class Appointment {
@@ -37,11 +37,15 @@ export class Appointment {
   @OneToMany(() => Randevue, (r) => r.appointment)
   randevues: Randevue[];
 
-  @ManyToOne(() => Dentist, (dentist) => dentist.appointments, {
+  @Column({ type: 'int' })
+  clinicId: number;
+
+  @ManyToOne(() => Clinic, {
     nullable: false,
+    onDelete: 'RESTRICT',
   })
-  @JoinColumn({ name: 'dentist' })
-  dentist: Dentist;
+  @JoinColumn({ name: 'clinicId' })
+  clinic: Clinic;
 
   @ManyToOne(() => Patient, (patient) => patient.appointments, {
     nullable: false,

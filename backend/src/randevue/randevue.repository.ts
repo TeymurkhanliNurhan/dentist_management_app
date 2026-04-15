@@ -114,13 +114,18 @@ export class RandevueRepository {
     patientId: number,
   ): Promise<Appointment> {
     const apptRepo = this.dataSource.getRepository(Appointment);
+    const dentist = await this.dataSource
+      .getRepository(Dentist)
+      .findOne({ where: { id: dentistId }, relations: ['staff'] });
+    if (!dentist?.staff) throw new Error('Forbidden appointment');
+
     const appointment = await apptRepo.findOne({
       where: {
         id: appointmentId,
-        dentist: { id: dentistId },
+        clinicId: dentist.staff.clinicId,
         patient: { id: patientId },
       },
-      relations: ['patient', 'dentist'],
+      relations: ['patient'],
     });
     if (!appointment) throw new Error('Appointment not found');
     if (appointment.endDate != null)

@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { ToothTreatmentTeeth } from './entities/tooth_treatment_teeth.entity';
 import { ToothTreatment } from '../tooth_treatment/entities/tooth_treatment.entity';
 import { PatientTooth } from '../patient_tooth/entities/patient_tooth.entity';
+import { Dentist } from '../dentist/entities/dentist.entity';
 
 @Injectable()
 export class ToothTreatmentTeethRepository {
@@ -11,6 +12,14 @@ export class ToothTreatmentTeethRepository {
 
   private get repo(): Repository<ToothTreatmentTeeth> {
     return this.dataSource.getRepository(ToothTreatmentTeeth);
+  }
+
+  private async getClinicIdForDentist(dentistId: number): Promise<number> {
+    const dentist = await this.dataSource
+      .getRepository(Dentist)
+      .findOne({ where: { id: dentistId }, relations: ['staff'] });
+    if (!dentist?.staff) throw new Error('Dentist not found');
+    return dentist.staff.clinicId;
   }
 
   async addTeethToTreatment(
@@ -22,11 +31,11 @@ export class ToothTreatmentTeethRepository {
 
     const toothTreatment = await ttRepo.findOne({
       where: { id: input.toothTreatmentId },
-      relations: ['appointment', 'appointment.dentist'],
+      relations: ['appointment'],
     });
     if (!toothTreatment) throw new Error('ToothTreatment not found');
-    if (toothTreatment.appointment?.dentist?.id !== dentistId)
-      throw new Error('Forbidden');
+    const clinicId = await this.getClinicIdForDentist(dentistId);
+    if (toothTreatment.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
 
     const patientTeeth: PatientTooth[] = [];
     for (const toothId of input.toothIds) {
@@ -54,11 +63,11 @@ export class ToothTreatmentTeethRepository {
 
     const toothTreatment = await ttRepo.findOne({
       where: { id: input.toothTreatmentId },
-      relations: ['appointment', 'appointment.dentist'],
+      relations: ['appointment'],
     });
     if (!toothTreatment) throw new Error('ToothTreatment not found');
-    if (toothTreatment.appointment?.dentist?.id !== dentistId)
-      throw new Error('Forbidden');
+    const clinicId = await this.getClinicIdForDentist(dentistId);
+    if (toothTreatment.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
 
     const queryBuilder = this.repo
       .createQueryBuilder()
@@ -79,11 +88,11 @@ export class ToothTreatmentTeethRepository {
 
     const toothTreatment = await ttRepo.findOne({
       where: { id: input.toothTreatmentId },
-      relations: ['appointment', 'appointment.dentist'],
+      relations: ['appointment'],
     });
     if (!toothTreatment) throw new Error('ToothTreatment not found');
-    if (toothTreatment.appointment?.dentist?.id !== dentistId)
-      throw new Error('Forbidden');
+    const clinicId = await this.getClinicIdForDentist(dentistId);
+    if (toothTreatment.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
 
     await this.repo.delete({ toothTreatment: { id: input.toothTreatmentId } });
     return await this.addTeethToTreatment(dentistId, input);
@@ -97,11 +106,11 @@ export class ToothTreatmentTeethRepository {
 
     const toothTreatment = await ttRepo.findOne({
       where: { id: toothTreatmentId },
-      relations: ['appointment', 'appointment.dentist'],
+      relations: ['appointment'],
     });
     if (!toothTreatment) throw new Error('ToothTreatment not found');
-    if (toothTreatment.appointment?.dentist?.id !== dentistId)
-      throw new Error('Forbidden');
+    const clinicId = await this.getClinicIdForDentist(dentistId);
+    if (toothTreatment.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
 
     return await this.repo.find({
       where: { toothTreatment: { id: toothTreatmentId } },
@@ -118,13 +127,13 @@ export class ToothTreatmentTeethRepository {
       patientId?: number;
     },
   ): Promise<ToothTreatmentTeeth[]> {
+    const clinicId = await this.getClinicIdForDentist(dentistId);
     const queryBuilder = this.repo
       .createQueryBuilder('ttt')
       .leftJoinAndSelect('ttt.toothTreatment', 'tt')
       .leftJoinAndSelect('tt.appointment', 'appointment')
-      .leftJoinAndSelect('appointment.dentist', 'dentist')
       .leftJoinAndSelect('ttt.patientTooth', 'patientTooth')
-      .where('dentist.id = :dentistId', { dentistId });
+      .where('appointment.clinicId = :clinicId', { clinicId });
 
     if (filters.id !== undefined) {
       queryBuilder.andWhere('ttt.id = :id', { id: filters.id });

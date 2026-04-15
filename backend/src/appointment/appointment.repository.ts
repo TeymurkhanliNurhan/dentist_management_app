@@ -26,26 +26,35 @@ export class AppointmentRepository {
     return appointment;
   }
 
+  private async getClinicIdForDentist(dentistId: number): Promise<number> {
+    const dentistRepo = this.dataSource.getRepository(Dentist);
+    const dentist = await dentistRepo.findOne({
+      where: { id: dentistId },
+      relations: ['staff'],
+    });
+    if (!dentist?.staff) throw new Error('Dentist not found');
+    return dentist.staff.clinicId;
+  }
+
   async createAppointmentForDentistAndPatient(
     dentistId: number,
     patientId: number,
     input: { startDate: Date; endDate: Date | null; chargedFee: number | null },
   ): Promise<Appointment> {
-    const dentistRepo = this.dataSource.getRepository(Dentist);
     const patientRepo = this.dataSource.getRepository(Patient);
-    const [dentist, patient] = await Promise.all([
-      dentistRepo.findOne({ where: { id: dentistId }, relations: ['staff'] }),
-      patientRepo.findOne({ where: { id: patientId }, relations: ['clinic'] }),
-    ]);
-    if (!dentist?.staff) throw new Error('Dentist not found');
+    const clinicId = await this.getClinicIdForDentist(dentistId);
+    const patient = await patientRepo.findOne({
+      where: { id: patientId },
+      relations: ['clinic'],
+    });
     if (!patient?.clinic) throw new Error('Patient not found');
-    if (patient.clinic.id !== dentist.staff.clinicId)
+    if (patient.clinic.id !== clinicId)
       throw new Error('Forbidden');
     const appointment = this.repo.create({
       ...input,
       calculatedFee: 0,
       discountFee: calculateAppointmentDiscountFee(0, input.chargedFee),
-      dentist,
+      clinicId,
       patient,
     });
     return await this.repo.save(appointment);
@@ -60,8 +69,9 @@ export class AppointmentRepository {
       chargedFee: number | null;
     }>,
   ): Promise<Appointment> {
+    const clinicId = await this.getClinicIdForDentist(dentistId);
     const appointment = await this.repo.findOne({
-      where: { id, dentist: { id: dentistId } },
+      where: { id, clinicId },
     });
     if (!appointment) throw new Error('Forbidden');
     if (updates.startDate !== undefined)
@@ -98,8 +108,9 @@ export class AppointmentRepository {
     dentistId: number,
     id: number,
   ): Promise<void> {
+    const clinicId = await this.getClinicIdForDentist(dentistId);
     const appointment = await this.repo.findOne({
-      where: { id, dentist: { id: dentistId } },
+      where: { id, clinicId },
     });
     if (!appointment) throw new Error('Forbidden');
     await this.repo.remove(appointment);
@@ -118,10 +129,11 @@ export class AppointmentRepository {
       limit?: number;
     },
   ): Promise<{ appointments: Appointment[]; total: number }> {
+    const clinicId = await this.getClinicIdForDentist(dentistId);
     const queryBuilder = this.repo
       .createQueryBuilder('appointment')
       .leftJoinAndSelect('appointment.patient', 'patient')
-      .where('appointment.dentist = :dentistId', { dentistId });
+      .where('appointment.clinicId = :clinicId', { clinicId });
 
     if (filters.id !== undefined) {
       queryBuilder.andWhere('appointment.id = :id', { id: filters.id });
