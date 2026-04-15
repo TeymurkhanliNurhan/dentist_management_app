@@ -98,11 +98,11 @@ const Dashboard = () => {
 
   if (role === 'director') {
     const directorMenuItems = [
-      { label: 'Dashboard', icon: LayoutDashboard },
-      { label: 'Schedule', icon: CalendarDays },
-      { label: 'Inventory', icon: Package },
-      { label: 'Staff/Doctors', icon: Users },
-      { label: 'Finance', icon: Wallet },
+      { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+      { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
+      { label: 'Inventory', icon: Package, path: '/medicines' },
+      { label: 'Staff/Doctors', icon: Users, path: '/settings' },
+      { label: 'Finance', icon: Wallet, path: '/appointments' },
     ];
 
     const directorFooterItems = [
@@ -161,6 +161,7 @@ const Dashboard = () => {
                   <button
                     key={item.label}
                     type="button"
+                    onClick={() => navigate(item.path)}
                     className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition ${
                       index === 0
                         ? 'bg-white text-slate-800 shadow-sm'
