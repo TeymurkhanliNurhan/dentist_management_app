@@ -59,6 +59,12 @@ function formatYmd(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Backend `Working_hours.dayOfWeek`: Monday = 1 … Sunday = 7 (not JS `Date#getDay()`). */
+function apiDayOfWeekFromDate(d: Date): number {
+  const js = d.getDay();
+  return js === 0 ? 7 : js;
+}
+
 function weekDays(monday: Date): Date[] {
   return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 }
@@ -357,7 +363,7 @@ const Schedule = () => {
 
       const targetDate = new Date(formDate);
       targetDate.setHours(0, 0, 0, 0);
-      const dayOfWeek = targetDate.getDay();
+      const dayOfWeek = apiDayOfWeekFromDate(targetDate);
 
       try {
         const [workingRes, blockingRes] = await Promise.all([
@@ -777,7 +783,7 @@ const Schedule = () => {
       const intervalEnd = combineLocalDateAndTime(dateYmd, endHm);
       if (intervalEnd <= intervalStart) return false;
 
-      const dayOfWeek = intervalStart.getDay();
+      const dayOfWeek = apiDayOfWeekFromDate(intervalStart);
       const startMinutes = hmToMinutes(startHm);
       const endMinutes = hmToMinutes(endHm);
 

@@ -137,7 +137,7 @@ export class AuthService {
       );
     }
 
-    const dentistId = staff.dentist?.id;
+    const ownDentistId = staff.dentist?.id;
     const role = staff.dentist
       ? 'dentist'
       : staff.director
@@ -147,8 +147,18 @@ export class AuthService {
           : staff.nurse
             ? 'nurse'
             : 'staff';
+
+    const contextDentistId =
+      ownDentistId ??
+      (await this.authRepository.findAnyDentistIdInClinic(staff.clinicId));
+    if (!contextDentistId) {
+      throw new UnauthorizedException(
+        'Clinic has no dentist account; cannot establish API context',
+      );
+    }
+
     const payload = {
-      sub: dentistId ?? staff.id,
+      sub: contextDentistId,
       gmail: staff.gmail,
       staffId: staff.id,
       role,
@@ -162,7 +172,7 @@ export class AuthService {
     );
     return {
       access_token,
-      dentistId: dentistId ?? staff.id,
+      dentistId: contextDentistId,
       staffId: staff.id,
       role,
     };

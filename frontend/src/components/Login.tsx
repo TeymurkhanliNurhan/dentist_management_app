@@ -62,19 +62,13 @@ const Login = () => {
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('staffId', String(data.staffId));
       localStorage.setItem('role', data.role);
-
-      if (data.role === 'dentist') {
-        localStorage.setItem('dentistId', data.dentistId.toString());
-        try {
-          const dentistProfile = await dentistService.getById(data.dentistId);
-          const clinicId = dentistProfile?.staff?.clinicId;
-          if (clinicId != null) localStorage.setItem('clinicId', String(clinicId));
-        } catch {
-          // Keep login resilient if profile fetch fails.
-        }
-      } else {
-        // Prevent staff ids from being misused as dentist ids.
-        localStorage.removeItem('dentistId');
+      localStorage.setItem('dentistId', data.dentistId.toString());
+      try {
+        const dentistProfile = await dentistService.getById(data.dentistId);
+        const clinicId = dentistProfile?.staff?.clinicId;
+        if (clinicId != null) localStorage.setItem('clinicId', String(clinicId));
+      } catch {
+        // Keep login resilient if profile fetch fails.
       }
       
       

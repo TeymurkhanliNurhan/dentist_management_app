@@ -69,6 +69,22 @@ export class AuthRepository {
     return staff;
   }
 
+  /**
+   * Most clinic-scoped APIs still key off an arbitrary Dentist row in the same clinic.
+   * Use this when the authenticated user is not a dentist (director/front desk/nurse).
+   */
+  async findAnyDentistIdInClinic(clinicId: number): Promise<number | null> {
+    const dentistRepo = this.getDentistRepository();
+    const row = await dentistRepo
+      .createQueryBuilder('d')
+      .innerJoin('d.staff', 's')
+      .where('s.clinicId = :clinicId', { clinicId })
+      .orderBy('d.id', 'ASC')
+      .select('d.id', 'id')
+      .getRawOne<{ id: number }>();
+    return row?.id ?? null;
+  }
+
   async createUser(payload: {
     name: string;
     surname: string;
