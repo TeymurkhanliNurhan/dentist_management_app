@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  IsInt,
   IsNumber,
   IsString,
   MaxLength,
@@ -9,11 +8,6 @@ import {
 } from 'class-validator';
 
 export class CreateMedicineDto {
-  @ApiProperty({ example: 1, description: 'Clinic id' })
-  @IsInt()
-  @Min(1)
-  clinic_id: number;
-
   @ApiProperty({ example: 'Amoxicillin' })
   @IsString()
   @MinLength(1)

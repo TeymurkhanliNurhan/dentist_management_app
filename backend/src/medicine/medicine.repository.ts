@@ -31,7 +31,13 @@ export class MedicineRepository {
     input: { name: string; description: string; price: number },
   ): Promise<Medicine> {
     const clinic = await this.getClinicForDentist(dentistId);
-    const med = this.repo.create({ ...input, clinic });
+    const maxIdResult = await this.repo
+      .createQueryBuilder('medicine')
+      .select('MAX(medicine.id)', 'maxId')
+      .getRawOne<{ maxId: string | null }>();
+    const nextMedicineId = maxIdResult?.maxId ? Number(maxIdResult.maxId) + 1 : 1;
+
+    const med = this.repo.create({ id: nextMedicineId, ...input, clinic });
     return await this.repo.save(med);
   }
 
