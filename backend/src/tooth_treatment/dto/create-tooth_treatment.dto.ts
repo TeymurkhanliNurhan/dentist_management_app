@@ -9,11 +9,6 @@ import {
 } from 'class-validator';
 
 export class CreateToothTreatmentDto {
-  @ApiProperty({ example: 1, description: 'Dentist id' })
-  @IsInt()
-  @Min(1)
-  dentist_id: number;
-
   @ApiProperty({ example: 1, description: 'Appointment id' })
   @IsInt()
   @Min(1)
