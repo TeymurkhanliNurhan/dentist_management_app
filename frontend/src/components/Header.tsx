@@ -32,6 +32,11 @@ const Header = () => {
   useEffect(() => {
     const fetchDentistInfo = async () => {
       try {
+        const role = localStorage.getItem('role')?.toLowerCase();
+        if (role !== 'dentist') {
+          setDentistSurname('');
+          return;
+        }
         const dentistId = localStorage.getItem('dentistId');
         if (dentistId) {
           const dentist = await dentistService.getById(parseInt(dentistId));

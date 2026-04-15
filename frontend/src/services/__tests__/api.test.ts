@@ -44,6 +44,8 @@ describe('authService', () => {
         data: {
           access_token: 'mock-token',
           dentistId: 1,
+          staffId: 1,
+          role: 'dentist',
         },
       };
 

@@ -60,18 +60,21 @@ const Login = () => {
     try {
       const data = await authService.login(formData);
       localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('dentistId', data.dentistId.toString());
-      try {
-        const dentistProfile = await dentistService.getById(data.dentistId);
-        const staffId = dentistProfile?.staffId;
-        const clinicId = dentistProfile?.staff?.clinicId;
-        const isDentist = staffId != null && dentistProfile?.staff?.id === staffId;
+      localStorage.setItem('staffId', String(data.staffId));
+      localStorage.setItem('role', data.role);
 
-        if (staffId != null) localStorage.setItem('staffId', String(staffId));
-        if (clinicId != null) localStorage.setItem('clinicId', String(clinicId));
-        localStorage.setItem('role', isDentist ? 'dentist' : 'staff');
-      } catch {
-        // Keep login resilient if profile fetch fails.
+      if (data.role === 'dentist') {
+        localStorage.setItem('dentistId', data.dentistId.toString());
+        try {
+          const dentistProfile = await dentistService.getById(data.dentistId);
+          const clinicId = dentistProfile?.staff?.clinicId;
+          if (clinicId != null) localStorage.setItem('clinicId', String(clinicId));
+        } catch {
+          // Keep login resilient if profile fetch fails.
+        }
+      } else {
+        // Prevent staff ids from being misused as dentist ids.
+        localStorage.removeItem('dentistId');
       }
       
       

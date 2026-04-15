@@ -163,6 +163,8 @@ export class AuthService {
     return {
       access_token,
       dentistId: dentistId ?? staff.id,
+      staffId: staff.id,
+      role,
     };
   }
 
