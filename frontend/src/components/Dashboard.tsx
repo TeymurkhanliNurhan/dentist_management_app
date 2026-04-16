@@ -13,6 +13,7 @@ import {
   Package,
   Settings,
   Users,
+  UserRound,
   Wallet,
 } from 'lucide-react';
 import api from '../services/api';
@@ -99,6 +100,7 @@ const Dashboard = () => {
   if (role === 'director') {
     const directorMenuItems = [
       { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+      { label: 'Patients', icon: UserRound, path: '/patients' },
       { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
       { label: 'Inventory', icon: Package, path: '/medicines' },
       { label: 'Staff/Doctors', icon: Users, path: '/settings' },
