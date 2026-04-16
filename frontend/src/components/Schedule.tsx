@@ -83,6 +83,10 @@ function combineLocalDateAndTime(dateYmd: string, timeHm: string): Date {
   return new Date(y, m - 1, d, Number(hh), Number(mm), 0, 0);
 }
 
+function parseLocalDateYmd(dateYmd: string): Date {
+  return combineLocalDateAndTime(dateYmd, '00:00');
+}
+
 type AppointmentChoice = 'none' | 'new' | number;
 
 function dayBoundsLocal(day: Date): { start: Date; next: Date } {
@@ -361,8 +365,7 @@ const Schedule = () => {
         return;
       }
 
-      const targetDate = new Date(formDate);
-      targetDate.setHours(0, 0, 0, 0);
+      const targetDate = parseLocalDateYmd(formDate);
       const dayOfWeek = apiDayOfWeekFromDate(targetDate);
 
       try {
@@ -744,6 +747,22 @@ const Schedule = () => {
     return map;
   }, [rooms]);
 
+  const dentistStaffIdByDentistId = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const dentist of dentists) {
+      if (dentist.id && dentist.staff?.id) map.set(dentist.id, dentist.staff.id);
+    }
+    return map;
+  }, [dentists]);
+
+  const nurseStaffIdByNurseId = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const nurse of nurses) {
+      if (nurse.id && nurse.staff?.id) map.set(nurse.id, nurse.staff.id);
+    }
+    return map;
+  }, [nurses]);
+
   const weeklyColumns = days.map((day) => ({
     key: day.toISOString(),
     label: day.toLocaleDateString(i18n.language, {
@@ -777,8 +796,50 @@ const Schedule = () => {
   const intervalOverlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) =>
     aStart < bEnd && aEnd > bStart;
 
+  const staffHasOverlappingRandevue = useCallback(
+    (
+      staffId: number,
+      dateYmd: string,
+      startHm: string,
+      endHm: string,
+      options?: { excludeRandevueId?: number },
+    ) => {
+      const intervalStart = combineLocalDateAndTime(dateYmd, startHm);
+      const intervalEnd = combineLocalDateAndTime(dateYmd, endHm);
+
+      return randevues.some((r) => {
+        if (options?.excludeRandevueId != null && r.id === options.excludeRandevueId) {
+          return false;
+        }
+
+        const dentistStaffId =
+          r.dentist?.id != null ? dentistStaffIdByDentistId.get(r.dentist.id) : undefined;
+        const nurseStaffId =
+          r.nurse?.id != null ? nurseStaffIdByNurseId.get(r.nurse.id) : undefined;
+
+        if (dentistStaffId !== staffId && nurseStaffId !== staffId) {
+          return false;
+        }
+
+        return intervalOverlaps(
+          intervalStart,
+          intervalEnd,
+          new Date(r.date),
+          new Date(r.endTime),
+        );
+      });
+    },
+    [dentistStaffIdByDentistId, nurseStaffIdByNurseId, randevues],
+  );
+
   const staffAvailableAt = useCallback(
-    (staffId: number, dateYmd: string, startHm: string, endHm: string) => {
+    (
+      staffId: number,
+      dateYmd: string,
+      startHm: string,
+      endHm: string,
+      options?: { excludeRandevueId?: number },
+    ) => {
       const intervalStart = combineLocalDateAndTime(dateYmd, startHm);
       const intervalEnd = combineLocalDateAndTime(dateYmd, endHm);
       if (intervalEnd <= intervalStart) return false;
@@ -795,6 +856,14 @@ const Schedule = () => {
       });
       if (!hasWorkingWindow) return false;
 
+      if (
+        staffHasOverlappingRandevue(staffId, dateYmd, startHm, endHm, {
+          excludeRandevueId: options?.excludeRandevueId,
+        })
+      ) {
+        return false;
+      }
+
       const hasBlocking = directorBlockingHours.some((bh) => {
         if (bh.staffId !== staffId) return false;
         return intervalOverlaps(
@@ -806,7 +875,7 @@ const Schedule = () => {
       });
       return !hasBlocking;
     },
-    [directorBlockingHours, directorWorkingHours],
+    [directorBlockingHours, directorWorkingHours, staffHasOverlappingRandevue],
   );
 
   const roomAvailableAt = useCallback(
@@ -929,18 +998,22 @@ const Schedule = () => {
     return dentists.filter((d) => {
       const staffId = d.staff?.id;
       if (!staffId) return false;
-      return staffAvailableAt(staffId, editDate, editStart, editEnd);
+      return staffAvailableAt(staffId, editDate, editStart, editEnd, {
+        excludeRandevueId: detailId ?? undefined,
+      });
     });
-  }, [dentists, editDate, editEnd, editStart, isDirector, staffAvailableAt]);
+  }, [dentists, detailId, editDate, editEnd, editStart, isDirector, staffAvailableAt]);
 
   const detailAvailableNurses = useMemo(() => {
     if (!isDirector || !editDate) return nurses;
     return nurses.filter((n) => {
       const staffId = n.staff?.id;
       if (!staffId) return false;
-      return staffAvailableAt(staffId, editDate, editStart, editEnd);
+      return staffAvailableAt(staffId, editDate, editStart, editEnd, {
+        excludeRandevueId: detailId ?? undefined,
+      });
     });
-  }, [editDate, editEnd, editStart, isDirector, nurses, staffAvailableAt]);
+  }, [detailId, editDate, editEnd, editStart, isDirector, nurses, staffAvailableAt]);
 
   const detailAvailableRooms = useMemo(() => {
     if (!isDirector || !editDate) return rooms;

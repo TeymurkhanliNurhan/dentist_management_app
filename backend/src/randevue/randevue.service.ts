@@ -166,6 +166,13 @@ export class RandevueService {
           ? ({ id: linkedAppointmentId } as Appointment)
           : null;
 
+      const assignedDentist =
+        dto.dentist_id != null
+          ? await this.repo.assertDentistBelongsToClinic(
+              dto.dentist_id,
+              patient.clinic.id,
+            )
+          : ({ id: dentistId } as Dentist);
       const room = await this.resolveRoomForPatient(patient, dto.room_id);
       let nurse: Nurse | null = null;
       if (dto.nurse_id != null) {
@@ -184,7 +191,7 @@ export class RandevueService {
         appointment: appointmentEntity,
         room,
         nurse,
-        dentistId,
+        dentistId: assignedDentist.id,
       });
 
       const reloaded = await this.repo.findByIdWithRelations(saved.id);
@@ -209,6 +216,9 @@ export class RandevueService {
       }
       if (e?.message === 'Invalid room') {
         throw new BadRequestException('Room is not in this clinic');
+      }
+      if (e?.message === 'Invalid dentist') {
+        throw new BadRequestException('Dentist is not in this clinic');
       }
       if (e?.message === 'Invalid nurse') {
         throw new BadRequestException('Nurse is not in this clinic');
@@ -266,6 +276,13 @@ export class RandevueService {
       }
       row.patient = patient;
       row.dentist = { id: dentistId } as Dentist;
+    }
+
+    if (dto.dentist_id != null) {
+      row.dentist = await this.repo.assertDentistBelongsToClinic(
+        dto.dentist_id,
+        row.patient.clinic.id,
+      );
     }
 
     if (dto.note !== undefined) {
@@ -363,6 +380,9 @@ export class RandevueService {
       }
       if (e?.message === 'Invalid room') {
         throw new BadRequestException('Room is not in this clinic');
+      }
+      if (e?.message === 'Invalid dentist') {
+        throw new BadRequestException('Dentist is not in this clinic');
       }
       if (e?.message === 'Invalid nurse') {
         throw new BadRequestException('Nurse is not in this clinic');

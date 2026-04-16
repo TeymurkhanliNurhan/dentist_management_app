@@ -50,6 +50,19 @@ export class RandevueRepository {
     return nurse;
   }
 
+  async assertDentistBelongsToClinic(
+    dentistId: number,
+    clinicId: number,
+  ): Promise<Dentist> {
+    const dentist = await this.dataSource.getRepository(Dentist).findOne({
+      where: { id: dentistId },
+      relations: ['staff'],
+    });
+    if (!dentist?.staff || dentist.staff.clinicId !== clinicId)
+      throw new Error('Invalid dentist');
+    return dentist;
+  }
+
   async findForDentistOverlappingRange(
     dentistId: number,
     from: Date,
