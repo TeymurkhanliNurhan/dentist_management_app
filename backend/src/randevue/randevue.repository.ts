@@ -17,6 +17,15 @@ export class RandevueRepository {
     return this.dataSource.getRepository(Randevue);
   }
 
+  private async getClinicIdForDentist(dentistId: number): Promise<number> {
+    const dentist = await this.dataSource.getRepository(Dentist).findOne({
+      where: { id: dentistId },
+      relations: ['staff'],
+    });
+    if (!dentist?.staff?.clinicId) throw new Error('Dentist not found');
+    return dentist.staff.clinicId;
+  }
+
   async findDefaultGeneralRoomForClinic(
     clinicId: number,
   ): Promise<Room | null> {
@@ -74,6 +83,7 @@ export class RandevueRepository {
       patient?: number;
     },
   ): Promise<Randevue[]> {
+    const clinicId = await this.getClinicIdForDentist(dentistId);
     const qb = this.repo
       .createQueryBuilder('r')
       .innerJoinAndSelect('r.patient', 'pt')
@@ -82,7 +92,7 @@ export class RandevueRepository {
       .leftJoinAndSelect('r.room', 'rm')
       .leftJoinAndSelect('r.nurse', 'nv')
       .leftJoinAndSelect('r.dentist', 'rdentist')
-      .where('r.dentist = :dentistId', { dentistId })
+      .where('ptclinic.id = :clinicId', { clinicId })
       .andWhere('r.date < :toBound', { toBound: to })
       .andWhere('r.endTime > :fromBound', { fromBound: from });
 
