@@ -123,7 +123,7 @@ const TeethDiagram = ({ patientId, patientTeeth, toothTreatments = [] }: TeethDi
         onClick={() => handleToothClick(number)}
         className={`absolute w-8 h-8 flex items-center justify-center text-xs font-bold transition-all ${
           hasTooth 
-            ? 'text-black cursor-pointer hover:text-teal-600 hover:scale-110'
+            ? 'text-black cursor-pointer hover:text-[#0066A6] hover:scale-110'
             : 'text-gray-300 cursor-not-allowed opacity-50'
         }`}
         style={{ top, left }}
@@ -135,11 +135,11 @@ const TeethDiagram = ({ patientId, patientTeeth, toothTreatments = [] }: TeethDi
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto bg-white rounded-2xl p-4 shadow-lg">
+    <div className="w-full max-w-2xl mx-auto rounded-2xl bg-transparent p-0 sm:p-1">
       <div className="mb-4 flex justify-end">
         <button
           onClick={() => setIsPermanent(!isPermanent)}
-          className="px-4 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors shadow-md"
+          className="rounded-lg bg-[#0066A6] px-4 py-2 font-medium text-white shadow-sm transition-colors hover:bg-[#00588f]"
         >
           {isPermanent ? t('childTeeth') : t('permanentTeeth')}
         </button>
@@ -158,11 +158,11 @@ const TeethDiagram = ({ patientId, patientTeeth, toothTreatments = [] }: TeethDi
 
         {hoveredTooth !== null && (
           <div 
-            className="absolute right-2 top-2 z-20 w-72 rounded-lg border border-teal-200 bg-white shadow-lg p-3 backdrop-blur-sm"
+            className="absolute right-2 top-2 z-20 w-72 rounded-lg border border-slate-200 bg-white p-3 shadow-lg backdrop-blur-sm"
             onMouseEnter={() => setHoveredTooth(hoveredTooth)}
             onMouseLeave={() => setHoveredTooth(null)}
           >
-            <h3 className="text-sm font-semibold text-teal-700 mb-2">Tooth #{hoveredTooth} history</h3>
+            <h3 className="mb-2 text-sm font-semibold text-[#0066A6]">Tooth #{hoveredTooth} history</h3>
             {isHoverLoading ? (
               <p className="text-xs text-gray-500">Loading history...</p>
             ) : hoverError ? (
@@ -172,7 +172,7 @@ const TeethDiagram = ({ patientId, patientTeeth, toothTreatments = [] }: TeethDi
             ) : (
               <ul className="space-y-2 max-h-56 overflow-y-auto">
                 {getTreatmentsForTooth(hoveredTooth).map((t) => (
-                  <li key={t.id} className="rounded-md bg-teal-50 p-2 border border-teal-100">
+                  <li key={t.id} className="rounded-md border border-slate-100 bg-slate-50 p-2">
                     <p className="text-[11px] text-gray-500">Appointment: <span className="text-gray-700 font-medium">{new Date(t.appointment.startDate).toLocaleDateString()}</span></p>
                     <p className="text-[11px] text-gray-500">Treatment: <span className="text-gray-800 font-semibold">{t.treatment.name}</span></p>
                   </li>
