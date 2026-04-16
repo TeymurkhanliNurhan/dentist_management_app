@@ -30,7 +30,6 @@ export class RoomRepository {
       number: input.number,
       description: input.description,
       clinicId,
-      dentistId,
     });
     return await this.repo.save(created);
   }
@@ -42,8 +41,7 @@ export class RoomRepository {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const qb = this.repo
       .createQueryBuilder('room')
-      .where('room.clinicId = :clinicId', { clinicId })
-      .andWhere('room.dentistId = :dentistId', { dentistId });
+      .where('room.clinicId = :clinicId', { clinicId });
 
     if (filters.id !== undefined) qb.andWhere('room.id = :id', { id: filters.id });
     if (filters.number !== undefined) {
@@ -62,7 +60,7 @@ export class RoomRepository {
   ): Promise<Room> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const existing = await this.repo.findOne({
-      where: { id, clinicId, dentistId },
+      where: { id, clinicId },
     });
     if (!existing) throw new Error('Forbidden');
 
@@ -75,7 +73,7 @@ export class RoomRepository {
   async deleteForDentist(dentistId: number, id: number): Promise<void> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const existing = await this.repo.findOne({
-      where: { id, clinicId, dentistId },
+      where: { id, clinicId },
     });
     if (!existing) throw new Error('Forbidden');
     await this.repo.remove(existing);
