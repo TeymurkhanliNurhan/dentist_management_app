@@ -182,7 +182,7 @@ export class RandevueService {
         );
       }
 
-      const saved = await this.repo.saveRandevue({
+      const saved = await this.repo.saveRandevueWithRoomBlocking({
         date: start,
         endTime: end,
         status,
@@ -216,6 +216,11 @@ export class RandevueService {
       }
       if (e?.message === 'Invalid room') {
         throw new BadRequestException('Room is not in this clinic');
+      }
+      if (e?.message === 'Room already blocked') {
+        throw new BadRequestException(
+          'Room already has a blocking interval for this time range',
+        );
       }
       if (e?.message === 'Invalid dentist') {
         throw new BadRequestException('Dentist is not in this clinic');

@@ -8,6 +8,7 @@ import { Dentist } from '../dentist/entities/dentist.entity';
 import { Room } from '../room/entities/room.entity';
 import { Nurse } from '../nurse/entities/nurse.entity';
 import { GENERAL_DENTISTRY_ROOM_DESCRIPTION } from './randevue.constants';
+import { BlockingHours } from '../blocking_hours/entities/blocking_hours.entity';
 
 @Injectable()
 export class RandevueRepository {
@@ -179,6 +180,54 @@ export class RandevueRepository {
       dentist: { id: input.dentistId } as Dentist,
     });
     return this.repo.save(row);
+  }
+
+  async saveRandevueWithRoomBlocking(input: {
+    date: Date;
+    endTime: Date;
+    status: string;
+    note: string | null;
+    patient: Patient;
+    appointment: Appointment | null;
+    room: Room;
+    nurse: Nurse | null;
+    dentistId: number;
+  }): Promise<Randevue> {
+    return await this.dataSource.transaction(async (manager) => {
+      const blockingRepo = manager.getRepository(BlockingHours);
+      const overlap = await blockingRepo
+        .createQueryBuilder('bh')
+        .where('bh.roomId = :roomId', { roomId: input.room.id })
+        .andWhere('bh.startTime < :endTime', { endTime: input.endTime })
+        .andWhere('bh.endTime > :startTime', { startTime: input.date })
+        .getOne();
+      if (overlap) {
+        throw new Error('Room already blocked');
+      }
+
+      const row = manager.getRepository(Randevue).create({
+        date: input.date,
+        endTime: input.endTime,
+        status: input.status,
+        note: input.note,
+        patient: input.patient,
+        appointment: input.appointment,
+        room: input.room,
+        nurse: input.nurse,
+        dentist: { id: input.dentistId } as Dentist,
+      });
+      const saved = await manager.getRepository(Randevue).save(row);
+
+      const createdBlocking = blockingRepo.create({
+        startTime: input.date,
+        endTime: input.endTime,
+        roomId: input.room.id,
+        staffId: null,
+      });
+      await blockingRepo.save(createdBlocking);
+
+      return saved;
+    });
   }
 
   async findByIdWithRelations(id: number): Promise<Randevue | null> {

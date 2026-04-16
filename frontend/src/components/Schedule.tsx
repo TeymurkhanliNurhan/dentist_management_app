@@ -1433,13 +1433,13 @@ const Schedule = () => {
                               onClick={() => openNewModal(cellDay, h)}
                               aria-label={`${t('newRandevue')} ${formatYmd(cellDay)} ${formatHourLabel24(h)}`}
                             >
-                              <div className="space-y-0.5">
+                              <div className="flex gap-1">
                                 {list.map((r) => (
                                   <div
                                     key={`${column.key}-${h}-${r.id}`}
                                     role="button"
                                     tabIndex={0}
-                                    className="rounded bg-violet-600 hover:bg-violet-700 text-white text-[10px] px-1 py-0.5 shadow-sm overflow-hidden pointer-events-auto transition-colors focus:outline-none focus:ring-1 focus:ring-violet-300"
+                                    className="flex-1 min-w-0 rounded bg-violet-600 hover:bg-violet-700 text-white text-[10px] px-1 py-0.5 shadow-sm overflow-hidden pointer-events-auto transition-colors focus:outline-none focus:ring-1 focus:ring-violet-300"
                                     onClick={(ev) => {
                                       ev.stopPropagation();
                                       openRandevueDetail(r);
