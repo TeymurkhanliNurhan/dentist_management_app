@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { PatientTooth, ToothTreatment } from '../services/api';
 import { toothTreatmentService, toothTreatmentTeethService } from '../services/api';
@@ -49,6 +49,35 @@ const TeethDiagram = ({ patientId, patientTeeth, toothTreatments = [] }: TeethDi
       }, []);
 
     return mapped.sort((a, b) => new Date(b.appointment.startDate).getTime() - new Date(a.appointment.startDate).getTime());
+  };
+
+  const treatmentCountByToothNumber = useMemo(() => {
+    const countMap = new Map<number, number>();
+
+    for (const pt of patientTeeth) {
+      const uniqueTreatmentIds = new Set<number>();
+
+      for (const tt of toothTreatments) {
+        const hasNewRelation = tt.toothTreatmentTeeth?.some((ttt) => ttt.toothId === pt.tooth);
+        const hasLegacyTooth = tt.tooth === pt.tooth;
+
+        if (hasNewRelation || hasLegacyTooth) {
+          uniqueTreatmentIds.add(tt.id);
+        }
+      }
+
+      countMap.set(pt.toothNumber, uniqueTreatmentIds.size);
+    }
+
+    return countMap;
+  }, [patientTeeth, toothTreatments]);
+
+  const getToothToneClass = (treatmentCount: number) => {
+    if (treatmentCount <= 0) return '';
+    if (treatmentCount === 1) return 'bg-gray-200';
+    if (treatmentCount === 2) return 'bg-gray-300';
+    if (treatmentCount === 3) return 'bg-gray-400';
+    return 'bg-gray-500';
   };
 
   const loadToothHistory = async (toothNumber: number) => {
@@ -111,6 +140,9 @@ const TeethDiagram = ({ patientId, patientTeeth, toothTreatments = [] }: TeethDi
     left: string;
   }) => {
     const hasTooth = hasToothNumber(number);
+    const treatmentCount = treatmentCountByToothNumber.get(number) ?? 0;
+    const toneClass = getToothToneClass(treatmentCount);
+    const textClass = hasTooth && treatmentCount >= 4 ? 'text-white hover:text-white' : 'text-black hover:text-[#0066A6]';
 
     return (
       <div
@@ -121,9 +153,9 @@ const TeethDiagram = ({ patientId, patientTeeth, toothTreatments = [] }: TeethDi
         }}
         onMouseLeave={() => setHoveredTooth(prev => (prev === number ? null : prev))}
         onClick={() => handleToothClick(number)}
-        className={`absolute w-8 h-8 flex items-center justify-center text-xs font-bold transition-all ${
+        className={`absolute w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
           hasTooth 
-            ? 'text-black cursor-pointer hover:text-[#0066A6] hover:scale-110'
+            ? `${toneClass} ${textClass} cursor-pointer hover:scale-110`
             : 'text-gray-300 cursor-not-allowed opacity-50'
         }`}
         style={{ top, left }}
