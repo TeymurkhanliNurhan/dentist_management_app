@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash } from 'lucide-react';
-import Header from './Header';
+import ClinicManagementLayout from './ClinicManagementLayout';
 import { appointmentService, randevueService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
 import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, CreateMedicineDto, Media, TreatmentPricePer } from '../services/api';
 
@@ -898,64 +898,57 @@ const AppointmentDetail = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#f4f6f8]">
-        <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <ClinicManagementLayout>
+        <div className="mx-auto max-w-7xl">
           <button
             type="button"
             onClick={() => navigate(backPath)}
-            className="flex items-center space-x-2 text-[#0066A6] hover:text-[#00588f] transition-colors mb-6"
+            className="mb-6 flex items-center space-x-2 text-[#0066A6] transition-colors hover:text-[#00588f]"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="h-5 w-5" />
             <span className="font-medium">{backButtonLabel}</span>
           </button>
-          <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-600">
+          <div className="rounded-lg bg-white p-8 text-center text-gray-600 shadow-md">
             Loading appointment details...
           </div>
-        </main>
-      </div>
+        </div>
+      </ClinicManagementLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#f4f6f8]">
-        <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <ClinicManagementLayout>
+        <div className="mx-auto max-w-7xl">
           <button
             type="button"
             onClick={() => navigate(backPath)}
-            className="flex items-center space-x-2 text-[#0066A6] hover:text-[#00588f] transition-colors mb-6"
+            className="mb-6 flex items-center space-x-2 text-[#0066A6] transition-colors hover:text-[#00588f]"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="h-5 w-5" />
             <span className="font-medium">{backButtonLabel}</span>
           </button>
-          <div className="bg-red-50 border border-red-200 rounded-lg text-red-700 p-4 text-center">
-            {error}
-          </div>
-        </main>
-      </div>
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center text-red-700">{error}</div>
+        </div>
+      </ClinicManagementLayout>
     );
   }
 
   if (!appointment) {
     return (
-      <div className="min-h-screen bg-[#f4f6f8]">
-        <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <ClinicManagementLayout>
+        <div className="mx-auto max-w-7xl">
           <button
             type="button"
             onClick={() => navigate(backPath)}
-            className="flex items-center space-x-2 text-[#0066A6] hover:text-[#00588f] transition-colors mb-6"
+            className="mb-6 flex items-center space-x-2 text-[#0066A6] transition-colors hover:text-[#00588f]"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="h-5 w-5" />
             <span className="font-medium">{backButtonLabel}</span>
           </button>
-          <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-600">
-            Appointment not found.
-          </div>
-        </main>
-      </div>
+          <div className="rounded-lg bg-white p-8 text-center text-gray-600 shadow-md">Appointment not found.</div>
+        </div>
+      </ClinicManagementLayout>
     );
   }
 
@@ -972,10 +965,8 @@ const AppointmentDetail = () => {
   const paginatedMedicines = availableMedicines.slice((medicinePage - 1) * ITEMS_PER_PAGE, medicinePage * ITEMS_PER_PAGE);
 
   return (
-    <div className="min-h-screen bg-[#f4f6f8]">
-      <Header />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <ClinicManagementLayout>
+      <div className="mx-auto max-w-7xl">
         <button
           type="button"
           onClick={() => navigate(backPath)}
@@ -993,7 +984,7 @@ const AppointmentDetail = () => {
             <div className="flex flex-col items-end gap-2">
               <button
                 onClick={() => setShowEditAppointment(true)}
-                className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-[#f0f7fc]0 text-white rounded-md hover:bg-[#00588f] transition-colors min-w-[96px]"
+                className="flex min-w-[96px] items-center justify-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition-colors hover:bg-[#00588f]"
               >
                 <Edit className="w-4 h-4" />
                 <span>Edit</span>
@@ -2457,8 +2448,8 @@ const AppointmentDetail = () => {
         )}
 
         {/* Inline form replaces modal above; modal removed */}
-      </main>
-    </div>
+      </div>
+    </ClinicManagementLayout>
   );
 };
 
