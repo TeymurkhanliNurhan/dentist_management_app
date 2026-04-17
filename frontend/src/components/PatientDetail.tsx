@@ -60,6 +60,10 @@ const PatientDetail = () => {
 
   const [patientPanel, setPatientPanel] = useState<'teeth' | 'appointments'>('teeth');
   const [appointmentScope, setAppointmentScope] = useState<'active' | 'past'>('active');
+  const [appointmentTreatmentsView, setAppointmentTreatmentsView] = useState<'byAppointment' | 'byDoctor'>(
+    'byAppointment',
+  );
+  const [dentistFilterId, setDentistFilterId] = useState(0);
   const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
   const [patientTreatments, setPatientTreatments] = useState<ToothTreatment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
@@ -148,17 +152,9 @@ const PatientDetail = () => {
     };
   }, [patient, patientPanel]);
 
-  const treatmentsByAppointmentId = useMemo(() => {
-    const map = new Map<number, ToothTreatment[]>();
-    for (const tt of patientTreatments) {
-      const aid = tt.appointment?.id;
-      if (aid == null) continue;
-      const list = map.get(aid) ?? [];
-      list.push(tt);
-      map.set(aid, list);
-    }
-    return map;
-  }, [patientTreatments]);
+  useEffect(() => {
+    setDentistFilterId(0);
+  }, [appointmentScope]);
 
   const filteredAppointments = useMemo(() => {
     const list = patientAppointments.filter((a) =>
@@ -170,6 +166,100 @@ const PatientDetail = () => {
       return tb - ta;
     });
   }, [patientAppointments, appointmentScope]);
+
+  const appointmentScopeIds = useMemo(
+    () => new Set(filteredAppointments.map((a) => a.id)),
+    [filteredAppointments],
+  );
+
+  const scopeTreatments = useMemo(
+    () =>
+      patientTreatments.filter(
+        (tt) => tt.appointment?.id != null && appointmentScopeIds.has(tt.appointment.id),
+      ),
+    [patientTreatments, appointmentScopeIds],
+  );
+
+  const visibleTreatments = useMemo(
+    () =>
+      dentistFilterId > 0 ? scopeTreatments.filter((tt) => tt.dentist?.id === dentistFilterId) : scopeTreatments,
+    [scopeTreatments, dentistFilterId],
+  );
+
+  const treatmentsByAppointmentId = useMemo(() => {
+    const map = new Map<number, ToothTreatment[]>();
+    for (const tt of visibleTreatments) {
+      const aid = tt.appointment?.id;
+      if (aid == null) continue;
+      const list = map.get(aid) ?? [];
+      list.push(tt);
+      map.set(aid, list);
+    }
+    return map;
+  }, [visibleTreatments]);
+
+  const appointmentsToDisplay = useMemo(() => {
+    if (dentistFilterId === 0) return filteredAppointments;
+    const ids = new Set(visibleTreatments.map((tt) => tt.appointment!.id));
+    return filteredAppointments.filter((a) => ids.has(a.id));
+  }, [filteredAppointments, dentistFilterId, visibleTreatments]);
+
+  const dentistFilterOptions = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const tt of scopeTreatments) {
+      const d = tt.dentist;
+      if (!d?.id) continue;
+      const label = `${d.staff?.name ?? ''} ${d.staff?.surname ?? ''}`.trim();
+      if (!m.has(d.id)) m.set(d.id, label || `#${d.id}`);
+    }
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [scopeTreatments]);
+
+  const treatmentsGroupedByDoctor = useMemo(() => {
+    type Row = { date: string; items: ToothTreatment[] };
+    type Block = { dentistKey: string; dentistId: number | null; isUnknown: boolean; dentistLabel: string; rows: Row[] };
+    const blockMap = new Map<string, Block>();
+
+    for (const tt of visibleTreatments) {
+      const d = tt.dentist;
+      const isUnknown = !d?.id;
+      const dentistKey = d?.id != null ? `id-${d.id}` : 'unknown';
+      const dentistLabel = d ? `${d.staff?.name ?? ''} ${d.staff?.surname ?? ''}`.trim() || `#${d.id}` : '';
+      const date = tt.appointment?.startDate ?? '—';
+
+      let block = blockMap.get(dentistKey);
+      if (!block) {
+        block = {
+          dentistKey,
+          dentistId: d?.id ?? null,
+          isUnknown,
+          dentistLabel,
+          rows: [],
+        };
+        blockMap.set(dentistKey, block);
+      }
+      let row = block.rows.find((r) => r.date === date);
+      if (!row) {
+        row = { date, items: [] };
+        block.rows.push(row);
+      }
+      row.items.push(tt);
+    }
+
+    for (const block of blockMap.values()) {
+      block.rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      for (const row of block.rows) {
+        row.items.sort((a, b) => a.id - b.id);
+      }
+    }
+
+    const blocks = [...blockMap.values()].sort((a, b) => {
+      if (a.isUnknown !== b.isUnknown) return a.isUnknown ? 1 : -1;
+      return a.dentistLabel.localeCompare(b.dentistLabel);
+    });
+
+    return blocks;
+  }, [visibleTreatments]);
 
   const formatChargedPrice = (a: Appointment) => {
     const fee = a.chargedFee ?? a.calculatedFee;
@@ -192,6 +282,9 @@ const PatientDetail = () => {
     const unique = [...new Set(toothNumbers)].sort((x, y) => x - y);
     return unique.length ? unique.join(', ') : '—';
   };
+
+  const formatToothTreatmentLine = (tt: ToothTreatment) =>
+    `${formatToothList(tt)} — ${tt.treatment?.name ?? '—'}`;
 
   const wrapLayout = (children: ReactNode) => {
     if (isDirector) {
@@ -437,7 +530,7 @@ const PatientDetail = () => {
           <TeethDiagram patientId={patient.id} patientTeeth={patientTeeth} />
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setAppointmentScope('active')}
@@ -460,6 +553,48 @@ const PatientDetail = () => {
               >
                 {t('pastAppointments')}
               </button>
+              <span className="mx-1 hidden h-6 w-px bg-slate-200 sm:inline-block" aria-hidden />
+              <button
+                type="button"
+                onClick={() => setAppointmentTreatmentsView('byAppointment')}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  appointmentTreatmentsView === 'byAppointment'
+                    ? 'bg-[#0066A6] text-white hover:bg-[#00588f]'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                {t('viewByAppointment')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAppointmentTreatmentsView('byDoctor')}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  appointmentTreatmentsView === 'byDoctor'
+                    ? 'bg-[#0066A6] text-white hover:bg-[#00588f]'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                {t('viewByDoctor')}
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <label htmlFor="patient-appt-dentist-filter" className="text-sm font-medium text-slate-600">
+                {t('filterByDentist')}
+              </label>
+              <select
+                id="patient-appt-dentist-filter"
+                value={dentistFilterId || ''}
+                onChange={(e) => setDentistFilterId(Number(e.target.value) || 0)}
+                className="min-w-[12rem] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+              >
+                <option value="">{t('allDentists')}</option>
+                {dentistFilterOptions.map(([did, label]) => (
+                  <option key={did} value={did}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {appointmentsLoading && (
@@ -476,50 +611,108 @@ const PatientDetail = () => {
               <p className="py-4 text-sm text-slate-500">{t('noAppointments')}</p>
             )}
 
-            {!appointmentsLoading && !appointmentsError && filteredAppointments.length > 0 && (
-              <ul className="space-y-4">
-                {filteredAppointments.map((appt) => {
-                  const treatments = treatmentsByAppointmentId.get(appt.id) ?? [];
-                  return (
-                    <li key={appt.id}>
-                      <Link
-                        to={`/appointments/${appt.id}`}
-                        state={{ fromPatientId: patient.id }}
-                        className="block rounded-lg border border-slate-200 bg-slate-50/80 p-4 transition-colors hover:border-[#0066A6] hover:bg-[#f0f7fc]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0066A6] focus-visible:ring-offset-2"
+            {!appointmentsLoading &&
+              !appointmentsError &&
+              filteredAppointments.length > 0 &&
+              appointmentTreatmentsView === 'byDoctor' && (
+                <div className="space-y-6 pt-2">
+                  {treatmentsGroupedByDoctor.length === 0 ? (
+                    <p className="py-4 text-sm text-slate-500">{t('noTreatmentsForFilter')}</p>
+                  ) : (
+                    treatmentsGroupedByDoctor.map((block) => (
+                      <div
+                        key={block.dentistKey}
+                        className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm ring-1 ring-slate-100"
                       >
-                        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                          <div>
-                            <span className="mr-1 text-slate-500">{t('startDate')}:</span>
-                            <span className="font-medium text-slate-900">{appt.startDate}</span>
-                          </div>
-                          <div>
-                            <span className="mr-1 text-slate-500">{t('chargedPrice')}:</span>
-                            <span className="font-medium text-slate-900">{formatChargedPrice(appt)}</span>
-                          </div>
+                        <h3 className="border-b border-[#cce0f0] pb-2 text-base font-semibold text-slate-900">
+                          {block.isUnknown ? t('unknownDentist') : block.dentistLabel}
+                        </h3>
+                        <div className="mt-3 space-y-4">
+                          {block.rows.map((row) => (
+                            <div key={`${block.dentistKey}-${row.date}`}>
+                              <p className="mb-2 text-sm font-medium text-[#0066A6]">{row.date}</p>
+                              <ul className="space-y-1.5 border-l-2 border-[#cce0f0] pl-3">
+                                {row.items.map((tt) => (
+                                  <li key={tt.id}>
+                                    <Link
+                                      to={`/appointments/${tt.appointment!.id}`}
+                                      state={{ fromPatientId: patient.id }}
+                                      className="text-sm text-slate-800 underline-offset-2 hover:text-[#0066A6] hover:underline"
+                                    >
+                                      {formatToothTreatmentLine(tt)}
+                                    </Link>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
                         </div>
-                        {treatments.length > 0 && (
-                          <div className="mt-3 border-t border-slate-200 pt-3">
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              {t('treatments')}
-                            </p>
-                            <ul className="space-y-2">
-                              {treatments.map((tt) => (
-                                <li key={tt.id} className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-800">
-                                  <span className="font-medium">{tt.treatment?.name ?? '—'}</span>
-                                  <span className="text-slate-500">
-                                    {t('toothNumbers')}: {formatToothList(tt)}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+            {!appointmentsLoading &&
+              !appointmentsError &&
+              appointmentsToDisplay.length > 0 &&
+              appointmentTreatmentsView === 'byAppointment' && (
+                <ul className="space-y-4">
+                  {appointmentsToDisplay.map((appt) => {
+                    const treatments = treatmentsByAppointmentId.get(appt.id) ?? [];
+                    return (
+                      <li key={appt.id}>
+                        <Link
+                          to={`/appointments/${appt.id}`}
+                          state={{ fromPatientId: patient.id }}
+                          className="block rounded-lg border border-slate-200 bg-slate-50/80 p-4 transition-colors hover:border-[#0066A6] hover:bg-[#f0f7fc]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0066A6] focus-visible:ring-offset-2"
+                        >
+                          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                            <div>
+                              <span className="mr-1 text-slate-500">{t('startDate')}:</span>
+                              <span className="font-medium text-slate-900">{appt.startDate}</span>
+                            </div>
+                            <div>
+                              <span className="mr-1 text-slate-500">{t('chargedPrice')}:</span>
+                              <span className="font-medium text-slate-900">{formatChargedPrice(appt)}</span>
+                            </div>
                           </div>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+                          {treatments.length > 0 && (
+                            <div className="mt-3 border-t border-slate-200 pt-3">
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                {t('treatments')}
+                              </p>
+                              <ul className="space-y-2">
+                                {treatments.map((tt) => (
+                                  <li key={tt.id} className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-800">
+                                    <span className="font-medium">{tt.treatment?.name ?? '—'}</span>
+                                    <span className="text-slate-500">
+                                      {t('toothNumbers')}: {formatToothList(tt)}
+                                    </span>
+                                    {tt.dentist && (
+                                      <span className="text-slate-500">
+                                        {t('dentist')}: {tt.dentist.staff.name} {tt.dentist.staff.surname}
+                                      </span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+            {!appointmentsLoading &&
+              !appointmentsError &&
+              filteredAppointments.length > 0 &&
+              appointmentTreatmentsView === 'byAppointment' &&
+              appointmentsToDisplay.length === 0 && (
+                <p className="py-4 text-sm text-slate-500">{t('noTreatmentsForFilter')}</p>
+              )}
           </div>
         )}
       </div>

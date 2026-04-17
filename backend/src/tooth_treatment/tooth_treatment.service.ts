@@ -119,6 +119,7 @@ export class ToothTreatmentService {
           tooth: dto.tooth,
           patient: dto.patient,
           treatment: dto.treatment,
+          dentist: dto.dentist,
         },
       );
       const msg = `Dentist with id ${dentistId} retrieved ${toothTreatments.length} tooth treatment(s)`;
@@ -137,6 +138,15 @@ export class ToothTreatmentService {
           id: tt.id,
           patient: tt.patient,
           feeSnapshot: tt.feeSnapshot,
+          dentist: tt.dentist
+            ? {
+                id: tt.dentist.id,
+                staff: {
+                  name: tt.dentist.staff?.name ?? '',
+                  surname: tt.dentist.staff?.surname ?? '',
+                },
+              }
+            : null,
           appointment: {
             id: tt.appointment?.id,
             startDate: formatDate(tt.appointment?.startDate),

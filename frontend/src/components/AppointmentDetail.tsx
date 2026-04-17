@@ -133,7 +133,7 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
         className={`absolute z-10 w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition-all select-none ${
           enabled
             ? isSelected
-              ? 'cursor-pointer bg-teal-600 text-white scale-110 shadow-sm hover:bg-teal-700'
+              ? 'cursor-pointer bg-[#0066A6] text-white scale-110 shadow-sm hover:bg-[#004a75]'
               : 'cursor-pointer text-black hover:scale-110 hover:bg-gray-400/20 hover:ring-2 hover:ring-gray-500/35'
             : 'text-gray-400 cursor-not-allowed opacity-50'
         }`}
@@ -152,7 +152,7 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
           <button
             type="button"
             onClick={() => onSelectionModeChange('multiple')}
-            className={`p-2 rounded-md transition-colors ${selectionMode === 'multiple' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            className={`p-2 rounded-md transition-colors ${selectionMode === 'multiple' ? 'bg-[#f0f7fc]0 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
             title="Multiple teeth selection"
           >
             <MultiToothIcon className="w-4 h-4" />
@@ -160,7 +160,7 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
           <button
             type="button"
             onClick={() => onSelectionModeChange('chin')}
-            className={`p-2 rounded-md transition-colors ${selectionMode === 'chin' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            className={`p-2 rounded-md transition-colors ${selectionMode === 'chin' ? 'bg-[#f0f7fc]0 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
             title="Jaw selection (upper or lower arch)"
           >
             <ChinArcTeethIcon className="w-4 h-4" />
@@ -169,7 +169,7 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
 
         <button
           onClick={() => setIsPermanent(!isPermanent)}
-          className="px-3 py-1.5 bg-teal-500 text-white rounded-md text-sm font-medium hover:bg-teal-600 transition-colors"
+          className="px-3 py-1.5 bg-[#f0f7fc]0 text-white rounded-md text-sm font-medium hover:bg-[#00588f] transition-colors"
         >
           {isPermanent ? 'Childish Teeth' : 'Permanent Teeth'}
         </button>
@@ -898,13 +898,13 @@ const AppointmentDetail = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-blue-50">
+      <div className="min-h-screen bg-[#f4f6f8]">
         <Header />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <button
             type="button"
             onClick={() => navigate(backPath)}
-            className="flex items-center space-x-2 text-teal-600 hover:text-teal-800 transition-colors mb-6"
+            className="flex items-center space-x-2 text-[#0066A6] hover:text-[#00588f] transition-colors mb-6"
           >
             <ArrowLeft className="w-5 h-5" />
             <span className="font-medium">{backButtonLabel}</span>
@@ -919,13 +919,13 @@ const AppointmentDetail = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-blue-50">
+      <div className="min-h-screen bg-[#f4f6f8]">
         <Header />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <button
             type="button"
             onClick={() => navigate(backPath)}
-            className="flex items-center space-x-2 text-teal-600 hover:text-teal-800 transition-colors mb-6"
+            className="flex items-center space-x-2 text-[#0066A6] hover:text-[#00588f] transition-colors mb-6"
           >
             <ArrowLeft className="w-5 h-5" />
             <span className="font-medium">{backButtonLabel}</span>
@@ -940,13 +940,13 @@ const AppointmentDetail = () => {
 
   if (!appointment) {
     return (
-      <div className="min-h-screen bg-blue-50">
+      <div className="min-h-screen bg-[#f4f6f8]">
         <Header />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <button
             type="button"
             onClick={() => navigate(backPath)}
-            className="flex items-center space-x-2 text-teal-600 hover:text-teal-800 transition-colors mb-6"
+            className="flex items-center space-x-2 text-[#0066A6] hover:text-[#00588f] transition-colors mb-6"
           >
             <ArrowLeft className="w-5 h-5" />
             <span className="font-medium">{backButtonLabel}</span>
@@ -972,14 +972,14 @@ const AppointmentDetail = () => {
   const paginatedMedicines = availableMedicines.slice((medicinePage - 1) * ITEMS_PER_PAGE, medicinePage * ITEMS_PER_PAGE);
 
   return (
-    <div className="min-h-screen bg-blue-50">
+    <div className="min-h-screen bg-[#f4f6f8]">
       <Header />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <button
           type="button"
           onClick={() => navigate(backPath)}
-          className="flex items-center space-x-2 text-teal-600 hover:text-teal-800 transition-colors mb-6"
+          className="flex items-center space-x-2 text-[#0066A6] hover:text-[#00588f] transition-colors mb-6"
         >
           <ArrowLeft className="w-5 h-5" />
           <span className="font-medium">{backButtonLabel}</span>
@@ -993,7 +993,7 @@ const AppointmentDetail = () => {
             <div className="flex flex-col items-end gap-2">
               <button
                 onClick={() => setShowEditAppointment(true)}
-                className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors min-w-[96px]"
+                className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-[#f0f7fc]0 text-white rounded-md hover:bg-[#00588f] transition-colors min-w-[96px]"
               >
                 <Edit className="w-4 h-4" />
                 <span>Edit</span>
@@ -1008,7 +1008,7 @@ const AppointmentDetail = () => {
               <button
                 type="button"
                 onClick={openNewRandevuePanel}
-                className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-violet-600 text-white rounded-md hover:bg-violet-700 transition-colors min-w-[96px]"
+                className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-[#0066A6] text-white rounded-md hover:bg-[#00588f] transition-colors min-w-[96px]"
               >
                 <Calendar className="w-4 h-4" />
                 <span>New randevue</span>
@@ -1046,7 +1046,7 @@ const AppointmentDetail = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex items-start space-x-3">
-              <Calendar className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+              <Calendar className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-gray-500">Start Date</p>
                 <p className="text-lg text-gray-900 font-semibold">
@@ -1056,7 +1056,7 @@ const AppointmentDetail = () => {
             </div>
 
             <div className="flex items-start space-x-3">
-              <Calendar className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+              <Calendar className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-gray-500">End Date</p>
                 <p className="text-lg text-gray-900 font-semibold">
@@ -1066,7 +1066,7 @@ const AppointmentDetail = () => {
             </div>
 
             <div className="flex items-start space-x-3">
-              <User className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+              <User className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-gray-500">Patient Name</p>
                 <p className="text-lg text-gray-900 font-semibold">
@@ -1076,7 +1076,7 @@ const AppointmentDetail = () => {
             </div>
 
             <div className="flex items-start space-x-3">
-              <User className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+              <User className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-gray-500">Patient Surname</p>
                 <p className="text-lg text-gray-900 font-semibold">
@@ -1086,7 +1086,7 @@ const AppointmentDetail = () => {
             </div>
 
             <div className="flex items-start space-x-3">
-              <DollarSign className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+              <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-gray-500">Calculated Fee</p>
                 <p className="text-lg text-gray-900 font-semibold">
@@ -1096,7 +1096,7 @@ const AppointmentDetail = () => {
             </div>
 
             <div className="flex items-start space-x-3">
-              <DollarSign className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+              <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-gray-500">Charged Fee</p>
                 <p className="text-lg text-gray-900 font-semibold">
@@ -1106,7 +1106,7 @@ const AppointmentDetail = () => {
             </div>
 
             <div className="flex items-start space-x-3">
-              <DollarSign className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+              <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-gray-500">Discount Fee</p>
                 <p className="text-lg text-gray-900 font-semibold">
@@ -1116,13 +1116,13 @@ const AppointmentDetail = () => {
             </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t-2 border-teal-500">
-            <div className="flex items-center justify-between bg-teal-50 p-4 rounded-lg">
+          <div className="mt-6 pt-6 border-t-2 border-[#0066A6]">
+            <div className="flex items-center justify-between bg-[#f0f7fc] p-4 rounded-lg">
               <div className="flex items-center space-x-3">
-                <DollarSign className="w-6 h-6 text-teal-600" />
+                <DollarSign className="w-6 h-6 text-[#0066A6]" />
                 <span className="text-lg font-semibold text-gray-900">Total Fee</span>
               </div>
-              <span className="text-2xl font-bold text-teal-600">
+              <span className="text-2xl font-bold text-[#0066A6]">
                 ${calculateTotalFee().toFixed(2)}
               </span>
             </div>
@@ -1137,7 +1137,7 @@ const AppointmentDetail = () => {
             <h2 className="text-xl font-semibold text-gray-900">Treatments</h2>
             <button
               onClick={handleOpenAddTreatment}
-              className="flex items-center space-x-2 px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-[#f0f7fc]0 text-white rounded-md hover:bg-[#00588f] transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span>Add Treatment</span>
@@ -1145,7 +1145,7 @@ const AppointmentDetail = () => {
           </div>
 
           {showAddTreatment && appointment && (
-            <div className="mb-8 border border-teal-200 rounded-lg p-6 bg-teal-50/40">
+            <div className="mb-8 border border-[#cce0f0] rounded-lg p-6 bg-[#f0f7fc]/40">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Select treatments</h3>
@@ -1156,7 +1156,7 @@ const AppointmentDetail = () => {
                     <input
                       type="text"
                       placeholder="Search treatment by name..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                       onChange={(e) => {
                         const q = e.target.value.toLowerCase();
                         setTreatmentPage(1);
@@ -1172,7 +1172,7 @@ const AppointmentDetail = () => {
                   <button
                     type="button"
                     onClick={() => setShowAddTreatmentInModal(true)}
-                    className="w-full mb-3 flex items-center justify-center space-x-1 px-4 py-2 bg-blue-50 text-blue-600 text-sm rounded-md font-medium border border-blue-200 hover:bg-blue-100 transition-colors"
+                    className="w-full mb-3 flex items-center justify-center space-x-1 px-4 py-2 bg-[#f0f7fc] text-[#0066A6] text-sm rounded-md font-medium border border-[#cce0f0] hover:bg-[#e8f2fa] transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     <span>New Treatment</span>
@@ -1186,7 +1186,7 @@ const AppointmentDetail = () => {
                         return (
                           <label
                             key={t.id}
-                            className={`flex w-full cursor-pointer items-start gap-3 px-4 py-2 border-b last:border-b-0 hover:bg-teal-50 transition-colors ${checked ? 'bg-teal-100' : ''}`}
+                            className={`flex w-full cursor-pointer items-start gap-3 px-4 py-2 border-b last:border-b-0 hover:bg-[#f0f7fc] transition-colors ${checked ? 'bg-[#e8f2fa]' : ''}`}
                           >
                             <input
                               type="checkbox"
@@ -1196,7 +1196,7 @@ const AppointmentDetail = () => {
                                   prev.includes(t.id) ? prev.filter((id) => id !== t.id) : [...prev, t.id]
                                 )
                               }
-                              className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                              className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-[#0066A6] focus:ring-[#0066A6]"
                             />
                             <div className="min-w-0 flex-1 text-left">
                               <div className="flex items-center justify-between gap-2">
@@ -1244,7 +1244,7 @@ const AppointmentDetail = () => {
                           maxLength={40}
                           value={newTreatmentForm.name}
                           onChange={(e) => setNewTreatmentForm({ ...newTreatmentForm, name: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                         />
                       </div>
                       <div>
@@ -1255,7 +1255,7 @@ const AppointmentDetail = () => {
                           maxLength={300}
                           value={newTreatmentForm.description}
                           onChange={(e) => setNewTreatmentForm({ ...newTreatmentForm, description: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                         />
                       </div>
                       <div>
@@ -1267,7 +1267,7 @@ const AppointmentDetail = () => {
                           step="0.01"
                           value={newTreatmentForm.price || ''}
                           onChange={(e) => setNewTreatmentForm({ ...newTreatmentForm, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                         />
                       </div>
                       <div>
@@ -1283,7 +1283,7 @@ const AppointmentDetail = () => {
                               pricePer: e.target.value === '' ? null : (e.target.value as TreatmentPricePer),
                             })
                           }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6] text-sm"
                         >
                           <option value="">Not set (one line price)</option>
                           <option value="tooth">Per tooth</option>
@@ -1301,7 +1301,7 @@ const AppointmentDetail = () => {
                           type="button"
                           onClick={handleAddTreatmentForm}
                           disabled={isSubmittingTreatment || !newTreatmentForm.name || !newTreatmentForm.description || newTreatmentForm.price < 0}
-                          className="flex-1 py-2 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 py-2 bg-[#0066A6] text-white text-xs rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {isSubmittingTreatment ? 'Creating...' : 'Create'}
                         </button>
@@ -1350,7 +1350,7 @@ const AppointmentDetail = () => {
                       maxLength={300}
                       value={newTreatment.description}
                       onChange={(e) => setNewTreatment({ ...newTreatment, description: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                       placeholder="Enter treatment description/notes"
                     />
                   </div>
@@ -1370,7 +1370,7 @@ const AppointmentDetail = () => {
                           setAvailableMedicines(allMedicines.filter(m => m.name.toLowerCase().includes(q)));
                         }
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                     />
                   </div>
 
@@ -1536,7 +1536,7 @@ const AppointmentDetail = () => {
                 </div>
               </div>
 
-              <div className="mt-6 border-t border-teal-200 pt-6">
+              <div className="mt-6 border-t border-[#cce0f0] pt-6">
                 <div className="flex flex-wrap items-center gap-3 mb-3">
                   <h3 className="text-lg font-semibold text-gray-900">Media (optional)</h3>
                   <button
@@ -1545,18 +1545,18 @@ const AppointmentDetail = () => {
                       setShowAddMediaForNewTreatment((v) => !v);
                       setNewTreatmentMediaError('');
                     }}
-                    className="flex items-center space-x-1 px-3 py-1.5 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 transition-colors"
+                    className="flex items-center space-x-1 px-3 py-1.5 bg-[#f0f7fc]0 text-white text-sm rounded-md hover:bg-[#00588f] transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     <span>{showAddMediaForNewTreatment ? 'Hide' : 'Add Media'}</span>
                   </button>
                 </div>
                 {pendingMediaForNewTreatment.length > 0 && (
-                  <ul className="mb-4 space-y-2 rounded-md border border-blue-200 bg-blue-50/40 p-3">
+                  <ul className="mb-4 space-y-2 rounded-md border border-[#cce0f0] bg-[#f0f7fc]/40 p-3">
                     {pendingMediaForNewTreatment.map((item) => (
                       <li
                         key={item.key}
-                        className="flex items-center justify-between gap-2 text-sm text-gray-800 border-b border-blue-100 pb-2 last:border-0 last:pb-0"
+                        className="flex items-center justify-between gap-2 text-sm text-gray-800 border-b border-[#e8f2fa] pb-2 last:border-0 last:pb-0"
                       >
                         <span className="truncate font-medium" title={item.name}>
                           {item.name}
@@ -1575,7 +1575,7 @@ const AppointmentDetail = () => {
                   </ul>
                 )}
                 {showAddMediaForNewTreatment && (
-                  <div className="rounded-md border border-blue-200 p-4 bg-blue-50/40">
+                  <div className="rounded-md border border-[#cce0f0] p-4 bg-[#f0f7fc]/40">
                     <h4 className="text-sm font-semibold text-gray-900 mb-3">Add Media</h4>
                     <div className="space-y-3">
                       <div>
@@ -1590,7 +1590,7 @@ const AppointmentDetail = () => {
                           onChange={(e) =>
                             setNewTreatmentMediaDraft({ ...newTreatmentMediaDraft, name: e.target.value })
                           }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                           placeholder="Enter media name"
                         />
                       </div>
@@ -1609,7 +1609,7 @@ const AppointmentDetail = () => {
                           onChange={(e) =>
                             setNewTreatmentMediaDraft({ ...newTreatmentMediaDraft, description: e.target.value })
                           }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                           placeholder="Enter description"
                         />
                       </div>
@@ -1628,7 +1628,7 @@ const AppointmentDetail = () => {
                               file: e.target.files?.[0] || null,
                             })
                           }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                         />
                       </div>
                       {newTreatmentMediaError && (
@@ -1656,7 +1656,7 @@ const AppointmentDetail = () => {
                             setNewTreatmentMediaDraft({ name: '', description: '', file: null });
                             setNewTreatmentMediaFileKey((k) => k + 1);
                           }}
-                          className="flex-1 py-2 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                          className="flex-1 py-2 bg-[#0066A6] text-white text-xs rounded-lg font-medium hover:bg-[#00588f] transition-colors"
                         >
                           Add to list
                         </button>
@@ -1684,7 +1684,7 @@ const AppointmentDetail = () => {
                   disabled={
                     isAddingTreatment || selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0
                   }
-                  className="px-5 py-2 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2 bg-[#0066A6] text-white rounded-lg font-semibold hover:bg-[#004a75] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isAddingTreatment
                     ? 'Adding...'
@@ -1725,11 +1725,11 @@ const AppointmentDetail = () => {
                 return (
                   <div 
                     key={treatment.id} 
-                    className="border border-gray-200 rounded-lg p-6 hover:border-teal-300 transition-colors"
+                    className="border border-gray-200 rounded-lg p-6 hover:border-[#0066A6]/40 transition-colors"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start space-x-3 flex-1">
-                        <FileText className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+                        <FileText className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
                         <div className="flex-1">
                           <h3 className="text-lg font-semibold text-gray-900 mb-2">
                             {treatment.treatment.name}
@@ -1739,13 +1739,13 @@ const AppointmentDetail = () => {
                           </p>
                           
                           {toothInfos.length > 0 && (
-                            <div className="mb-3 p-3 bg-teal-50 rounded-md">
-                              <p className="text-sm font-medium text-teal-900 mb-1">
+                            <div className="mb-3 p-3 bg-[#f0f7fc] rounded-md">
+                              <p className="text-sm font-medium text-slate-900 mb-1">
                                 Teeth ({toothInfos.length})
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 {toothInfos.map((info, index) => (
-                                  <span key={index} className="text-sm text-teal-700 font-semibold bg-white px-2 py-1 rounded">
+                                  <span key={index} className="text-sm text-[#00588f] font-semibold bg-white px-2 py-1 rounded">
                                     {info?.name}
                                   </span>
                                 ))}
@@ -1766,7 +1766,7 @@ const AppointmentDetail = () => {
                             </span>
                             <span className="text-gray-500">
                               Line total:{' '}
-                              <span className="font-semibold text-teal-700">
+                              <span className="font-semibold text-[#00588f]">
                                 ${(typeof treatment.feeSnapshot === 'number' ? treatment.feeSnapshot : treatment.treatment.price).toFixed(2)}
                               </span>
                             </span>
@@ -1799,7 +1799,7 @@ const AppointmentDetail = () => {
                           {(() => {
                             const medias = treatmentMedias.get(treatment.id) || [];
                             return medias.length > 0 ? (
-                              <div className="mb-3 p-3 bg-blue-50 rounded-md border border-blue-200">
+                              <div className="mb-3 p-3 bg-[#f0f7fc] rounded-md border border-[#cce0f0]">
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                   {medias.map((media) => (
                                     <div
@@ -1825,7 +1825,7 @@ const AppointmentDetail = () => {
                                           className="pointer-events-auto opacity-0 group-hover:opacity-100 p-2 bg-white rounded-full hover:bg-gray-100 transition-all"
                                           title="Edit media"
                                         >
-                                          <Edit className="w-4 h-4 text-blue-600" />
+                                          <Edit className="w-4 h-4 text-[#0066A6]" />
                                         </button>
                                         <button
                                           type="button"
@@ -1850,7 +1850,7 @@ const AppointmentDetail = () => {
                           })()}
 
                           {editingMediaId && (
-                            <div className="mt-4 rounded-md border border-blue-200 p-4 bg-blue-50/40">
+                            <div className="mt-4 rounded-md border border-[#cce0f0] p-4 bg-[#f0f7fc]/40">
                               <h4 className="text-sm font-semibold text-gray-900 mb-3">Edit Media</h4>
                               <div className="space-y-3">
                                 <div>
@@ -1861,7 +1861,7 @@ const AppointmentDetail = () => {
                                     maxLength={100}
                                     value={editingMediaData.name}
                                     onChange={(e) => setEditingMediaData({ ...editingMediaData, name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                                     placeholder="Enter media name"
                                   />
                                 </div>
@@ -1873,7 +1873,7 @@ const AppointmentDetail = () => {
                                     maxLength={300}
                                     value={editingMediaData.description}
                                     onChange={(e) => setEditingMediaData({ ...editingMediaData, description: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                                     placeholder="Enter description"
                                   />
                                 </div>
@@ -1882,7 +1882,7 @@ const AppointmentDetail = () => {
                                     type="button"
                                     onClick={() => saveEditMedia(treatment.id)}
                                     disabled={isEditingMedia || !editingMediaData.name}
-                                    className="flex-1 py-2 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-1 py-2 bg-[#0066A6] text-white text-xs rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     {isEditingMedia ? 'Saving...' : 'Save'}
                                   </button>
@@ -1942,7 +1942,7 @@ const AppointmentDetail = () => {
                           <>
                             <button
                               onClick={() => saveEditTreatment(treatment)}
-                              className="px-3 py-1.5 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors"
+                              className="px-3 py-1.5 bg-[#0066A6] text-white rounded-md hover:bg-[#004a75] transition-colors"
                               disabled={isSubmitting}
                             >
                               Save
@@ -1958,14 +1958,14 @@ const AppointmentDetail = () => {
                           <>
                             <button
                               onClick={() => beginEditTreatment(treatment)}
-                              className="flex items-center space-x-1 px-3 py-1.5 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
+                              className="flex items-center space-x-1 px-3 py-1.5 bg-[#f0f7fc]0 text-white rounded-md hover:bg-[#00588f] transition-colors"
                             >
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
                             </button>
                             <button
                               onClick={() => setShowAddMediaForTreatment(treatment.id)}
-                              className="flex items-center space-x-1 px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                              className="flex items-center space-x-1 px-3 py-1.5 bg-[#f0f7fc]0 text-white rounded-md hover:bg-[#00588f] transition-colors"
                             >
                               <Plus className="w-4 h-4" />
                               <span>Add Media</span>
@@ -2020,7 +2020,7 @@ const AppointmentDetail = () => {
                       </div>
                     </div>
                     {editingTreatmentId === treatment.id && (
-                      <div className="mt-4 rounded-md border border-teal-200 p-4 bg-teal-50/40">
+                      <div className="mt-4 rounded-md border border-[#cce0f0] p-4 bg-[#f0f7fc]/40">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           <div>
                             <h4 className="text-sm font-semibold text-gray-900 mb-2">Change Treatment</h4>
@@ -2030,7 +2030,7 @@ const AppointmentDetail = () => {
                                   key={t.id}
                                   type="button"
                                   onClick={() => setEditingFields({ ...editingFields, treatment_id: t.id })}
-                                  className={`w-full text-left px-4 py-2 border-b last:border-b-0 hover:bg-teal-50 ${editingFields.treatment_id === t.id ? 'bg-teal-100' : ''}`}
+                                  className={`w-full text-left px-4 py-2 border-b last:border-b-0 hover:bg-[#f0f7fc] ${editingFields.treatment_id === t.id ? 'bg-[#e8f2fa]' : ''}`}
                                 >
                                   <div className="flex items-center justify-between">
                                     <span className="font-medium text-gray-900">{t.name}</span>
@@ -2116,7 +2116,7 @@ const AppointmentDetail = () => {
                               rows={3}
                               value={editingFields.description}
                               onChange={(e) => setEditingFields({ ...editingFields, description: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                               placeholder="Enter notes"
                             />
                           </div>
@@ -2124,7 +2124,7 @@ const AppointmentDetail = () => {
                       </div>
                     )}
                     {showAddMediaForTreatment === treatment.id && (
-                      <div className="mt-4 rounded-md border border-blue-200 p-4 bg-blue-50/40">
+                      <div className="mt-4 rounded-md border border-[#cce0f0] p-4 bg-[#f0f7fc]/40">
                         <h4 className="text-sm font-semibold text-gray-900 mb-3">Add Media</h4>
                         <div className="space-y-3">
                           <div>
@@ -2135,7 +2135,7 @@ const AppointmentDetail = () => {
                               maxLength={100}
                               value={newMediaForm.name}
                               onChange={(e) => setNewMediaForm({ ...newMediaForm, name: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                               placeholder="Enter media name"
                             />
                           </div>
@@ -2147,7 +2147,7 @@ const AppointmentDetail = () => {
                               maxLength={300}
                               value={newMediaForm.description}
                               onChange={(e) => setNewMediaForm({ ...newMediaForm, description: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                               placeholder="Enter description"
                             />
                           </div>
@@ -2158,7 +2158,7 @@ const AppointmentDetail = () => {
                               type="file"
                               accept="image/*"
                               onChange={(e) => setNewMediaForm({ ...newMediaForm, file: e.target.files?.[0] || null })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                             />
                           </div>
                           {mediaError && (
@@ -2169,7 +2169,7 @@ const AppointmentDetail = () => {
                               type="button"
                               onClick={() => handleAddMedia(treatment.id)}
                               disabled={isSubmittingMedia || !newMediaForm.name || !newMediaForm.file}
-                              className="flex-1 py-2 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="flex-1 py-2 bg-[#0066A6] text-white text-xs rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {isSubmittingMedia ? 'Uploading...' : 'Upload'}
                             </button>
@@ -2286,7 +2286,7 @@ const AppointmentDetail = () => {
                       required
                       value={newRandevueDate}
                       onChange={(e) => setNewRandevueDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                     />
                   </div>
 
@@ -2301,7 +2301,7 @@ const AppointmentDetail = () => {
                         required
                         value={newRandevueStart}
                         onChange={(e) => setNewRandevueStart(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                       />
                     </div>
                     <div>
@@ -2314,7 +2314,7 @@ const AppointmentDetail = () => {
                         required
                         value={newRandevueEnd}
                         onChange={(e) => setNewRandevueEnd(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                       />
                     </div>
                   </div>
@@ -2329,7 +2329,7 @@ const AppointmentDetail = () => {
                       value={newRandevueNote}
                       onChange={(e) => setNewRandevueNote(e.target.value)}
                       placeholder="Optional"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-y min-h-[100px]"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6] resize-y min-h-[100px]"
                     />
                   </div>
 
@@ -2344,7 +2344,7 @@ const AppointmentDetail = () => {
                   <button
                     type="submit"
                     disabled={isSubmittingNewRandevue}
-                    className="flex-1 py-2.5 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 py-2.5 bg-[#f0f7fc]0 text-white rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmittingNewRandevue ? 'Saving…' : 'Create randevue'}
                   </button>
@@ -2385,7 +2385,7 @@ const AppointmentDetail = () => {
                     required
                     value={editedAppointment.startDate}
                     onChange={(e) => setEditedAppointment({ ...editedAppointment, startDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   />
                 </div>
 
@@ -2398,7 +2398,7 @@ const AppointmentDetail = () => {
                     id="editEndDate"
                     value={editedAppointment.endDate}
                     onChange={(e) => setEditedAppointment({ ...editedAppointment, endDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   />
                 </div>
 
@@ -2414,13 +2414,13 @@ const AppointmentDetail = () => {
                       id="editChargedFee"
                       value={editedAppointment.chargedFee}
                       onChange={(e) => setEditedAppointment({ ...editedAppointment, chargedFee: Number(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                     />
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+                    <div className="bg-[#f0f7fc] border border-[#cce0f0] rounded-lg p-3 space-y-2">
                       <button
                         type="button"
                         onClick={() => setEditedAppointment({ ...editedAppointment, chargedFee: appointment.calculatedFee })}
-                        className="w-full py-1.5 px-3 bg-blue-500 text-white text-sm rounded-md font-medium hover:bg-blue-600 transition-colors"
+                        className="w-full py-1.5 px-3 bg-[#f0f7fc]0 text-white text-sm rounded-md font-medium hover:bg-[#00588f] transition-colors"
                       >
                         Set as Calculated Fee (${appointment.calculatedFee.toFixed(2)})
                       </button>
@@ -2439,7 +2439,7 @@ const AppointmentDetail = () => {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 py-2 bg-[#f0f7fc]0 text-white rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? 'Updating...' : 'Update Appointment'}
                   </button>

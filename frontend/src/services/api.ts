@@ -79,6 +79,10 @@ export const authService = {
 };
 
 export const dentistService = {
+  getAll: async (): Promise<DentistProfile[]> => {
+    const response = await api.get('/dentist');
+    return response.data;
+  },
   getById: async (id: number) => {
     const response = await api.get(`/dentist/${id}`);
     return response.data;
@@ -296,6 +300,10 @@ export interface ToothTreatment {
   patient: number;
   tooth: number;
   feeSnapshot: number;
+  dentist?: {
+    id: number;
+    staff: { name: string; surname: string };
+  } | null;
   appointment: {
     id: number;
     startDate: string;
@@ -322,6 +330,7 @@ export interface ToothTreatmentFilters {
   tooth?: number;
   patient?: number;
   treatment?: number;
+  dentist?: number;
 }
 
 export interface CreateToothTreatmentDto {
@@ -404,7 +413,8 @@ export const toothTreatmentService = {
     if (filters?.tooth) params.append('tooth', filters.tooth.toString());
     if (filters?.patient) params.append('patient', filters.patient.toString());
     if (filters?.treatment) params.append('treatment', filters.treatment.toString());
-    
+    if (filters?.dentist) params.append('dentist', filters.dentist.toString());
+
     const response = await api.get(`/tooth-treatment?${params.toString()}`);
     return response.data;
   },

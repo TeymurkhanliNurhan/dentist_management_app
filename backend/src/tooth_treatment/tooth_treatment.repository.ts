@@ -295,6 +295,7 @@ export class ToothTreatmentRepository {
       tooth?: number;
       patient?: number;
       treatment?: number;
+      dentist?: number;
     },
   ): Promise<ToothTreatment[]> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
@@ -302,6 +303,8 @@ export class ToothTreatmentRepository {
       .createQueryBuilder('toothTreatment')
       .leftJoinAndSelect('toothTreatment.appointment', 'appointment')
       .leftJoinAndSelect('toothTreatment.treatment', 'treatment')
+      .leftJoinAndSelect('toothTreatment.dentist', 'dentist')
+      .leftJoinAndSelect('dentist.staff', 'dentistStaff')
       .leftJoinAndSelect('toothTreatment.patientTooth', 'patientTooth')
       .leftJoinAndSelect(
         'toothTreatment.toothTreatmentTeeth',
@@ -339,6 +342,11 @@ export class ToothTreatmentRepository {
     if (filters.treatment !== undefined) {
       queryBuilder.andWhere('toothTreatment.treatment = :treatment', {
         treatment: filters.treatment,
+      });
+    }
+    if (filters.dentist !== undefined) {
+      queryBuilder.andWhere('toothTreatment.dentist = :filterDentist', {
+        filterDentist: filters.dentist,
       });
     }
 
