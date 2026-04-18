@@ -296,6 +296,35 @@ export const treatmentService = {
   },
 };
 
+export interface DentistTreatmentLink {
+  treatment: number;
+  dentist: number;
+}
+
+export interface DentistTreatmentFilters {
+  treatment?: number;
+  dentist?: number;
+}
+
+export const dentistTreatmentService = {
+  getAll: async (filters?: DentistTreatmentFilters): Promise<DentistTreatmentLink[]> => {
+    const params = new URLSearchParams();
+    if (filters?.treatment !== undefined) params.append('treatment', filters.treatment.toString());
+    if (filters?.dentist !== undefined) params.append('dentist', filters.dentist.toString());
+    const response = await api.get(`/dentist-treatment?${params.toString()}`);
+    return response.data;
+  },
+  create: async (treatment: number, dentist: number): Promise<DentistTreatmentLink> => {
+    const response = await api.post('/dentist-treatment', { treatment, dentist });
+    return response.data;
+  },
+  remove: async (treatment: number, dentist: number): Promise<{ message: string }> => {
+    const params = new URLSearchParams({ treatment: treatment.toString(), dentist: dentist.toString() });
+    const response = await api.delete(`/dentist-treatment?${params.toString()}`);
+    return response.data;
+  },
+};
+
 export interface ToothTreatment {
   id: number;
   patient: number;
