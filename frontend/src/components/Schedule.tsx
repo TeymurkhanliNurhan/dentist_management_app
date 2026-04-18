@@ -12,6 +12,7 @@ import {
   Menu,
   Package,
   Settings,
+  UserRound,
   Users,
   Wallet,
   X,
@@ -1178,6 +1179,7 @@ const Schedule = () => {
   const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
   const directorMenuItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+    { label: 'Patients', icon: UserRound, path: '/patients' },
     { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
     { label: 'Inventory', icon: Package, path: '/medicines' },
     { label: 'Staff/Doctors', icon: Users, path: '/settings' },
