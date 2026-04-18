@@ -252,6 +252,7 @@ export interface Treatment {
   description: string;
   price: number;
   pricePer: TreatmentPricePer | null;
+  dentistCount: number;
 }
 
 export interface TreatmentFilters {

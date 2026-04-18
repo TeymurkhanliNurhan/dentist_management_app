@@ -8,7 +8,8 @@
     "name": "Name",
     "description": "Description",
     "price": "Price",
-    "pricePer": "Price basis"
+    "pricePer": "Price basis",
+    "dentists": "Dentists"
   },
   "loading": "Loading treatments...",
   "empty": "No treatments found",

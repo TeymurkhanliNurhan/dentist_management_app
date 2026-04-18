@@ -67,7 +67,7 @@ export class TreatmentRepository {
   async findTreatmentsForDentist(
     dentistId: number,
     filters: { id?: number; name?: string },
-  ): Promise<Treatment[]> {
+  ): Promise<Array<Treatment & { dentistCount: number }>> {
     const dentist = await this.dataSource
       .getRepository(Dentist)
       .findOne({ where: { id: dentistId }, relations: ['staff'] });
@@ -75,6 +75,8 @@ export class TreatmentRepository {
     const clinicId = dentist.staff.clinicId;
     const queryBuilder = this.repo
       .createQueryBuilder('treatment')
+      .leftJoin('treatment.dentistTreatments', 'dentistTreatment')
+      .addSelect('COUNT(DISTINCT dentistTreatment.dentist)', 'dentistCount')
       .where('treatment.clinicId = :clinicId', { clinicId });
 
     if (filters.id !== undefined) {
@@ -86,6 +88,12 @@ export class TreatmentRepository {
       });
     }
 
-    return await queryBuilder.getMany();
+    queryBuilder.groupBy('treatment.id');
+
+    const { entities, raw } = await queryBuilder.getRawAndEntities();
+    return entities.map((treatment, index) => ({
+      ...treatment,
+      dentistCount: Number(raw[index]?.dentistCount ?? 0),
+    }));
   }
 }

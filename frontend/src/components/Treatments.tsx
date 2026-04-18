@@ -185,19 +185,22 @@ const Treatments = () => {
                     {t('table.pricePer')}
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
+                    {t('table.dentists')}
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                       {t('loading')}
                     </td>
                   </tr>
                 ) : treatments.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                       {t('empty')}
                     </td>
                   </tr>
@@ -208,6 +211,7 @@ const Treatments = () => {
                       <td className="px-6 py-4 text-sm text-gray-600">{treatment.description}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">${treatment.price.toFixed(2)}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{pricePerLabel(treatment.pricePer)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{treatment.dentistCount}</td>
                       <td className="px-6 py-4 text-sm">
                         <button
                           onClick={() => handleEditClick(treatment)}

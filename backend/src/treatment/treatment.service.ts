@@ -91,6 +91,7 @@ export class TreatmentService {
         price: treatment.price,
         description: treatment.description,
         pricePer: treatment.pricePer,
+        dentistCount: treatment.dentistCount,
       }));
     } catch (e: any) {
       throw e;
