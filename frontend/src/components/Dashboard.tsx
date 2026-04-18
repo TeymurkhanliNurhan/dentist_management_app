@@ -102,6 +102,7 @@ const Dashboard = () => {
       { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
       { label: 'Patients', icon: UserRound, path: '/patients' },
       { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
+      { label: 'Services', icon: Package, path: '/treatments' },
       { label: 'Inventory', icon: Package, path: '/medicines' },
       { label: 'Staff/Doctors', icon: Users, path: '/settings' },
       { label: 'Finance', icon: Wallet, path: '/appointments' },
