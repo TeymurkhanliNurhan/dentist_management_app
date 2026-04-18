@@ -1,14 +1,65 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash } from 'lucide-react';
 import ClinicManagementLayout from './ClinicManagementLayout';
-import { appointmentService, randevueService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
-import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, CreateMedicineDto, Media, TreatmentPricePer } from '../services/api';
+import { API_BASE_URL, appointmentService, dentistService, randevueService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
+import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, CreateMedicineDto, Media, TreatmentPricePer, DentistProfile } from '../services/api';
 
 function combineLocalDateAndTime(dateYmd: string, timeHm: string): Date {
   const [y, m, d] = dateYmd.split('-').map(Number);
   const [hh, mm = '0'] = timeHm.split(':');
   return new Date(y, m - 1, d, Number(hh), Number(mm), 0, 0);
+}
+
+function apiDayOfWeekFromDate(d: Date): number {
+  const js = d.getDay();
+  return js === 0 ? 7 : js;
+}
+
+function hmToMinutes(hm: string): number {
+  const [h, m] = hm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function timeStringToMinutes(value: string): number {
+  const [h, m] = value.split(':');
+  return Number(h) * 60 + Number(m);
+}
+
+function intervalsOverlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date): boolean {
+  return aStart < bEnd && aEnd > bStart;
+}
+
+interface RoomOption {
+  id: number;
+  number: string;
+  description: string;
+}
+
+interface NurseOption {
+  id: number;
+  staffId: number;
+  staff?: {
+    id?: number;
+    name?: string;
+    surname?: string;
+  };
+}
+
+interface WorkingHourRow {
+  id: number;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  staffId: number;
+}
+
+interface BlockingHourRow {
+  id: number;
+  startTime: string;
+  endTime: string;
+  staffId: number | null;
+  roomId: number | null;
 }
 
 type TeethSelectionMode = 'multiple' | 'chin';
@@ -279,9 +330,18 @@ const AppointmentDetail = () => {
   const [newRandevueDate, setNewRandevueDate] = useState('');
   const [newRandevueStart, setNewRandevueStart] = useState('09:00');
   const [newRandevueEnd, setNewRandevueEnd] = useState('10:00');
+  const [newRandevueRoomId, setNewRandevueRoomId] = useState<number>(0);
+  const [newRandevueDentistId, setNewRandevueDentistId] = useState<number>(0);
+  const [newRandevueNurseId, setNewRandevueNurseId] = useState<number>(0);
   const [newRandevueNote, setNewRandevueNote] = useState('');
   const [newRandevueError, setNewRandevueError] = useState('');
   const [isSubmittingNewRandevue, setIsSubmittingNewRandevue] = useState(false);
+  const [newRandevueRooms, setNewRandevueRooms] = useState<RoomOption[]>([]);
+  const [newRandevueDentists, setNewRandevueDentists] = useState<DentistProfile[]>([]);
+  const [newRandevueNurses, setNewRandevueNurses] = useState<NurseOption[]>([]);
+  const [newRandevueWorkingHours, setNewRandevueWorkingHours] = useState<WorkingHourRow[]>([]);
+  const [newRandevueBlockingHours, setNewRandevueBlockingHours] = useState<BlockingHourRow[]>([]);
+  const [newRandevueDayRandevues, setNewRandevueDayRandevues] = useState<Array<{ id: number; date: string; endTime: string; dentist?: { id: number } | null; nurse?: { id: number } | null; room?: { id: number } | null }>>([]);
   const [showAddTreatment, setShowAddTreatment] = useState(false);
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>([]);
   const [allTreatments, setAllTreatments] = useState<Treatment[]>([]);
@@ -298,6 +358,8 @@ const AppointmentDetail = () => {
   const [allMedicines, setAllMedicines] = useState<Medicine[]>([]);
   const [selectedMedicineQuantities, setSelectedMedicineQuantities] = useState<Record<number, number>>({});
   const [medicineQuery, setMedicineQuery] = useState('');
+  const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
+  const isAdminLike = role === 'director' || role === 'admin';
 
   const [treatmentPage, setTreatmentPage] = useState(1);
   const [medicinePage, setMedicinePage] = useState(1);
@@ -384,6 +446,266 @@ const AppointmentDetail = () => {
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [showNewRandevuePanel]);
+
+  useEffect(() => {
+    if (!showNewRandevuePanel) return;
+    let cancelled = false;
+    const token = localStorage.getItem('access_token') || '';
+
+    const fetchRandevueResources = async () => {
+      try {
+        const [roomsRes, dentistsData, nursesRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/room`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          dentistService.getAll(),
+          fetch(`${API_BASE_URL}/nurse`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        const roomsData = roomsRes.ok ? ((await roomsRes.json()) as RoomOption[]) : [];
+        const nursesData = nursesRes.ok ? ((await nursesRes.json()) as NurseOption[]) : [];
+        if (cancelled) return;
+
+        setNewRandevueRooms(Array.isArray(roomsData) ? roomsData : []);
+        setNewRandevueDentists(Array.isArray(dentistsData) ? dentistsData : []);
+        setNewRandevueNurses(Array.isArray(nursesData) ? nursesData : []);
+      } catch {
+        if (cancelled) return;
+        setNewRandevueRooms([]);
+        setNewRandevueDentists([]);
+        setNewRandevueNurses([]);
+      }
+    };
+
+    void fetchRandevueResources();
+    return () => {
+      cancelled = true;
+    };
+  }, [showNewRandevuePanel]);
+
+  useEffect(() => {
+    if (!showNewRandevuePanel || !newRandevueDate) {
+      setNewRandevueWorkingHours([]);
+      setNewRandevueBlockingHours([]);
+      return;
+    }
+
+    let cancelled = false;
+    const token = localStorage.getItem('access_token') || '';
+    const targetDate = combineLocalDateAndTime(newRandevueDate, '00:00');
+    const dayOfWeek = apiDayOfWeekFromDate(targetDate);
+
+    const fetchAvailabilityRows = async () => {
+      try {
+        const dayStart = combineLocalDateAndTime(newRandevueDate, '00:00');
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+        const [workingRes, blockingRes, randevuesData] = await Promise.all([
+          fetch(`${API_BASE_URL}/working-hours?dayOfWeek=${dayOfWeek}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API_BASE_URL}/blocking-hours`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          randevueService.getForRange(dayStart.toISOString(), dayEnd.toISOString()),
+        ]);
+        const workingData = workingRes.ok
+          ? ((await workingRes.json()) as WorkingHourRow[])
+          : [];
+        const blockingData = blockingRes.ok
+          ? ((await blockingRes.json()) as BlockingHourRow[])
+          : [];
+        if (cancelled) return;
+        setNewRandevueWorkingHours(Array.isArray(workingData) ? workingData : []);
+        setNewRandevueBlockingHours(Array.isArray(blockingData) ? blockingData : []);
+        setNewRandevueDayRandevues(Array.isArray(randevuesData) ? randevuesData : []);
+      } catch {
+        if (cancelled) return;
+        setNewRandevueWorkingHours([]);
+        setNewRandevueBlockingHours([]);
+        setNewRandevueDayRandevues([]);
+      }
+    };
+
+    void fetchAvailabilityRows();
+    return () => {
+      cancelled = true;
+    };
+  }, [newRandevueDate, showNewRandevuePanel]);
+
+  const dentistStaffIdById = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const dentist of newRandevueDentists) {
+      if (dentist.id && dentist.staff?.id) map.set(dentist.id, dentist.staff.id);
+    }
+    return map;
+  }, [newRandevueDentists]);
+
+  const nurseStaffIdById = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const nurse of newRandevueNurses) {
+      const staffId = nurse.staff?.id ?? nurse.staffId;
+      if (nurse.id && staffId) map.set(nurse.id, staffId);
+    }
+    return map;
+  }, [newRandevueNurses]);
+
+  const staffAvailableAt = useCallback(
+    (staffId: number) => {
+      const intervalStart = combineLocalDateAndTime(newRandevueDate, newRandevueStart);
+      const intervalEnd = combineLocalDateAndTime(newRandevueDate, newRandevueEnd);
+      if (intervalEnd <= intervalStart) return false;
+      const dayOfWeek = apiDayOfWeekFromDate(intervalStart);
+      const startMinutes = hmToMinutes(newRandevueStart);
+      const endMinutes = hmToMinutes(newRandevueEnd);
+
+      const hasWorkingWindow = newRandevueWorkingHours.some((wh) => {
+        if (wh.staffId !== staffId || wh.dayOfWeek !== dayOfWeek) return false;
+        const whStart = timeStringToMinutes(wh.startTime);
+        const whEnd = timeStringToMinutes(wh.endTime);
+        return startMinutes >= whStart && endMinutes <= whEnd;
+      });
+      if (!hasWorkingWindow) return false;
+
+      const hasBlocking = newRandevueBlockingHours.some((bh) => {
+        if (bh.staffId !== staffId) return false;
+        return intervalsOverlap(
+          intervalStart,
+          intervalEnd,
+          new Date(bh.startTime),
+          new Date(bh.endTime),
+        );
+      });
+      if (hasBlocking) return false;
+
+      return !newRandevueDayRandevues.some((r) => {
+        const dentistStaffId =
+          r.dentist?.id != null ? dentistStaffIdById.get(r.dentist.id) : undefined;
+        const nurseStaffId =
+          r.nurse?.id != null ? nurseStaffIdById.get(r.nurse.id) : undefined;
+        if (dentistStaffId !== staffId && nurseStaffId !== staffId) return false;
+        return intervalsOverlap(
+          intervalStart,
+          intervalEnd,
+          new Date(r.date),
+          new Date(r.endTime),
+        );
+      });
+    },
+    [
+      dentistStaffIdById,
+      newRandevueBlockingHours,
+      newRandevueDate,
+      newRandevueDayRandevues,
+      newRandevueEnd,
+      newRandevueStart,
+      newRandevueWorkingHours,
+      nurseStaffIdById,
+    ],
+  );
+
+  const roomAvailableAt = useCallback(
+    (roomId: number) => {
+      const intervalStart = combineLocalDateAndTime(newRandevueDate, newRandevueStart);
+      const intervalEnd = combineLocalDateAndTime(newRandevueDate, newRandevueEnd);
+      if (intervalEnd <= intervalStart) return false;
+
+      const hasBlocking = newRandevueBlockingHours.some((bh) => {
+        if (bh.roomId !== roomId) return false;
+        return intervalsOverlap(
+          intervalStart,
+          intervalEnd,
+          new Date(bh.startTime),
+          new Date(bh.endTime),
+        );
+      });
+      if (hasBlocking) return false;
+
+      return !newRandevueDayRandevues.some((r) => {
+        if (r.room?.id !== roomId) return false;
+        return intervalsOverlap(
+          intervalStart,
+          intervalEnd,
+          new Date(r.date),
+          new Date(r.endTime),
+        );
+      });
+    },
+    [
+      newRandevueBlockingHours,
+      newRandevueDate,
+      newRandevueDayRandevues,
+      newRandevueEnd,
+      newRandevueStart,
+    ],
+  );
+
+  const availableRandevueDentists = useMemo(() => {
+    if (!newRandevueDate) return newRandevueDentists;
+    return newRandevueDentists.filter((dentist) => {
+      const staffId = dentist.staff?.id;
+      if (!staffId) return false;
+      return staffAvailableAt(staffId);
+    });
+  }, [newRandevueDate, newRandevueDentists, staffAvailableAt]);
+
+  const availableRandevueNurses = useMemo(() => {
+    if (!newRandevueDate) return newRandevueNurses;
+    return newRandevueNurses.filter((nurse) => {
+      const staffId = nurse.staff?.id ?? nurse.staffId;
+      if (!staffId) return false;
+      return staffAvailableAt(staffId);
+    });
+  }, [newRandevueDate, newRandevueNurses, staffAvailableAt]);
+
+  const availableRandevueRooms = useMemo(() => {
+    if (!newRandevueDate) return newRandevueRooms;
+    return newRandevueRooms.filter((room) => roomAvailableAt(room.id));
+  }, [newRandevueDate, newRandevueRooms, roomAvailableAt]);
+
+  useEffect(() => {
+    if (
+      newRandevueRoomId > 0 &&
+      !availableRandevueRooms.some((room) => room.id === newRandevueRoomId)
+    ) {
+      setNewRandevueRoomId(0);
+    }
+    if (
+      newRandevueDentistId > 0 &&
+      !availableRandevueDentists.some((dentist) => dentist.id === newRandevueDentistId)
+    ) {
+      setNewRandevueDentistId(0);
+    }
+    if (
+      newRandevueNurseId > 0 &&
+      !availableRandevueNurses.some((nurse) => nurse.id === newRandevueNurseId)
+    ) {
+      setNewRandevueNurseId(0);
+    }
+  }, [
+    availableRandevueDentists,
+    availableRandevueNurses,
+    availableRandevueRooms,
+    newRandevueDentistId,
+    newRandevueNurseId,
+    newRandevueRoomId,
+  ]);
+
+  useEffect(() => {
+    if (!showNewRandevuePanel || isAdminLike || newRandevueDentistId > 0) return;
+    const currentDentistId = Number(localStorage.getItem('dentistId'));
+    if (!Number.isFinite(currentDentistId) || currentDentistId <= 0) return;
+    if (availableRandevueDentists.some((d) => d.id === currentDentistId)) {
+      setNewRandevueDentistId(currentDentistId);
+    }
+  }, [
+    availableRandevueDentists,
+    isAdminLike,
+    newRandevueDentistId,
+    showNewRandevuePanel,
+  ]);
 
   useEffect(() => {
     const fetchAppointmentData = async () => {
@@ -493,6 +815,9 @@ const AppointmentDetail = () => {
     setNewRandevueDate(appointment.startDate || new Date().toISOString().slice(0, 10));
     setNewRandevueStart('09:00');
     setNewRandevueEnd('10:00');
+    setNewRandevueRoomId(0);
+    setNewRandevueDentistId(0);
+    setNewRandevueNurseId(0);
     setNewRandevueNote('');
     setNewRandevueError('');
     setShowNewRandevuePanel(true);
@@ -508,6 +833,18 @@ const AppointmentDetail = () => {
       setNewRandevueError('End time must be after start time.');
       return;
     }
+    if (newRandevueRoomId <= 0) {
+      setNewRandevueError('Please select a room.');
+      return;
+    }
+    if (newRandevueDentistId <= 0) {
+      setNewRandevueError('Please select a dentist.');
+      return;
+    }
+    if (isAdminLike && newRandevueNurseId <= 0) {
+      setNewRandevueError('Please select a nurse.');
+      return;
+    }
     setIsSubmittingNewRandevue(true);
     try {
       await randevueService.create({
@@ -515,6 +852,9 @@ const AppointmentDetail = () => {
         endDateTime: end.toISOString(),
         patient_id: appointment.patient.id,
         appointment_id: appointment.id,
+        room_id: newRandevueRoomId,
+        dentist_id: newRandevueDentistId,
+        ...(newRandevueNurseId > 0 ? { nurse_id: newRandevueNurseId } : {}),
         ...(newRandevueNote.trim() ? { note: newRandevueNote.trim() } : {}),
       });
       setShowNewRandevuePanel(false);
@@ -2307,6 +2647,65 @@ const AppointmentDetail = () => {
                         onChange={(e) => setNewRandevueEnd(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                       />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label htmlFor="newRandevueRoom" className="block text-sm font-medium text-gray-700 mb-1">
+                        Room *
+                      </label>
+                      <select
+                        id="newRandevueRoom"
+                        value={newRandevueRoomId || ''}
+                        onChange={(e) => setNewRandevueRoomId(Number(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                      >
+                        <option value="">Select room</option>
+                        {availableRandevueRooms.map((room) => (
+                          <option key={room.id} value={room.id}>
+                            {room.number ? `Room ${room.number}` : room.description || `Room #${room.id}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="newRandevueDentist" className="block text-sm font-medium text-gray-700 mb-1">
+                        Dentist *
+                      </label>
+                      <select
+                        id="newRandevueDentist"
+                        value={newRandevueDentistId || ''}
+                        onChange={(e) => setNewRandevueDentistId(Number(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                      >
+                        <option value="">Select dentist</option>
+                        {availableRandevueDentists.map((dentist) => (
+                          <option key={dentist.id} value={dentist.id}>
+                            Dr. {dentist.staff?.surname || `#${dentist.id}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="newRandevueNurse" className="block text-sm font-medium text-gray-700 mb-1">
+                        Nurse {isAdminLike ? '*' : '(optional)'}
+                      </label>
+                      <select
+                        id="newRandevueNurse"
+                        value={newRandevueNurseId || ''}
+                        onChange={(e) => setNewRandevueNurseId(Number(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                      >
+                        <option value="">Select nurse</option>
+                        {availableRandevueNurses.map((nurse) => (
+                          <option key={nurse.id} value={nurse.id}>
+                            {nurse.staff?.surname && nurse.staff?.name
+                              ? `${nurse.staff.surname}, ${nurse.staff.name}`
+                              : `#${nurse.id}`}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 

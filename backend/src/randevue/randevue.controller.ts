@@ -54,7 +54,8 @@ export class RandevueController {
   async create(@User() user: any, @Body() dto: CreateRandevueDto) {
     const raw = user?.userId ?? user?.sub ?? user?.dentistId;
     const dentistId = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
-    return await this.service.create(dentistId, dto);
+    const role = typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
+    return await this.service.create(dentistId, dto, role);
   }
 
   @ApiBearerAuth('bearer')

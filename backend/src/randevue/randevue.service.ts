@@ -105,7 +105,7 @@ export class RandevueService {
     return list.map((r) => this.toResponse(r));
   }
 
-  async create(dentistId: number, dto: CreateRandevueDto) {
+  async create(dentistId: number, dto: CreateRandevueDto, userRole?: string) {
     if (!Number.isFinite(dentistId) || dentistId < 1) {
       throw new BadRequestException('Invalid dentist context');
     }
@@ -126,6 +126,19 @@ export class RandevueService {
     if (dto.create_new_appointment === true && !dto.appointment_start_date) {
       throw new BadRequestException(
         'appointment_start_date is required when creating a new appointment',
+      );
+    }
+
+    const isAdminLikeRole = userRole === 'director' || userRole === 'admin';
+    if (isAdminLikeRole) {
+      if (dto.room_id == null || dto.dentist_id == null || dto.nurse_id == null) {
+        throw new BadRequestException(
+          'Room, dentist, and nurse are required for admin when creating a randevue',
+        );
+      }
+    } else if (dto.room_id == null || dto.dentist_id == null) {
+      throw new BadRequestException(
+        'Room and dentist are required when creating a randevue',
       );
     }
 
@@ -227,6 +240,41 @@ export class RandevueService {
       }
       if (e?.message === 'Invalid nurse') {
         throw new BadRequestException('Nurse is not in this clinic');
+      }
+      if (e?.message === 'Dentist is not working in this time range') {
+        throw new BadRequestException(
+          'Selected dentist is outside working hours for this time range',
+        );
+      }
+      if (e?.message === 'Nurse is not working in this time range') {
+        throw new BadRequestException(
+          'Selected nurse is outside working hours for this time range',
+        );
+      }
+      if (e?.message === 'Dentist already blocked') {
+        throw new BadRequestException(
+          'Selected dentist has blocking hours for this time range',
+        );
+      }
+      if (e?.message === 'Nurse already blocked') {
+        throw new BadRequestException(
+          'Selected nurse has blocking hours for this time range',
+        );
+      }
+      if (e?.message === 'Dentist already has randevue in this time range') {
+        throw new BadRequestException(
+          'Selected dentist already has a randevue in this time range',
+        );
+      }
+      if (e?.message === 'Nurse already has randevue in this time range') {
+        throw new BadRequestException(
+          'Selected nurse already has a randevue in this time range',
+        );
+      }
+      if (e?.message === 'Room already has randevue in this time range') {
+        throw new BadRequestException(
+          'Selected room already has a randevue in this time range',
+        );
       }
       this.logger.error(e?.stack || e?.message);
       throw new BadRequestException('Failed to create randevue');
