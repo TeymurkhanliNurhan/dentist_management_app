@@ -11,9 +11,11 @@ import type {
   DentistProfile,
 } from '../services/api';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 const Treatments = () => {
   const { t } = useTranslation('treatments');
+  const navigate = useNavigate();
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [filters, setFilters] = useState<TreatmentFilters>({
     name: '',
@@ -191,13 +193,28 @@ const Treatments = () => {
             <h1 className="text-3xl font-bold text-slate-900">{t('title')}</h1>
             <p className="mt-1 text-sm text-slate-500">{t('searchPlaceholder')}</p>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center space-x-2 rounded-md bg-[#0066A6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#00588f]"
-          >
-            <Plus className="h-4 w-4" />
-            <span>{t('addNew')}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-md bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white"
+            >
+              Treatments
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/medicines')}
+              className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Medicines
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="ml-2 flex items-center space-x-2 rounded-md bg-[#0066A6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#00588f]"
+            >
+              <Plus className="h-4 w-4" />
+              <span>{t('addNew')}</span>
+            </button>
+          </div>
         </div>
 
         <div className="mb-6 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
