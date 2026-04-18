@@ -2734,7 +2734,7 @@ const AppointmentDetail = () => {
                   <button
                     type="submit"
                     disabled={isSubmittingNewRandevue}
-                    className="flex-1 py-2.5 bg-[#f0f7fc]0 text-white rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 py-2.5 bg-[#0066A6] text-white rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmittingNewRandevue ? 'Saving…' : 'Create randevue'}
                   </button>
