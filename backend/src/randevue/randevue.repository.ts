@@ -15,15 +15,31 @@ import { WorkingHours } from '../working_hours/entities/working_hours.entity';
 export class RandevueRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
+  /**
+   * Working hours are stored as clinic-local wall clock time.
+   * Convert UTC instants to clinic-local timeline before weekday/time checks.
+   * Default is UTC+4 (Baku); can be overridden via env.
+   */
+  private readonly clinicTimezoneOffsetMinutes = Number.parseInt(
+    process.env.CLINIC_TIMEZONE_OFFSET_MINUTES ?? '240',
+    10,
+  );
+
+  private toClinicLocal(date: Date): Date {
+    return new Date(date.getTime() + this.clinicTimezoneOffsetMinutes * 60_000);
+  }
+
   private toApiDayOfWeek(date: Date): number {
-    const day = date.getDay();
+    const clinicLocal = this.toClinicLocal(date);
+    const day = clinicLocal.getUTCDay();
     return day === 0 ? 7 : day;
   }
 
   private toTimeString(date: Date): string {
-    const hh = String(date.getHours()).padStart(2, '0');
-    const mm = String(date.getMinutes()).padStart(2, '0');
-    const ss = String(date.getSeconds()).padStart(2, '0');
+    const clinicLocal = this.toClinicLocal(date);
+    const hh = String(clinicLocal.getUTCHours()).padStart(2, '0');
+    const mm = String(clinicLocal.getUTCMinutes()).padStart(2, '0');
+    const ss = String(clinicLocal.getUTCSeconds()).padStart(2, '0');
     return `${hh}:${mm}:${ss}`;
   }
 
