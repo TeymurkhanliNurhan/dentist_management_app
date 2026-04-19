@@ -16,27 +16,41 @@ export class BlockingHoursService {
 
   constructor(private readonly repo: BlockingHoursRepository) {}
 
+  private parseNumericId(value: unknown): number {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      const n = parseInt(value, 10);
+      return Number.isFinite(n) ? n : NaN;
+    }
+    return NaN;
+  }
+
+  /** JWT may omit `staffId` on older tokens; resolve from dentist row when role is dentist. */
+  private async resolveDentistJwtStaffId(user: any, contextDentistId: number): Promise<number> {
+    const rawStaff = user?.staffId ?? user?.staff_id;
+    const fromJwt = this.parseNumericId(rawStaff);
+    if (fromJwt >= 1) return fromJwt;
+
+    const role = (user?.role ?? '').toLowerCase();
+    if (role === 'dentist') {
+      const fromDb = await this.repo.getStaffIdByDentistId(contextDentistId);
+      if (fromDb != null && fromDb >= 1) return fromDb;
+    }
+
+    throw new BadRequestException('Staff context missing for dentist');
+  }
+
   async create(dentistId: number, dto: CreateBlockingHoursDto, user?: any) {
     const role = (user?.role ?? '').toLowerCase();
-    const rawStaff = user?.staffId;
-    const jwtStaffId =
-      typeof rawStaff === 'number'
-        ? rawStaff
-        : typeof rawStaff === 'string'
-          ? parseInt(rawStaff, 10)
-          : NaN;
 
     let staffId = dto.staffId;
     let name =
       dto.name != null && dto.name.trim() !== '' ? dto.name.trim().slice(0, 127) : null;
 
     if (role === 'dentist') {
-      if (!Number.isFinite(jwtStaffId) || jwtStaffId < 1) {
-        throw new BadRequestException('Staff context missing for dentist');
-      }
-      staffId = jwtStaffId;
+      staffId = await this.resolveDentistJwtStaffId(user, dentistId);
       if (!name) {
-        const display = await this.repo.getStaffDisplayName(jwtStaffId, dentistId);
+        const display = await this.repo.getStaffDisplayName(staffId, dentistId);
         name = display.slice(0, 127) || null;
       }
     }
@@ -68,15 +82,9 @@ export class BlockingHoursService {
 
   async patch(dentistId: number, id: number, dto: UpdateBlockingHoursDto, user?: any) {
     const role = (user?.role ?? '').toLowerCase();
-    const rawStaff = user?.staffId;
-    const jwtStaffId =
-      typeof rawStaff === 'number'
-        ? rawStaff
-        : typeof rawStaff === 'string'
-          ? parseInt(rawStaff, 10)
-          : NaN;
 
     if (role === 'dentist') {
+      const jwtStaffId = await this.resolveDentistJwtStaffId(user, dentistId);
       const rows = await this.repo.findForDentist(dentistId, { id });
       const existing = rows[0];
       if (!existing || existing.staffId !== jwtStaffId) {
@@ -114,15 +122,9 @@ export class BlockingHoursService {
 
   async delete(dentistId: number, id: number, user?: any) {
     const role = (user?.role ?? '').toLowerCase();
-    const rawStaff = user?.staffId;
-    const jwtStaffId =
-      typeof rawStaff === 'number'
-        ? rawStaff
-        : typeof rawStaff === 'string'
-          ? parseInt(rawStaff, 10)
-          : NaN;
 
     if (role === 'dentist') {
+      const jwtStaffId = await this.resolveDentistJwtStaffId(user, dentistId);
       const rows = await this.repo.findForDentist(dentistId, { id });
       const existing = rows[0];
       if (!existing || existing.staffId !== jwtStaffId) {

@@ -22,7 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       userId: payload.sub,
       gmail: payload.gmail,
       role: typeof payload.role === 'string' ? payload.role : undefined,
-      staffId: payload.staffId,
+      staffId: payload.staffId ?? payload.staff_id,
     };
   }
 }

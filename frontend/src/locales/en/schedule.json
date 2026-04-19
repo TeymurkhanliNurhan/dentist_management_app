@@ -63,6 +63,7 @@
   "blockingCreateError": "Could not save blocking time.",
   "blockingFallbackLabel": "Blocked",
   "blockingNameLabel": "Name",
+  "blockingNameOptionalHint": "Optional — defaults to your staff name if empty",
   "blockingNameRequired": "Please enter a name for this block.",
   "blockingEditTitle": "Blocked time",
   "blockingDetailNotFound": "This block is no longer on the schedule.",

@@ -23,6 +23,15 @@ export class BlockingHoursRepository {
     return dentist.staff.clinicId;
   }
 
+  /** Staff row id for a dentist account (JWT `sub` when logging in as that dentist). */
+  async getStaffIdByDentistId(dentistId: number): Promise<number | null> {
+    const dentist = await this.dataSource.getRepository(Dentist).findOne({
+      where: { id: dentistId },
+      select: ['staffId'],
+    });
+    return dentist?.staffId ?? null;
+  }
+
   private async ensureStaffInClinic(staffId: number, clinicId: number) {
     const staff = await this.dataSource.getRepository(Staff).findOne({
       where: { id: staffId, clinicId },

@@ -303,7 +303,7 @@ const Schedule = () => {
   const [directorWorkingHours, setDirectorWorkingHours] = useState<WorkingHourRow[]>([]);
   const [directorBlockingHours, setDirectorBlockingHours] = useState<BlockingHourRow[]>([]);
   const [scheduleBlockingHours, setScheduleBlockingHours] = useState<BlockingHourRow[]>([]);
-  const [blockingModalOpen, setBlockingModalOpen] = useState(false);
+  const [createModalTab, setCreateModalTab] = useState<'randevue' | 'blocking'>('randevue');
   const [blockFormDate, setBlockFormDate] = useState('');
   const [blockFormStart, setBlockFormStart] = useState('09:00');
   const [blockFormEnd, setBlockFormEnd] = useState('10:00');
@@ -546,13 +546,12 @@ const Schedule = () => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (modalOpen) setModalOpen(false);
-      else if (blockingModalOpen) setBlockingModalOpen(false);
       else if (blockingDetailId != null) setBlockingDetailId(null);
       else if (detailId != null) setDetailId(null);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [blockingDetailId, blockingModalOpen, detailId, modalOpen]);
+  }, [blockingDetailId, detailId, modalOpen]);
 
   useEffect(() => {
     if (detailId == null) return;
@@ -649,12 +648,14 @@ const Schedule = () => {
     };
   }, [detailId, editPatientId, randevues]);
 
-  const openNewModal = (day?: Date, hour?: number) => {
+  const openNewModal = (day?: Date, hour?: number, initialTab: 'randevue' | 'blocking' = 'randevue') => {
     setDetailId(null);
     const baseDay = day ?? new Date();
+    const startHm = hour != null ? `${String(hour).padStart(2, '0')}:00` : '09:00';
+    const endHm = hour != null ? `${String(Math.min(hour + 1, 23)).padStart(2, '0')}:00` : '10:00';
     setFormDate(formatYmd(baseDay));
-    setFormStart(hour != null ? `${String(hour).padStart(2, '0')}:00` : '09:00');
-    setFormEnd(hour != null ? `${String(Math.min(hour + 1, 23)).padStart(2, '0')}:00` : '10:00');
+    setFormStart(startHm);
+    setFormEnd(endHm);
     setNote('');
     setPatientId(0);
     setAppointmentChoice('none');
@@ -669,6 +670,15 @@ const Schedule = () => {
     setNewPatient({ name: '', surname: '', birthDate: '' });
     setPatientFormMsg(null);
     setSubmitError(null);
+    const tab: 'randevue' | 'blocking' = !isDentistUser ? 'randevue' : initialTab;
+    setCreateModalTab(tab);
+    if (tab === 'blocking') {
+      setBlockFormDate(formatYmd(baseDay));
+      setBlockFormStart(startHm);
+      setBlockFormEnd(endHm);
+      setBlockFormName('');
+      setBlockSubmitError(null);
+    }
     setModalOpen(true);
   };
 
@@ -739,18 +749,15 @@ const Schedule = () => {
       setBlockSubmitError(t('timeOrderError'));
       return;
     }
-    if (!blockFormName.trim()) {
-      setBlockSubmitError(t('blockingNameRequired'));
-      return;
-    }
     if (!isDentistUser) return;
     setBlockSubmitBusy(true);
     try {
       const body: Record<string, unknown> = {
         startTime: start.toISOString(),
         endTime: end.toISOString(),
-        name: blockFormName.trim().slice(0, 127),
       };
+      const trimmedName = blockFormName.trim();
+      if (trimmedName) body.name = trimmedName.slice(0, 127);
       const res = await fetch(`${API_BASE_URL}/blocking-hours`, {
         method: 'POST',
         headers: {
@@ -760,7 +767,7 @@ const Schedule = () => {
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error('blocking');
-      setBlockingModalOpen(false);
+      setModalOpen(false);
       void fetchSchedule();
     } catch {
       setBlockSubmitError(t('blockingCreateError'));
@@ -793,10 +800,6 @@ const Schedule = () => {
   const handleSaveBlockingDetail = async () => {
     if (blockingDetailId == null) return;
     setBlockingDetailError(null);
-    if (!blockEditName.trim()) {
-      setBlockingDetailError(t('blockingNameRequired'));
-      return;
-    }
     const start = combineLocalDateAndTime(blockEditDate, blockEditStart);
     const end = combineLocalDateAndTime(blockEditDate, blockEditEnd);
     if (end <= start) {
@@ -805,6 +808,7 @@ const Schedule = () => {
     }
     setBlockingDetailBusy(true);
     try {
+      const trimmed = blockEditName.trim();
       const res = await fetch(`${API_BASE_URL}/blocking-hours/${blockingDetailId}`, {
         method: 'PATCH',
         headers: {
@@ -814,7 +818,7 @@ const Schedule = () => {
         body: JSON.stringify({
           startTime: start.toISOString(),
           endTime: end.toISOString(),
-          name: blockEditName.trim().slice(0, 127),
+          name: trimmed === '' ? null : trimmed.slice(0, 127),
         }),
       });
       if (!res.ok) throw new Error('blocking patch');
@@ -1604,14 +1608,7 @@ const Schedule = () => {
             {isDentistUser && (
               <button
                 type="button"
-                onClick={() => {
-                  setBlockingModalOpen(true);
-                  setBlockFormDate(formatYmd(new Date()));
-                  setBlockFormStart('09:00');
-                  setBlockFormEnd('10:00');
-                  setBlockFormName('');
-                  setBlockSubmitError(null);
-                }}
+                onClick={() => openNewModal(undefined, undefined, 'blocking')}
                 className="px-4 py-2.5 rounded-lg border border-amber-400 bg-amber-50 text-amber-900 text-sm font-semibold shadow-sm hover:bg-amber-100"
               >
                 {t('newBlocking')}
@@ -1874,6 +1871,7 @@ const Schedule = () => {
                       value={blockEditName}
                       onChange={(e) => setBlockEditName(e.target.value)}
                       maxLength={127}
+                      placeholder={t('blockingNameOptionalHint')}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2"
                     />
                   </div>
@@ -2203,9 +2201,107 @@ const Schedule = () => {
             aria-labelledby="randevue-modal-title"
           >
             <h2 id="randevue-modal-title" className="text-xl font-bold text-gray-900 mb-4">
-              {t('modalTitle')}
+              {createModalTab === 'blocking' && isDentistUser ? t('blockingModalTitle') : t('modalTitle')}
             </h2>
-
+            {isDentistUser && (
+              <div className="flex rounded-lg border border-gray-200 p-0.5 mb-4 bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateModalTab('randevue');
+                    setFormDate(blockFormDate);
+                    setFormStart(blockFormStart);
+                    setFormEnd(blockFormEnd);
+                  }}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    createModalTab === 'randevue' ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {t('newRandevue')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateModalTab('blocking');
+                    setBlockFormDate(formDate);
+                    setBlockFormStart(formStart);
+                    setBlockFormEnd(formEnd);
+                    setBlockSubmitError(null);
+                  }}
+                  className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    createModalTab === 'blocking' ? 'bg-white text-amber-800 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {t('newBlocking')}
+                </button>
+              </div>
+            )}
+            {createModalTab === 'blocking' && isDentistUser ? (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">
+                  {t('blockingStaffLabel')}:{' '}
+                  <span className="font-semibold text-gray-900">{blockingStaffLabel || '—'}</span>
+                </p>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('blockingNameLabel')}</label>
+                  <input
+                    type="text"
+                    value={blockFormName}
+                    onChange={(e) => setBlockFormName(e.target.value)}
+                    maxLength={127}
+                    placeholder={t('blockingNameOptionalHint')}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('date')}</label>
+                  <input
+                    type="date"
+                    value={blockFormDate}
+                    onChange={(e) => setBlockFormDate(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
+                    <input
+                      type="time"
+                      value={blockFormStart}
+                      onChange={(e) => setBlockFormStart(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
+                    <input
+                      type="time"
+                      value={blockFormEnd}
+                      onChange={(e) => setBlockFormEnd(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    />
+                  </div>
+                </div>
+                {blockSubmitError && <p className="text-sm text-red-600">{blockSubmitError}</p>}
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(false)}
+                    className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={blockSubmitBusy}
+                    onClick={() => void handleSubmitBlocking()}
+                    className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 disabled:opacity-50"
+                  >
+                    {blockSubmitBusy ? t('creating') : t('blockingSubmit')}
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('date')}</label>
@@ -2475,86 +2571,7 @@ const Schedule = () => {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {blockingModalOpen && isDentistUser && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
-          onClick={() => setBlockingModalOpen(false)}
-          role="presentation"
-        >
-          <div
-            className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
-            <h2 className="text-xl font-bold text-gray-900 mb-2">{t('blockingModalTitle')}</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              {t('blockingStaffLabel')}:{' '}
-              <span className="font-semibold text-gray-900">{blockingStaffLabel || '—'}</span>
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('blockingNameLabel')}</label>
-                <input
-                  type="text"
-                  value={blockFormName}
-                  onChange={(e) => setBlockFormName(e.target.value)}
-                  maxLength={127}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('date')}</label>
-                <input
-                  type="date"
-                  value={blockFormDate}
-                  onChange={(e) => setBlockFormDate(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
-                  <input
-                    type="time"
-                    value={blockFormStart}
-                    onChange={(e) => setBlockFormStart(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
-                  <input
-                    type="time"
-                    value={blockFormEnd}
-                    onChange={(e) => setBlockFormEnd(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  />
-                </div>
-              </div>
-              {blockSubmitError && <p className="text-sm text-red-600">{blockSubmitError}</p>}
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setBlockingModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
-                >
-                  {t('cancel')}
-                </button>
-                <button
-                  type="button"
-                  disabled={blockSubmitBusy}
-                  onClick={() => void handleSubmitBlocking()}
-                  className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 disabled:opacity-50"
-                >
-                  {blockSubmitBusy ? t('creating') : t('blockingSubmit')}
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       )}

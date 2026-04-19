@@ -63,6 +63,7 @@
   "blockingCreateError": "Bloklama saxlanılmadı.",
   "blockingFallbackLabel": "Bloklanıb",
   "blockingNameLabel": "Ad",
+  "blockingNameOptionalHint": "İstəyə bağlı — boşdursa heyət adınız göstərilir",
   "blockingNameRequired": "Blok üçün ad daxil edin.",
   "blockingEditTitle": "Bloklanmış vaxt",
   "blockingDetailNotFound": "Bu blok artıq cədvəldə yoxdur.",

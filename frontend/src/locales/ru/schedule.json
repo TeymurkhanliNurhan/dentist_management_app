@@ -63,6 +63,7 @@
   "blockingCreateError": "Не удалось сохранить блокировку.",
   "blockingFallbackLabel": "Заблокировано",
   "blockingNameLabel": "Название",
+  "blockingNameOptionalHint": "Необязательно — если пусто, подставится имя из профиля",
   "blockingNameRequired": "Введите название блока.",
   "blockingEditTitle": "Заблокированное время",
   "blockingDetailNotFound": "Этого блока больше нет в расписании.",
