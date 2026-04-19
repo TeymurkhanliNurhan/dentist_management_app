@@ -8,6 +8,7 @@
   "viewWeekly": "Həftəlik",
   "viewDailyRooms": "Günlük (Otaqlar)",
   "viewDailyDentists": "Günlük (Həkimlər)",
+  "viewDailyMine": "Günlük (Mənim cədvəlim)",
   "roomUnknown": "Otaq -",
   "dentistUnknown": "-",
   "newRandevue": "Yeni randevu",
@@ -60,5 +61,13 @@
   "blockingStaffLabel": "Heyət",
   "blockingSubmit": "Bloku saxla",
   "blockingCreateError": "Bloklama saxlanılmadı.",
-  "blockingFallbackLabel": "Bloklanıb"
+  "blockingFallbackLabel": "Bloklanıb",
+  "blockingNameLabel": "Ad",
+  "blockingNameRequired": "Blok üçün ad daxil edin.",
+  "blockingEditTitle": "Bloklanmış vaxt",
+  "blockingDetailNotFound": "Bu blok artıq cədvəldə yoxdur.",
+  "blockingUpdateError": "Blok yenilənmədi.",
+  "blockingDelete": "Bloku sil",
+  "blockingDeleting": "Silinir…",
+  "blockingDeleteError": "Blok silinmədi."
 }

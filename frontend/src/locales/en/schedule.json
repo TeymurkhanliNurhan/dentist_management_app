@@ -8,6 +8,7 @@
   "viewWeekly": "Weekly",
   "viewDailyRooms": "Daily (Rooms)",
   "viewDailyDentists": "Daily (Dentists)",
+  "viewDailyMine": "Daily (My schedule)",
   "roomUnknown": "Room -",
   "dentistUnknown": "-",
   "newRandevue": "New randevue",
@@ -60,5 +61,13 @@
   "blockingStaffLabel": "Staff",
   "blockingSubmit": "Save block",
   "blockingCreateError": "Could not save blocking time.",
-  "blockingFallbackLabel": "Blocked"
+  "blockingFallbackLabel": "Blocked",
+  "blockingNameLabel": "Name",
+  "blockingNameRequired": "Please enter a name for this block.",
+  "blockingEditTitle": "Blocked time",
+  "blockingDetailNotFound": "This block is no longer on the schedule.",
+  "blockingUpdateError": "Could not update blocking time.",
+  "blockingDelete": "Delete block",
+  "blockingDeleting": "Deleting…",
+  "blockingDeleteError": "Could not delete blocking time."
 }

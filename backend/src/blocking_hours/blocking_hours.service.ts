@@ -35,8 +35,10 @@ export class BlockingHoursService {
         throw new BadRequestException('Staff context missing for dentist');
       }
       staffId = jwtStaffId;
-      const display = await this.repo.getStaffDisplayName(jwtStaffId, dentistId);
-      name = display.slice(0, 127) || null;
+      if (!name) {
+        const display = await this.repo.getStaffDisplayName(jwtStaffId, dentistId);
+        name = display.slice(0, 127) || null;
+      }
     }
 
     try {

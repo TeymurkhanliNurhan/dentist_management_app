@@ -8,6 +8,7 @@
   "viewWeekly": "Неделя",
   "viewDailyRooms": "День (Кабинеты)",
   "viewDailyDentists": "День (Врачи)",
+  "viewDailyMine": "День (Моё расписание)",
   "roomUnknown": "Кабинет -",
   "dentistUnknown": "-",
   "newRandevue": "Новая запись",
@@ -54,5 +55,19 @@
   "detailNotFound": "Этой записи больше нет в расписании.",
   "tooltipStartDate": "Дата начала",
   "noNote": "—",
-  "currentAppointmentLink": "текущая привязка (нет в списке открытых)"
+  "currentAppointmentLink": "текущая привязка (нет в списке открытых)",
+  "newBlocking": "Заблокировать время",
+  "blockingModalTitle": "Заблокировать время в календаре",
+  "blockingStaffLabel": "Сотрудник",
+  "blockingSubmit": "Сохранить блок",
+  "blockingCreateError": "Не удалось сохранить блокировку.",
+  "blockingFallbackLabel": "Заблокировано",
+  "blockingNameLabel": "Название",
+  "blockingNameRequired": "Введите название блока.",
+  "blockingEditTitle": "Заблокированное время",
+  "blockingDetailNotFound": "Этого блока больше нет в расписании.",
+  "blockingUpdateError": "Не удалось обновить блокировку.",
+  "blockingDelete": "Удалить блок",
+  "blockingDeleting": "Удаление…",
+  "blockingDeleteError": "Не удалось удалить блокировку."
 }

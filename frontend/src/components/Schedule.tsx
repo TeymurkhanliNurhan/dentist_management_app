@@ -203,7 +203,7 @@ function overlapsHourSlot(start: Date, end: Date, day: Date, hour: number): bool
   return start < slotEnd && end > slotStart;
 }
 
-type ScheduleViewMode = 'weekly' | 'dailyRooms' | 'dailyDentists';
+type ScheduleViewMode = 'weekly' | 'dailyRooms' | 'dailyDentists' | 'dailyMine';
 
 interface RoomColumn {
   id: number;
@@ -307,8 +307,17 @@ const Schedule = () => {
   const [blockFormDate, setBlockFormDate] = useState('');
   const [blockFormStart, setBlockFormStart] = useState('09:00');
   const [blockFormEnd, setBlockFormEnd] = useState('10:00');
+  const [blockFormName, setBlockFormName] = useState('');
   const [blockSubmitBusy, setBlockSubmitBusy] = useState(false);
   const [blockSubmitError, setBlockSubmitError] = useState<string | null>(null);
+  const [blockingDetailId, setBlockingDetailId] = useState<number | null>(null);
+  const [blockEditName, setBlockEditName] = useState('');
+  const [blockEditDate, setBlockEditDate] = useState('');
+  const [blockEditStart, setBlockEditStart] = useState('09:00');
+  const [blockEditEnd, setBlockEditEnd] = useState('10:00');
+  const [blockingDetailBusy, setBlockingDetailBusy] = useState(false);
+  const [blockingDeleteBusy, setBlockingDeleteBusy] = useState(false);
+  const [blockingDetailError, setBlockingDetailError] = useState<string | null>(null);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState<number>(0);
   const [note, setNote] = useState('');
@@ -409,6 +418,24 @@ const Schedule = () => {
 
     void fetchDirectorAvailabilityData();
   }, [formDate, modalOpen, useClinicScheduleUi]);
+
+  const loggedInDentistId = useMemo(() => {
+    const raw = localStorage.getItem('dentistId');
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, []);
+
+  const myStaffIdForSchedule = useMemo(() => {
+    if (!loggedInDentistId) return null;
+    return dentists.find((d) => d.id === loggedInDentistId)?.staff?.id ?? null;
+  }, [dentists, loggedInDentistId]);
+
+  useEffect(() => {
+    if (!isDentistUser) return;
+    if (viewMode === 'dailyRooms' || viewMode === 'dailyDentists') {
+      setViewMode('dailyMine');
+    }
+  }, [isDentistUser, viewMode]);
 
   const days = useMemo(() => weekDays(weekAnchor), [weekAnchor]);
   const rangeLabel = useMemo(() => {
@@ -519,11 +546,13 @@ const Schedule = () => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (modalOpen) setModalOpen(false);
+      else if (blockingModalOpen) setBlockingModalOpen(false);
+      else if (blockingDetailId != null) setBlockingDetailId(null);
       else if (detailId != null) setDetailId(null);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [modalOpen, detailId]);
+  }, [blockingDetailId, blockingModalOpen, detailId, modalOpen]);
 
   useEffect(() => {
     if (detailId == null) return;
@@ -710,12 +739,17 @@ const Schedule = () => {
       setBlockSubmitError(t('timeOrderError'));
       return;
     }
+    if (!blockFormName.trim()) {
+      setBlockSubmitError(t('blockingNameRequired'));
+      return;
+    }
     if (!isDentistUser) return;
     setBlockSubmitBusy(true);
     try {
       const body: Record<string, unknown> = {
         startTime: start.toISOString(),
         endTime: end.toISOString(),
+        name: blockFormName.trim().slice(0, 127),
       };
       const res = await fetch(`${API_BASE_URL}/blocking-hours`, {
         method: 'POST',
@@ -736,8 +770,80 @@ const Schedule = () => {
   };
 
   const openRandevueDetail = (r: Randevue) => {
+    setBlockingDetailId(null);
     setDetailId(r.id);
     setModalOpen(false);
+  };
+
+  const blockingDetailRow =
+    blockingDetailId != null ? scheduleBlockingHours.find((x) => x.id === blockingDetailId) : undefined;
+
+  const openBlockingDetail = (bh: BlockingHourRow) => {
+    if (!isDentistUser) return;
+    setDetailId(null);
+    setModalOpen(false);
+    setBlockingDetailId(bh.id);
+    setBlockEditName(bh.name?.trim() ?? '');
+    setBlockEditDate(formatYmd(new Date(bh.startTime)));
+    setBlockEditStart(localTimeHm(new Date(bh.startTime)));
+    setBlockEditEnd(localTimeHm(new Date(bh.endTime)));
+    setBlockingDetailError(null);
+  };
+
+  const handleSaveBlockingDetail = async () => {
+    if (blockingDetailId == null) return;
+    setBlockingDetailError(null);
+    if (!blockEditName.trim()) {
+      setBlockingDetailError(t('blockingNameRequired'));
+      return;
+    }
+    const start = combineLocalDateAndTime(blockEditDate, blockEditStart);
+    const end = combineLocalDateAndTime(blockEditDate, blockEditEnd);
+    if (end <= start) {
+      setBlockingDetailError(t('timeOrderError'));
+      return;
+    }
+    setBlockingDetailBusy(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/blocking-hours/${blockingDetailId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
+        },
+        body: JSON.stringify({
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+          name: blockEditName.trim().slice(0, 127),
+        }),
+      });
+      if (!res.ok) throw new Error('blocking patch');
+      setBlockingDetailId(null);
+      void fetchSchedule();
+    } catch {
+      setBlockingDetailError(t('blockingUpdateError'));
+    } finally {
+      setBlockingDetailBusy(false);
+    }
+  };
+
+  const handleDeleteBlockingDetail = async () => {
+    if (blockingDetailId == null) return;
+    setBlockingDetailError(null);
+    setBlockingDeleteBusy(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/blocking-hours/${blockingDetailId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+      });
+      if (!res.ok) throw new Error('blocking delete');
+      setBlockingDetailId(null);
+      void fetchSchedule();
+    } catch {
+      setBlockingDetailError(t('blockingDeleteError'));
+    } finally {
+      setBlockingDeleteBusy(false);
+    }
   };
 
   const handleSaveDetail = async () => {
@@ -856,12 +962,21 @@ const Schedule = () => {
     dentistId: dentist.id,
   }));
 
+  const dentistMineColumns = useMemo(() => {
+    if (!loggedInDentistId) return [];
+    const d = dentists.find((x) => x.id === loggedInDentistId);
+    if (!d) return [];
+    return [{ key: `mine-${d.id}`, label: t('viewDailyMine'), dentistId: d.id }];
+  }, [dentists, loggedInDentistId, t]);
+
   const activeColumns =
     viewMode === 'weekly'
       ? weeklyColumns
       : viewMode === 'dailyRooms'
         ? roomColumns
-        : dentistColumns;
+        : viewMode === 'dailyMine'
+          ? dentistMineColumns
+          : dentistColumns;
 
   const intervalOverlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) =>
     aStart < bEnd && aEnd > bStart;
@@ -1253,6 +1368,9 @@ const Schedule = () => {
     };
 
     for (const r of randevues) {
+      if (isDentistUser) {
+        if (loggedInDentistId <= 0 || r.dentist?.id !== loggedInDentistId) continue;
+      }
       const start = new Date(r.date);
       const end = new Date(r.endTime);
       for (const hour of DISPLAY_HOURS) {
@@ -1277,7 +1395,7 @@ const Schedule = () => {
       list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }
     return map;
-  }, [dayAnchor, days, randevues, viewMode]);
+  }, [dayAnchor, days, isDentistUser, loggedInDentistId, randevues, viewMode]);
 
   const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
   const directorMenuItems = [
@@ -1448,20 +1566,32 @@ const Schedule = () => {
                 >
                   {t('viewWeekly')}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('dailyRooms')}
-                  className={`px-3 py-2 text-sm font-medium border-l border-gray-300 ${viewMode === 'dailyRooms' ? 'bg-violet-100 text-violet-700' : 'text-gray-700 hover:bg-gray-50'}`}
-                >
-                  {t('viewDailyRooms')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('dailyDentists')}
-                  className={`px-3 py-2 text-sm font-medium border-l border-gray-300 ${viewMode === 'dailyDentists' ? 'bg-violet-100 text-violet-700' : 'text-gray-700 hover:bg-gray-50'}`}
-                >
-                  {t('viewDailyDentists')}
-                </button>
+                {isDirector ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('dailyRooms')}
+                      className={`px-3 py-2 text-sm font-medium border-l border-gray-300 ${viewMode === 'dailyRooms' ? 'bg-violet-100 text-violet-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      {t('viewDailyRooms')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('dailyDentists')}
+                      className={`px-3 py-2 text-sm font-medium border-l border-gray-300 ${viewMode === 'dailyDentists' ? 'bg-violet-100 text-violet-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      {t('viewDailyDentists')}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('dailyMine')}
+                    className={`px-3 py-2 text-sm font-medium border-l border-gray-300 ${viewMode === 'dailyMine' ? 'bg-violet-100 text-violet-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    {t('viewDailyMine')}
+                  </button>
+                )}
               </div>
             )}
             <button
@@ -1479,6 +1609,7 @@ const Schedule = () => {
                   setBlockFormDate(formatYmd(new Date()));
                   setBlockFormStart('09:00');
                   setBlockFormEnd('10:00');
+                  setBlockFormName('');
                   setBlockSubmitError(null);
                 }}
                 className="px-4 py-2.5 rounded-lg border border-amber-400 bg-amber-50 text-amber-900 text-sm font-semibold shadow-sm hover:bg-amber-100"
@@ -1596,6 +1727,11 @@ const Schedule = () => {
                           scheduleBlockingHours
                             .filter((bh) => bh.staffId != null)
                             .filter((bh) => {
+                              if (isDentistUser) {
+                                if (myStaffIdForSchedule == null || bh.staffId !== myStaffIdForSchedule) {
+                                  return false;
+                                }
+                              }
                               const s = new Date(bh.startTime);
                               const e = new Date(bh.endTime);
                               if (viewMode === 'weekly') {
@@ -1619,9 +1755,28 @@ const Schedule = () => {
                               return segs.map((seg, segIdx) => (
                                 <div
                                   key={`bh-${bh.id}-${column.key}-${segIdx}`}
-                                  className="absolute left-0.5 right-0.5 rounded-md bg-amber-500/85 text-white text-[10px] px-1 py-0.5 shadow-sm z-[12] pointer-events-none overflow-hidden"
+                                  role="button"
+                                  tabIndex={0}
+                                  className={`absolute left-0.5 right-0.5 rounded-md bg-amber-500/85 text-white text-[10px] px-1 py-0.5 shadow-sm z-[12] overflow-hidden ${
+                                    isDentistUser
+                                      ? 'pointer-events-auto cursor-pointer hover:bg-amber-600/90'
+                                      : 'pointer-events-none'
+                                  }`}
                                   style={{ top: seg.top, height: seg.height }}
                                   title={bh.name?.trim() || t('blockingFallbackLabel')}
+                                  onClick={(ev) => {
+                                    if (!isDentistUser) return;
+                                    ev.stopPropagation();
+                                    openBlockingDetail(bh);
+                                  }}
+                                  onKeyDown={(ev) => {
+                                    if (!isDentistUser) return;
+                                    if (ev.key === 'Enter' || ev.key === ' ') {
+                                      ev.preventDefault();
+                                      ev.stopPropagation();
+                                      openBlockingDetail(bh);
+                                    }
+                                  }}
                                 >
                                   <span className="block truncate font-semibold">
                                     {bh.name?.trim() || t('blockingFallbackLabel')}
@@ -1685,16 +1840,21 @@ const Schedule = () => {
         )}
       </main>
 
-      {detailId != null && (
+      {(detailId != null || blockingDetailId != null) && (
         <aside
           className="w-full max-w-md flex-shrink-0 border-l border-gray-200 bg-white shadow-lg z-40 flex flex-col max-h-[calc(100vh-4rem)] lg:max-h-none lg:min-h-[calc(100vh-5rem)]"
-          aria-label={t('editRandevue')}
+          aria-label={blockingDetailId != null ? t('blockingEditTitle') : t('editRandevue')}
         >
           <div className="flex items-center justify-between gap-2 p-4 border-b border-gray-100">
-            <h2 className="text-lg font-bold text-gray-900">{t('editRandevue')}</h2>
+            <h2 className="text-lg font-bold text-gray-900">
+              {blockingDetailId != null ? t('blockingEditTitle') : t('editRandevue')}
+            </h2>
             <button
               type="button"
-              onClick={() => setDetailId(null)}
+              onClick={() => {
+                setDetailId(null);
+                setBlockingDetailId(null);
+              }}
               className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800"
               aria-label={t('closeDetail')}
             >
@@ -1702,7 +1862,80 @@ const Schedule = () => {
             </button>
           </div>
           <div className="p-4 overflow-y-auto flex-1 space-y-4">
-            {!detailRandevue ? (
+            {blockingDetailId != null ? (
+              !blockingDetailRow ? (
+                <p className="text-sm text-gray-600">{t('blockingDetailNotFound')}</p>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('blockingNameLabel')}</label>
+                    <input
+                      type="text"
+                      value={blockEditName}
+                      onChange={(e) => setBlockEditName(e.target.value)}
+                      maxLength={127}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('date')}</label>
+                    <input
+                      type="date"
+                      value={blockEditDate}
+                      onChange={(e) => setBlockEditDate(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
+                      <input
+                        type="time"
+                        value={blockEditStart}
+                        onChange={(e) => setBlockEditStart(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
+                      <input
+                        type="time"
+                        value={blockEditEnd}
+                        onChange={(e) => setBlockEditEnd(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      />
+                    </div>
+                  </div>
+                  {blockingDetailRow.roomId != null && (
+                    <p className="text-sm text-gray-600">
+                      {t('room')}:{' '}
+                      <span className="font-medium text-gray-900">
+                        {roomTitleById.get(blockingDetailRow.roomId) ?? `—`}
+                      </span>
+                    </p>
+                  )}
+                  {blockingDetailError && <p className="text-sm text-red-600">{blockingDetailError}</p>}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={blockingDeleteBusy || blockingDetailBusy}
+                      onClick={() => void handleDeleteBlockingDetail()}
+                      className="px-4 py-2 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {blockingDeleteBusy ? t('blockingDeleting') : t('blockingDelete')}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={blockingDetailBusy || blockingDeleteBusy}
+                      onClick={() => void handleSaveBlockingDetail()}
+                      className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 disabled:opacity-50"
+                    >
+                      {blockingDetailBusy ? t('saving') : t('saveChanges')}
+                    </button>
+                  </div>
+                </>
+              )
+            ) : !detailRandevue ? (
               <p className="text-sm text-gray-600">{t('detailNotFound')}</p>
             ) : (
               <>
@@ -2264,6 +2497,16 @@ const Schedule = () => {
               <span className="font-semibold text-gray-900">{blockingStaffLabel || '—'}</span>
             </p>
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('blockingNameLabel')}</label>
+                <input
+                  type="text"
+                  value={blockFormName}
+                  onChange={(e) => setBlockFormName(e.target.value)}
+                  maxLength={127}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('date')}</label>
                 <input
