@@ -1711,22 +1711,22 @@ const Schedule = () => {
         </div>
 
         {isDirector && viewMode === 'weekly' && !loading && !loadError && (
-          <div className="mb-4 space-y-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="rounded-lg border border-slate-200 bg-slate-50/80">
+          <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg border border-slate-200/60 bg-slate-50/40 p-2">
+            <div className="min-w-0 rounded border border-slate-200/50 bg-white/60">
               <button
                 type="button"
                 onClick={() => setDirectorWeeklyFilterDentistsOpen((o) => !o)}
-                className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800"
+                className="flex w-full items-center justify-between gap-1 px-2 py-1.5 text-left text-xs font-medium text-slate-600"
               >
-                <span>{t('directorWeeklyFilterDentists')}</span>
+                <span className="truncate">{t('directorWeeklyFilterDentists')}</span>
                 <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${directorWeeklyFilterDentistsOpen ? 'rotate-180' : ''}`}
+                  className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${directorWeeklyFilterDentistsOpen ? 'rotate-180' : ''}`}
                   aria-hidden
                 />
               </button>
               {directorWeeklyFilterDentistsOpen && (
-                <div className="space-y-2 border-t border-slate-200 px-3 py-3">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                <div className="space-y-1.5 border-t border-slate-200/60 px-2 py-2">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-600">
                     <input
                       type="checkbox"
                       className="rounded border-gray-300"
@@ -1742,15 +1742,15 @@ const Schedule = () => {
                         }
                       }}
                     />
-                    {t('directorWeeklyAllDentists')}
+                    <span className="truncate">{t('directorWeeklyAllDentists')}</span>
                   </label>
-                  <div className="max-h-40 space-y-1.5 overflow-y-auto pl-1">
+                  <div className="max-h-36 space-y-1 overflow-y-auto">
                     {dentists.map((d) => {
                       const label = `${d.staff?.name ?? ''} ${d.staff?.surname ?? ''}`.trim() || `Dr. #${d.id}`;
                       return (
                         <label
                           key={d.id}
-                          className="flex cursor-pointer items-center gap-2 text-sm text-slate-600"
+                          className="flex min-w-0 cursor-pointer items-center gap-1.5 text-xs text-slate-600"
                         >
                           <input
                             type="checkbox"
@@ -1766,14 +1766,14 @@ const Schedule = () => {
                             }}
                           />
                           <span
-                            className="inline-block h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10"
+                            className="inline-block h-2 w-2 shrink-0 rounded-full ring-1 ring-black/10"
                             style={{
                               backgroundColor:
                                 dentistWeeklyHexByDentistId.get(d.id) ?? WEEKLY_DENTIST_HEX_COLORS[0],
                             }}
                             aria-hidden
                           />
-                          {label}
+                          <span className="truncate">{label}</span>
                         </label>
                       );
                     })}
@@ -1782,21 +1782,21 @@ const Schedule = () => {
               )}
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-slate-50/80">
+            <div className="min-w-0 rounded border border-slate-200/50 bg-white/60">
               <button
                 type="button"
                 onClick={() => setDirectorWeeklyFilterTypesOpen((o) => !o)}
-                className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800"
+                className="flex w-full items-center justify-between gap-1 px-2 py-1.5 text-left text-xs font-medium text-slate-600"
               >
-                <span>{t('directorWeeklyFilterTypes')}</span>
+                <span className="truncate">{t('directorWeeklyFilterTypes')}</span>
                 <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${directorWeeklyFilterTypesOpen ? 'rotate-180' : ''}`}
+                  className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${directorWeeklyFilterTypesOpen ? 'rotate-180' : ''}`}
                   aria-hidden
                 />
               </button>
               {directorWeeklyFilterTypesOpen && (
-                <div className="space-y-2 border-t border-slate-200 px-3 py-3">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                <div className="space-y-1.5 border-t border-slate-200/60 px-2 py-2">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-600">
                     <input
                       ref={directorWeeklyAllTypesCheckboxRef}
                       type="checkbox"
@@ -1812,25 +1812,25 @@ const Schedule = () => {
                         }
                       }}
                     />
-                    {t('directorWeeklyAllTypes')}
+                    <span className="truncate">{t('directorWeeklyAllTypes')}</span>
                   </label>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-600">
                     <input
                       type="checkbox"
                       className="rounded border-gray-300"
                       checked={directorWeeklyShowRandevues}
                       onChange={(e) => setDirectorWeeklyShowRandevues(e.target.checked)}
                     />
-                    {t('directorWeeklyLayerRandevues')}
+                    <span className="truncate">{t('directorWeeklyLayerRandevues')}</span>
                   </label>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-600">
                     <input
                       type="checkbox"
                       className="rounded border-gray-300"
                       checked={directorWeeklyShowBlocking}
                       onChange={(e) => setDirectorWeeklyShowBlocking(e.target.checked)}
                     />
-                    {t('directorWeeklyLayerBlocking')}
+                    <span className="truncate">{t('directorWeeklyLayerBlocking')}</span>
                   </label>
                 </div>
               )}

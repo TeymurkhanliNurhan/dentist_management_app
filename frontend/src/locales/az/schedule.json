@@ -71,9 +71,9 @@
   "blockingDelete": "Bloku sil",
   "blockingDeleting": "Silinir…",
   "blockingDeleteError": "Blok silinmədi.",
-  "directorWeeklyFilterDentists": "Cədvəldə diş həkimləri",
+  "directorWeeklyFilterDentists": "Həkimlər",
   "directorWeeklyAllDentists": "Bütün diş həkimləri",
-  "directorWeeklyFilterTypes": "Nə göstərilsin",
+  "directorWeeklyFilterTypes": "Göstərilənlər",
   "directorWeeklyAllTypes": "Hamısı",
   "directorWeeklyLayerRandevues": "Randevular",
   "directorWeeklyLayerBlocking": "Blok saatları"
