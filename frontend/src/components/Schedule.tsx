@@ -210,12 +210,54 @@ function toApiIsoLocalDayBounds(day: Date): { from: string; to: string } {
   return { from: fromDate.toISOString(), to: toDate.toISOString() };
 }
 
-function overlapsHourSlot(start: Date, end: Date, day: Date, hour: number): boolean {
-  const slotStart = new Date(day);
-  slotStart.setHours(hour, 0, 0, 0);
-  const slotEnd = new Date(slotStart);
-  slotEnd.setHours(slotStart.getHours() + 1, 0, 0, 0);
-  return start < slotEnd && end > slotStart;
+type IntervalLaneItem<T> = { item: T; start: Date; end: Date };
+
+function buildOverlapLanes<T>(items: IntervalLaneItem<T>[]): Array<IntervalLaneItem<T> & { lane: number; laneCount: number }> {
+  if (items.length === 0) return [];
+  const sorted = [...items].sort((a, b) => a.start.getTime() - b.start.getTime() || a.end.getTime() - b.end.getTime());
+
+  const clusters: IntervalLaneItem<T>[][] = [];
+  let current: IntervalLaneItem<T>[] = [];
+  let currentMaxEnd = 0;
+  for (const it of sorted) {
+    const s = it.start.getTime();
+    const e = it.end.getTime();
+    if (current.length === 0) {
+      current = [it];
+      currentMaxEnd = e;
+      continue;
+    }
+    if (s < currentMaxEnd) {
+      current.push(it);
+      currentMaxEnd = Math.max(currentMaxEnd, e);
+      continue;
+    }
+    clusters.push(current);
+    current = [it];
+    currentMaxEnd = e;
+  }
+  if (current.length) clusters.push(current);
+
+  const out: Array<IntervalLaneItem<T> & { lane: number; laneCount: number }> = [];
+  for (const cluster of clusters) {
+    // Assign each interval to the first available lane (greedy).
+    const lanesEnd: number[] = [];
+    const assigned: Array<IntervalLaneItem<T> & { lane: number }> = [];
+    for (const it of cluster) {
+      const s = it.start.getTime();
+      let lane = lanesEnd.findIndex((endMs) => endMs <= s);
+      if (lane < 0) {
+        lane = lanesEnd.length;
+        lanesEnd.push(it.end.getTime());
+      } else {
+        lanesEnd[lane] = it.end.getTime();
+      }
+      assigned.push({ ...it, lane });
+    }
+    const laneCount = lanesEnd.length;
+    for (const a of assigned) out.push({ ...a, laneCount });
+  }
+  return out;
 }
 
 type ScheduleViewMode = 'weekly' | 'dailyRooms' | 'dailyDentists' | 'dailyMine';
@@ -1465,44 +1507,6 @@ const Schedule = () => {
     useClinicScheduleUi,
   ]);
 
-  const randevuesByColumnAndHour = useMemo(() => {
-    const map = new Map<string, Randevue[]>();
-    const push = (key: string, r: Randevue) => {
-      const list = map.get(key);
-      if (list) list.push(r);
-      else map.set(key, [r]);
-    };
-
-    for (const r of randevuesForClinicGrid) {
-      if (isDentistUser) {
-        if (loggedInDentistId <= 0 || r.dentist?.id !== loggedInDentistId) continue;
-      }
-      const start = new Date(r.date);
-      const end = new Date(r.endTime);
-      for (const hour of DISPLAY_HOURS) {
-        if (viewMode === 'weekly') {
-          for (const day of days) {
-            if (!overlapsHourSlot(start, end, day, hour)) continue;
-            push(`day:${formatYmd(day)}|hour:${hour}`, r);
-          }
-        } else if (viewMode === 'dailyRooms') {
-          if (!r.room?.id) continue;
-          if (!overlapsHourSlot(start, end, dayAnchor, hour)) continue;
-          push(`room:${r.room.id}|hour:${hour}`, r);
-        } else {
-          if (!r.dentist?.id) continue;
-          if (!overlapsHourSlot(start, end, dayAnchor, hour)) continue;
-          push(`dentist:${r.dentist.id}|hour:${hour}`, r);
-        }
-      }
-    }
-
-    for (const list of map.values()) {
-      list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    }
-    return map;
-  }, [dayAnchor, days, isDentistUser, loggedInDentistId, randevuesForClinicGrid, viewMode]);
-
   const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
   const directorMenuItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
@@ -1874,12 +1878,6 @@ const Schedule = () => {
                   const cellDay = isWeekly ? weeklyColumn.day : dayAnchor;
                   const isToday = isWeekly ? weeklyColumn.isToday : formatYmd(dayAnchor) === formatYmd(new Date());
 
-                  const getCellKey = (hour: number) => {
-                    if (viewMode === 'weekly') return `day:${formatYmd(weeklyColumn.day)}|hour:${hour}`;
-                    if (viewMode === 'dailyRooms') return `room:${(column as (typeof roomColumns)[number]).roomId}|hour:${hour}`;
-                    return `dentist:${(column as (typeof dentistColumns)[number]).dentistId}|hour:${hour}`;
-                  };
-
                   return (
                     <div key={column.key} className="flex-1 min-w-[150px] border-r border-gray-200 last:border-r-0">
                       <div
@@ -1903,7 +1901,6 @@ const Schedule = () => {
                               />
                             );
                           }
-                          const list = randevuesByColumnAndHour.get(getCellKey(h)) ?? [];
                           return (
                             <button
                               key={`${column.key}-${slot}-${h}`}
@@ -1913,71 +1910,114 @@ const Schedule = () => {
                               onClick={() => openNewModal(cellDay, h)}
                               aria-label={`${t('newRandevue')} ${formatYmd(cellDay)} ${formatHourLabel24(h)}`}
                             >
-                              <div className="flex gap-1">
-                                {list.map((r) => {
-                                  const weeklyHex = isDirector
-                                    ? dentistWeeklyHexByDentistId.get(r.dentist?.id ?? 0) ?? '#64748b'
-                                    : null;
-                                  return (
-                                    <div
-                                      key={`${column.key}-${h}-${r.id}`}
-                                      role="button"
-                                      tabIndex={0}
-                                      className={
-                                        weeklyHex
-                                          ? 'flex-1 min-w-0 rounded text-white text-[10px] px-1 py-0.5 shadow-sm overflow-hidden pointer-events-auto transition hover:brightness-95 focus:outline-none focus:ring-1 focus:ring-white/50'
-                                          : 'flex-1 min-w-0 rounded bg-violet-600 hover:bg-violet-700 text-white text-[10px] px-1 py-0.5 shadow-sm overflow-hidden pointer-events-auto transition-colors focus:outline-none focus:ring-1 focus:ring-violet-300'
-                                      }
-                                      style={weeklyHex ? { backgroundColor: weeklyHex } : undefined}
-                                      onClick={(ev) => {
-                                        ev.stopPropagation();
-                                        openRandevueDetail(r);
-                                      }}
-                                      onKeyDown={(ev) => {
-                                        if (ev.key === 'Enter' || ev.key === ' ') {
-                                          ev.preventDefault();
-                                          openRandevueDetail(r);
-                                        }
-                                      }}
-                                      onMouseEnter={(ev) =>
-                                        setHoverTip({
-                                          kind: 'randevue',
-                                          r,
-                                          clientX: ev.clientX,
-                                          clientY: ev.clientY,
-                                        })
-                                      }
-                                      onMouseMove={(ev) =>
-                                        setHoverTip((prev) =>
-                                          prev?.kind === 'randevue' && prev.r.id === r.id
-                                            ? {
-                                                kind: 'randevue',
-                                                r,
-                                                clientX: ev.clientX,
-                                                clientY: ev.clientY,
-                                              }
-                                            : prev,
-                                        )
-                                      }
-                                      onMouseLeave={() =>
-                                        setHoverTip((prev) =>
-                                          prev?.kind === 'randevue' && prev.r.id === r.id ? null : prev,
-                                        )
-                                      }
-                                    >
-                                      <p className="leading-tight truncate">
-                                        {roomTitleById.get(r.room?.id ?? 0) || t('roomUnknown')}
-                                      </p>
-                                      <p className="leading-tight truncate">
-                                        {`Dr. ${dentistSurnameById.get(r.dentist?.id ?? 0) || t('dentistUnknown')}`}
-                                      </p>
-                                    </div>
-                                  );
-                                })}
-                              </div>
                             </button>
                           );
                         })}
+                        {useClinicScheduleUi &&
+                          (() => {
+                            const day = viewMode === 'weekly' ? weeklyColumn.day : dayAnchor;
+
+                            const matchesColumn = (r: Randevue): boolean => {
+                              if (isDentistUser) {
+                                if (loggedInDentistId <= 0 || r.dentist?.id !== loggedInDentistId) return false;
+                              }
+
+                              if (viewMode === 'weekly') {
+                                // Weekly view columns are days.
+                                return overlapsLocalDay(new Date(r.date), new Date(r.endTime), weeklyColumn.day);
+                              }
+
+                              if (viewMode === 'dailyRooms') {
+                                const rid = (column as (typeof roomColumns)[number]).roomId;
+                                return (r.room?.id ?? 0) === rid && overlapsLocalDay(new Date(r.date), new Date(r.endTime), dayAnchor);
+                              }
+
+                              // dailyDentists / dailyMine
+                              const did = (column as (typeof dentistColumns)[number]).dentistId;
+                              return (r.dentist?.id ?? 0) === did && overlapsLocalDay(new Date(r.date), new Date(r.endTime), dayAnchor);
+                            };
+
+                            const visible = randevuesForClinicGrid.filter(matchesColumn);
+                            if (visible.length === 0) return null;
+
+                            const laneItems = buildOverlapLanes(
+                              visible.map((r) => ({ item: r, start: new Date(r.date), end: new Date(r.endTime) })),
+                            );
+
+                            const OUTER_PX = 2;
+                            const GUTTER_PX = 2;
+                            const V_PAD_PX = 1;
+
+                            return laneItems.flatMap(({ item: r, start: s, end: e, lane, laneCount }) => {
+                              const segs = layoutSegments(day, s, e);
+                              if (segs.length === 0) return [];
+
+                              const weeklyHex =
+                                isDirector && viewMode === 'weekly'
+                                  ? dentistWeeklyHexByDentistId.get(r.dentist?.id ?? 0) ?? '#64748b'
+                                  : null;
+
+                              const baseClass = weeklyHex
+                                ? 'bg-slate-500 hover:brightness-95'
+                                : 'bg-emerald-600 hover:bg-emerald-700';
+
+                              const widthPct = 100 / Math.max(1, laneCount);
+                              const leftPct = (lane / Math.max(1, laneCount)) * 100;
+                              const totalPxSubtract = OUTER_PX * 2 + Math.max(0, laneCount - 1) * GUTTER_PX;
+                              const leftPxAdd = OUTER_PX + lane * GUTTER_PX;
+
+                              return segs.map((seg, segIdx) => (
+                                <div
+                                  key={`clinic-r-${r.id}-${column.key}-${day.toISOString()}-${segIdx}`}
+                                  role="button"
+                                  tabIndex={0}
+                                  className={`absolute rounded-md ${baseClass} text-white text-[10px] px-1 py-0.5 shadow-sm overflow-hidden z-[15] cursor-pointer pointer-events-auto transition-colors focus:outline-none focus:ring-2 focus:ring-white/60 focus:ring-offset-1`}
+                                  style={{
+                                    top: seg.top + V_PAD_PX,
+                                    height: Math.max(seg.height - V_PAD_PX * 2, 6),
+                                    left: `calc(${leftPct}% + ${leftPxAdd}px)`,
+                                    width: `calc(${widthPct}% - ${totalPxSubtract}px)`,
+                                    backgroundColor: weeklyHex ?? undefined,
+                                  }}
+                                  onClick={(ev) => {
+                                    ev.stopPropagation();
+                                    openRandevueDetail(r);
+                                  }}
+                                  onKeyDown={(ev) => {
+                                    if (ev.key === 'Enter' || ev.key === ' ') {
+                                      ev.preventDefault();
+                                      openRandevueDetail(r);
+                                    }
+                                  }}
+                                  onMouseEnter={(ev) =>
+                                    setHoverTip({
+                                      kind: 'randevue',
+                                      r,
+                                      clientX: ev.clientX,
+                                      clientY: ev.clientY,
+                                    })
+                                  }
+                                  onMouseMove={(ev) =>
+                                    setHoverTip((prev) =>
+                                      prev?.kind === 'randevue' && prev.r.id === r.id
+                                        ? { kind: 'randevue', r, clientX: ev.clientX, clientY: ev.clientY }
+                                        : prev,
+                                    )
+                                  }
+                                  onMouseLeave={() =>
+                                    setHoverTip((prev) => (prev?.kind === 'randevue' && prev.r.id === r.id ? null : prev))
+                                  }
+                                >
+                                  <p className="leading-tight truncate">
+                                    {roomTitleById.get(r.room?.id ?? 0) || t('roomUnknown')}
+                                  </p>
+                                  <p className="leading-tight truncate">
+                                    {`Dr. ${dentistSurnameById.get(r.dentist?.id ?? 0) || t('dentistUnknown')}`}
+                                  </p>
+                                </div>
+                              ));
+                            });
+                          })()}
                         {useClinicScheduleUi &&
                           scheduleBlockingHours
                             .filter(() => !isDirector || viewMode !== 'weekly' || directorWeeklyShowBlocking)
