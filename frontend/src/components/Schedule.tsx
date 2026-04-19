@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Header from './Header';
 import { useNavigate } from 'react-router-dom';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import {
   Bell,
   CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
@@ -38,6 +39,20 @@ const HOURS_IN_DAY = 24;
 const DISPLAY_HOURS = Array.from({ length: HOURS_IN_DAY }, (_, i) => (SCHEDULE_START_HOUR + i) % HOURS_IN_DAY);
 const HOUR_PX = 48;
 const DAY_PX = HOURS_IN_DAY * HOUR_PX;
+
+/** Distinct colours for weekly director view (one stable colour per dentist column order). */
+const WEEKLY_DENTIST_HEX_COLORS = [
+  '#7c3aed',
+  '#059669',
+  '#2563eb',
+  '#c026d3',
+  '#d97706',
+  '#0d9488',
+  '#dc2626',
+  '#4f46e5',
+  '#ca8a04',
+  '#0ea5e9',
+] as const;
 
 function startOfWeekMonday(d: Date): Date {
   const c = new Date(d);
@@ -348,11 +363,20 @@ const Schedule = () => {
   const [detailOpenAppointments, setDetailOpenAppointments] = useState<Appointment[]>([]);
   const [detailApptsLoading, setDetailApptsLoading] = useState(false);
 
-  const [hoverTip, setHoverTip] = useState<{
-    r: Randevue;
-    clientX: number;
-    clientY: number;
-  } | null>(null);
+  type ScheduleHoverTip =
+    | { kind: 'randevue'; r: Randevue; clientX: number; clientY: number }
+    | { kind: 'blocking'; bh: BlockingHourRow; clientX: number; clientY: number };
+
+  const [hoverTip, setHoverTip] = useState<ScheduleHoverTip | null>(null);
+
+  const [directorWeeklyVisibleDentistIds, setDirectorWeeklyVisibleDentistIds] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const [directorWeeklyShowRandevues, setDirectorWeeklyShowRandevues] = useState(true);
+  const [directorWeeklyShowBlocking, setDirectorWeeklyShowBlocking] = useState(true);
+  const [directorWeeklyFilterDentistsOpen, setDirectorWeeklyFilterDentistsOpen] = useState(false);
+  const [directorWeeklyFilterTypesOpen, setDirectorWeeklyFilterTypesOpen] = useState(false);
+  const directorWeeklyAllTypesCheckboxRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchDirectorStaff = async () => {
@@ -943,6 +967,75 @@ const Schedule = () => {
     return map;
   }, [nurses]);
 
+  const dentistByStaffIdForSchedule = useMemo(() => {
+    const map = new Map<number, DentistColumn>();
+    for (const d of dentists) {
+      const sid = d.staff?.id;
+      if (sid != null && Number.isFinite(sid)) map.set(sid, d);
+    }
+    return map;
+  }, [dentists]);
+
+  const dentistWeeklyHexByDentistId = useMemo(() => {
+    const map = new Map<number, string>();
+    dentists.forEach((d, idx) => {
+      map.set(d.id, WEEKLY_DENTIST_HEX_COLORS[idx % WEEKLY_DENTIST_HEX_COLORS.length]);
+    });
+    return map;
+  }, [dentists]);
+
+  const dentistFullNameByDentistId = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const d of dentists) {
+      const label = `${d.staff?.name ?? ''} ${d.staff?.surname ?? ''}`.trim();
+      map.set(d.id, label || t('dentistUnknown'));
+    }
+    return map;
+  }, [dentists, t]);
+
+  const randevuesForClinicGrid = useMemo(() => {
+    if (!useClinicScheduleUi) return randevues;
+    if (!isDirector || viewMode !== 'weekly') return randevues;
+    if (!directorWeeklyShowRandevues) return [];
+    return randevues.filter((r) => {
+      const did = r.dentist?.id;
+      if (did == null) return true;
+      return directorWeeklyVisibleDentistIds.has(did);
+    });
+  }, [
+    directorWeeklyShowRandevues,
+    directorWeeklyVisibleDentistIds,
+    isDirector,
+    randevues,
+    useClinicScheduleUi,
+    viewMode,
+  ]);
+
+  useEffect(() => {
+    if (!isDirector) return;
+    const ids = dentists.map((d) => d.id).filter((id) => Number.isFinite(id) && id > 0);
+    setDirectorWeeklyVisibleDentistIds((prev) => {
+      if (ids.length === 0) return new Set();
+      if (prev.size === 0) return new Set(ids);
+      const next = new Set<number>();
+      for (const id of ids) {
+        if (prev.has(id)) next.add(id);
+      }
+      for (const id of ids) {
+        if (!prev.has(id)) next.add(id);
+      }
+      return next;
+    });
+  }, [dentists, isDirector]);
+
+  useLayoutEffect(() => {
+    const el = directorWeeklyAllTypesCheckboxRef.current;
+    if (!el) return;
+    const both = directorWeeklyShowRandevues && directorWeeklyShowBlocking;
+    const none = !directorWeeklyShowRandevues && !directorWeeklyShowBlocking;
+    el.indeterminate = !both && !none;
+  }, [directorWeeklyShowRandevues, directorWeeklyShowBlocking]);
+
   const weeklyColumns = days.map((day) => ({
     key: day.toISOString(),
     label: day.toLocaleDateString(i18n.language, {
@@ -1371,7 +1464,7 @@ const Schedule = () => {
       else map.set(key, [r]);
     };
 
-    for (const r of randevues) {
+    for (const r of randevuesForClinicGrid) {
       if (isDentistUser) {
         if (loggedInDentistId <= 0 || r.dentist?.id !== loggedInDentistId) continue;
       }
@@ -1399,7 +1492,7 @@ const Schedule = () => {
       list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }
     return map;
-  }, [dayAnchor, days, isDentistUser, loggedInDentistId, randevues, viewMode]);
+  }, [dayAnchor, days, isDentistUser, loggedInDentistId, randevuesForClinicGrid, viewMode]);
 
   const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
   const directorMenuItems = [
@@ -1617,6 +1710,134 @@ const Schedule = () => {
           </div>
         </div>
 
+        {isDirector && viewMode === 'weekly' && !loading && !loadError && (
+          <div className="mb-4 space-y-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/80">
+              <button
+                type="button"
+                onClick={() => setDirectorWeeklyFilterDentistsOpen((o) => !o)}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800"
+              >
+                <span>{t('directorWeeklyFilterDentists')}</span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${directorWeeklyFilterDentistsOpen ? 'rotate-180' : ''}`}
+                  aria-hidden
+                />
+              </button>
+              {directorWeeklyFilterDentistsOpen && (
+                <div className="space-y-2 border-t border-slate-200 px-3 py-3">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300"
+                      checked={
+                        dentists.length > 0 &&
+                        dentists.every((d) => directorWeeklyVisibleDentistIds.has(d.id))
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setDirectorWeeklyVisibleDentistIds(new Set(dentists.map((d) => d.id)));
+                        } else {
+                          setDirectorWeeklyVisibleDentistIds(new Set());
+                        }
+                      }}
+                    />
+                    {t('directorWeeklyAllDentists')}
+                  </label>
+                  <div className="max-h-40 space-y-1.5 overflow-y-auto pl-1">
+                    {dentists.map((d) => {
+                      const label = `${d.staff?.name ?? ''} ${d.staff?.surname ?? ''}`.trim() || `Dr. #${d.id}`;
+                      return (
+                        <label
+                          key={d.id}
+                          className="flex cursor-pointer items-center gap-2 text-sm text-slate-600"
+                        >
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300"
+                            checked={directorWeeklyVisibleDentistIds.has(d.id)}
+                            onChange={(ev) => {
+                              setDirectorWeeklyVisibleDentistIds((prev) => {
+                                const next = new Set(prev);
+                                if (ev.target.checked) next.add(d.id);
+                                else next.delete(d.id);
+                                return next;
+                              });
+                            }}
+                          />
+                          <span
+                            className="inline-block h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10"
+                            style={{
+                              backgroundColor:
+                                dentistWeeklyHexByDentistId.get(d.id) ?? WEEKLY_DENTIST_HEX_COLORS[0],
+                            }}
+                            aria-hidden
+                          />
+                          {label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50/80">
+              <button
+                type="button"
+                onClick={() => setDirectorWeeklyFilterTypesOpen((o) => !o)}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-800"
+              >
+                <span>{t('directorWeeklyFilterTypes')}</span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${directorWeeklyFilterTypesOpen ? 'rotate-180' : ''}`}
+                  aria-hidden
+                />
+              </button>
+              {directorWeeklyFilterTypesOpen && (
+                <div className="space-y-2 border-t border-slate-200 px-3 py-3">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                    <input
+                      ref={directorWeeklyAllTypesCheckboxRef}
+                      type="checkbox"
+                      className="rounded border-gray-300"
+                      checked={directorWeeklyShowRandevues && directorWeeklyShowBlocking}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setDirectorWeeklyShowRandevues(true);
+                          setDirectorWeeklyShowBlocking(true);
+                        } else {
+                          setDirectorWeeklyShowRandevues(false);
+                          setDirectorWeeklyShowBlocking(false);
+                        }
+                      }}
+                    />
+                    {t('directorWeeklyAllTypes')}
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300"
+                      checked={directorWeeklyShowRandevues}
+                      onChange={(e) => setDirectorWeeklyShowRandevues(e.target.checked)}
+                    />
+                    {t('directorWeeklyLayerRandevues')}
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300"
+                      checked={directorWeeklyShowBlocking}
+                      onChange={(e) => setDirectorWeeklyShowBlocking(e.target.checked)}
+                    />
+                    {t('directorWeeklyLayerBlocking')}
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <p className="text-gray-600">{t('loading')}</p>
         ) : loadError ? (
@@ -1684,46 +1905,80 @@ const Schedule = () => {
                               aria-label={`${t('newRandevue')} ${formatYmd(cellDay)} ${formatHourLabel24(h)}`}
                             >
                               <div className="flex gap-1">
-                                {list.map((r) => (
-                                  <div
-                                    key={`${column.key}-${h}-${r.id}`}
-                                    role="button"
-                                    tabIndex={0}
-                                    className="flex-1 min-w-0 rounded bg-violet-600 hover:bg-violet-700 text-white text-[10px] px-1 py-0.5 shadow-sm overflow-hidden pointer-events-auto transition-colors focus:outline-none focus:ring-1 focus:ring-violet-300"
-                                    onClick={(ev) => {
-                                      ev.stopPropagation();
-                                      openRandevueDetail(r);
-                                    }}
-                                    onKeyDown={(ev) => {
-                                      if (ev.key === 'Enter' || ev.key === ' ') {
-                                        ev.preventDefault();
-                                        openRandevueDetail(r);
+                                {list.map((r) => {
+                                  const weeklyHex =
+                                    isDirector && viewMode === 'weekly'
+                                      ? dentistWeeklyHexByDentistId.get(r.dentist?.id ?? 0) ?? '#64748b'
+                                      : null;
+                                  return (
+                                    <div
+                                      key={`${column.key}-${h}-${r.id}`}
+                                      role="button"
+                                      tabIndex={0}
+                                      className={
+                                        weeklyHex
+                                          ? 'flex-1 min-w-0 rounded text-white text-[10px] px-1 py-0.5 shadow-sm overflow-hidden pointer-events-auto transition hover:brightness-95 focus:outline-none focus:ring-1 focus:ring-white/50'
+                                          : 'flex-1 min-w-0 rounded bg-violet-600 hover:bg-violet-700 text-white text-[10px] px-1 py-0.5 shadow-sm overflow-hidden pointer-events-auto transition-colors focus:outline-none focus:ring-1 focus:ring-violet-300'
                                       }
-                                    }}
-                                    onMouseEnter={(ev) => setHoverTip({ r, clientX: ev.clientX, clientY: ev.clientY })}
-                                    onMouseMove={(ev) =>
-                                      setHoverTip((prev) =>
-                                        prev && prev.r.id === r.id ? { r, clientX: ev.clientX, clientY: ev.clientY } : prev,
-                                      )
-                                    }
-                                    onMouseLeave={() => setHoverTip((prev) => (prev?.r.id === r.id ? null : prev))}
-                                  >
-                                    <p className="leading-tight truncate">
-                                      {roomTitleById.get(r.room?.id ?? 0) || t('roomUnknown')}
-                                    </p>
-                                    <p className="leading-tight truncate">
-                                      {`Dr. ${dentistSurnameById.get(r.dentist?.id ?? 0) || t('dentistUnknown')}`}
-                                    </p>
-                                  </div>
-                                ))}
+                                      style={weeklyHex ? { backgroundColor: weeklyHex } : undefined}
+                                      onClick={(ev) => {
+                                        ev.stopPropagation();
+                                        openRandevueDetail(r);
+                                      }}
+                                      onKeyDown={(ev) => {
+                                        if (ev.key === 'Enter' || ev.key === ' ') {
+                                          ev.preventDefault();
+                                          openRandevueDetail(r);
+                                        }
+                                      }}
+                                      onMouseEnter={(ev) =>
+                                        setHoverTip({
+                                          kind: 'randevue',
+                                          r,
+                                          clientX: ev.clientX,
+                                          clientY: ev.clientY,
+                                        })
+                                      }
+                                      onMouseMove={(ev) =>
+                                        setHoverTip((prev) =>
+                                          prev?.kind === 'randevue' && prev.r.id === r.id
+                                            ? {
+                                                kind: 'randevue',
+                                                r,
+                                                clientX: ev.clientX,
+                                                clientY: ev.clientY,
+                                              }
+                                            : prev,
+                                        )
+                                      }
+                                      onMouseLeave={() =>
+                                        setHoverTip((prev) =>
+                                          prev?.kind === 'randevue' && prev.r.id === r.id ? null : prev,
+                                        )
+                                      }
+                                    >
+                                      <p className="leading-tight truncate">
+                                        {roomTitleById.get(r.room?.id ?? 0) || t('roomUnknown')}
+                                      </p>
+                                      <p className="leading-tight truncate">
+                                        {`Dr. ${dentistSurnameById.get(r.dentist?.id ?? 0) || t('dentistUnknown')}`}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </button>
                           );
                         })}
                         {useClinicScheduleUi &&
                           scheduleBlockingHours
+                            .filter(() => !isDirector || viewMode !== 'weekly' || directorWeeklyShowBlocking)
                             .filter((bh) => bh.staffId != null)
                             .filter((bh) => {
+                              if (isDirector && viewMode === 'weekly' && bh.staffId != null) {
+                                const d = dentistByStaffIdForSchedule.get(bh.staffId);
+                                if (d && !directorWeeklyVisibleDentistIds.has(d.id)) return false;
+                              }
                               if (isDentistUser) {
                                 if (myStaffIdForSchedule == null || bh.staffId !== myStaffIdForSchedule) {
                                   return false;
@@ -1749,6 +2004,15 @@ const Schedule = () => {
                               const e = new Date(bh.endTime);
                               const day = viewMode === 'weekly' ? weeklyColumn.day : dayAnchor;
                               const segs = layoutSegments(day, s, e);
+                              const bhDentistLine =
+                                bh.staffId != null
+                                  ? (() => {
+                                      const d = dentistByStaffIdForSchedule.get(bh.staffId);
+                                      return d?.staff
+                                        ? `${d.staff.name ?? ''} ${d.staff.surname ?? ''}`.trim()
+                                        : '';
+                                    })()
+                                  : '';
                               return segs.map((seg, segIdx) => (
                                 <div
                                   key={`bh-${bh.id}-${column.key}-${segIdx}`}
@@ -1757,7 +2021,9 @@ const Schedule = () => {
                                   className={`absolute left-0.5 right-0.5 rounded-md bg-amber-500/85 text-white text-[10px] px-1 py-0.5 shadow-sm z-[12] overflow-hidden ${
                                     isDentistUser
                                       ? 'pointer-events-auto cursor-pointer hover:bg-amber-600/90'
-                                      : 'pointer-events-none'
+                                      : isDirector
+                                        ? 'pointer-events-auto cursor-default hover:brightness-105'
+                                        : 'pointer-events-none'
                                   }`}
                                   style={{ top: seg.top, height: seg.height }}
                                   title={bh.name?.trim() || t('blockingFallbackLabel')}
@@ -1774,8 +2040,35 @@ const Schedule = () => {
                                       openBlockingDetail(bh);
                                     }
                                   }}
+                                  onMouseEnter={(ev) => {
+                                    if (!isDirector && !isDentistUser) return;
+                                    setHoverTip({
+                                      kind: 'blocking',
+                                      bh,
+                                      clientX: ev.clientX,
+                                      clientY: ev.clientY,
+                                    });
+                                  }}
+                                  onMouseMove={(ev) => {
+                                    if (!isDirector && !isDentistUser) return;
+                                    setHoverTip((prev) =>
+                                      prev?.kind === 'blocking' && prev.bh.id === bh.id
+                                        ? { kind: 'blocking', bh, clientX: ev.clientX, clientY: ev.clientY }
+                                        : prev,
+                                    );
+                                  }}
+                                  onMouseLeave={() =>
+                                    setHoverTip((prev) =>
+                                      prev?.kind === 'blocking' && prev.bh.id === bh.id ? null : prev,
+                                    )
+                                  }
                                 >
-                                  <span className="block truncate font-semibold">
+                                  {isDirector && bhDentistLine ? (
+                                    <span className="block truncate text-[9px] font-medium leading-tight opacity-95">
+                                      {bhDentistLine}
+                                    </span>
+                                  ) : null}
+                                  <span className="block truncate font-semibold leading-tight">
                                     {bh.name?.trim() || t('blockingFallbackLabel')}
                                   </span>
                                 </div>
@@ -1808,17 +2101,29 @@ const Schedule = () => {
                                   }
                                 }}
                                 onMouseEnter={(ev) =>
-                                  setHoverTip({ r, clientX: ev.clientX, clientY: ev.clientY })
+                                  setHoverTip({
+                                    kind: 'randevue',
+                                    r,
+                                    clientX: ev.clientX,
+                                    clientY: ev.clientY,
+                                  })
                                 }
                                 onMouseMove={(ev) =>
                                   setHoverTip((prev) =>
-                                    prev && prev.r.id === r.id
-                                      ? { r, clientX: ev.clientX, clientY: ev.clientY }
+                                    prev?.kind === 'randevue' && prev.r.id === r.id
+                                      ? {
+                                          kind: 'randevue',
+                                          r,
+                                          clientX: ev.clientX,
+                                          clientY: ev.clientY,
+                                        }
                                       : prev,
                                   )
                                 }
                                 onMouseLeave={() =>
-                                  setHoverTip((prev) => (prev?.r.id === r.id ? null : prev))
+                                  setHoverTip((prev) =>
+                                    prev?.kind === 'randevue' && prev.r.id === r.id ? null : prev,
+                                  )
                                 }
                               >
                                 <span className="font-semibold leading-tight block truncate pointer-events-none">
@@ -2155,7 +2460,7 @@ const Schedule = () => {
       </div>
       </div>
 
-      {hoverTip && (
+      {hoverTip && hoverTip.kind === 'randevue' && (
         <div
           className="fixed z-[100] pointer-events-none rounded-lg bg-gray-900 text-white text-xs shadow-xl px-3 py-2.5 max-w-[280px] leading-relaxed"
           style={{
@@ -2165,6 +2470,17 @@ const Schedule = () => {
         >
           <p className="font-semibold text-sm">
             {hoverTip.r.patient.name} {hoverTip.r.patient.surname}
+          </p>
+          {hoverTip.r.dentist?.id != null && (
+            <p className="text-gray-200 mt-1">
+              {t('doctor')}: {dentistFullNameByDentistId.get(hoverTip.r.dentist.id) ?? t('dentistUnknown')}
+            </p>
+          )}
+          <p className="text-gray-200 mt-1">
+            {t('room')}:{' '}
+            {hoverTip.r.room?.id != null
+              ? roomTitleById.get(hoverTip.r.room.id) ?? t('roomUnknown')
+              : t('roomUnknown')}
           </p>
           <p className="text-gray-200 mt-1">
             {t('tooltipStartDate')}:{' '}
@@ -2183,6 +2499,38 @@ const Schedule = () => {
           </p>
           <p className="text-gray-300 mt-1 border-t border-gray-700 pt-1">
             {t('note')}: {hoverTip.r.note?.trim() ? hoverTip.r.note : t('noNote')}
+          </p>
+        </div>
+      )}
+
+      {hoverTip && hoverTip.kind === 'blocking' && (
+        <div
+          className="fixed z-[100] pointer-events-none rounded-lg bg-gray-900 text-white text-xs shadow-xl px-3 py-2.5 max-w-[280px] leading-relaxed"
+          style={{
+            left: tooltipLeft(hoverTip.clientX),
+            top: tooltipTop(hoverTip.clientY),
+          }}
+        >
+          <p className="font-semibold text-sm">
+            {hoverTip.bh.name?.trim() || t('blockingFallbackLabel')}
+          </p>
+          {(() => {
+            const sid = hoverTip.bh.staffId;
+            if (sid == null) return null;
+            const d = dentistByStaffIdForSchedule.get(sid);
+            const nm = d?.staff ? `${d.staff.name ?? ''} ${d.staff.surname ?? ''}`.trim() : '';
+            if (!nm) return null;
+            return (
+              <p className="text-gray-200 mt-1">
+                {t('doctor')}: {nm}
+              </p>
+            );
+          })()}
+          <p className="text-gray-200 mt-1">
+            {t('startTime')}: {localTimeHm(new Date(hoverTip.bh.startTime))}
+          </p>
+          <p className="text-gray-200">
+            {t('endTime')}: {localTimeHm(new Date(hoverTip.bh.endTime))}
           </p>
         </div>
       )}
