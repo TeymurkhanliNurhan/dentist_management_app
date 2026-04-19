@@ -48,7 +48,7 @@ export class BlockingHoursController {
   @ApiOperation({ summary: 'Create blocking hours' })
   @ApiResponse({ status: 201, description: 'Blocking hours created' })
   async create(@User() user: any, @Body() dto: CreateBlockingHoursDto) {
-    return await this.service.create(user.userId, dto);
+    return await this.service.create(user.userId, dto, user);
   }
 
   @ApiBearerAuth('bearer')
@@ -62,7 +62,7 @@ export class BlockingHoursController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBlockingHoursDto,
   ) {
-    return await this.service.patch(user.userId, id, dto);
+    return await this.service.patch(user.userId, id, dto, user);
   }
 
   @ApiBearerAuth('bearer')
@@ -72,6 +72,6 @@ export class BlockingHoursController {
   @ApiOperation({ summary: 'Delete blocking hours by id' })
   @ApiOkResponse({ description: 'Blocking hours deleted' })
   async delete(@User() user: any, @Param('id', ParseIntPipe) id: number) {
-    return await this.service.delete(user.userId, id);
+    return await this.service.delete(user.userId, id, user);
   }
 }

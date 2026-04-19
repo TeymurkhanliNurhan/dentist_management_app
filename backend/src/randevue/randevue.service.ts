@@ -76,7 +76,11 @@ export class RandevueService {
     };
   }
 
-  async findAll(dentistId: number, dto: GetRandevueQueryDto) {
+  async findAll(
+    dentistId: number,
+    dto: GetRandevueQueryDto,
+    userRole?: string,
+  ) {
     if (!Number.isFinite(dentistId) || dentistId < 1) {
       throw new BadRequestException('Invalid dentist context');
     }
@@ -88,12 +92,13 @@ export class RandevueService {
     if (to <= from) {
       throw new BadRequestException('"to" must be after "from"');
     }
+    const role = (userRole ?? '').toLowerCase();
     const list = await this.repo.findForDentistOverlappingRange(
       dentistId,
       from,
       to,
       {
-        dentist: dto.dentist,
+        dentist: role === 'dentist' ? dentistId : dto.dentist,
         room: dto.room,
         nurse: dto.nurse,
         patient: dto.patient,
@@ -129,7 +134,8 @@ export class RandevueService {
       );
     }
 
-    const isAdminLikeRole = userRole === 'director' || userRole === 'admin';
+    const role = (userRole ?? '').toLowerCase();
+    const isAdminLikeRole = role === 'director' || role === 'admin';
     if (isAdminLikeRole) {
       if (dto.room_id == null || dto.dentist_id == null || dto.nurse_id == null) {
         throw new BadRequestException(
@@ -140,6 +146,10 @@ export class RandevueService {
       throw new BadRequestException(
         'Room and dentist are required when creating a randevue',
       );
+    }
+
+    if (role === 'dentist' && dto.dentist_id != null && dto.dentist_id !== dentistId) {
+      throw new BadRequestException('You can only schedule randevues for yourself');
     }
 
     const patient = await this.repo.assertPatientOwnedByDentist(
@@ -281,12 +291,25 @@ export class RandevueService {
     }
   }
 
-  async update(dentistId: number, id: number, dto: UpdateRandevueDto) {
+  async update(
+    dentistId: number,
+    id: number,
+    dto: UpdateRandevueDto,
+    userRole?: string,
+  ) {
     if (!Number.isFinite(dentistId) || dentistId < 1) {
       throw new BadRequestException('Invalid dentist context');
     }
-    const row = await this.repo.findByIdForDentist(dentistId, id);
+    const role = (userRole ?? '').toLowerCase();
+    const isAdminLikeRole = role === 'director' || role === 'admin';
+    const row = isAdminLikeRole
+      ? await this.repo.findByIdInClinic(dentistId, id)
+      : await this.repo.findByIdForDentist(dentistId, id);
     if (!row) throw new NotFoundException('Randevue not found');
+
+    if (role === 'dentist' && dto.dentist_id != null && dto.dentist_id !== dentistId) {
+      throw new BadRequestException('You can only assign randevues to yourself');
+    }
     const originalPatientId = row.patient.id;
 
     let start =
@@ -412,7 +435,9 @@ export class RandevueService {
 
     try {
       await this.repo.saveEntity(row);
-      const reloaded = await this.repo.findByIdForDentist(dentistId, id);
+      const reloaded = isAdminLikeRole
+        ? await this.repo.findByIdInClinic(dentistId, id)
+        : await this.repo.findByIdForDentist(dentistId, id);
       if (!reloaded) throw new Error('Failed to reload randevue');
       const msg = `Dentist ${dentistId} updated Randevue ${id}`;
       this.logger.log(msg);

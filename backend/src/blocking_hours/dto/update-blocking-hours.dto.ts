@@ -1,6 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDateString, IsInt, IsOptional, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class UpdateBlockingHoursDto {
   @ApiPropertyOptional({ example: '2026-04-15T09:00:00.000Z' })
@@ -26,4 +33,10 @@ export class UpdateBlockingHoursDto {
   @IsInt()
   @Min(1)
   roomId?: number;
+
+  @ApiPropertyOptional({ example: 'Dr. Smith', description: 'Display label' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(127)
+  name?: string;
 }

@@ -99,6 +99,11 @@ function dayBoundsLocal(day: Date): { start: Date; next: Date } {
   return { start, next };
 }
 
+function overlapsLocalDay(start: Date, end: Date, day: Date): boolean {
+  const { start: d0, next: d1 } = dayBoundsLocal(day);
+  return start < d1 && end > d0;
+}
+
 /** Y-offset from top of column where 08:00 = 0 and 07:59 = bottom (wraps midnight-08:00 after 23:00). */
 function offsetMsFromScheduleStart(midnight: Date, eightAm: Date, t: Date): number {
   const tms = t.getTime();
@@ -243,6 +248,7 @@ interface BlockingHourRow {
   endTime: string;
   staffId: number | null;
   roomId: number | null;
+  name?: string | null;
 }
 
 const SLOT_MINUTES = 30;
@@ -268,6 +274,8 @@ const Schedule = () => {
   const { t, i18n } = useTranslation('schedule');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
+  const isDentistUser = role === 'dentist';
+  const useClinicScheduleUi = isDirector || isDentistUser;
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [directorStaff, setDirectorStaff] = useState<StaffSummary | null>(null);
@@ -294,6 +302,14 @@ const Schedule = () => {
   const [formNurseId, setFormNurseId] = useState<number>(0);
   const [directorWorkingHours, setDirectorWorkingHours] = useState<WorkingHourRow[]>([]);
   const [directorBlockingHours, setDirectorBlockingHours] = useState<BlockingHourRow[]>([]);
+  const [scheduleBlockingHours, setScheduleBlockingHours] = useState<BlockingHourRow[]>([]);
+  const [blockingModalOpen, setBlockingModalOpen] = useState(false);
+  const [blockFormDate, setBlockFormDate] = useState('');
+  const [blockFormStart, setBlockFormStart] = useState('09:00');
+  const [blockFormEnd, setBlockFormEnd] = useState('10:00');
+  const [blockFormRoomId, setBlockFormRoomId] = useState(0);
+  const [blockSubmitBusy, setBlockSubmitBusy] = useState(false);
+  const [blockSubmitError, setBlockSubmitError] = useState<string | null>(null);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState<number>(0);
   const [note, setNote] = useState('');
@@ -362,7 +378,7 @@ const Schedule = () => {
 
   useEffect(() => {
     const fetchDirectorAvailabilityData = async () => {
-      if (!isDirector || !modalOpen || !formDate) {
+      if (!useClinicScheduleUi || !modalOpen || !formDate) {
         setDirectorWorkingHours([]);
         setDirectorBlockingHours([]);
         return;
@@ -393,11 +409,11 @@ const Schedule = () => {
     };
 
     void fetchDirectorAvailabilityData();
-  }, [formDate, isDirector, modalOpen]);
+  }, [formDate, modalOpen, useClinicScheduleUi]);
 
   const days = useMemo(() => weekDays(weekAnchor), [weekAnchor]);
   const rangeLabel = useMemo(() => {
-    if (isDirector && viewMode !== 'weekly') {
+    if (useClinicScheduleUi && viewMode !== 'weekly') {
       return dayAnchor.toLocaleDateString(i18n.language, {
         weekday: 'long',
         month: 'short',
@@ -412,10 +428,10 @@ const Schedule = () => {
     const left = a.toLocaleDateString(i18n.language, y ? { ...opts, year: 'numeric' } : opts);
     const right = b.toLocaleDateString(i18n.language, { ...opts, year: 'numeric' });
     return `${left} – ${right}`;
-  }, [dayAnchor, days, i18n.language, isDirector, viewMode]);
+  }, [dayAnchor, days, i18n.language, useClinicScheduleUi, viewMode]);
 
   const randevueShadeByDayAndId = useMemo(() => {
-    if (isDirector) return new Map<string, 0 | 1>();
+    if (useClinicScheduleUi) return new Map<string, 0 | 1>();
     const map = new Map<string, 0 | 1>();
     for (const day of days) {
       const items: { r: Randevue; s: Date; e: Date }[] = [];
@@ -438,44 +454,51 @@ const Schedule = () => {
       }
     }
     return map;
-  }, [days, isDirector, randevues]);
+  }, [days, randevues, useClinicScheduleUi]);
 
   const fetchSchedule = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      if (!isDirector) {
+      if (!useClinicScheduleUi) {
         const range = weekRangeIso(weekAnchor);
         const randevueData = await randevueService.getForRange(range.from, range.to);
         setRandevues(randevueData);
         setRooms([]);
         setDentists([]);
         setNurses([]);
+        setScheduleBlockingHours([]);
       } else {
         const range =
           viewMode === 'weekly' ? weekRangeIso(weekAnchor) : toApiIsoLocalDayBounds(dayAnchor);
 
-        const [randevueData, roomsRes, dentistsRes, nursesRes] = await Promise.all([
+        const token = localStorage.getItem('access_token') || '';
+        const [randevueData, roomsRes, dentistsRes, nursesRes, blockingRes] = await Promise.all([
           randevueService.getForRange(range.from, range.to),
           fetch(`${API_BASE_URL}/room`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+            headers: { Authorization: `Bearer ${token}` },
           }),
           fetch(`${API_BASE_URL}/dentist`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+            headers: { Authorization: `Bearer ${token}` },
           }),
           fetch(`${API_BASE_URL}/nurse`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API_BASE_URL}/blocking-hours`, {
+            headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
 
         const roomsData = roomsRes.ok ? ((await roomsRes.json()) as RoomColumn[]) : [];
         const dentistsData = dentistsRes.ok ? ((await dentistsRes.json()) as DentistColumn[]) : [];
         const nursesData = nursesRes.ok ? ((await nursesRes.json()) as NurseColumn[]) : [];
+        const blockingData = blockingRes.ok ? ((await blockingRes.json()) as BlockingHourRow[]) : [];
 
         setRandevues(randevueData);
         setRooms(Array.isArray(roomsData) ? roomsData : []);
         setDentists(Array.isArray(dentistsData) ? dentistsData : []);
         setNurses(Array.isArray(nursesData) ? nursesData : []);
+        setScheduleBlockingHours(Array.isArray(blockingData) ? blockingData : []);
       }
     } catch {
       setLoadError(t('loadError'));
@@ -483,10 +506,11 @@ const Schedule = () => {
       setRooms([]);
       setDentists([]);
       setNurses([]);
+      setScheduleBlockingHours([]);
     } finally {
       setLoading(false);
     }
-  }, [dayAnchor, isDirector, t, viewMode, weekAnchor]);
+  }, [dayAnchor, t, useClinicScheduleUi, viewMode, weekAnchor]);
 
   useEffect(() => {
     void fetchSchedule();
@@ -608,6 +632,10 @@ const Schedule = () => {
     setAppointmentChoice('none');
     setFormRoomId(0);
     setFormDentistId(0);
+    const myDid = Number(localStorage.getItem('dentistId'));
+    if (isDentistUser && Number.isFinite(myDid) && myDid > 0) {
+      setFormDentistId(myDid);
+    }
     setFormNurseId(0);
     setShowNewPatient(false);
     setNewPatient({ name: '', surname: '', birthDate: '' });
@@ -652,8 +680,8 @@ const Schedule = () => {
       patient_id: patientId,
     };
     if (note.trim()) body.note = note.trim();
-    if (isDirector && formRoomId > 0) body.room_id = formRoomId;
-    if (isDirector && formDentistId > 0) body.dentist_id = formDentistId;
+    if (useClinicScheduleUi && formRoomId > 0) body.room_id = formRoomId;
+    if (useClinicScheduleUi && formDentistId > 0) body.dentist_id = formDentistId;
     if (isDirector && formNurseId > 0) body.nurse_id = formNurseId;
 
     if (appointmentChoice === 'new') {
@@ -672,6 +700,40 @@ const Schedule = () => {
       setSubmitError(t('createError'));
     } finally {
       setSubmitBusy(false);
+    }
+  };
+
+  const handleSubmitBlocking = async () => {
+    setBlockSubmitError(null);
+    const start = combineLocalDateAndTime(blockFormDate, blockFormStart);
+    const end = combineLocalDateAndTime(blockFormDate, blockFormEnd);
+    if (end <= start) {
+      setBlockSubmitError(t('timeOrderError'));
+      return;
+    }
+    if (!isDentistUser) return;
+    setBlockSubmitBusy(true);
+    try {
+      const body: Record<string, unknown> = {
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+      };
+      if (blockFormRoomId > 0) body.roomId = blockFormRoomId;
+      const res = await fetch(`${API_BASE_URL}/blocking-hours`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error('blocking');
+      setBlockingModalOpen(false);
+      void fetchSchedule();
+    } catch {
+      setBlockSubmitError(t('blockingCreateError'));
+    } finally {
+      setBlockSubmitBusy(false);
     }
   };
 
@@ -702,8 +764,8 @@ const Schedule = () => {
       patient_id: editPatientId,
       note: editNote,
     };
-    if (isDirector && detailRoomId > 0) body.room_id = detailRoomId;
-    if (isDirector && detailDentistId > 0) body.dentist_id = detailDentistId;
+    if (useClinicScheduleUi && detailRoomId > 0) body.room_id = detailRoomId;
+    if (useClinicScheduleUi && detailDentistId > 0) body.dentist_id = detailDentistId;
     if (isDirector) {
       if (detailNurseId > 0) body.nurse_id = detailNurseId;
       else if (detailRandevue?.nurse?.id) body.clear_nurse = true;
@@ -739,6 +801,13 @@ const Schedule = () => {
       if (d.id && d.staff?.surname) map.set(d.id, d.staff.surname);
     }
     return map;
+  }, [dentists]);
+
+  const blockingStaffLabel = useMemo(() => {
+    const id = Number(localStorage.getItem('dentistId'));
+    const d = dentists.find((x) => x.id === id);
+    if (!d?.staff) return '';
+    return `${d.staff.name ?? ''} ${d.staff.surname ?? ''}`.trim();
   }, [dentists]);
 
   const roomTitleById = useMemo(() => {
@@ -902,31 +971,31 @@ const Schedule = () => {
   );
 
   const availableDentists = useMemo(() => {
-    if (!isDirector || !formDate) return dentists;
+    if (!useClinicScheduleUi || !formDate) return dentists;
     return dentists.filter((d) => {
       const staffId = d.staff?.id;
       if (!staffId) return false;
       return staffAvailableAt(staffId, formDate, formStart, formEnd);
     });
-  }, [dentists, formDate, formEnd, formStart, isDirector, staffAvailableAt]);
+  }, [dentists, formDate, formEnd, formStart, staffAvailableAt, useClinicScheduleUi]);
 
   const availableNurses = useMemo(() => {
-    if (!isDirector || !formDate) return nurses;
+    if (!useClinicScheduleUi || !formDate) return nurses;
     return nurses.filter((n) => {
       const staffId = n.staff?.id;
       if (!staffId) return false;
       return staffAvailableAt(staffId, formDate, formStart, formEnd);
     });
-  }, [formDate, formEnd, formStart, isDirector, nurses, staffAvailableAt]);
+  }, [formDate, formEnd, formStart, nurses, staffAvailableAt, useClinicScheduleUi]);
 
   const availableRooms = useMemo(() => {
-    if (!isDirector || !formDate) return rooms;
+    if (!useClinicScheduleUi || !formDate) return rooms;
     return rooms.filter((r) => roomAvailableAt(r.id, formDate, formStart, formEnd));
-  }, [formDate, formEnd, formStart, isDirector, roomAvailableAt, rooms]);
+  }, [formDate, formEnd, formStart, roomAvailableAt, rooms, useClinicScheduleUi]);
 
   const intervalAllowedByCurrentSelections = useCallback(
     (dateYmd: string, startHm: string, endHm: string) => {
-      if (!isDirector) return true;
+      if (!useClinicScheduleUi) return true;
       if (formDentistId > 0) {
         const d = dentists.find((x) => x.id === formDentistId);
         if (!d?.staff?.id || !staffAvailableAt(d.staff.id, dateYmd, startHm, endHm)) return false;
@@ -943,15 +1012,15 @@ const Schedule = () => {
       formDentistId,
       formNurseId,
       formRoomId,
-      isDirector,
       nurses,
       roomAvailableAt,
       staffAvailableAt,
+      useClinicScheduleUi,
     ],
   );
 
   const availableStartTimes = useMemo(() => {
-    if (!isDirector || !formDate) return TIME_OPTIONS;
+    if (!useClinicScheduleUi || !formDate) return TIME_OPTIONS;
     return TIME_OPTIONS.filter((startHm) =>
       TIME_OPTIONS.some(
         (endHm) =>
@@ -959,20 +1028,21 @@ const Schedule = () => {
           intervalAllowedByCurrentSelections(formDate, startHm, endHm),
       ),
     );
-  }, [formDate, intervalAllowedByCurrentSelections, isDirector]);
+  }, [formDate, intervalAllowedByCurrentSelections, useClinicScheduleUi]);
 
   const availableEndTimes = useMemo(() => {
-    if (!isDirector || !formDate) return TIME_OPTIONS.filter((x) => hmToMinutes(x) > hmToMinutes(formStart));
+    if (!useClinicScheduleUi || !formDate)
+      return TIME_OPTIONS.filter((x) => hmToMinutes(x) > hmToMinutes(formStart));
     return TIME_OPTIONS.filter(
       (endHm) =>
         hmToMinutes(endHm) > hmToMinutes(formStart) &&
         intervalAllowedByCurrentSelections(formDate, formStart, endHm),
     );
-  }, [formDate, formStart, intervalAllowedByCurrentSelections, isDirector]);
+  }, [formDate, formStart, intervalAllowedByCurrentSelections, useClinicScheduleUi]);
 
   const detailIntervalAllowedBySelections = useCallback(
     (dateYmd: string, startHm: string, endHm: string) => {
-      if (!isDirector) return true;
+      if (!useClinicScheduleUi) return true;
       if (detailDentistId > 0) {
         const d = dentists.find((x) => x.id === detailDentistId);
         if (!d?.staff?.id || !staffAvailableAt(d.staff.id, dateYmd, startHm, endHm)) return false;
@@ -989,15 +1059,15 @@ const Schedule = () => {
       detailDentistId,
       detailNurseId,
       detailRoomId,
-      isDirector,
       nurses,
       roomAvailableAt,
       staffAvailableAt,
+      useClinicScheduleUi,
     ],
   );
 
   const detailAvailableDentists = useMemo(() => {
-    if (!isDirector || !editDate) return dentists;
+    if (!useClinicScheduleUi || !editDate) return dentists;
     return dentists.filter((d) => {
       const staffId = d.staff?.id;
       if (!staffId) return false;
@@ -1005,10 +1075,10 @@ const Schedule = () => {
         excludeRandevueId: detailId ?? undefined,
       });
     });
-  }, [dentists, detailId, editDate, editEnd, editStart, isDirector, staffAvailableAt]);
+  }, [dentists, detailId, editDate, editEnd, editStart, staffAvailableAt, useClinicScheduleUi]);
 
   const detailAvailableNurses = useMemo(() => {
-    if (!isDirector || !editDate) return nurses;
+    if (!useClinicScheduleUi || !editDate) return nurses;
     return nurses.filter((n) => {
       const staffId = n.staff?.id;
       if (!staffId) return false;
@@ -1016,15 +1086,15 @@ const Schedule = () => {
         excludeRandevueId: detailId ?? undefined,
       });
     });
-  }, [detailId, editDate, editEnd, editStart, isDirector, nurses, staffAvailableAt]);
+  }, [detailId, editDate, editEnd, editStart, nurses, staffAvailableAt, useClinicScheduleUi]);
 
   const detailAvailableRooms = useMemo(() => {
-    if (!isDirector || !editDate) return rooms;
+    if (!useClinicScheduleUi || !editDate) return rooms;
     return rooms.filter((r) => roomAvailableAt(r.id, editDate, editStart, editEnd));
-  }, [editDate, editEnd, editStart, isDirector, roomAvailableAt, rooms]);
+  }, [editDate, editEnd, editStart, roomAvailableAt, rooms, useClinicScheduleUi]);
 
   const detailAvailableStartTimes = useMemo(() => {
-    if (!isDirector || !editDate) return TIME_OPTIONS;
+    if (!useClinicScheduleUi || !editDate) return TIME_OPTIONS;
     return TIME_OPTIONS.filter((startHm) =>
       TIME_OPTIONS.some(
         (endHm) =>
@@ -1032,19 +1102,20 @@ const Schedule = () => {
           detailIntervalAllowedBySelections(editDate, startHm, endHm),
       ),
     );
-  }, [detailIntervalAllowedBySelections, editDate, isDirector]);
+  }, [detailIntervalAllowedBySelections, editDate, useClinicScheduleUi]);
 
   const detailAvailableEndTimes = useMemo(() => {
-    if (!isDirector || !editDate) return TIME_OPTIONS.filter((x) => hmToMinutes(x) > hmToMinutes(editStart));
+    if (!useClinicScheduleUi || !editDate)
+      return TIME_OPTIONS.filter((x) => hmToMinutes(x) > hmToMinutes(editStart));
     return TIME_OPTIONS.filter(
       (endHm) =>
         hmToMinutes(endHm) > hmToMinutes(editStart) &&
         detailIntervalAllowedBySelections(editDate, editStart, endHm),
     );
-  }, [detailIntervalAllowedBySelections, editDate, editStart, isDirector]);
+  }, [detailIntervalAllowedBySelections, editDate, editStart, useClinicScheduleUi]);
 
   useEffect(() => {
-    if (!isDirector) return;
+    if (!useClinicScheduleUi) return;
 
     if (
       formDentistId > 0 &&
@@ -1071,11 +1142,11 @@ const Schedule = () => {
     formDentistId,
     formNurseId,
     formRoomId,
-    isDirector,
+    useClinicScheduleUi,
   ]);
 
   useEffect(() => {
-    if (!isDirector) return;
+    if (!useClinicScheduleUi) return;
     if (!availableStartTimes.includes(formStart)) {
       setFormStart(availableStartTimes[0] ?? '09:00');
       return;
@@ -1087,10 +1158,10 @@ const Schedule = () => {
         '10:00';
       setFormEnd(fallback);
     }
-  }, [availableEndTimes, availableStartTimes, formEnd, formStart, isDirector]);
+  }, [availableEndTimes, availableStartTimes, formEnd, formStart, useClinicScheduleUi]);
 
   useEffect(() => {
-    if (!isDirector || detailId == null) return;
+    if (!useClinicScheduleUi || detailId == null) return;
 
     if (
       detailDentistId > 0 &&
@@ -1118,11 +1189,11 @@ const Schedule = () => {
     detailId,
     detailNurseId,
     detailRoomId,
-    isDirector,
+    useClinicScheduleUi,
   ]);
 
   useEffect(() => {
-    if (!isDirector || detailId == null) return;
+    if (!useClinicScheduleUi || detailId == null) return;
     if (!detailAvailableStartTimes.includes(editStart)) {
       setEditStart(detailAvailableStartTimes[0] ?? '09:00');
       return;
@@ -1140,7 +1211,7 @@ const Schedule = () => {
     detailId,
     editEnd,
     editStart,
-    isDirector,
+    useClinicScheduleUi,
   ]);
 
   const randevuesByColumnAndHour = useMemo(() => {
@@ -1302,7 +1373,7 @@ const Schedule = () => {
             <button
               type="button"
               onClick={() => {
-                if (!isDirector || viewMode === 'weekly') {
+                if (!useClinicScheduleUi || viewMode === 'weekly') {
                   setWeekAnchor(startOfWeekMonday(new Date()));
                 } else {
                   const today = new Date();
@@ -1317,28 +1388,28 @@ const Schedule = () => {
             <button
               type="button"
               onClick={() =>
-                !isDirector || viewMode === 'weekly'
+                !useClinicScheduleUi || viewMode === 'weekly'
                   ? setWeekAnchor((w) => addDays(w, -7))
                   : setDayAnchor((d) => addDays(d, -1))
               }
               className="p-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              aria-label={!isDirector || viewMode === 'weekly' ? t('prevWeek') : t('prevDay')}
+              aria-label={!useClinicScheduleUi || viewMode === 'weekly' ? t('prevWeek') : t('prevDay')}
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button
               type="button"
               onClick={() =>
-                !isDirector || viewMode === 'weekly'
+                !useClinicScheduleUi || viewMode === 'weekly'
                   ? setWeekAnchor((w) => addDays(w, 7))
                   : setDayAnchor((d) => addDays(d, 1))
               }
               className="p-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              aria-label={!isDirector || viewMode === 'weekly' ? t('nextWeek') : t('nextDay')}
+              aria-label={!useClinicScheduleUi || viewMode === 'weekly' ? t('nextWeek') : t('nextDay')}
             >
               <ChevronRight className="w-5 h-5" />
             </button>
-            {isDirector && (
+            {useClinicScheduleUi && (
               <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden bg-white">
                 <button
                   type="button"
@@ -1370,6 +1441,22 @@ const Schedule = () => {
             >
               {t('newRandevue')}
             </button>
+            {isDentistUser && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBlockingModalOpen(true);
+                  setBlockFormDate(formatYmd(new Date()));
+                  setBlockFormStart('09:00');
+                  setBlockFormEnd('10:00');
+                  setBlockFormRoomId(0);
+                  setBlockSubmitError(null);
+                }}
+                className="px-4 py-2.5 rounded-lg border border-amber-400 bg-amber-50 text-amber-900 text-sm font-semibold shadow-sm hover:bg-amber-100"
+              >
+                {t('newBlocking')}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1394,9 +1481,9 @@ const Schedule = () => {
               </div>
 
               <div className="flex flex-1">
-                {(isDirector ? activeColumns : weeklyColumns).map((column) => {
+                {(useClinicScheduleUi ? activeColumns : weeklyColumns).map((column) => {
                   const weeklyColumn = column as (typeof weeklyColumns)[number];
-                  const isWeekly = !isDirector || viewMode === 'weekly';
+                  const isWeekly = !useClinicScheduleUi || viewMode === 'weekly';
                   const cellDay = isWeekly ? weeklyColumn.day : dayAnchor;
                   const isToday = isWeekly ? weeklyColumn.isToday : formatYmd(dayAnchor) === formatYmd(new Date());
 
@@ -1417,7 +1504,7 @@ const Schedule = () => {
                       </div>
                       <div className="relative" style={{ height: DAY_PX }}>
                         {DISPLAY_HOURS.map((h, slot) => {
-                          if (!isDirector) {
+                          if (!useClinicScheduleUi) {
                             return (
                               <button
                                 key={`${column.key}-${slot}-${h}`}
@@ -1476,7 +1563,43 @@ const Schedule = () => {
                             </button>
                           );
                         })}
-                        {!isDirector &&
+                        {useClinicScheduleUi &&
+                          scheduleBlockingHours
+                            .filter((bh) => {
+                              const s = new Date(bh.startTime);
+                              const e = new Date(bh.endTime);
+                              if (viewMode === 'weekly') {
+                                return overlapsLocalDay(s, e, weeklyColumn.day);
+                              }
+                              if (viewMode === 'dailyRooms') {
+                                const rid = (column as (typeof roomColumns)[number]).roomId;
+                                if (bh.roomId !== rid) return false;
+                                return overlapsLocalDay(s, e, dayAnchor);
+                              }
+                              const dent = column as (typeof dentistColumns)[number];
+                              const dstaff = dentists.find((d) => d.id === dent.dentistId)?.staff?.id;
+                              if (bh.staffId == null || dstaff !== bh.staffId) return false;
+                              return overlapsLocalDay(s, e, dayAnchor);
+                            })
+                            .flatMap((bh) => {
+                              const s = new Date(bh.startTime);
+                              const e = new Date(bh.endTime);
+                              const day = viewMode === 'weekly' ? weeklyColumn.day : dayAnchor;
+                              const segs = layoutSegments(day, s, e);
+                              return segs.map((seg, segIdx) => (
+                                <div
+                                  key={`bh-${bh.id}-${column.key}-${segIdx}`}
+                                  className="absolute left-0.5 right-0.5 rounded-md bg-amber-500/85 text-white text-[10px] px-1 py-0.5 shadow-sm z-[12] pointer-events-none overflow-hidden"
+                                  style={{ top: seg.top, height: seg.height }}
+                                  title={bh.name?.trim() || t('blockingFallbackLabel')}
+                                >
+                                  <span className="block truncate font-semibold">
+                                    {bh.name?.trim() || t('blockingFallbackLabel')}
+                                  </span>
+                                </div>
+                              ));
+                            })}
+                        {!useClinicScheduleUi &&
                           randevues.flatMap((r) => {
                             const s = new Date(r.date);
                             const e = new Date(r.endTime);
@@ -1565,7 +1688,7 @@ const Schedule = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
-                    {isDirector ? (
+                    {useClinicScheduleUi ? (
                       <select
                         value={editStart}
                         onChange={(e) => setEditStart(e.target.value)}
@@ -1588,7 +1711,7 @@ const Schedule = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
-                    {isDirector ? (
+                    {useClinicScheduleUi ? (
                       <select
                         value={editEnd}
                         onChange={(e) => setEditEnd(e.target.value)}
@@ -1626,7 +1749,7 @@ const Schedule = () => {
                   </select>
                 </div>
 
-                {isDirector && (
+                {useClinicScheduleUi && (
                   <div className="grid grid-cols-1 gap-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('room')}</label>
@@ -1658,23 +1781,25 @@ const Schedule = () => {
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('nurse')}</label>
-                      <select
-                        value={detailNurseId || ''}
-                        onChange={(e) => setDetailNurseId(Number(e.target.value) || 0)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      >
-                        <option value="">{t('selectNurse')}</option>
-                        {detailAvailableNurses.map((nurse) => (
-                          <option key={nurse.id} value={nurse.id}>
-                            {nurse.staff?.surname && nurse.staff?.name
-                              ? `${nurse.staff.surname}, ${nurse.staff.name}`
-                              : `#${nurse.id}`}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {isDirector && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('nurse')}</label>
+                        <select
+                          value={detailNurseId || ''}
+                          onChange={(e) => setDetailNurseId(Number(e.target.value) || 0)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                        >
+                          <option value="">{t('selectNurse')}</option>
+                          {detailAvailableNurses.map((nurse) => (
+                            <option key={nurse.id} value={nurse.id}>
+                              {nurse.staff?.surname && nurse.staff?.name
+                                ? `${nurse.staff.surname}, ${nurse.staff.name}`
+                                : `#${nurse.id}`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1831,7 +1956,7 @@ const Schedule = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
-                  {isDirector ? (
+                  {useClinicScheduleUi ? (
                     <select
                       value={formStart}
                       onChange={(e) => setFormStart(e.target.value)}
@@ -1854,7 +1979,7 @@ const Schedule = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
-                  {isDirector ? (
+                  {useClinicScheduleUi ? (
                     <select
                       value={formEnd}
                       onChange={(e) => setFormEnd(e.target.value)}
@@ -1905,7 +2030,7 @@ const Schedule = () => {
                 </select>
               </div>
 
-              {isDirector && (
+              {useClinicScheduleUi && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{t('room')}</label>
@@ -1937,23 +2062,25 @@ const Schedule = () => {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('nurse')}</label>
-                    <select
-                      value={formNurseId || ''}
-                      onChange={(e) => setFormNurseId(Number(e.target.value) || 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    >
-                      <option value="">{t('selectNurse')}</option>
-                      {availableNurses.map((nurse) => (
-                        <option key={nurse.id} value={nurse.id}>
-                          {nurse.staff?.surname && nurse.staff?.name
-                            ? `${nurse.staff.surname}, ${nurse.staff.name}`
-                            : `#${nurse.id}`}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {isDirector && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('nurse')}</label>
+                      <select
+                        value={formNurseId || ''}
+                        onChange={(e) => setFormNurseId(Number(e.target.value) || 0)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      >
+                        <option value="">{t('selectNurse')}</option>
+                        {availableNurses.map((nurse) => (
+                          <option key={nurse.id} value={nurse.id}>
+                            {nurse.staff?.surname && nurse.staff?.name
+                              ? `${nurse.staff.surname}, ${nurse.staff.name}`
+                              : `#${nurse.id}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2082,6 +2209,91 @@ const Schedule = () => {
                   className="px-4 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-50"
                 >
                   {submitBusy ? t('creating') : t('submit')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {blockingModalOpen && isDentistUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+          onClick={() => setBlockingModalOpen(false)}
+          role="presentation"
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <h2 className="text-xl font-bold text-gray-900 mb-2">{t('blockingModalTitle')}</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              {t('blockingStaffLabel')}:{' '}
+              <span className="font-semibold text-gray-900">{blockingStaffLabel || '—'}</span>
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('date')}</label>
+                <input
+                  type="date"
+                  value={blockFormDate}
+                  onChange={(e) => setBlockFormDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
+                  <input
+                    type="time"
+                    value={blockFormStart}
+                    onChange={(e) => setBlockFormStart(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
+                  <input
+                    type="time"
+                    value={blockFormEnd}
+                    onChange={(e) => setBlockFormEnd(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('room')}</label>
+                <select
+                  value={blockFormRoomId || ''}
+                  onChange={(e) => setBlockFormRoomId(Number(e.target.value) || 0)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="">{t('blockingRoomOptional')}</option>
+                  {rooms.map((room) => (
+                    <option key={room.id} value={room.id}>
+                      {room.number ? `Room ${room.number}` : room.description || `Room #${room.id}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {blockSubmitError && <p className="text-sm text-red-600">{blockSubmitError}</p>}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setBlockingModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  {t('cancel')}
+                </button>
+                <button
+                  type="button"
+                  disabled={blockSubmitBusy}
+                  onClick={() => void handleSubmitBlocking()}
+                  className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {blockSubmitBusy ? t('creating') : t('blockingSubmit')}
                 </button>
               </div>
             </div>

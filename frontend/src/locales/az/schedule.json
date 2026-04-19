@@ -54,5 +54,12 @@
   "detailNotFound": "Bu randevu cədvəldə yoxdur.",
   "tooltipStartDate": "Başlama tarixi",
   "noNote": "—",
-  "currentAppointmentLink": "cari bağlantı (açıq siyahıda yoxdur)"
+  "currentAppointmentLink": "cari bağlantı (açıq siyahıda yoxdur)",
+  "newBlocking": "Vaxtı blokla",
+  "blockingModalTitle": "Təqvimdə vaxtı blokla",
+  "blockingStaffLabel": "Heyət",
+  "blockingRoomOptional": "Otaq (istəyə bağlı)",
+  "blockingSubmit": "Bloku saxla",
+  "blockingCreateError": "Bloklama saxlanılmadı.",
+  "blockingFallbackLabel": "Bloklanıb"
 }

@@ -37,6 +37,18 @@ export class BlockingHoursRepository {
     if (!room) throw new Error('Room not found');
   }
 
+  async getStaffDisplayName(
+    staffId: number,
+    contextDentistId: number,
+  ): Promise<string> {
+    const clinicId = await this.getClinicIdForDentist(contextDentistId);
+    const staff = await this.dataSource.getRepository(Staff).findOne({
+      where: { id: staffId, clinicId },
+    });
+    if (!staff) throw new Error('Staff not found');
+    return `${staff.name ?? ''} ${staff.surname ?? ''}`.trim();
+  }
+
   async createForDentist(
     dentistId: number,
     input: {
@@ -44,13 +56,14 @@ export class BlockingHoursRepository {
       endTime: string;
       staffId?: number;
       roomId?: number;
+      name?: string | null;
     },
   ): Promise<BlockingHours> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
 
-    if (input.staffId !== undefined)
+    if (input.staffId !== undefined && input.staffId !== null)
       await this.ensureStaffInClinic(input.staffId, clinicId);
-    if (input.roomId !== undefined)
+    if (input.roomId !== undefined && input.roomId !== null)
       await this.ensureRoomInClinic(input.roomId, clinicId);
 
     const created = this.repo.create({
@@ -58,6 +71,7 @@ export class BlockingHoursRepository {
       endTime: new Date(input.endTime),
       staffId: input.staffId ?? null,
       roomId: input.roomId ?? null,
+      name: input.name ?? null,
     });
     return await this.repo.save(created);
   }
@@ -106,6 +120,7 @@ export class BlockingHoursRepository {
       endTime?: string;
       staffId?: number;
       roomId?: number;
+      name?: string | null;
     },
   ): Promise<BlockingHours> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
@@ -133,6 +148,7 @@ export class BlockingHoursRepository {
       existing.startTime = new Date(updates.startTime);
     if (updates.endTime !== undefined)
       existing.endTime = new Date(updates.endTime);
+    if (updates.name !== undefined) existing.name = updates.name;
 
     return await this.repo.save(existing);
   }

@@ -42,7 +42,9 @@ export class RandevueController {
   async findAll(@User() user: any, @Query() dto: GetRandevueQueryDto) {
     const raw = user?.userId ?? user?.sub ?? user?.dentistId;
     const dentistId = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
-    return await this.service.findAll(dentistId, dto);
+    const role =
+      typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
+    return await this.service.findAll(dentistId, dto, role);
   }
 
   @ApiBearerAuth('bearer')
@@ -54,7 +56,8 @@ export class RandevueController {
   async create(@User() user: any, @Body() dto: CreateRandevueDto) {
     const raw = user?.userId ?? user?.sub ?? user?.dentistId;
     const dentistId = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
-    const role = typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
+    const role =
+      typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
     return await this.service.create(dentistId, dto, role);
   }
 
@@ -71,6 +74,8 @@ export class RandevueController {
   ) {
     const raw = user?.userId ?? user?.sub ?? user?.dentistId;
     const dentistId = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
-    return await this.service.update(dentistId, id, dto);
+    const role =
+      typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
+    return await this.service.update(dentistId, id, dto, role);
   }
 }

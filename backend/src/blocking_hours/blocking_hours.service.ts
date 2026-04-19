@@ -16,9 +16,37 @@ export class BlockingHoursService {
 
   constructor(private readonly repo: BlockingHoursRepository) {}
 
-  async create(dentistId: number, dto: CreateBlockingHoursDto) {
+  async create(dentistId: number, dto: CreateBlockingHoursDto, user?: any) {
+    const role = (user?.role ?? '').toLowerCase();
+    const rawStaff = user?.staffId;
+    const jwtStaffId =
+      typeof rawStaff === 'number'
+        ? rawStaff
+        : typeof rawStaff === 'string'
+          ? parseInt(rawStaff, 10)
+          : NaN;
+
+    let staffId = dto.staffId;
+    let name =
+      dto.name != null && dto.name.trim() !== '' ? dto.name.trim().slice(0, 127) : null;
+
+    if (role === 'dentist') {
+      if (!Number.isFinite(jwtStaffId) || jwtStaffId < 1) {
+        throw new BadRequestException('Staff context missing for dentist');
+      }
+      staffId = jwtStaffId;
+      const display = await this.repo.getStaffDisplayName(jwtStaffId, dentistId);
+      name = display.slice(0, 127) || null;
+    }
+
     try {
-      const created = await this.repo.createForDentist(dentistId, dto);
+      const created = await this.repo.createForDentist(dentistId, {
+        startTime: dto.startTime,
+        endTime: dto.endTime,
+        staffId,
+        roomId: dto.roomId,
+        name,
+      });
       const msg = `Dentist with id ${dentistId} created BlockingHours with id ${created.id}`;
       this.logger.log(msg);
       LogWriter.append('log', BlockingHoursService.name, msg);
@@ -36,9 +64,37 @@ export class BlockingHoursService {
     return await this.repo.findForDentist(dentistId, dto);
   }
 
-  async patch(dentistId: number, id: number, dto: UpdateBlockingHoursDto) {
+  async patch(dentistId: number, id: number, dto: UpdateBlockingHoursDto, user?: any) {
+    const role = (user?.role ?? '').toLowerCase();
+    const rawStaff = user?.staffId;
+    const jwtStaffId =
+      typeof rawStaff === 'number'
+        ? rawStaff
+        : typeof rawStaff === 'string'
+          ? parseInt(rawStaff, 10)
+          : NaN;
+
+    if (role === 'dentist') {
+      const rows = await this.repo.findForDentist(dentistId, { id });
+      const existing = rows[0];
+      if (!existing || existing.staffId !== jwtStaffId) {
+        throw new NotFoundException('Blocking hours not found');
+      }
+    }
+
     try {
-      const updated = await this.repo.updateForDentist(dentistId, id, dto);
+      const payload: {
+        startTime?: string;
+        endTime?: string;
+        staffId?: number;
+        roomId?: number;
+        name?: string | null;
+      } = { ...dto };
+      if (dto.name !== undefined && dto.name !== null) {
+        const trimmed = dto.name.trim();
+        payload.name = trimmed === '' ? null : trimmed.slice(0, 127);
+      }
+      const updated = await this.repo.updateForDentist(dentistId, id, payload);
       const msg = `Dentist with id ${dentistId} updated BlockingHours with id ${updated.id}`;
       this.logger.log(msg);
       LogWriter.append('log', BlockingHoursService.name, msg);
@@ -54,7 +110,24 @@ export class BlockingHoursService {
     }
   }
 
-  async delete(dentistId: number, id: number) {
+  async delete(dentistId: number, id: number, user?: any) {
+    const role = (user?.role ?? '').toLowerCase();
+    const rawStaff = user?.staffId;
+    const jwtStaffId =
+      typeof rawStaff === 'number'
+        ? rawStaff
+        : typeof rawStaff === 'string'
+          ? parseInt(rawStaff, 10)
+          : NaN;
+
+    if (role === 'dentist') {
+      const rows = await this.repo.findForDentist(dentistId, { id });
+      const existing = rows[0];
+      if (!existing || existing.staffId !== jwtStaffId) {
+        throw new NotFoundException('Blocking hours not found');
+      }
+    }
+
     try {
       await this.repo.deleteForDentist(dentistId, id);
       const msg = `Dentist with id ${dentistId} deleted BlockingHours with id ${id}`;

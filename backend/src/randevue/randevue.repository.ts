@@ -387,6 +387,22 @@ export class RandevueRepository {
       .getOne();
   }
 
+  async findByIdInClinic(dentistId: number, id: number): Promise<Randevue | null> {
+    const clinicId = await this.getClinicIdForDentist(dentistId);
+    return this.repo
+      .createQueryBuilder('r')
+      .innerJoinAndSelect('r.patient', 'pt')
+      .innerJoinAndSelect('pt.clinic', 'ptclinic')
+      .leftJoinAndSelect('r.appointment', 'appt')
+      .leftJoinAndSelect('appt.patient', 'apptPt')
+      .leftJoinAndSelect('r.room', 'rm')
+      .leftJoinAndSelect('r.nurse', 'nv')
+      .leftJoinAndSelect('r.dentist', 'rdentist')
+      .where('r.id = :id', { id })
+      .andWhere('ptclinic.id = :clinicId', { clinicId })
+      .getOne();
+  }
+
   async saveEntity(entity: Randevue): Promise<Randevue> {
     return this.repo.save(entity);
   }

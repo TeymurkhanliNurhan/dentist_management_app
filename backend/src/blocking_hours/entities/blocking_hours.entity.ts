@@ -25,6 +25,9 @@ export class BlockingHours {
   @Column({ name: 'room', type: 'int', nullable: true })
   roomId: number | null;
 
+  @Column({ type: 'varchar', length: 127, nullable: true })
+  name: string | null;
+
   @ManyToOne(() => Staff, (staff) => staff.blockingHours, {
     nullable: true,
     onDelete: 'RESTRICT',

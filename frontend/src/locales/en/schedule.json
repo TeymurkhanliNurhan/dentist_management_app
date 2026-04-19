@@ -54,5 +54,12 @@
   "detailNotFound": "This randevue is no longer on the schedule.",
   "tooltipStartDate": "Start date",
   "noNote": "—",
-  "currentAppointmentLink": "current link (not in open list)"
+  "currentAppointmentLink": "current link (not in open list)",
+  "newBlocking": "Block time",
+  "blockingModalTitle": "Block calendar time",
+  "blockingStaffLabel": "Staff",
+  "blockingRoomOptional": "Room (optional)",
+  "blockingSubmit": "Save block",
+  "blockingCreateError": "Could not save blocking time.",
+  "blockingFallbackLabel": "Blocked"
 }
