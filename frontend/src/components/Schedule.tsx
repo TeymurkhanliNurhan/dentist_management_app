@@ -993,6 +993,15 @@ const Schedule = () => {
     return map;
   }, [dentists, t]);
 
+  const nurseFullNameByNurseId = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const n of nurses) {
+      const label = `${n.staff?.name ?? ''} ${n.staff?.surname ?? ''}`.trim();
+      map.set(n.id, label || t('nurse'));
+    }
+    return map;
+  }, [nurses, t]);
+
   const randevuesForClinicGrid = useMemo(() => {
     if (!useClinicScheduleUi) return randevues;
     if (!isDirector || viewMode !== 'weekly') return randevues;
@@ -1906,10 +1915,9 @@ const Schedule = () => {
                             >
                               <div className="flex gap-1">
                                 {list.map((r) => {
-                                  const weeklyHex =
-                                    isDirector && viewMode === 'weekly'
-                                      ? dentistWeeklyHexByDentistId.get(r.dentist?.id ?? 0) ?? '#64748b'
-                                      : null;
+                                  const weeklyHex = isDirector
+                                    ? dentistWeeklyHexByDentistId.get(r.dentist?.id ?? 0) ?? '#64748b'
+                                    : null;
                                   return (
                                     <div
                                       key={`${column.key}-${h}-${r.id}`}
@@ -2474,6 +2482,11 @@ const Schedule = () => {
           {hoverTip.r.dentist?.id != null && (
             <p className="text-gray-200 mt-1">
               {t('doctor')}: {dentistFullNameByDentistId.get(hoverTip.r.dentist.id) ?? t('dentistUnknown')}
+            </p>
+          )}
+          {hoverTip.r.nurse?.id != null && (
+            <p className="text-gray-200 mt-1">
+              {t('nurse')}: {nurseFullNameByNurseId.get(hoverTip.r.nurse.id) ?? `#${hoverTip.r.nurse.id}`}
             </p>
           )}
           <p className="text-gray-200 mt-1">
