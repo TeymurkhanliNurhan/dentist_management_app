@@ -70,5 +70,11 @@
   "blockingUpdateError": "Не удалось обновить блокировку.",
   "blockingDelete": "Удалить блок",
   "blockingDeleting": "Удаление…",
-  "blockingDeleteError": "Не удалось удалить блокировку."
+  "blockingDeleteError": "Не удалось удалить блокировку.",
+  "directorWeeklyFilterDentists": "Врачи на расписании",
+  "directorWeeklyAllDentists": "Все врачи",
+  "directorWeeklyFilterTypes": "Что показывать",
+  "directorWeeklyAllTypes": "Всё",
+  "directorWeeklyLayerRandevues": "Записи (randevue)",
+  "directorWeeklyLayerBlocking": "Блокировки"
 }

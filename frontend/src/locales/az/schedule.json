@@ -70,5 +70,11 @@
   "blockingUpdateError": "Blok yenilənmədi.",
   "blockingDelete": "Bloku sil",
   "blockingDeleting": "Silinir…",
-  "blockingDeleteError": "Blok silinmədi."
+  "blockingDeleteError": "Blok silinmədi.",
+  "directorWeeklyFilterDentists": "Cədvəldə diş həkimləri",
+  "directorWeeklyAllDentists": "Bütün diş həkimləri",
+  "directorWeeklyFilterTypes": "Nə göstərilsin",
+  "directorWeeklyAllTypes": "Hamısı",
+  "directorWeeklyLayerRandevues": "Randevular",
+  "directorWeeklyLayerBlocking": "Blok saatları"
 }

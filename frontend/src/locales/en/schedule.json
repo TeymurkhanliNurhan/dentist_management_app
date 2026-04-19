@@ -70,5 +70,11 @@
   "blockingUpdateError": "Could not update blocking time.",
   "blockingDelete": "Delete block",
   "blockingDeleting": "Deleting…",
-  "blockingDeleteError": "Could not delete blocking time."
+  "blockingDeleteError": "Could not delete blocking time.",
+  "directorWeeklyFilterDentists": "Dentists on schedule",
+  "directorWeeklyAllDentists": "All dentists",
+  "directorWeeklyFilterTypes": "What to show",
+  "directorWeeklyAllTypes": "All",
+  "directorWeeklyLayerRandevues": "Randevues",
+  "directorWeeklyLayerBlocking": "Blocking hours"
 }
