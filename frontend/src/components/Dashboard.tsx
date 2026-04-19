@@ -17,6 +17,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import api from '../services/api';
+import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 
 const TILE_IMAGE_QUERY = '?v=2';
 
@@ -29,6 +30,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const [directorStaff, setDirectorStaff] = useState<StaffSummary | null>(null);
 
@@ -108,12 +110,8 @@ const Dashboard = () => {
       { label: 'Finance', icon: Wallet, path: '/appointments' },
     ];
 
-    const directorFooterItems = [
-      { label: 'Help', icon: CircleHelp },
-      { label: 'Logout', icon: LogOut },
-    ];
-
     return (
+      <>
       <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
         <header className="h-16 border-b border-slate-200 bg-white px-6">
           <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between">
@@ -178,16 +176,22 @@ const Dashboard = () => {
               </nav>
 
               <div className="space-y-1 px-3">
-                {directorFooterItems.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
-                  >
-                    <item.icon size={16} />
-                    {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => navigate('/contact')}
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
+                >
+                  <CircleHelp size={16} />
+                  {isSidebarOpen && <span className="ml-3 truncate">Help</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutConfirm(true)}
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
+                >
+                  <LogOut size={16} />
+                  {isSidebarOpen && <span className="ml-3 truncate">Logout</span>}
+                </button>
               </div>
             </div>
           </aside>
@@ -195,6 +199,15 @@ const Dashboard = () => {
           <main className="h-[calc(100vh-4rem)] flex-1 bg-[#f9fafb]" />
         </div>
       </div>
+      <LogoutConfirmModal
+        open={showLogoutConfirm}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          performLogout(navigate);
+          setShowLogoutConfirm(false);
+        }}
+      />
+      </>
     );
   }
 

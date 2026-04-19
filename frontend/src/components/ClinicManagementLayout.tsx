@@ -12,6 +12,7 @@ import {
   Users,
   Wallet,
 } from 'lucide-react';
+import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 
 const menuItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
@@ -29,19 +30,11 @@ function isNavActive(itemPath: string, pathname: string): boolean {
   return false;
 }
 
-function signOutAndRedirect(navigate: ReturnType<typeof useNavigate>) {
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('dentistId');
-  localStorage.removeItem('staffId');
-  localStorage.removeItem('clinicId');
-  localStorage.removeItem('role');
-  navigate('/login');
-}
-
 export default function ClinicManagementLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
@@ -95,7 +88,7 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
               </button>
               <button
                 type="button"
-                onClick={() => signOutAndRedirect(navigate)}
+                onClick={() => setShowLogoutConfirm(true)}
                 className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
               >
                 <LogOut size={16} />
@@ -106,6 +99,14 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
         </aside>
         <div className="relative h-[calc(100vh-4rem)] flex-1 overflow-auto bg-[#f9fafb] px-6 py-6">{children}</div>
       </div>
+      <LogoutConfirmModal
+        open={showLogoutConfirm}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          performLogout(navigate);
+          setShowLogoutConfirm(false);
+        }}
+      />
     </div>
   );
 }

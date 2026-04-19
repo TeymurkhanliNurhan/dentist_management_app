@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Header from './Header';
 import { useNavigate } from 'react-router-dom';
+import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import {
   Bell,
   CalendarDays,
@@ -268,6 +269,7 @@ const Schedule = () => {
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [directorStaff, setDirectorStaff] = useState<StaffSummary | null>(null);
   const [weekAnchor, setWeekAnchor] = useState(() => startOfWeekMonday(new Date()));
   const [dayAnchor, setDayAnchor] = useState(() => {
@@ -1185,12 +1187,8 @@ const Schedule = () => {
     { label: 'Staff/Doctors', icon: Users, path: '/settings' },
     { label: 'Finance', icon: Wallet, path: '/appointments' },
   ];
-  const directorFooterItems = [
-    { label: 'Help', icon: CircleHelp },
-    { label: 'Logout', icon: LogOut },
-  ];
-
   return (
+    <>
     <div className={isDirector ? 'min-h-screen bg-[#f4f6f8] text-slate-700' : 'min-h-screen bg-slate-50 flex flex-col'}>
       {!isDirector && <Header />}
 
@@ -1268,16 +1266,22 @@ const Schedule = () => {
               </nav>
 
               <div className="space-y-1 px-3">
-                {directorFooterItems.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
-                  >
-                    <item.icon size={16} />
-                    {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => navigate('/contact')}
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
+                >
+                  <CircleHelp size={16} />
+                  {isSidebarOpen && <span className="ml-3 truncate">Help</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutConfirm(true)}
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
+                >
+                  <LogOut size={16} />
+                  {isSidebarOpen && <span className="ml-3 truncate">Logout</span>}
+                </button>
               </div>
             </div>
           </aside>
@@ -2085,6 +2089,15 @@ const Schedule = () => {
         </div>
       )}
     </div>
+    <LogoutConfirmModal
+      open={showLogoutConfirm}
+      onCancel={() => setShowLogoutConfirm(false)}
+      onConfirm={() => {
+        performLogout(navigate);
+        setShowLogoutConfirm(false);
+      }}
+    />
+    </>
   );
 };
 

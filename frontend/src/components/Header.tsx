@@ -3,6 +3,7 @@ import { Home, Settings, Mail, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { dentistService } from '../services/api';
+import { performLogout } from './LogoutConfirmModal';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -51,13 +52,8 @@ const Header = () => {
   }, []);
 
   const handleSignOut = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('dentistId');
-    localStorage.removeItem('staffId');
-    localStorage.removeItem('clinicId');
-    localStorage.removeItem('role');
     setShowSignOutConfirm(false);
-    navigate('/login');
+    performLogout(navigate);
   };
 
   const languages = [

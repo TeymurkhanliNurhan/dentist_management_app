@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
+import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { appointmentService, patientService, toothTreatmentService } from '../services/api';
 import type { Patient, PatientFilters, CreatePatientDto, ToothTreatment } from '../services/api';
 import { useTranslation } from 'react-i18next';
@@ -52,6 +53,7 @@ const Patients = () => {
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
 
   const directorMenuItems = [
@@ -61,11 +63,6 @@ const Patients = () => {
     { label: 'Inventory', icon: Package, path: '/medicines' },
     { label: 'Staff/Doctors', icon: Users, path: '/settings' },
     { label: 'Finance', icon: Wallet, path: '/appointments' },
-  ];
-
-  const directorFooterItems = [
-    { label: 'Help', icon: CircleHelp },
-    { label: 'Logout', icon: LogOut },
   ];
 
   useEffect(() => {
@@ -204,6 +201,7 @@ const Patients = () => {
 
   if (role === 'director') {
     return (
+      <>
       <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
         <header className="h-16 border-b border-slate-200 bg-white px-6">
           <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between">
@@ -252,16 +250,22 @@ const Patients = () => {
                 ))}
               </nav>
               <div className="space-y-1 px-3">
-                {directorFooterItems.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
-                  >
-                    <item.icon size={16} />
-                    {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => navigate('/contact')}
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
+                >
+                  <CircleHelp size={16} />
+                  {isSidebarOpen && <span className="ml-3 truncate">Help</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutConfirm(true)}
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
+                >
+                  <LogOut size={16} />
+                  {isSidebarOpen && <span className="ml-3 truncate">Logout</span>}
+                </button>
               </div>
             </div>
           </aside>
@@ -488,6 +492,15 @@ const Patients = () => {
           </div>
         )}
       </div>
+      <LogoutConfirmModal
+        open={showLogoutConfirm}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          performLogout(navigate);
+          setShowLogoutConfirm(false);
+        }}
+      />
+      </>
     );
   }
 

@@ -112,6 +112,11 @@ export interface DentistProfile {
 
 let currentDentistProfilePromise: Promise<DentistProfile | null> | null = null;
 
+/** Clears cached dentist profile so the next session fetches fresh data after login. */
+export function resetCachedDentistProfile() {
+  currentDentistProfilePromise = null;
+}
+
 const getCurrentDentistProfile = async (): Promise<DentistProfile | null> => {
   if (currentDentistProfilePromise) return currentDentistProfilePromise;
 
