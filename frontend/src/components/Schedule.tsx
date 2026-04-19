@@ -33,12 +33,13 @@ import {
   type UpdateRandevueDto,
 } from '../services/api';
 
-/** First row of the grid (top) — full 24h still shown, order is 08:00 … 23:00 then 00:00 … 07:00 */
+/** Visible schedule window (top->bottom): 08:00 ... 21:00 (end boundary 22:00). */
 const SCHEDULE_START_HOUR = 8;
-const HOURS_IN_DAY = 24;
-const DISPLAY_HOURS = Array.from({ length: HOURS_IN_DAY }, (_, i) => (SCHEDULE_START_HOUR + i) % HOURS_IN_DAY);
-const HOUR_PX = 48;
-const DAY_PX = HOURS_IN_DAY * HOUR_PX;
+const SCHEDULE_END_HOUR = 22;
+const VISIBLE_HOURS = SCHEDULE_END_HOUR - SCHEDULE_START_HOUR;
+const DISPLAY_HOURS = Array.from({ length: VISIBLE_HOURS }, (_, i) => SCHEDULE_START_HOUR + i);
+const HOUR_PX = 56;
+const DAY_PX = VISIBLE_HOURS * HOUR_PX;
 
 /** Distinct colours for weekly director view (one stable colour per dentist column order). */
 const WEEKLY_DENTIST_HEX_COLORS = [
@@ -119,49 +120,30 @@ function overlapsLocalDay(start: Date, end: Date, day: Date): boolean {
   return start < d1 && end > d0;
 }
 
-/** Y-offset from top of column where 08:00 = 0 and 07:59 = bottom (wraps midnight-08:00 after 23:00). */
-function offsetMsFromScheduleStart(midnight: Date, eightAm: Date, t: Date): number {
-  const tms = t.getTime();
-  if (tms >= eightAm.getTime()) return tms - eightAm.getTime();
-  return 16 * 3600000 + (tms - midnight.getTime());
+/** Y-offset from top of column where 08:00 = 0 inside the visible window. */
+function offsetMsFromScheduleStart(visibleStart: Date, t: Date): number {
+  return t.getTime() - visibleStart.getTime();
 }
 
 /**
- * One or two rectangles when an interval crosses 08:00 on the same calendar day.
+ * Visible rectangle(s) for the day clipped to the 08:00-22:00 schedule window.
  */
 function layoutSegments(day: Date, start: Date, end: Date): { top: number; height: number }[] {
-  const { start: midnight, next: dayAfter } = dayBoundsLocal(day);
-  if (end <= midnight || start >= dayAfter) return [];
-  const visStart = start > midnight ? start : midnight;
-  const visEnd = end < dayAfter ? end : dayAfter;
+  const { start: midnight } = dayBoundsLocal(day);
+  const visibleStart = new Date(midnight);
+  visibleStart.setHours(SCHEDULE_START_HOUR, 0, 0, 0);
+  const visibleEnd = new Date(midnight);
+  visibleEnd.setHours(SCHEDULE_END_HOUR, 0, 0, 0);
+
+  if (end <= visibleStart || start >= visibleEnd) return [];
+  const visStart = start > visibleStart ? start : visibleStart;
+  const visEnd = end < visibleEnd ? end : visibleEnd;
   if (visEnd <= visStart) return [];
 
-  const eightAm = new Date(midnight);
-  eightAm.setHours(SCHEDULE_START_HOUR, 0, 0, 0);
-
-  const totalMs = 24 * 3600000;
-
-  const piece = (a: Date, b: Date): { top: number; height: number } | null => {
-    if (b <= a) return null;
-    const top = (offsetMsFromScheduleStart(midnight, eightAm, a) / totalMs) * DAY_PX;
-    const h =
-      ((offsetMsFromScheduleStart(midnight, eightAm, b) - offsetMsFromScheduleStart(midnight, eightAm, a)) /
-        totalMs) *
-      DAY_PX;
-    return { top, height: Math.max(h, 20) };
-  };
-
-  const out: { top: number; height: number }[] = [];
-  if (visStart < eightAm && visEnd > eightAm) {
-    const p1 = piece(visStart, eightAm);
-    const p2 = piece(eightAm, visEnd);
-    if (p1) out.push(p1);
-    if (p2) out.push(p2);
-  } else {
-    const p = piece(visStart, visEnd);
-    if (p) out.push(p);
-  }
-  return out;
+  const totalMs = VISIBLE_HOURS * 3600000;
+  const top = (offsetMsFromScheduleStart(visibleStart, visStart) / totalMs) * DAY_PX;
+  const height = ((visEnd.getTime() - visStart.getTime()) / totalMs) * DAY_PX;
+  return [{ top, height: Math.max(height, 20) }];
 }
 
 function formatHourLabel24(hour: number): string {
