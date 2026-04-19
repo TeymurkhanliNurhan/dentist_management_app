@@ -35,41 +35,41 @@ api.interceptors.request.use(
 
 export const authService = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    const response = await api.post<LoginResponse>('/auth/signin', credentials);
+    const response = await api.post<LoginResponse>('/Auth/SignIn', credentials);
     return response.data;
   },
   register: async (registerData: RegisterRequest): Promise<RegisterResponse> => {
-    const response = await api.post<RegisterResponse>('/auth/register', registerData);
+    const response = await api.post<RegisterResponse>('/Auth/Register', registerData);
     return response.data;
   },
   verifyEmail: async (email: string, code: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/auth/verifyemail', {
+    const response = await api.post<{ message: string }>('/Auth/VerifyEmail', {
       gmail: email,
       code,
     });
     return response.data;
   },
   resendVerificationCode: async (email: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/auth/resendverificationcode', {
+    const response = await api.post<{ message: string }>('/Auth/ResendVerificationCode', {
       gmail: email,
     });
     return response.data;
   },
   forgotPassword: async (email: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/auth/password-reset/code-request', {
+    const response = await api.post<{ message: string }>('/Auth/password-reset/code-request', {
       email,
     });
     return response.data;
   },
   verifyResetCode: async (email: string, code: string): Promise<{ valid: boolean }> => {
-    const response = await api.post<{ valid: boolean }>('/auth/password-resets/code-verification', {
+    const response = await api.post<{ valid: boolean }>('/Auth/password-resets/code-verification', {
       email,
       code,
     });
     return response.data;
   },
   resetPassword: async (email: string, newPassword: string, confirmPassword: string): Promise<{ success: boolean; message: string }> => {
-    const response = await api.post<{ success: boolean; message: string }>('/auth/password-resets', {
+    const response = await api.post<{ success: boolean; message: string }>('/Auth/password-resets', {
       email,
       newPassword,
       confirmPassword,
