@@ -1935,7 +1935,7 @@ const Schedule = () => {
                               if (segs.length === 0) return [];
 
                               const weeklyHex =
-                                isDirector && viewMode === 'weekly'
+                                isDirector && (viewMode === 'weekly' || viewMode === 'dailyRooms' || viewMode === 'dailyDentists')
                                   ? dentistWeeklyHexByDentistId.get(r.dentist?.id ?? 0) ?? '#64748b'
                                   : null;
 
