@@ -1,9 +1,46 @@
 import axios from 'axios';
 import type { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from '../types/auth';
 
-/** Set VITE_API_BASE_URL at build time for staging/production (e.g. https://api.example.com/api). */
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, '') || 'http://localhost:3000/api';
+/**
+ * Nest uses global prefix `/api`. Production often sets `VITE_API_BASE_URL` to the
+ * service origin only (e.g. `https://app.onrender.com`), which would POST to
+ * `/Auth/SignIn` on that host and get "Cannot POST". Append `/api` only when the
+ * value is an absolute URL with an empty path. Relative bases (e.g. `/api` for Vite
+ * proxy) are left unchanged.
+ */
+function resolveApiBaseUrl(envValue: string | undefined): string {
+  const raw = envValue?.trim().replace(/\/+$/, '') ?? '';
+  if (!raw) return 'http://localhost:3000/api';
+  if (raw.startsWith('/')) return raw;
+  if (!/^https?:\/\//i.test(raw)) return raw;
+  try {
+    const u = new URL(raw);
+    const p = (u.pathname || '/').replace(/\/+$/, '') || '/';
+    if (p === '/') return `${u.origin}/api`;
+    return raw;
+  } catch {
+    return raw;
+  }
+}
+
+/** Set VITE_API_BASE_URL at build time (e.g. `https://host.onrender.com` or `https://host.onrender.com/api`). */
+export const API_BASE_URL = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+
+const PUBLIC_AUTH_PATHS = new Set([
+  '/Auth/SignIn',
+  '/Auth/Register',
+  '/Auth/VerifyEmail',
+  '/Auth/ResendVerificationCode',
+  '/Auth/password-reset/code-request',
+  '/Auth/password-resets/code-verification',
+  '/Auth/password-resets',
+]);
+
+function isPublicAuthRequest(url: string | undefined): boolean {
+  if (!url) return false;
+  const path = url.split('?')[0]?.replace(/\/{2,}/g, '/') ?? '';
+  return PUBLIC_AUTH_PATHS.has(path);
+}
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -23,8 +60,10 @@ api.interceptors.request.use(
     }
 
     const token = localStorage.getItem('access_token');
-    if (token) {
+    if (token && !isPublicAuthRequest(config.url)) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      delete config.headers.Authorization;
     }
     return config;
   },
