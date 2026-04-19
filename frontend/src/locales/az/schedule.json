@@ -58,7 +58,6 @@
   "newBlocking": "Vaxtı blokla",
   "blockingModalTitle": "Təqvimdə vaxtı blokla",
   "blockingStaffLabel": "Heyət",
-  "blockingRoomOptional": "Otaq (istəyə bağlı)",
   "blockingSubmit": "Bloku saxla",
   "blockingCreateError": "Bloklama saxlanılmadı.",
   "blockingFallbackLabel": "Bloklanıb"

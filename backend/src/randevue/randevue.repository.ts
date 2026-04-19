@@ -350,14 +350,6 @@ export class RandevueRepository {
       });
       const saved = await manager.getRepository(Randevue).save(row);
 
-      const createdBlocking = blockingRepo.create({
-        startTime: input.date,
-        endTime: input.endTime,
-        roomId: input.room.id,
-        staffId: null,
-      });
-      await blockingRepo.save(createdBlocking);
-
       return saved;
     });
   }

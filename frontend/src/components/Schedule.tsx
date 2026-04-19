@@ -307,7 +307,6 @@ const Schedule = () => {
   const [blockFormDate, setBlockFormDate] = useState('');
   const [blockFormStart, setBlockFormStart] = useState('09:00');
   const [blockFormEnd, setBlockFormEnd] = useState('10:00');
-  const [blockFormRoomId, setBlockFormRoomId] = useState(0);
   const [blockSubmitBusy, setBlockSubmitBusy] = useState(false);
   const [blockSubmitError, setBlockSubmitError] = useState<string | null>(null);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -718,7 +717,6 @@ const Schedule = () => {
         startTime: start.toISOString(),
         endTime: end.toISOString(),
       };
-      if (blockFormRoomId > 0) body.roomId = blockFormRoomId;
       const res = await fetch(`${API_BASE_URL}/blocking-hours`, {
         method: 'POST',
         headers: {
@@ -951,7 +949,13 @@ const Schedule = () => {
   );
 
   const roomAvailableAt = useCallback(
-    (roomId: number, dateYmd: string, startHm: string, endHm: string) => {
+    (
+      roomId: number,
+      dateYmd: string,
+      startHm: string,
+      endHm: string,
+      options?: { excludeRandevueId?: number },
+    ) => {
       const intervalStart = combineLocalDateAndTime(dateYmd, startHm);
       const intervalEnd = combineLocalDateAndTime(dateYmd, endHm);
       if (intervalEnd <= intervalStart) return false;
@@ -965,9 +969,23 @@ const Schedule = () => {
           new Date(bh.endTime),
         );
       });
-      return !hasBlocking;
+      if (hasBlocking) return false;
+
+      const roomHasRandevue = randevues.some((r) => {
+        if (r.room?.id !== roomId) return false;
+        if (options?.excludeRandevueId != null && r.id === options.excludeRandevueId) {
+          return false;
+        }
+        return intervalOverlaps(
+          intervalStart,
+          intervalEnd,
+          new Date(r.date),
+          new Date(r.endTime),
+        );
+      });
+      return !roomHasRandevue;
     },
-    [directorBlockingHours],
+    [directorBlockingHours, randevues],
   );
 
   const availableDentists = useMemo(() => {
@@ -1051,12 +1069,20 @@ const Schedule = () => {
         const n = nurses.find((x) => x.id === detailNurseId);
         if (!n?.staff?.id || !staffAvailableAt(n.staff.id, dateYmd, startHm, endHm)) return false;
       }
-      if (detailRoomId > 0 && !roomAvailableAt(detailRoomId, dateYmd, startHm, endHm)) return false;
+      if (
+        detailRoomId > 0 &&
+        !roomAvailableAt(detailRoomId, dateYmd, startHm, endHm, {
+          excludeRandevueId: detailId ?? undefined,
+        })
+      ) {
+        return false;
+      }
       return true;
     },
     [
       dentists,
       detailDentistId,
+      detailId,
       detailNurseId,
       detailRoomId,
       nurses,
@@ -1090,8 +1116,12 @@ const Schedule = () => {
 
   const detailAvailableRooms = useMemo(() => {
     if (!useClinicScheduleUi || !editDate) return rooms;
-    return rooms.filter((r) => roomAvailableAt(r.id, editDate, editStart, editEnd));
-  }, [editDate, editEnd, editStart, roomAvailableAt, rooms, useClinicScheduleUi]);
+    return rooms.filter((r) =>
+      roomAvailableAt(r.id, editDate, editStart, editEnd, {
+        excludeRandevueId: detailId ?? undefined,
+      }),
+    );
+  }, [detailId, editDate, editEnd, editStart, roomAvailableAt, rooms, useClinicScheduleUi]);
 
   const detailAvailableStartTimes = useMemo(() => {
     if (!useClinicScheduleUi || !editDate) return TIME_OPTIONS;
@@ -1449,7 +1479,6 @@ const Schedule = () => {
                   setBlockFormDate(formatYmd(new Date()));
                   setBlockFormStart('09:00');
                   setBlockFormEnd('10:00');
-                  setBlockFormRoomId(0);
                   setBlockSubmitError(null);
                 }}
                 className="px-4 py-2.5 rounded-lg border border-amber-400 bg-amber-50 text-amber-900 text-sm font-semibold shadow-sm hover:bg-amber-100"
@@ -1565,6 +1594,7 @@ const Schedule = () => {
                         })}
                         {useClinicScheduleUi &&
                           scheduleBlockingHours
+                            .filter((bh) => bh.staffId != null)
                             .filter((bh) => {
                               const s = new Date(bh.startTime);
                               const e = new Date(bh.endTime);
@@ -1573,7 +1603,7 @@ const Schedule = () => {
                               }
                               if (viewMode === 'dailyRooms') {
                                 const rid = (column as (typeof roomColumns)[number]).roomId;
-                                if (bh.roomId !== rid) return false;
+                                if (bh.roomId == null || bh.roomId !== rid) return false;
                                 return overlapsLocalDay(s, e, dayAnchor);
                               }
                               const dent = column as (typeof dentistColumns)[number];
@@ -2262,21 +2292,6 @@ const Schedule = () => {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('room')}</label>
-                <select
-                  value={blockFormRoomId || ''}
-                  onChange={(e) => setBlockFormRoomId(Number(e.target.value) || 0)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                >
-                  <option value="">{t('blockingRoomOptional')}</option>
-                  {rooms.map((room) => (
-                    <option key={room.id} value={room.id}>
-                      {room.number ? `Room ${room.number}` : room.description || `Room #${room.id}`}
-                    </option>
-                  ))}
-                </select>
               </div>
               {blockSubmitError && <p className="text-sm text-red-600">{blockSubmitError}</p>}
               <div className="flex justify-end gap-2 pt-2">

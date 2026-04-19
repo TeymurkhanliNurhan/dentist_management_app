@@ -58,7 +58,6 @@
   "newBlocking": "Block time",
   "blockingModalTitle": "Block calendar time",
   "blockingStaffLabel": "Staff",
-  "blockingRoomOptional": "Room (optional)",
   "blockingSubmit": "Save block",
   "blockingCreateError": "Could not save blocking time.",
   "blockingFallbackLabel": "Blocked"
