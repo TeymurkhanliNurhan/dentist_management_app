@@ -6,11 +6,43 @@ import { medicineService, purchaseMedicineService } from '../services/api';
 import type {
   Medicine,
   MedicineFilters,
-  CreateMedicineDto,
-  UpdateMedicineDto,
   CreatePurchaseSessionItemDto,
 } from '../services/api';
 import { useTranslation } from 'react-i18next';
+
+/** Lets users clear the field before typing (e.g. replace 0 with 5 without "05"). */
+type DraftNumber = number | '';
+
+function parsePriceDraft(raw: string): DraftNumber {
+  if (raw === '') return '';
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : '';
+}
+
+function priceDraftToNumber(v: DraftNumber): number {
+  return v === '' ? 0 : v;
+}
+
+type NewMedicineForm = {
+  name: string;
+  description?: string;
+  price: DraftNumber;
+  purchasePrice: DraftNumber;
+};
+
+type QuickMedicineForm = {
+  name: string;
+  description: string;
+  price: DraftNumber;
+  purchasePrice: DraftNumber;
+};
+
+type EditMedicineForm = {
+  name: string;
+  description: string;
+  price: DraftNumber;
+  purchasePrice: number;
+};
 
 const Medicines = () => {
   const { t } = useTranslation('medicines');
@@ -24,16 +56,17 @@ const Medicines = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
-  const [newMedicine, setNewMedicine] = useState<CreateMedicineDto>({
+  const [newMedicine, setNewMedicine] = useState<NewMedicineForm>({
     name: '',
     description: '',
     price: 0,
     purchasePrice: 0,
   });
-  const [updatedMedicine, setUpdatedMedicine] = useState<UpdateMedicineDto>({
+  const [updatedMedicine, setUpdatedMedicine] = useState<EditMedicineForm>({
     name: '',
     description: '',
     price: 0,
+    purchasePrice: 0,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
@@ -45,7 +78,7 @@ const Medicines = () => {
   );
   const [draftStock, setDraftStock] = useState(0);
   const [showQuickMedicineModal, setShowQuickMedicineModal] = useState(false);
-  const [quickMedicine, setQuickMedicine] = useState({
+  const [quickMedicine, setQuickMedicine] = useState<QuickMedicineForm>({
     name: '',
     description: '',
     price: 0,
@@ -90,8 +123,8 @@ const Medicines = () => {
       await medicineService.create({
         name: newMedicine.name.trim(),
         description: (newMedicine.description ?? '').trim() || undefined,
-        price: newMedicine.price,
-        purchasePrice: newMedicine.purchasePrice ?? 0,
+        price: priceDraftToNumber(newMedicine.price),
+        purchasePrice: priceDraftToNumber(newMedicine.purchasePrice),
         stock: 2,
       });
       setShowAddModal(false);
@@ -111,7 +144,7 @@ const Medicines = () => {
       name: medicine.name,
       description: medicine.description,
       price: medicine.price,
-      purchasePrice: medicine.purchasePrice,
+      purchasePrice: medicine.purchasePrice ?? 0,
     });
     setShowEditModal(true);
   };
@@ -123,10 +156,15 @@ const Medicines = () => {
     setIsSubmitting(true);
     setError('');
     try {
-      await medicineService.update(editingMedicine.id, updatedMedicine);
+      await medicineService.update(editingMedicine.id, {
+        name: updatedMedicine.name,
+        description: updatedMedicine.description,
+        price: priceDraftToNumber(updatedMedicine.price),
+        purchasePrice: updatedMedicine.purchasePrice,
+      });
       setShowEditModal(false);
       setEditingMedicine(null);
-      setUpdatedMedicine({ name: '', description: '', price: 0 });
+      setUpdatedMedicine({ name: '', description: '', price: 0, purchasePrice: 0 });
       fetchMedicines();
     } catch (err: any) {
       console.error('Failed to update medicine:', err);
@@ -195,8 +233,8 @@ const Medicines = () => {
       const created = await medicineService.create({
         name,
         description: quickMedicine.description.trim() || undefined,
-        price: quickMedicine.price,
-        purchasePrice: quickMedicine.purchasePrice,
+        price: priceDraftToNumber(quickMedicine.price),
+        purchasePrice: priceDraftToNumber(quickMedicine.purchasePrice),
         stock: 0,
       });
       await fetchMedicines(filters);
@@ -205,7 +243,8 @@ const Medicines = () => {
         {
           medicineId: created.id,
           count: 1,
-          pricePerOne: created.purchasePrice ?? quickMedicine.purchasePrice,
+          pricePerOne:
+            created.purchasePrice ?? priceDraftToNumber(quickMedicine.purchasePrice),
         },
       ]);
       setShowQuickMedicineModal(false);
@@ -563,8 +602,13 @@ const Medicines = () => {
                   required
                   min="0"
                   step="0.01"
-                  value={newMedicine.price ?? ''}
-                  onChange={(e) => setNewMedicine({ ...newMedicine, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+                  value={newMedicine.price === '' ? '' : newMedicine.price}
+                  onChange={(e) =>
+                    setNewMedicine({
+                      ...newMedicine,
+                      price: parsePriceDraft(e.target.value),
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   placeholder={t('form.pricePlaceholder')}
                 />
@@ -580,12 +624,11 @@ const Medicines = () => {
                   required
                   min="0"
                   step="0.01"
-                  value={newMedicine.purchasePrice ?? ''}
+                  value={newMedicine.purchasePrice === '' ? '' : newMedicine.purchasePrice}
                   onChange={(e) =>
                     setNewMedicine({
                       ...newMedicine,
-                      purchasePrice:
-                        e.target.value === '' ? 0 : parseFloat(e.target.value),
+                      purchasePrice: parsePriceDraft(e.target.value),
                     })
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
@@ -671,8 +714,13 @@ const Medicines = () => {
                   required
                   min="0"
                   step="0.01"
-                  value={updatedMedicine.price ?? ''}
-                  onChange={(e) => setUpdatedMedicine({ ...updatedMedicine, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+                  value={updatedMedicine.price === '' ? '' : updatedMedicine.price}
+                  onChange={(e) =>
+                    setUpdatedMedicine({
+                      ...updatedMedicine,
+                      price: parsePriceDraft(e.target.value),
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   placeholder={t('form.pricePlaceholder')}
                 />
@@ -922,11 +970,11 @@ const Medicines = () => {
                   required
                   min="0"
                   step="0.01"
-                  value={quickMedicine.price ?? ''}
+                  value={quickMedicine.price === '' ? '' : quickMedicine.price}
                   onChange={(e) =>
                     setQuickMedicine({
                       ...quickMedicine,
-                      price: e.target.value === '' ? 0 : parseFloat(e.target.value),
+                      price: parsePriceDraft(e.target.value),
                     })
                   }
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
@@ -943,12 +991,11 @@ const Medicines = () => {
                   required
                   min="0"
                   step="0.01"
-                  value={quickMedicine.purchasePrice ?? ''}
+                  value={quickMedicine.purchasePrice === '' ? '' : quickMedicine.purchasePrice}
                   onChange={(e) =>
                     setQuickMedicine({
                       ...quickMedicine,
-                      purchasePrice:
-                        e.target.value === '' ? 0 : parseFloat(e.target.value),
+                      purchasePrice: parsePriceDraft(e.target.value),
                     })
                   }
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
