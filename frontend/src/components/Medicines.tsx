@@ -381,22 +381,22 @@ const Medicines = () => {
             <table className="w-full">
               <thead className="border-b border-slate-100 bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
                     {t('table.name')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
                     {t('table.description')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
                     {t('table.price')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
                     {t('table.purchasePrice')}
                   </th>
-                  <th className="w-32 min-w-[8rem] px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th className="w-32 min-w-[8rem] px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
                     {t('table.stock')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
                   </th>
                 </tr>
               </thead>
@@ -422,19 +422,19 @@ const Medicines = () => {
                 ) : (
                   medicines.map((medicine) => (
                     <tr key={medicine.id} className="transition-colors hover:bg-slate-50">
-                      <td className="px-6 py-4 text-sm font-semibold text-[#0066A6]">
+                      <td className="px-6 py-4 text-center text-sm font-semibold text-[#0066A6]">
                         {medicine.name}
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
+                      <td className="px-6 py-4 text-center text-sm text-slate-600">
                         {medicine.description}
                       </td>
-                      <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                      <td className="px-6 py-4 text-center text-sm font-medium text-slate-900">
                         {medicine.price.toFixed(2)} USD
                       </td>
-                      <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                      <td className="px-6 py-4 text-center text-sm font-medium text-slate-900">
                         {(medicine.purchasePrice ?? 0).toFixed(2)} USD
                       </td>
-                      <td className="w-32 min-w-[8rem] px-6 py-4 text-sm align-middle">
+                      <td className="w-32 min-w-[8rem] px-6 py-4 text-center text-sm align-middle">
                         {editingStockMedicineId === medicine.id ? (
                           <div className="mx-auto flex w-min min-w-[6.5rem] flex-col items-center gap-2">
                             <div className="inline-flex items-center gap-2 rounded border border-slate-200 px-2 py-1">
@@ -485,10 +485,10 @@ const Medicines = () => {
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-sm">
+                      <td className="px-6 py-4 text-center text-sm">
                         <button
                           onClick={() => handleEditClick(medicine)}
-                          className="flex items-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition hover:bg-[#00588f]"
+                          className="inline-flex items-center justify-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition hover:bg-[#00588f]"
                         >
                           <Edit className="w-4 h-4" />
                           <span>{t('edit')}</span>
