@@ -36,6 +36,9 @@ export class DirectorRepository {
   ): Promise<Director> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const staff = await this.ensureStaffInClinic(input.staffId, clinicId);
+    await this.dataSource
+      .getRepository(Staff)
+      .update(staff.id, { role: 'Director' });
     const created = this.repo.create({ staffId: staff.id });
     return await this.repo.save(created);
   }

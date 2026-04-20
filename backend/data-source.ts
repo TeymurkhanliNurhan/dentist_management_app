@@ -23,6 +23,7 @@ import { Room } from './src/room/entities/room.entity';
 import { WorkingHours } from './src/working_hours/entities/working_hours.entity';
 import { BlockingHours } from './src/blocking_hours/entities/blocking_hours.entity';
 import { DentistTreatment } from './src/dentist_treatment/entities/dentist_treatment.entity';
+import { Salary } from './src/salary/entities/salary.entity';
 
 export default new DataSource({
   type: 'postgres',
@@ -35,6 +36,7 @@ export default new DataSource({
     Director,
     Nurse,
     Staff,
+    Salary,
     Room,
     WorkingHours,
     BlockingHours,

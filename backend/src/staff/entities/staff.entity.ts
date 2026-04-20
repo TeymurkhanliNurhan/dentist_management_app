@@ -14,6 +14,7 @@ import { FrontDeskWorker } from '../../front_desk_worker/entities/front_desk_wor
 import { Director } from '../../director/entities/director.entity';
 import { WorkingHours } from '../../working_hours/entities/working_hours.entity';
 import { BlockingHours } from '../../blocking_hours/entities/blocking_hours.entity';
+import { Salary } from '../../salary/entities/salary.entity';
 
 @Entity({ name: 'Staff' })
 export class Staff {
@@ -53,6 +54,9 @@ export class Staff {
   @Column({ type: 'date', nullable: true })
   endDate: Date | null;
 
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  role: string | null;
+
   @Column({ type: 'int' })
   clinicId: number;
 
@@ -74,6 +78,9 @@ export class Staff {
 
   @OneToOne(() => Director, (director) => director.staff)
   director: Director;
+
+  @OneToOne(() => Salary, (salary) => salary.staff)
+  salary: Salary;
 
   @OneToMany(() => WorkingHours, (workingHours) => workingHours.staff)
   workingHours: WorkingHours[];

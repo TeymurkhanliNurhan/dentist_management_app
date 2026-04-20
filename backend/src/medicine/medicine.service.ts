@@ -22,6 +22,8 @@ export class MedicineService {
         name: dto.name,
         description: dto.description,
         price: dto.price,
+        stock: dto.stock,
+        purchasePrice: dto.purchasePrice,
       });
       const msg = `Dentist with id ${dentistId} created Medicine with id ${created.id}`;
       this.logger.log(msg);
@@ -31,6 +33,8 @@ export class MedicineService {
         name: created.name,
         description: created.description,
         price: created.price,
+        stock: created.stock,
+        purchasePrice: created.purchasePrice,
       };
     } catch (e: any) {
       throw new BadRequestException('Failed to create medicine');
@@ -46,6 +50,8 @@ export class MedicineService {
           name: dto.name,
           description: dto.description,
           price: dto.price,
+          stock: dto.stock,
+          purchasePrice: dto.purchasePrice,
         },
       );
       const msg = `Dentist with id ${dentistId} updated Medicine with id ${updated.id}`;
@@ -56,6 +62,8 @@ export class MedicineService {
         name: updated.name,
         description: updated.description,
         price: updated.price,
+        stock: updated.stock,
+        purchasePrice: updated.purchasePrice,
       };
     } catch (e: any) {
       if (e?.message?.includes('Forbidden'))
@@ -80,6 +88,8 @@ export class MedicineService {
         name: medicine.name,
         description: medicine.description,
         price: medicine.price,
+        stock: medicine.stock,
+        purchasePrice: medicine.purchasePrice,
       }));
     } catch (e: any) {
       throw e;

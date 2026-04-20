@@ -102,7 +102,12 @@ export class DentistRepository {
     const staffRepo = this.dataSource.getRepository(Staff);
     const dentistRepo = this.dataSource.getRepository(Dentist);
 
-    const staff = await staffRepo.save(staffRepo.create(input));
+    const staff = await staffRepo.save(
+      staffRepo.create({
+        ...input,
+        role: 'Dentist',
+      }),
+    );
     const dentist = await dentistRepo.save(
       dentistRepo.create({
         staffId: staff.id,
@@ -129,6 +134,7 @@ export class DentistRepository {
   }
 
   async createWithExistingStaff(staffId: number): Promise<Dentist> {
+    await this.dataSource.getRepository(Staff).update(staffId, { role: 'Dentist' });
     const dentistRepo = this.dataSource.getRepository(Dentist);
     const created = await dentistRepo.save(
       dentistRepo.create({

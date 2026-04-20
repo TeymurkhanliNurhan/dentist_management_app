@@ -23,6 +23,12 @@ export class Medicine {
   @Column({ type: 'double precision' })
   price: number;
 
+  @Column({ type: 'int', default: 0 })
+  stock: number;
+
+  @Column({ type: 'double precision', default: 0 })
+  purchasePrice: number;
+
   @OneToMany(() => ToothTreatmentMedicine, (ttm) => ttm.medicineEntity)
   toothTreatmentMedicines: ToothTreatmentMedicine[];
 

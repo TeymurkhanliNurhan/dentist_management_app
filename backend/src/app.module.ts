@@ -48,6 +48,8 @@ import { WorkingHoursModule } from './working_hours/working_hours.module';
 import { BlockingHoursModule } from './blocking_hours/blocking_hours.module';
 import { RoomModule } from './room/room.module';
 import { NurseModule } from './nurse/nurse.module';
+import { Salary } from './salary/entities/salary.entity';
+import { SalaryModule } from './salary/salary.module';
 
 @Module({
   imports: [
@@ -113,6 +115,7 @@ import { NurseModule } from './nurse/nurse.module';
               Randevue,
               Clinic,
               Staff,
+              Salary,
               Nurse,
               FrontDeskWorker,
               Director,
@@ -158,6 +161,7 @@ import { NurseModule } from './nurse/nurse.module';
               Randevue,
               Clinic,
               Staff,
+              Salary,
               Nurse,
               FrontDeskWorker,
               Director,
@@ -199,6 +203,7 @@ import { NurseModule } from './nurse/nurse.module';
     DentistTreatmentModule,
     RoomModule,
     NurseModule,
+    SalaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

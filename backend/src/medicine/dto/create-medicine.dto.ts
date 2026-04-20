@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsInt,
   IsNumber,
   IsString,
   MaxLength,
@@ -24,4 +25,14 @@ export class CreateMedicineDto {
   @IsNumber()
   @Min(0)
   price: number;
+
+  @ApiProperty({ example: 120 })
+  @IsInt()
+  @Min(0)
+  stock: number;
+
+  @ApiProperty({ example: 18.75 })
+  @IsNumber()
+  @Min(0)
+  purchasePrice: number;
 }

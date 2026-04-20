@@ -28,7 +28,13 @@ export class MedicineRepository {
 
   async createMedicineForDentist(
     dentistId: number,
-    input: { name: string; description: string; price: number },
+    input: {
+      name: string;
+      description: string;
+      price: number;
+      stock: number;
+      purchasePrice: number;
+    },
   ): Promise<Medicine> {
     const clinic = await this.getClinicForDentist(dentistId);
     const maxIdResult = await this.repo
@@ -44,7 +50,13 @@ export class MedicineRepository {
   async updateMedicineEnsureOwnership(
     dentistId: number,
     id: number,
-    updates: Partial<{ name: string; description: string; price: number }>,
+    updates: Partial<{
+      name: string;
+      description: string;
+      price: number;
+      stock: number;
+      purchasePrice: number;
+    }>,
   ): Promise<Medicine> {
     const clinic = await this.getClinicForDentist(dentistId);
     const med = await this.repo.findOne({
@@ -55,6 +67,9 @@ export class MedicineRepository {
     if (updates.description !== undefined)
       med.description = updates.description;
     if (updates.price !== undefined) med.price = updates.price;
+    if (updates.stock !== undefined) med.stock = updates.stock;
+    if (updates.purchasePrice !== undefined)
+      med.purchasePrice = updates.purchasePrice;
     return await this.repo.save(med);
   }
 

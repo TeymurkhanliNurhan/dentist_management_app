@@ -36,6 +36,9 @@ export class FrontDeskWorkerRepository {
   ): Promise<FrontDeskWorker> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const staff = await this.ensureStaffInClinic(input.staffId, clinicId);
+    await this.dataSource
+      .getRepository(Staff)
+      .update(staff.id, { role: 'Receptionist' });
     const created = this.repo.create({ staffId: staff.id });
     return await this.repo.save(created);
   }

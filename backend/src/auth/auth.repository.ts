@@ -123,6 +123,7 @@ export class AuthRepository {
           active: true,
           startDate: new Date(),
           endDate: null,
+          role: 'Dentist',
           clinicId: clinic.id,
         }),
       );
