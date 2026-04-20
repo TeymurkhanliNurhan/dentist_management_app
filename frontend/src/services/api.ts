@@ -247,6 +247,8 @@ export interface Medicine {
   name: string;
   description: string;
   price: number;
+  stock: number;
+  purchasePrice: number;
 }
 
 export interface MedicineFilters {
@@ -258,12 +260,26 @@ export interface CreateMedicineDto {
   name: string;
   description: string;
   price: number;
+  stock?: number;
+  purchasePrice?: number;
 }
 
 export interface UpdateMedicineDto {
   name?: string;
   description?: string;
   price?: number;
+  stock?: number;
+  purchasePrice?: number;
+}
+
+export interface CreatePurchaseSessionItemDto {
+  medicineId: number;
+  count: number;
+  pricePerOne: number;
+}
+
+export interface CreatePurchaseSessionDto {
+  items: CreatePurchaseSessionItemDto[];
 }
 
 export const medicineService = {
@@ -284,6 +300,13 @@ export const medicineService = {
   },
   update: async (id: number, medicine: UpdateMedicineDto): Promise<Medicine> => {
     const response = await api.patch(`/medicine/${id}`, medicine);
+    return response.data;
+  },
+};
+
+export const purchaseMedicineService = {
+  createSession: async (payload: CreatePurchaseSessionDto) => {
+    const response = await api.post('/purchase-medicine/session', payload);
     return response.data;
   },
 };

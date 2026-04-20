@@ -8,6 +8,7 @@ import { PurchaseMedicineRepository } from './purchase_medicine.repository';
 import { CreatePurchaseMedicineDto } from './dto/create-purchase-medicine.dto';
 import { GetPurchaseMedicineDto } from './dto/get-purchase-medicine.dto';
 import { UpdatePurchaseMedicineDto } from './dto/update-purchase-medicine.dto';
+import { CreatePurchaseSessionDto } from './dto/create-purchase-session.dto';
 
 @Injectable()
 export class PurchaseMedicineService {
@@ -47,6 +48,24 @@ export class PurchaseMedicineService {
         throw new NotFoundException('PaymentDetails not found in your clinic');
       }
       throw new BadRequestException('Failed to create purchase medicine');
+    }
+  }
+
+  async createSession(
+    dentistId: number,
+    role: string | undefined,
+    dto: CreatePurchaseSessionDto,
+  ) {
+    this.ensureDirectorOrReceptionist(role);
+    try {
+      return await this.repo.createSessionForDentist(dentistId, {
+        items: dto.items,
+      });
+    } catch (e: any) {
+      if (e?.message?.includes('Medicine not found')) {
+        throw new NotFoundException('Medicine not found in your clinic');
+      }
+      throw new BadRequestException('Failed to create purchase medicines');
     }
   }
 

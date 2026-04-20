@@ -32,6 +32,7 @@ export class PurchaseMedicineRepository {
       .andWhere('clinic.id = :clinicId', { clinicId })
       .getOne();
     if (!medicine) throw new Error('Medicine not found');
+    return medicine;
   }
 
   private async ensurePaymentDetailsInClinic(
@@ -75,6 +76,76 @@ export class PurchaseMedicineRepository {
       paymentDetails: { id: input.paymentDetailsId } as PaymentDetails,
     });
     return await this.repo.save(created);
+  }
+
+  async createSessionForDentist(
+    dentistId: number,
+    input: {
+      items: {
+        medicineId: number;
+        count: number;
+        pricePerOne: number;
+      }[];
+    },
+  ) {
+    const clinicId = await this.getClinicIdForDentist(dentistId);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const paymentDetailsRepo = queryRunner.manager.getRepository(PaymentDetails);
+      const purchaseRepo = queryRunner.manager.getRepository(PurchaseMedicine);
+      const medicineRepo = queryRunner.manager.getRepository(Medicine);
+
+      const paymentDetails = await paymentDetailsRepo.save(
+        paymentDetailsRepo.create({
+          date: new Date().toISOString().slice(0, 10),
+          salary: null,
+          expense: null,
+          cost: 0,
+        }),
+      );
+
+      let cost = 0;
+      const purchaseMedicines: PurchaseMedicine[] = [];
+
+      for (const item of input.items) {
+        await this.ensureMedicineInClinic(item.medicineId, clinicId);
+        const totalPrice = item.count * item.pricePerOne;
+        const created = await purchaseRepo.save(
+          purchaseRepo.create({
+            medicine: { id: item.medicineId } as Medicine,
+            count: item.count,
+            pricePerOne: item.pricePerOne,
+            totalPrice,
+            paymentDetails: { id: paymentDetails.id } as PaymentDetails,
+          }),
+        );
+        purchaseMedicines.push(created);
+        cost += totalPrice;
+
+        await medicineRepo.increment({ id: item.medicineId }, 'stock', item.count);
+        await medicineRepo.update(item.medicineId, {
+          purchasePrice: item.pricePerOne,
+        });
+      }
+
+      paymentDetails.cost = cost;
+      await paymentDetailsRepo.save(paymentDetails);
+
+      await queryRunner.commitTransaction();
+      return {
+        paymentDetails,
+        purchaseMedicines,
+        totalCost: cost,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async findForDentist(

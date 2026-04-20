@@ -7,7 +7,8 @@
   "table": {
     "name": "Name",
     "description": "Description",
-    "price": "Price"
+    "price": "Price",
+    "stock": "Stock"
   },
   "loading": "Loading medicines...",
   "empty": "No medicines found",
@@ -27,5 +28,21 @@
   "add": "Add Medicine",
   "updating": "Updating...",
   "update": "Update Medicine",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "newPurchase": "New Purchase",
+  "stats": {
+    "medicinesCount": "Medicines Count",
+    "totalStock": "Total Stock"
+  },
+  "purchase": {
+    "title": "New Purchase",
+    "medicine": "Medicine",
+    "chooseMedicine": "Choose medicine",
+    "count": "Count",
+    "pricePerOne": "Price Per One",
+    "addMedicineRow": "Add Medicine",
+    "total": "Total:",
+    "creating": "Creating...",
+    "create": "Create"
+  }
 }

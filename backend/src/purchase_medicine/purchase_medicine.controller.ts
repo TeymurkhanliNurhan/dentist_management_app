@@ -25,6 +25,7 @@ import { PurchaseMedicineService } from './purchase_medicine.service';
 import { CreatePurchaseMedicineDto } from './dto/create-purchase-medicine.dto';
 import { GetPurchaseMedicineDto } from './dto/get-purchase-medicine.dto';
 import { UpdatePurchaseMedicineDto } from './dto/update-purchase-medicine.dto';
+import { CreatePurchaseSessionDto } from './dto/create-purchase-session.dto';
 
 @ApiTags('purchase_medicine')
 @Controller('purchase-medicine')
@@ -54,6 +55,16 @@ export class PurchaseMedicineController {
   @ApiResponse({ status: 201, description: 'Purchase medicine created' })
   async create(@User() user: any, @Body() dto: CreatePurchaseMedicineDto) {
     return await this.service.create(user.userId, user.role, dto);
+  }
+
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
+  @Post('session')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create purchase session for multiple medicines' })
+  @ApiResponse({ status: 201, description: 'Purchase session created' })
+  async createSession(@User() user: any, @Body() dto: CreatePurchaseSessionDto) {
+    return await this.service.createSession(user.userId, user.role, dto);
   }
 
   @ApiBearerAuth('bearer')

@@ -7,7 +7,8 @@
   "table": {
     "name": "Ad",
     "description": "Təsvir",
-    "price": "Qiymət"
+    "price": "Qiymət",
+    "stock": "Stok"
   },
   "loading": "Dərmanlar yüklənir...",
   "empty": "Dərman tapılmadı",
@@ -27,5 +28,21 @@
   "add": "Dərman əlavə et",
   "updating": "Yenilənir...",
   "update": "Dərmanı yenilə",
-  "cancel": "Ləğv et"
+  "cancel": "Ləğv et",
+  "newPurchase": "Yeni alış",
+  "stats": {
+    "medicinesCount": "Dərman sayı",
+    "totalStock": "Ümumi stok"
+  },
+  "purchase": {
+    "title": "Yeni alış",
+    "medicine": "Dərman",
+    "chooseMedicine": "Dərman seçin",
+    "count": "Say",
+    "pricePerOne": "Birinin alış qiyməti",
+    "addMedicineRow": "Dərman əlavə et",
+    "total": "Cəmi:",
+    "creating": "Yaradılır...",
+    "create": "Yarat"
+  }
 }
