@@ -8,6 +8,7 @@
     "name": "Название",
     "description": "Описание",
     "price": "Цена",
+    "purchasePrice": "Закупочная цена",
     "stock": "Остаток"
   },
   "loading": "Загрузка лекарств...",
@@ -19,10 +20,13 @@
   "form": {
     "name": "Название *",
     "description": "Описание *",
+    "descriptionOptional": "Описание (необязательно)",
     "price": "Цена *",
+    "purchasePrice": "Закупочная цена *",
     "namePlaceholder": "Введите название лекарства",
     "descriptionPlaceholder": "Введите описание",
-    "pricePlaceholder": "Введите цену"
+    "pricePlaceholder": "Введите цену",
+    "purchasePricePlaceholder": "Введите закупочную цену"
   },
   "adding": "Добавление...",
   "add": "Добавить лекарство",
@@ -41,6 +45,11 @@
     "count": "Количество",
     "pricePerOne": "Цена за единицу",
     "addMedicineRow": "Добавить лекарство",
+    "newMedicine": "Новое лекарство",
+    "quickNewTitle": "Новое лекарство",
+    "quickCreateSubmit": "Создать",
+    "stockZeroNote": "Остаток автоматически устанавливается в 0.",
+    "nameRequired": "Введите название лекарства",
     "total": "Итого:",
     "creating": "Создание...",
     "create": "Создать"

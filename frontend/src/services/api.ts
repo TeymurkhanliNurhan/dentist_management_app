@@ -258,7 +258,7 @@ export interface MedicineFilters {
 
 export interface CreateMedicineDto {
   name: string;
-  description: string;
+  description?: string;
   price: number;
   stock?: number;
   purchasePrice?: number;

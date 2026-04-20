@@ -8,6 +8,7 @@
     "name": "Name",
     "description": "Description",
     "price": "Price",
+    "purchasePrice": "Purchase price",
     "stock": "Stock"
   },
   "loading": "Loading medicines...",
@@ -19,10 +20,13 @@
   "form": {
     "name": "Name *",
     "description": "Description *",
+    "descriptionOptional": "Description (optional)",
     "price": "Price *",
+    "purchasePrice": "Purchase price *",
     "namePlaceholder": "Enter medicine name",
     "descriptionPlaceholder": "Enter description",
-    "pricePlaceholder": "Enter price"
+    "pricePlaceholder": "Enter price",
+    "purchasePricePlaceholder": "Enter purchase price"
   },
   "adding": "Adding...",
   "add": "Add Medicine",
@@ -41,6 +45,11 @@
     "count": "Count",
     "pricePerOne": "Price Per One",
     "addMedicineRow": "Add Medicine",
+    "newMedicine": "New medicine",
+    "quickNewTitle": "New medicine",
+    "quickCreateSubmit": "Create",
+    "stockZeroNote": "Stock is set to 0 automatically.",
+    "nameRequired": "Please enter the medicine name",
     "total": "Total:",
     "creating": "Creating...",
     "create": "Create"

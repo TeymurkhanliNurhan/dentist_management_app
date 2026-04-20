@@ -1,7 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsInt,
   IsNumber,
+  IsOptional,
   IsString,
   MaxLength,
   Min,
@@ -15,11 +16,11 @@ export class CreateMedicineDto {
   @MaxLength(40)
   name: string;
 
-  @ApiProperty({ example: 'Antibiotic' })
+  @ApiPropertyOptional({ example: 'Antibiotic' })
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(300)
-  description: string;
+  description?: string;
 
   @ApiProperty({ example: 25.5 })
   @IsNumber()

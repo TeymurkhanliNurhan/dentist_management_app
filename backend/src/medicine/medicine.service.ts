@@ -20,7 +20,7 @@ export class MedicineService {
     try {
       const created = await this.repo.createMedicineForDentist(dentistId, {
         name: dto.name,
-        description: dto.description,
+        description: (dto.description ?? '').trim(),
         price: dto.price,
         stock: dto.stock,
         purchasePrice: dto.purchasePrice,

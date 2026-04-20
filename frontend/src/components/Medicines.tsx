@@ -43,6 +43,13 @@ const Medicines = () => {
     null,
   );
   const [draftStock, setDraftStock] = useState(0);
+  const [showQuickMedicineModal, setShowQuickMedicineModal] = useState(false);
+  const [quickMedicine, setQuickMedicine] = useState({
+    name: '',
+    description: '',
+    price: 0,
+    purchasePrice: 0,
+  });
 
   const fetchMedicines = async (searchFilters?: MedicineFilters) => {
     setIsLoading(true);
@@ -163,7 +170,49 @@ const Medicines = () => {
         pricePerOne: firstMedicine?.purchasePrice ?? 0,
       },
     ]);
+    setShowQuickMedicineModal(false);
     setShowPurchaseModal(true);
+  };
+
+  const resetQuickMedicineForm = () => {
+    setQuickMedicine({ name: '', description: '', price: 0, purchasePrice: 0 });
+  };
+
+  const handleQuickCreateMedicine = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = quickMedicine.name.trim();
+    if (!name) {
+      setError(t('purchase.nameRequired'));
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError('');
+    try {
+      const created = await medicineService.create({
+        name,
+        description: quickMedicine.description.trim() || undefined,
+        price: quickMedicine.price,
+        purchasePrice: quickMedicine.purchasePrice,
+        stock: 0,
+      });
+      await fetchMedicines(filters);
+      setPurchaseItems((prev) => [
+        ...prev,
+        {
+          medicineId: created.id,
+          count: 1,
+          pricePerOne: created.purchasePrice ?? quickMedicine.purchasePrice,
+        },
+      ]);
+      setShowQuickMedicineModal(false);
+      resetQuickMedicineForm();
+    } catch (err: any) {
+      console.error('Failed to create medicine:', err);
+      setError(err.response?.data?.message || 'Failed to create medicine');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handlePurchaseItemChange = (
@@ -342,6 +391,9 @@ const Medicines = () => {
                     {t('table.price')}
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                    {t('table.purchasePrice')}
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
                     {t('table.stock')}
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
@@ -352,7 +404,7 @@ const Medicines = () => {
                 {isLoading ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="px-6 py-8 text-center text-sm text-slate-500"
                     >
                       {t('loading')}
@@ -361,7 +413,7 @@ const Medicines = () => {
                 ) : medicines.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="px-6 py-8 text-center text-sm text-slate-500"
                     >
                       {t('empty')}
@@ -378,6 +430,9 @@ const Medicines = () => {
                       </td>
                       <td className="px-6 py-4 text-sm font-medium text-slate-900">
                         {medicine.price.toFixed(2)} USD
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                        {(medicine.purchasePrice ?? 0).toFixed(2)} USD
                       </td>
                       <td className="px-6 py-4 text-sm">
                         {editingStockMedicineId === medicine.id ? (
@@ -619,7 +674,11 @@ const Medicines = () => {
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900">{t('purchase.title')}</h2>
               <button
-                onClick={() => setShowPurchaseModal(false)}
+                type="button"
+                onClick={() => {
+                  setShowQuickMedicineModal(false);
+                  setShowPurchaseModal(false);
+                }}
                 className="text-gray-400 transition-colors hover:text-gray-600"
               >
                 <X className="h-6 w-6" />
@@ -716,18 +775,30 @@ const Medicines = () => {
                 </div>
               ))}
 
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={addPurchaseRow}
-                  disabled={
-                    purchaseItems.length >= medicines.length ||
-                    medicines.length === 0
-                  }
-                  className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  {t('purchase.addMedicineRow')}
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={addPurchaseRow}
+                    disabled={
+                      purchaseItems.length >= medicines.length ||
+                      medicines.length === 0
+                    }
+                    className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {t('purchase.addMedicineRow')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetQuickMedicineForm();
+                      setShowQuickMedicineModal(true);
+                    }}
+                    className="rounded-md border border-[#0066A6] bg-white px-4 py-2 text-sm font-semibold text-[#0066A6] transition hover:bg-slate-50"
+                  >
+                    {t('purchase.newMedicine')}
+                  </button>
+                </div>
                 <p className="text-sm font-semibold text-slate-700">
                   {t('purchase.total')}{' '}
                   {purchaseItems
@@ -747,7 +818,127 @@ const Medicines = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowPurchaseModal(false)}
+                  onClick={() => {
+                    setShowQuickMedicineModal(false);
+                    setShowPurchaseModal(false);
+                  }}
+                  className="flex-1 rounded-lg bg-gray-200 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-300"
+                >
+                  {t('cancel')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showPurchaseModal && showQuickMedicineModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-md overflow-auto rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">{t('purchase.quickNewTitle')}</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowQuickMedicineModal(false);
+                  resetQuickMedicineForm();
+                }}
+                className="text-gray-400 transition-colors hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickCreateMedicine} className="space-y-4">
+              <div>
+                <label htmlFor="quickName" className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('form.name')}
+                </label>
+                <input
+                  id="quickName"
+                  type="text"
+                  required
+                  maxLength={40}
+                  value={quickMedicine.name}
+                  onChange={(e) => setQuickMedicine({ ...quickMedicine, name: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                  placeholder={t('form.namePlaceholder')}
+                />
+              </div>
+              <div>
+                <label htmlFor="quickDescription" className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('form.descriptionOptional')}
+                </label>
+                <textarea
+                  id="quickDescription"
+                  maxLength={300}
+                  rows={2}
+                  value={quickMedicine.description}
+                  onChange={(e) =>
+                    setQuickMedicine({ ...quickMedicine, description: e.target.value })
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                  placeholder={t('form.descriptionPlaceholder')}
+                />
+              </div>
+              <div>
+                <label htmlFor="quickPrice" className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('form.price')}
+                </label>
+                <input
+                  id="quickPrice"
+                  type="number"
+                  required
+                  min="0"
+                  step="0.01"
+                  value={quickMedicine.price || ''}
+                  onChange={(e) =>
+                    setQuickMedicine({
+                      ...quickMedicine,
+                      price: e.target.value === '' ? 0 : parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                  placeholder={t('form.pricePlaceholder')}
+                />
+              </div>
+              <div>
+                <label htmlFor="quickPurchasePrice" className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('form.purchasePrice')}
+                </label>
+                <input
+                  id="quickPurchasePrice"
+                  type="number"
+                  required
+                  min="0"
+                  step="0.01"
+                  value={quickMedicine.purchasePrice || ''}
+                  onChange={(e) =>
+                    setQuickMedicine({
+                      ...quickMedicine,
+                      purchasePrice:
+                        e.target.value === '' ? 0 : parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                  placeholder={t('form.purchasePricePlaceholder')}
+                />
+              </div>
+              <p className="text-xs text-slate-500">{t('purchase.stockZeroNote')}</p>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 rounded-lg bg-[#0066A6] py-2 font-medium text-white transition-colors hover:bg-[#00588f] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSubmitting ? t('adding') : t('purchase.quickCreateSubmit')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowQuickMedicineModal(false);
+                    resetQuickMedicineForm();
+                  }}
                   className="flex-1 rounded-lg bg-gray-200 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-300"
                 >
                   {t('cancel')}

@@ -8,6 +8,7 @@
     "name": "Ad",
     "description": "Təsvir",
     "price": "Qiymət",
+    "purchasePrice": "Alış qiyməti",
     "stock": "Stok"
   },
   "loading": "Dərmanlar yüklənir...",
@@ -19,10 +20,13 @@
   "form": {
     "name": "Ad *",
     "description": "Təsvir *",
+    "descriptionOptional": "Təsvir (istəyə bağlı)",
     "price": "Qiymət *",
+    "purchasePrice": "Alış qiyməti *",
     "namePlaceholder": "Dərmanın adını daxil edin",
     "descriptionPlaceholder": "Təsviri daxil edin",
-    "pricePlaceholder": "Qiyməti daxil edin"
+    "pricePlaceholder": "Qiyməti daxil edin",
+    "purchasePricePlaceholder": "Alış qiymətini daxil edin"
   },
   "adding": "Əlavə olunur...",
   "add": "Dərman əlavə et",
@@ -41,6 +45,11 @@
     "count": "Say",
     "pricePerOne": "Birinin alış qiyməti",
     "addMedicineRow": "Dərman əlavə et",
+    "newMedicine": "Yeni dərman",
+    "quickNewTitle": "Yeni dərman",
+    "quickCreateSubmit": "Yarat",
+    "stockZeroNote": "Stok avtomatik olaraq 0 təyin edilir.",
+    "nameRequired": "Dərmanın adını daxil edin",
     "total": "Cəmi:",
     "creating": "Yaradılır...",
     "create": "Yarat"
