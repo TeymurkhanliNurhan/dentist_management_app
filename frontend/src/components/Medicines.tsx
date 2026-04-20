@@ -28,6 +28,7 @@ const Medicines = () => {
     name: '',
     description: '',
     price: 0,
+    purchasePrice: 0,
   });
   const [updatedMedicine, setUpdatedMedicine] = useState<UpdateMedicineDto>({
     name: '',
@@ -87,12 +88,14 @@ const Medicines = () => {
     setError('');
     try {
       await medicineService.create({
-        ...newMedicine,
+        name: newMedicine.name.trim(),
+        description: (newMedicine.description ?? '').trim() || undefined,
+        price: newMedicine.price,
+        purchasePrice: newMedicine.purchasePrice ?? 0,
         stock: 2,
-        purchasePrice: 0,
       });
       setShowAddModal(false);
-      setNewMedicine({ name: '', description: '', price: 0 });
+      setNewMedicine({ name: '', description: '', price: 0, purchasePrice: 0 });
       fetchMedicines();
     } catch (err: any) {
       console.error('Failed to create medicine:', err);
@@ -537,13 +540,12 @@ const Medicines = () => {
 
               <div>
                 <label htmlFor="newDescription" className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('form.description')}
+                  {t('form.descriptionOptional')}
                 </label>
                 <textarea
                   id="newDescription"
-                  required
                   maxLength={300}
-                  rows={3}
+                  rows={2}
                   value={newMedicine.description}
                   onChange={(e) => setNewMedicine({ ...newMedicine, description: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
@@ -565,6 +567,29 @@ const Medicines = () => {
                   onChange={(e) => setNewMedicine({ ...newMedicine, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   placeholder={t('form.pricePlaceholder')}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="newPurchasePrice" className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('form.purchasePrice')}
+                </label>
+                <input
+                  type="number"
+                  id="newPurchasePrice"
+                  required
+                  min="0"
+                  step="0.01"
+                  value={newMedicine.purchasePrice ?? ''}
+                  onChange={(e) =>
+                    setNewMedicine({
+                      ...newMedicine,
+                      purchasePrice:
+                        e.target.value === '' ? 0 : parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                  placeholder={t('form.purchasePricePlaceholder')}
                 />
               </div>
 
@@ -930,7 +955,6 @@ const Medicines = () => {
                   placeholder={t('form.purchasePricePlaceholder')}
                 />
               </div>
-              <p className="text-xs text-slate-500">{t('purchase.stockZeroNote')}</p>
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
