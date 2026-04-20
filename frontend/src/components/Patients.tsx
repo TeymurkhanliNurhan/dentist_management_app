@@ -1,23 +1,10 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import {
-  Search,
-  Plus,
-  X,
-  Globe,
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  CircleHelp,
-  LayoutDashboard,
-  LogOut,
-  Package,
-  UserRound,
-  Users,
-  Wallet,
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Search, Plus, X, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Header from './Header';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
+import { ClinicPortalShell } from './ClinicPortalShell';
+import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
 import { appointmentService, patientService, toothTreatmentService } from '../services/api';
 import type { Patient, PatientFilters, CreatePatientDto, ToothTreatment } from '../services/api';
 import { useTranslation } from 'react-i18next';
@@ -31,6 +18,7 @@ const DIRECTOR_PAGE_SIZE = 7;
 
 const Patients = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, i18n } = useTranslation('patients');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -55,15 +43,6 @@ const Patients = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const languageMenuRef = useRef<HTMLDivElement>(null);
-
-  const directorMenuItems = [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { label: 'Patients', icon: UserRound, path: '/patients' },
-    { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
-    { label: 'Inventory', icon: Package, path: '/medicines' },
-    { label: 'Staff/Doctors', icon: Users, path: '/settings' },
-    { label: 'Finance', icon: Wallet, path: '/appointments' },
-  ];
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -203,19 +182,18 @@ const Patients = () => {
     return (
       <>
       <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
-        <header className="h-16 border-b border-slate-200 bg-white px-6">
-          <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setIsSidebarOpen((prev) => !prev)}
-                className="rounded-md border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100"
-                aria-label={isSidebarOpen ? 'Collapse menu' : 'Expand menu'}
-              >
-                {isSidebarOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
-              </button>
-              <span className="text-sm font-semibold text-slate-900">Clinic Management</span>
-            </div>
+        <ClinicPortalShell
+          brandTitle="Clinic Management"
+          userDisplayName=""
+          userSubtitle="Clinic Director"
+          menuItems={DIRECTOR_PORTAL_MENU}
+          pathname={location.pathname}
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          navigate={navigate}
+          onLogoutClick={() => setShowLogoutConfirm(true)}
+          showProfileStrip={false}
+          headerActions={
             <button
               type="button"
               onClick={() => setShowAddModal(true)}
@@ -223,52 +201,8 @@ const Patients = () => {
             >
               + Register New Patient
             </button>
-          </div>
-        </header>
-        <div className="mx-auto flex max-w-[1600px]">
-          <aside
-            className={`relative border-r border-slate-200 bg-[#f0f3f7] transition-all duration-300 ${
-              isSidebarOpen ? 'w-64' : 'w-20'
-            }`}
-          >
-            <div className="flex h-[calc(100vh-4rem)] flex-col justify-between py-6">
-              <nav className="space-y-1 px-3">
-                {directorMenuItems.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => navigate(item.path)}
-                    className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition ${
-                      item.path === '/patients'
-                        ? 'bg-white text-slate-800 shadow-sm'
-                        : 'text-slate-500 hover:bg-white/80'
-                    }`}
-                  >
-                    <item.icon size={16} />
-                    {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
-                  </button>
-                ))}
-              </nav>
-              <div className="space-y-1 px-3">
-                <button
-                  type="button"
-                  onClick={() => navigate('/contact')}
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
-                >
-                  <CircleHelp size={16} />
-                  {isSidebarOpen && <span className="ml-3 truncate">Help</span>}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowLogoutConfirm(true)}
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
-                >
-                  <LogOut size={16} />
-                  {isSidebarOpen && <span className="ml-3 truncate">Logout</span>}
-                </button>
-              </div>
-            </div>
-          </aside>
+          }
+        >
           <main className="h-[calc(100vh-4rem)] flex-1 overflow-auto bg-[#f9fafb] px-6 py-6">
             <div className="mb-6">
               <h1 className="text-4xl font-bold text-slate-900">Patient Directory</h1>
@@ -414,7 +348,7 @@ const Patients = () => {
               </div>
             </div>
           </main>
-        </div>
+        </ClinicPortalShell>
 
         {showAddModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">

@@ -31,6 +31,7 @@ export class StaffService {
       startDate: staff.startDate,
       endDate: staff.endDate,
       clinicId: staff.clinicId,
+      role: staff.role,
     };
   }
 

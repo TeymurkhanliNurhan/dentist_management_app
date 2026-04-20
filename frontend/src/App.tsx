@@ -13,6 +13,7 @@ import Treatments from './components/Treatments';
 import Schedule from './components/Schedule';
 import Contact from './components/Contact';
 import Settings from './components/Settings';
+import ClinicStaffDirectory from './components/ClinicStaffDirectory';
 import './App.css';
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
         <Route path="/treatments" element={<Treatments />} />
         <Route path="/schedule" element={<Schedule />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/staff" element={<ClinicStaffDirectory />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </Router>

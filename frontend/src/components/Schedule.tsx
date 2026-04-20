@@ -3,6 +3,7 @@ import Header from './Header';
 import { useNavigate } from 'react-router-dom';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import {
+  Activity,
   Bell,
   CalendarDays,
   ChevronDown,
@@ -1494,8 +1495,9 @@ const Schedule = () => {
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { label: 'Patients', icon: UserRound, path: '/patients' },
     { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
+    { label: 'Treatments', icon: Activity, path: '/treatments' },
     { label: 'Inventory', icon: Package, path: '/medicines' },
-    { label: 'Staff/Doctors', icon: Users, path: '/settings' },
+    { label: 'Staff & dentists', icon: Users, path: '/staff' },
     { label: 'Finance', icon: Wallet, path: '/appointments' },
   ];
   return (
@@ -1535,7 +1537,7 @@ const Schedule = () => {
               <button type="button" className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Notifications">
                 <Bell size={16} />
               </button>
-              <button type="button" onClick={() => navigate('/settings')} className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Open settings">
+              <button type="button" onClick={() => navigate('/staff')} className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Staff and doctors">
                 <Settings size={16} />
               </button>
               <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5">

@@ -1,34 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  CircleHelp,
-  LayoutDashboard,
-  LogOut,
-  Package,
-  UserRound,
-  Users,
-  Wallet,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, CircleHelp, LogOut } from 'lucide-react';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
-
-const menuItems = [
-  { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-  { label: 'Patients', icon: UserRound, path: '/patients' },
-  { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
-  { label: 'Services', icon: Package, path: '/treatments' },
-  { label: 'Inventory', icon: Package, path: '/medicines' },
-  { label: 'Staff/Doctors', icon: Users, path: '/settings' },
-  { label: 'Finance', icon: Wallet, path: '/appointments' },
-] as const;
-
-function isNavActive(itemPath: string, pathname: string): boolean {
-  if (pathname === itemPath) return true;
-  if (itemPath !== '/' && pathname.startsWith(`${itemPath}/`)) return true;
-  return false;
-}
+import { DIRECTOR_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
 
 export default function ClinicManagementLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
@@ -61,13 +35,13 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
         >
           <div className="flex h-[calc(100vh-4rem)] flex-col justify-between py-6">
             <nav className="space-y-1 px-3">
-              {menuItems.map((item) => (
+              {DIRECTOR_PORTAL_MENU.map((item) => (
                 <button
                   key={item.path}
                   type="button"
                   onClick={() => navigate(item.path)}
                   className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition ${
-                    isNavActive(item.path, pathname)
+                    isDirectorPortalNavActive(item.path, pathname)
                       ? 'bg-white text-slate-800 shadow-sm'
                       : 'text-slate-500 hover:bg-white/80'
                   }`}
