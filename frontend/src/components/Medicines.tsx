@@ -563,7 +563,7 @@ const Medicines = () => {
                   required
                   min="0"
                   step="0.01"
-                  value={newMedicine.price || ''}
+                  value={newMedicine.price ?? ''}
                   onChange={(e) => setNewMedicine({ ...newMedicine, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   placeholder={t('form.pricePlaceholder')}
@@ -671,7 +671,7 @@ const Medicines = () => {
                   required
                   min="0"
                   step="0.01"
-                  value={updatedMedicine.price || ''}
+                  value={updatedMedicine.price ?? ''}
                   onChange={(e) => setUpdatedMedicine({ ...updatedMedicine, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   placeholder={t('form.pricePlaceholder')}
@@ -922,7 +922,7 @@ const Medicines = () => {
                   required
                   min="0"
                   step="0.01"
-                  value={quickMedicine.price || ''}
+                  value={quickMedicine.price ?? ''}
                   onChange={(e) =>
                     setQuickMedicine({
                       ...quickMedicine,
@@ -943,7 +943,7 @@ const Medicines = () => {
                   required
                   min="0"
                   step="0.01"
-                  value={quickMedicine.purchasePrice || ''}
+                  value={quickMedicine.purchasePrice ?? ''}
                   onChange={(e) =>
                     setQuickMedicine({
                       ...quickMedicine,
