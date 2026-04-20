@@ -39,6 +39,10 @@ const Medicines = () => {
   const [purchaseItems, setPurchaseItems] = useState<CreatePurchaseSessionItemDto[]>(
     [],
   );
+  const [editingStockMedicineId, setEditingStockMedicineId] = useState<number | null>(
+    null,
+  );
+  const [draftStock, setDraftStock] = useState(0);
 
   const fetchMedicines = async (searchFilters?: MedicineFilters) => {
     setIsLoading(true);
@@ -134,6 +138,22 @@ const Medicines = () => {
     }
   };
 
+  const startStockEditing = (medicine: Medicine) => {
+    setEditingStockMedicineId(medicine.id);
+    setDraftStock(medicine.stock ?? 0);
+  };
+
+  const cancelStockEditing = () => {
+    setEditingStockMedicineId(null);
+    setDraftStock(0);
+  };
+
+  const saveStockEditing = async (medicine: Medicine) => {
+    await updateStock(medicine, draftStock);
+    setEditingStockMedicineId(null);
+    setDraftStock(0);
+  };
+
   const openPurchaseModal = () => {
     const firstMedicine = medicines[0];
     setPurchaseItems([
@@ -164,7 +184,9 @@ const Medicines = () => {
   };
 
   const addPurchaseRow = () => {
-    const fallback = medicines[0];
+    const selectedMedicineIds = new Set(purchaseItems.map((item) => item.medicineId));
+    const fallback = medicines.find((medicine) => !selectedMedicineIds.has(medicine.id));
+    if (!fallback) return;
     setPurchaseItems((prev) => [
       ...prev,
       {
@@ -210,8 +232,6 @@ const Medicines = () => {
     }
   };
 
-  const totalStock = medicines.reduce((sum, m) => sum + (m.stock ?? 0), 0);
-
   return (
     <>
       <ClinicManagementLayout>
@@ -253,18 +273,12 @@ const Medicines = () => {
           </div>
         </div>
 
-        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="mb-4 grid grid-cols-1 gap-3">
           <div className="rounded-lg border border-slate-100 bg-white px-4 py-3 shadow-sm">
             <p className="text-xs uppercase tracking-wide text-slate-500">
               {t('stats.medicinesCount')}
             </p>
             <p className="mt-1 text-xl font-bold text-slate-900">{medicines.length}</p>
-          </div>
-          <div className="rounded-lg border border-slate-100 bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs uppercase tracking-wide text-slate-500">
-              {t('stats.totalStock')}
-            </p>
-            <p className="mt-1 text-xl font-bold text-slate-900">{totalStock}</p>
           </div>
         </div>
 
@@ -366,27 +380,49 @@ const Medicines = () => {
                         {medicine.price.toFixed(2)} USD
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        <div className="inline-flex items-center gap-2 rounded border border-slate-200 px-2 py-1">
+                        {editingStockMedicineId === medicine.id ? (
+                          <div className="inline-flex items-center gap-2 rounded border border-slate-200 px-2 py-1">
+                            <button
+                              type="button"
+                              onClick={() => setDraftStock((prev) => Math.max(0, prev - 1))}
+                              className="rounded border border-slate-200 bg-white p-1 text-slate-700 transition hover:bg-slate-50"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="min-w-8 text-center font-semibold text-slate-900">
+                              {draftStock}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setDraftStock((prev) => prev + 1)}
+                              className="rounded border border-slate-200 bg-white p-1 text-slate-700 transition hover:bg-slate-50"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => saveStockEditing(medicine)}
+                              className="rounded border border-green-200 bg-green-50 px-2 py-1 text-xs font-semibold text-green-700 transition hover:bg-green-100"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelStockEditing}
+                              className="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
                           <button
                             type="button"
-                            onClick={() =>
-                              updateStock(medicine, Math.max(0, (medicine.stock ?? 0) - 1))
-                            }
-                            className="rounded border border-slate-200 bg-white p-1 text-slate-700 transition hover:bg-slate-50"
+                            onClick={() => startStockEditing(medicine)}
+                            className="rounded border border-slate-200 px-3 py-1 font-semibold text-slate-900 transition hover:bg-slate-50"
                           >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="min-w-8 text-center font-semibold text-slate-900">
                             {medicine.stock ?? 0}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => updateStock(medicine, (medicine.stock ?? 0) + 1)}
-                            className="rounded border border-slate-200 bg-white p-1 text-slate-700 transition hover:bg-slate-50"
-                          >
-                            <Plus className="h-3 w-3" />
                           </button>
-                        </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <button
@@ -611,11 +647,20 @@ const Medicines = () => {
                       required
                     >
                       <option value="">{t('purchase.chooseMedicine')}</option>
-                      {medicines.map((medicine) => (
+                      {medicines
+                        .filter((medicine) => {
+                          const selectedByOtherRow = purchaseItems.some(
+                            (selectedItem, selectedIndex) =>
+                              selectedIndex !== index &&
+                              selectedItem.medicineId === medicine.id,
+                          );
+                          return !selectedByOtherRow;
+                        })
+                        .map((medicine) => (
                         <option key={medicine.id} value={medicine.id}>
                           {medicine.name}
                         </option>
-                      ))}
+                        ))}
                     </select>
                   </div>
                   <div className="md:col-span-3">
@@ -675,6 +720,10 @@ const Medicines = () => {
                 <button
                   type="button"
                   onClick={addPurchaseRow}
+                  disabled={
+                    purchaseItems.length >= medicines.length ||
+                    medicines.length === 0
+                  }
                   className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                 >
                   {t('purchase.addMedicineRow')}
