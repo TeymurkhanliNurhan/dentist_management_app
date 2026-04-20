@@ -393,7 +393,7 @@ const Medicines = () => {
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
                     {t('table.purchasePrice')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th className="w-32 min-w-[8rem] px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
                     {t('table.stock')}
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
@@ -434,49 +434,55 @@ const Medicines = () => {
                       <td className="px-6 py-4 text-sm font-medium text-slate-900">
                         {(medicine.purchasePrice ?? 0).toFixed(2)} USD
                       </td>
-                      <td className="px-6 py-4 text-sm">
+                      <td className="w-32 min-w-[8rem] px-6 py-4 text-sm align-middle">
                         {editingStockMedicineId === medicine.id ? (
-                          <div className="inline-flex items-center gap-2 rounded border border-slate-200 px-2 py-1">
-                            <button
-                              type="button"
-                              onClick={() => setDraftStock((prev) => Math.max(0, prev - 1))}
-                              className="rounded border border-slate-200 bg-white p-1 text-slate-700 transition hover:bg-slate-50"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <span className="min-w-8 text-center font-semibold text-slate-900">
-                              {draftStock}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setDraftStock((prev) => prev + 1)}
-                              className="rounded border border-slate-200 bg-white p-1 text-slate-700 transition hover:bg-slate-50"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => saveStockEditing(medicine)}
-                              className="rounded border border-green-200 bg-green-50 px-2 py-1 text-xs font-semibold text-green-700 transition hover:bg-green-100"
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={cancelStockEditing}
-                              className="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100"
-                            >
-                              Cancel
-                            </button>
+                          <div className="mx-auto flex w-min min-w-[6.5rem] flex-col items-center gap-2">
+                            <div className="inline-flex items-center gap-2 rounded border border-slate-200 px-2 py-1">
+                              <button
+                                type="button"
+                                onClick={() => setDraftStock((prev) => Math.max(0, prev - 1))}
+                                className="rounded border border-slate-200 bg-white p-1 text-slate-700 transition hover:bg-slate-50"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </button>
+                              <span className="min-w-8 text-center font-semibold text-slate-900">
+                                {draftStock}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setDraftStock((prev) => prev + 1)}
+                                className="rounded border border-slate-200 bg-white p-1 text-slate-700 transition hover:bg-slate-50"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </button>
+                            </div>
+                            <div className="flex w-full justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => saveStockEditing(medicine)}
+                                className="rounded border border-green-200 bg-green-50 px-2 py-1 text-xs font-semibold text-green-700 transition hover:bg-green-100"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelStockEditing}
+                                className="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100"
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => startStockEditing(medicine)}
-                            className="rounded border border-slate-200 px-3 py-1 font-semibold text-slate-900 transition hover:bg-slate-50"
-                          >
-                            {medicine.stock ?? 0}
-                          </button>
+                          <div className="mx-auto flex w-min min-w-[6.5rem] justify-center">
+                            <button
+                              type="button"
+                              onClick={() => startStockEditing(medicine)}
+                              className="rounded border border-slate-200 px-3 py-1 font-semibold text-slate-900 transition hover:bg-slate-50"
+                            >
+                              {medicine.stock ?? 0}
+                            </button>
+                          </div>
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm">
