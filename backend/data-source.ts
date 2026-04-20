@@ -24,6 +24,9 @@ import { WorkingHours } from './src/working_hours/entities/working_hours.entity'
 import { BlockingHours } from './src/blocking_hours/entities/blocking_hours.entity';
 import { DentistTreatment } from './src/dentist_treatment/entities/dentist_treatment.entity';
 import { Salary } from './src/salary/entities/salary.entity';
+import { Expense } from './src/expense/entities/expense.entity';
+import { PaymentDetails } from './src/payment_details/entities/payment_details.entity';
+import { PurchaseMedicine } from './src/purchase_medicine/entities/purchase_medicine.entity';
 
 export default new DataSource({
   type: 'postgres',
@@ -37,6 +40,9 @@ export default new DataSource({
     Nurse,
     Staff,
     Salary,
+    Expense,
+    PaymentDetails,
+    PurchaseMedicine,
     Room,
     WorkingHours,
     BlockingHours,

@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { ToothTreatmentMedicine } from '../../tooth_treatment_medicine/entities/tooth_treatment_medicine.entity';
 import { Clinic } from '../../clinic/entities/clinic.entity';
+import { PurchaseMedicine } from '../../purchase_medicine/entities/purchase_medicine.entity';
 
 @Entity({ name: 'Medicine' })
 export class Medicine {
@@ -31,6 +32,9 @@ export class Medicine {
 
   @OneToMany(() => ToothTreatmentMedicine, (ttm) => ttm.medicineEntity)
   toothTreatmentMedicines: ToothTreatmentMedicine[];
+
+  @OneToMany(() => PurchaseMedicine, (purchaseMedicine) => purchaseMedicine.medicine)
+  purchaseMedicines: PurchaseMedicine[];
 
   @ManyToOne(() => Clinic, (clinic) => clinic.medicines, {
     nullable: false,

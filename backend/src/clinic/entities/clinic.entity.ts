@@ -4,6 +4,7 @@ import { Medicine } from '../../medicine/entities/medicine.entity';
 import { Patient } from '../../patient/entities/patient.entity';
 import { Room } from '../../room/entities/room.entity';
 import { Treatment } from '../../treatment/entities/treatment.entity';
+import { Expense } from '../../expense/entities/expense.entity';
 
 @Entity({ name: 'Clinic' })
 export class Clinic {
@@ -30,4 +31,7 @@ export class Clinic {
 
   @OneToMany(() => Room, (room) => room.clinic)
   rooms: Room[];
+
+  @OneToMany(() => Expense, (expense) => expense.clinic)
+  expenses: Expense[];
 }

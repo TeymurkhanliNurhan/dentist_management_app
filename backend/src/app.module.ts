@@ -50,6 +50,12 @@ import { RoomModule } from './room/room.module';
 import { NurseModule } from './nurse/nurse.module';
 import { Salary } from './salary/entities/salary.entity';
 import { SalaryModule } from './salary/salary.module';
+import { Expense } from './expense/entities/expense.entity';
+import { PaymentDetails } from './payment_details/entities/payment_details.entity';
+import { PurchaseMedicine } from './purchase_medicine/entities/purchase_medicine.entity';
+import { ExpenseModule } from './expense/expense.module';
+import { PaymentDetailsModule } from './payment_details/payment_details.module';
+import { PurchaseMedicineModule } from './purchase_medicine/purchase_medicine.module';
 
 @Module({
   imports: [
@@ -116,6 +122,9 @@ import { SalaryModule } from './salary/salary.module';
               Clinic,
               Staff,
               Salary,
+              Expense,
+              PaymentDetails,
+              PurchaseMedicine,
               Nurse,
               FrontDeskWorker,
               Director,
@@ -162,6 +171,9 @@ import { SalaryModule } from './salary/salary.module';
               Clinic,
               Staff,
               Salary,
+              Expense,
+              PaymentDetails,
+              PurchaseMedicine,
               Nurse,
               FrontDeskWorker,
               Director,
@@ -204,6 +216,9 @@ import { SalaryModule } from './salary/salary.module';
     RoomModule,
     NurseModule,
     SalaryModule,
+    ExpenseModule,
+    PaymentDetailsModule,
+    PurchaseMedicineModule,
   ],
   controllers: [AppController],
   providers: [AppService],
