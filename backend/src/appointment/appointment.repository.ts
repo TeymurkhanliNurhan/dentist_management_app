@@ -133,7 +133,10 @@ export class AppointmentRepository {
     const queryBuilder = this.repo
       .createQueryBuilder('appointment')
       .leftJoinAndSelect('appointment.patient', 'patient')
-      .where('appointment.clinicId = :clinicId', { clinicId });
+      .innerJoin('appointment.toothTreatments', 'toothTreatment')
+      .where('appointment.clinicId = :clinicId', { clinicId })
+      .andWhere('toothTreatment.dentist = :dentistId', { dentistId })
+      .distinct(true);
 
     if (filters.id !== undefined) {
       queryBuilder.andWhere('appointment.id = :id', { id: filters.id });
