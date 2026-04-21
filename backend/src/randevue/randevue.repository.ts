@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Randevue } from './entities/randevue.entity';
 import { Patient } from '../patient/entities/patient.entity';
 import { Appointment } from '../appointment/entities/appointment.entity';
@@ -10,6 +10,8 @@ import { Nurse } from '../nurse/entities/nurse.entity';
 import { GENERAL_DENTISTRY_ROOM_DESCRIPTION } from './randevue.constants';
 import { BlockingHours } from '../blocking_hours/entities/blocking_hours.entity';
 import { WorkingHours } from '../working_hours/entities/working_hours.entity';
+import { ToothTreatmentTeeth } from '../tooth_treatment_teeth/entities/tooth_treatment_teeth.entity';
+import { TreatmentRandevue } from '../treatment_randevue/entities/treatment_randevue.entity';
 
 @Injectable()
 export class RandevueRepository {
@@ -397,5 +399,64 @@ export class RandevueRepository {
 
   async saveEntity(entity: Randevue): Promise<Randevue> {
     return this.repo.save(entity);
+  }
+
+  async linkToothTreatmentsToRandevue(input: {
+    treatmentIds: number[];
+    appointmentId: number;
+    patientId: number;
+    randevueId: number;
+  }): Promise<void> {
+    const uniqueTreatmentIds = [...new Set(input.treatmentIds)];
+    if (uniqueTreatmentIds.length === 0) return;
+
+    const tttRows = await this.dataSource
+      .getRepository(ToothTreatmentTeeth)
+      .createQueryBuilder('ttt')
+      .innerJoinAndSelect('ttt.toothTreatment', 'tt')
+      .where('tt.id IN (:...treatmentIds)', { treatmentIds: uniqueTreatmentIds })
+      .andWhere('tt.appointment = :appointmentId', {
+        appointmentId: input.appointmentId,
+      })
+      .andWhere('tt.patient = :patientId', { patientId: input.patientId })
+      .getMany();
+
+    const matchedTreatmentIds = new Set(tttRows.map((row) => row.toothTreatment.id));
+    const missingTreatmentIds = uniqueTreatmentIds.filter(
+      (id) => !matchedTreatmentIds.has(id),
+    );
+    if (missingTreatmentIds.length > 0) {
+      throw new Error('Invalid randevue treatments');
+    }
+
+    if (tttRows.length === 0) {
+      throw new Error('No tooth data for selected treatments');
+    }
+
+    const treatmentTeethIds = tttRows.map((row) => row.id);
+    const existingLinks = await this.dataSource
+      .getRepository(TreatmentRandevue)
+      .find({
+        where: {
+          randevue: { id: input.randevueId },
+          toothTreatmentTeeth: { id: In(treatmentTeethIds) },
+        },
+        relations: ['toothTreatmentTeeth', 'randevue'],
+      });
+    const linkedTeethIds = new Set(
+      existingLinks.map((row) => row.toothTreatmentTeeth.id),
+    );
+
+    const rowsToInsert = tttRows
+      .filter((row) => !linkedTeethIds.has(row.id))
+      .map((row) =>
+        this.dataSource.getRepository(TreatmentRandevue).create({
+          randevue: { id: input.randevueId } as Randevue,
+          toothTreatmentTeeth: { id: row.id } as ToothTreatmentTeeth,
+        }),
+      );
+
+    if (rowsToInsert.length === 0) return;
+    await this.dataSource.getRepository(TreatmentRandevue).save(rowsToInsert);
   }
 }

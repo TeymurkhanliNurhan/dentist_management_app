@@ -180,6 +180,14 @@ export class RandevueService {
       status = 'scheduled';
     }
 
+    const selectedTreatmentIds =
+      dto.tooth_treatment_ids?.filter((id) => Number.isFinite(id) && id > 0) ?? [];
+    if (selectedTreatmentIds.length > 0 && linkedAppointmentId == null) {
+      throw new BadRequestException(
+        'tooth_treatment_ids requires appointment_id or create_new_appointment',
+      );
+    }
+
     const note =
       dto.note != null && dto.note.trim() !== '' ? dto.note.trim() : null;
 
@@ -216,6 +224,15 @@ export class RandevueService {
         nurse,
         dentistId: assignedDentist.id,
       });
+
+      if (selectedTreatmentIds.length > 0) {
+        await this.repo.linkToothTreatmentsToRandevue({
+          treatmentIds: selectedTreatmentIds,
+          appointmentId: linkedAppointmentId!,
+          patientId: dto.patient_id,
+          randevueId: saved.id,
+        });
+      }
 
       const reloaded = await this.repo.findByIdWithRelations(saved.id);
       if (!reloaded) throw new Error('Failed to load randevue');
@@ -284,6 +301,16 @@ export class RandevueService {
       if (e?.message === 'Room already has randevue in this time range') {
         throw new BadRequestException(
           'Selected room already has a randevue in this time range',
+        );
+      }
+      if (e?.message === 'Invalid randevue treatments') {
+        throw new BadRequestException(
+          'Selected treatments are not valid for this appointment and patient',
+        );
+      }
+      if (e?.message === 'No tooth data for selected treatments') {
+        throw new BadRequestException(
+          'Selected treatments do not have tooth rows to link with randevue',
         );
       }
       this.logger.error(e?.stack || e?.message);
@@ -412,6 +439,16 @@ export class RandevueService {
       throw new BadRequestException('Cannot set both clear_nurse and nurse_id');
     }
 
+    const appendTreatmentIds =
+      dto.append_tooth_treatment_ids?.filter(
+        (value) => Number.isFinite(value) && value > 0,
+      ) ?? [];
+    if (appendTreatmentIds.length > 0 && row.appointment == null) {
+      throw new BadRequestException(
+        'This randevue is not linked to an appointment',
+      );
+    }
+
     const clinicId = row.patient.clinic.id;
     if (dto.room_id != null) {
       row.room = await this.repo.assertRoomBelongsToClinic(
@@ -435,6 +472,14 @@ export class RandevueService {
 
     try {
       await this.repo.saveEntity(row);
+      if (appendTreatmentIds.length > 0) {
+        await this.repo.linkToothTreatmentsToRandevue({
+          treatmentIds: appendTreatmentIds,
+          appointmentId: row.appointment!.id,
+          patientId: row.patient.id,
+          randevueId: row.id,
+        });
+      }
       const reloaded = isAdminLikeRole
         ? await this.repo.findByIdInClinic(dentistId, id)
         : await this.repo.findByIdForDentist(dentistId, id);
@@ -464,6 +509,16 @@ export class RandevueService {
       }
       if (e?.message === 'Invalid nurse') {
         throw new BadRequestException('Nurse is not in this clinic');
+      }
+      if (e?.message === 'Invalid randevue treatments') {
+        throw new BadRequestException(
+          'Selected treatments are not valid for this appointment and patient',
+        );
+      }
+      if (e?.message === 'No tooth data for selected treatments') {
+        throw new BadRequestException(
+          'Selected treatments do not have tooth rows to link with randevue',
+        );
       }
       this.logger.error(e?.stack || e?.message);
       throw new BadRequestException('Failed to update randevue');

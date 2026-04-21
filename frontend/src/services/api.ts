@@ -749,10 +749,6 @@ export const randevueService = {
     const response = await api.patch<Randevue>(`/randevue/${id}`, dto);
     return response.data;
   },
-  getForAppointment: async (appointmentId: number): Promise<Randevue[]> => {
-    const response = await api.get<Randevue[]>(`/randevue/appointment/${appointmentId}`);
-    return response.data;
-  },
 };
 
 export const appointmentService = {

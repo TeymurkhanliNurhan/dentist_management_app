@@ -1,5 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayUnique,
+  IsArray,
   IsBoolean,
   IsDateString,
   IsNumber,
@@ -90,4 +92,17 @@ export class UpdateRandevueDto {
   @IsOptional()
   @IsBoolean()
   clear_nurse?: boolean;
+
+  @ApiPropertyOptional({
+    type: [Number],
+    description:
+      'Append treatment rows from this randevue appointment to Treatment_Randevue links',
+    example: [12, 15],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsNumber({}, { each: true })
+  @Min(1, { each: true })
+  append_tooth_treatment_ids?: number[];
 }

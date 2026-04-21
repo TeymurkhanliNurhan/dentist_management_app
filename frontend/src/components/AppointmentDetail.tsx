@@ -3,12 +3,41 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash } from 'lucide-react';
 import ClinicManagementLayout from './ClinicManagementLayout';
 import { API_BASE_URL, appointmentService, dentistService, randevueService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
-import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, CreateMedicineDto, Media, TreatmentPricePer, DentistProfile } from '../services/api';
+import type { Appointment, Randevue, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, CreateMedicineDto, Media, TreatmentPricePer, DentistProfile } from '../services/api';
 
 function combineLocalDateAndTime(dateYmd: string, timeHm: string): Date {
   const [y, m, d] = dateYmd.split('-').map(Number);
   const [hh, mm = '0'] = timeHm.split(':');
   return new Date(y, m - 1, d, Number(hh), Number(mm), 0, 0);
+}
+
+/** Uses existing GET /randevue?from&to (no dedicated appointment route). */
+function randevueQueryRangeForAppointment(appointment: Appointment): { from: string; to: string } {
+  const from = combineLocalDateAndTime(appointment.startDate, '00:00');
+  let to: Date;
+  if (appointment.endDate) {
+    to = combineLocalDateAndTime(appointment.endDate, '23:59');
+  } else {
+    to = new Date(
+      Math.max(Date.now() + 86_400_000, from.getTime() + 400 * 86_400_000),
+    );
+  }
+  if (to <= from) {
+    to = new Date(from.getTime() + 86_400_000);
+  }
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+function filterRandevuesForAppointment(
+  list: Randevue[],
+  appointmentId: number,
+  patientId: number,
+): Array<{ id: number; date: string; endTime: string }> {
+  return list
+    .filter(
+      (r) => r.appointment?.id === appointmentId && r.patient.id === patientId,
+    )
+    .map((r) => ({ id: r.id, date: r.date, endTime: r.endTime }));
 }
 
 function apiDayOfWeekFromDate(d: Date): number {
@@ -741,10 +770,9 @@ const AppointmentDetail = () => {
       setIsLoading(true);
       setError('');
       try {
-        const [appointmentsData, treatmentsData, randevuesData] = await Promise.all([
+        const [appointmentsData, treatmentsData] = await Promise.all([
           appointmentService.getAll(),
           toothTreatmentService.getAll({ appointment: parseInt(id) }),
-          randevueService.getForAppointment(parseInt(id)),
         ]);
         
         const appointmentData = appointmentsData.appointments.find(a => a.id === parseInt(id));
@@ -759,7 +787,19 @@ const AppointmentDetail = () => {
           });
         }
         setTreatments(treatmentsData);
-        setAppointmentRandevues(randevuesData.map((r) => ({ id: r.id, date: r.date, endTime: r.endTime })));
+        if (appointmentData) {
+          const { from, to } = randevueQueryRangeForAppointment(appointmentData);
+          const rangeList = await randevueService.getForRange(from, to);
+          setAppointmentRandevues(
+            filterRandevuesForAppointment(
+              rangeList,
+              appointmentData.id,
+              appointmentData.patient.id,
+            ),
+          );
+        } else {
+          setAppointmentRandevues([]);
+        }
 
         const uniqueToothIds = [...new Set(treatmentsData.flatMap(t => t.toothTreatmentTeeth.map(ttt => ttt.toothId)))];
         const teethPromises = uniqueToothIds.map(toothId => 
@@ -853,13 +893,18 @@ const AppointmentDetail = () => {
       await randevueService.update(selectedRandevueId, {
         append_tooth_treatment_ids: [treatmentId],
       });
-      const [treatmentsData, randevuesData] = await Promise.all([
-        toothTreatmentService.getAll({ appointment: appointment.id }),
-        randevueService.getForAppointment(appointment.id),
-      ]);
+      const treatmentsData = await toothTreatmentService.getAll({
+        appointment: appointment.id,
+      });
+      const { from, to } = randevueQueryRangeForAppointment(appointment);
+      const rangeList = await randevueService.getForRange(from, to);
       setTreatments(treatmentsData);
       setAppointmentRandevues(
-        randevuesData.map((r) => ({ id: r.id, date: r.date, endTime: r.endTime })),
+        filterRandevuesForAppointment(
+          rangeList,
+          appointment.id,
+          appointment.patient.id,
+        ),
       );
       setSelectedRandevueByTreatment((prev) => ({ ...prev, [treatmentId]: 0 }));
     } catch (err: any) {
