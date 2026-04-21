@@ -334,6 +334,7 @@ const AppointmentDetail = () => {
   const [newRandevueDentistId, setNewRandevueDentistId] = useState<number>(0);
   const [newRandevueNurseId, setNewRandevueNurseId] = useState<number>(0);
   const [newRandevueNote, setNewRandevueNote] = useState('');
+  const [newRandevueTreatmentIds, setNewRandevueTreatmentIds] = useState<number[]>([]);
   const [newRandevueError, setNewRandevueError] = useState('');
   const [isSubmittingNewRandevue, setIsSubmittingNewRandevue] = useState(false);
   const [newRandevueRooms, setNewRandevueRooms] = useState<RoomOption[]>([]);
@@ -665,6 +666,22 @@ const AppointmentDetail = () => {
     return newRandevueRooms.filter((room) => roomAvailableAt(room.id));
   }, [newRandevueDate, newRandevueRooms, roomAvailableAt]);
 
+  const randevueTreatmentChoices = useMemo(() => {
+    return treatments.map((treatment) => {
+      const toothLabels = treatment.toothTreatmentTeeth
+        .map((ttt) => teethInfo.get(ttt.toothId)?.number)
+        .filter((value): value is number => value != null)
+        .sort((a, b) => a - b)
+        .map((number) => `#${number}`);
+
+      return {
+        id: treatment.id,
+        name: treatment.treatment?.name ?? `Treatment #${treatment.id}`,
+        toothLabels,
+      };
+    });
+  }, [teethInfo, treatments]);
+
   useEffect(() => {
     if (
       newRandevueRoomId > 0 &&
@@ -706,6 +723,12 @@ const AppointmentDetail = () => {
     newRandevueDentistId,
     showNewRandevuePanel,
   ]);
+
+  useEffect(() => {
+    setNewRandevueTreatmentIds((prev) =>
+      prev.filter((id) => randevueTreatmentChoices.some((choice) => choice.id === id)),
+    );
+  }, [randevueTreatmentChoices]);
 
   useEffect(() => {
     const fetchAppointmentData = async () => {
@@ -819,6 +842,7 @@ const AppointmentDetail = () => {
     setNewRandevueDentistId(0);
     setNewRandevueNurseId(0);
     setNewRandevueNote('');
+    setNewRandevueTreatmentIds([]);
     setNewRandevueError('');
     setShowNewRandevuePanel(true);
   };
@@ -856,6 +880,9 @@ const AppointmentDetail = () => {
         dentist_id: newRandevueDentistId,
         ...(newRandevueNurseId > 0 ? { nurse_id: newRandevueNurseId } : {}),
         ...(newRandevueNote.trim() ? { note: newRandevueNote.trim() } : {}),
+        ...(newRandevueTreatmentIds.length > 0
+          ? { tooth_treatment_ids: newRandevueTreatmentIds }
+          : {}),
       });
       setShowNewRandevuePanel(false);
     } catch (err: any) {
@@ -2707,6 +2734,58 @@ const AppointmentDetail = () => {
                         ))}
                       </select>
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Treatments (optional)
+                    </label>
+                    <div className="max-h-44 overflow-auto rounded-lg border border-gray-300 bg-white">
+                      {randevueTreatmentChoices.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-gray-500">
+                          No treatments exist in this appointment yet.
+                        </p>
+                      ) : (
+                        randevueTreatmentChoices.map((choice) => {
+                          const isChecked = newRandevueTreatmentIds.includes(choice.id);
+                          return (
+                            <label
+                              key={choice.id}
+                              className={`flex cursor-pointer items-start gap-3 border-b border-gray-100 px-3 py-2 last:border-b-0 ${
+                                isChecked ? 'bg-[#e8f2fa]' : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() =>
+                                  setNewRandevueTreatmentIds((prev) =>
+                                    prev.includes(choice.id)
+                                      ? prev.filter((id) => id !== choice.id)
+                                      : [...prev, choice.id],
+                                  )
+                                }
+                                className="mt-1 h-4 w-4 rounded border-gray-300 text-[#0066A6] focus:ring-[#0066A6]"
+                              />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-900">
+                                  {choice.name}
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                  TT #{choice.id}
+                                  {choice.toothLabels.length > 0
+                                    ? ` - Teeth: ${choice.toothLabels.join(', ')}`
+                                    : ''}
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Selected treatments will be linked to this randevue.
+                    </p>
                   </div>
 
                   <div>

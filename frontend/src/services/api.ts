@@ -716,6 +716,7 @@ export interface CreateRandevueDto {
   appointment_start_date?: string;
   room_id?: number;
   nurse_id?: number;
+  tooth_treatment_ids?: number[];
 }
 
 export interface UpdateRandevueDto {
