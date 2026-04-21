@@ -732,6 +732,7 @@ export interface UpdateRandevueDto {
   room_id?: number;
   nurse_id?: number;
   clear_nurse?: boolean;
+  append_tooth_treatment_ids?: number[];
 }
 
 export const randevueService = {
@@ -746,6 +747,10 @@ export const randevueService = {
   },
   update: async (id: number, dto: UpdateRandevueDto): Promise<Randevue> => {
     const response = await api.patch<Randevue>(`/randevue/${id}`, dto);
+    return response.data;
+  },
+  getForAppointment: async (appointmentId: number): Promise<Randevue[]> => {
+    const response = await api.get<Randevue[]>(`/randevue/appointment/${appointmentId}`);
     return response.data;
   },
 };

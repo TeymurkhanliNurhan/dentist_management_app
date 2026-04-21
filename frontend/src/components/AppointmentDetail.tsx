@@ -343,6 +343,10 @@ const AppointmentDetail = () => {
   const [newRandevueWorkingHours, setNewRandevueWorkingHours] = useState<WorkingHourRow[]>([]);
   const [newRandevueBlockingHours, setNewRandevueBlockingHours] = useState<BlockingHourRow[]>([]);
   const [newRandevueDayRandevues, setNewRandevueDayRandevues] = useState<Array<{ id: number; date: string; endTime: string; dentist?: { id: number } | null; nurse?: { id: number } | null; room?: { id: number } | null }>>([]);
+  const [appointmentRandevues, setAppointmentRandevues] = useState<Array<{ id: number; date: string; endTime: string }>>([]);
+  const [selectedRandevueByTreatment, setSelectedRandevueByTreatment] = useState<Record<number, number>>({});
+  const [linkingTreatmentId, setLinkingTreatmentId] = useState<number | null>(null);
+  const [linkTreatmentError, setLinkTreatmentError] = useState('');
   const [showAddTreatment, setShowAddTreatment] = useState(false);
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>([]);
   const [allTreatments, setAllTreatments] = useState<Treatment[]>([]);
@@ -737,9 +741,10 @@ const AppointmentDetail = () => {
       setIsLoading(true);
       setError('');
       try {
-        const [appointmentsData, treatmentsData] = await Promise.all([
+        const [appointmentsData, treatmentsData, randevuesData] = await Promise.all([
           appointmentService.getAll(),
-          toothTreatmentService.getAll({ appointment: parseInt(id) })
+          toothTreatmentService.getAll({ appointment: parseInt(id) }),
+          randevueService.getForAppointment(parseInt(id)),
         ]);
         
         const appointmentData = appointmentsData.appointments.find(a => a.id === parseInt(id));
@@ -754,6 +759,7 @@ const AppointmentDetail = () => {
           });
         }
         setTreatments(treatmentsData);
+        setAppointmentRandevues(randevuesData.map((r) => ({ id: r.id, date: r.date, endTime: r.endTime })));
 
         const uniqueToothIds = [...new Set(treatmentsData.flatMap(t => t.toothTreatmentTeeth.map(ttt => ttt.toothId)))];
         const teethPromises = uniqueToothIds.map(toothId => 
@@ -830,6 +836,38 @@ const AppointmentDetail = () => {
       setError(err.response?.data?.message || 'Failed to update appointment');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleLinkTreatmentToRandevue = async (treatmentId: number) => {
+    if (!appointment) return;
+    const selectedRandevueId = selectedRandevueByTreatment[treatmentId];
+    if (!selectedRandevueId || selectedRandevueId <= 0) {
+      setLinkTreatmentError('Please select a randevue to connect.');
+      return;
+    }
+
+    setLinkingTreatmentId(treatmentId);
+    setLinkTreatmentError('');
+    try {
+      await randevueService.update(selectedRandevueId, {
+        append_tooth_treatment_ids: [treatmentId],
+      });
+      const [treatmentsData, randevuesData] = await Promise.all([
+        toothTreatmentService.getAll({ appointment: appointment.id }),
+        randevueService.getForAppointment(appointment.id),
+      ]);
+      setTreatments(treatmentsData);
+      setAppointmentRandevues(
+        randevuesData.map((r) => ({ id: r.id, date: r.date, endTime: r.endTime })),
+      );
+      setSelectedRandevueByTreatment((prev) => ({ ...prev, [treatmentId]: 0 }));
+    } catch (err: any) {
+      setLinkTreatmentError(
+        err.response?.data?.message || 'Failed to connect treatment to randevue.',
+      );
+    } finally {
+      setLinkingTreatmentId(null);
     }
   };
 
@@ -2077,6 +2115,11 @@ const AppointmentDetail = () => {
             </p>
           ) : (
             <div className="space-y-4">
+              {linkTreatmentError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {linkTreatmentError}
+                </div>
+              )}
               {treatments.map((treatment) => {
                 const toothInfos = treatment.toothTreatmentTeeth.map(ttt => teethInfo.get(ttt.toothId)).filter(Boolean);
                 const medicines = treatmentMedicines.get(treatment.id) || [];
@@ -2328,6 +2371,46 @@ const AppointmentDetail = () => {
                               <Plus className="w-4 h-4" />
                               <span>Add Media</span>
                             </button>
+                            <div className="mt-2 w-52">
+                              <label className="mb-1 block text-xs font-medium text-gray-600">
+                                Connect to randevue
+                              </label>
+                              <select
+                                value={selectedRandevueByTreatment[treatment.id] || ''}
+                                onChange={(e) =>
+                                  setSelectedRandevueByTreatment((prev) => ({
+                                    ...prev,
+                                    [treatment.id]: Number(e.target.value) || 0,
+                                  }))
+                                }
+                                className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-[#0066A6] focus:outline-none"
+                                disabled={appointmentRandevues.length === 0}
+                              >
+                                <option value="">
+                                  {appointmentRandevues.length === 0
+                                    ? 'No randevues'
+                                    : 'Select randevue'}
+                                </option>
+                                {appointmentRandevues.map((rv) => (
+                                  <option key={rv.id} value={rv.id}>
+                                    #{rv.id} - {new Date(rv.date).toLocaleString()}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => handleLinkTreatmentToRandevue(treatment.id)}
+                                disabled={
+                                  linkingTreatmentId === treatment.id ||
+                                  appointmentRandevues.length === 0
+                                }
+                                className="mt-2 w-full rounded-md bg-[#0066A6] px-3 py-1.5 text-sm text-white hover:bg-[#00588f] disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {linkingTreatmentId === treatment.id
+                                  ? 'Connecting...'
+                                  : 'Connect'}
+                              </button>
+                            </div>
                           </>
                         )}
                         <button
