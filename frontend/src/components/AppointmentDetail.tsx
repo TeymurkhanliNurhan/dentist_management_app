@@ -40,6 +40,20 @@ function filterRandevuesForAppointment(
     .map((r) => ({ id: r.id, date: r.date, endTime: r.endTime }));
 }
 
+/** Local date plus start–end times only (no id or extra fields). */
+function formatRandevueDateTimeRange(rv: { date: string; endTime: string }): string {
+  const start = new Date(rv.date);
+  const end = new Date(rv.endTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '—';
+  const datePart = start.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+  const timeOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+  return `${datePart} · ${start.toLocaleTimeString(undefined, timeOpts)} – ${end.toLocaleTimeString(undefined, timeOpts)}`;
+}
+
 function apiDayOfWeekFromDate(d: Date): number {
   const js = d.getDay();
   return js === 0 ? 7 : js;
@@ -232,7 +246,7 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
           <button
             type="button"
             onClick={() => onSelectionModeChange('multiple')}
-            className={`p-2 rounded-md transition-colors ${selectionMode === 'multiple' ? 'bg-[#f0f7fc]0 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            className={`p-2 rounded-md transition-colors ${selectionMode === 'multiple' ? 'bg-[#0066A6] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
             title="Multiple teeth selection"
           >
             <MultiToothIcon className="w-4 h-4" />
@@ -240,7 +254,7 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
           <button
             type="button"
             onClick={() => onSelectionModeChange('chin')}
-            className={`p-2 rounded-md transition-colors ${selectionMode === 'chin' ? 'bg-[#f0f7fc]0 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            className={`p-2 rounded-md transition-colors ${selectionMode === 'chin' ? 'bg-[#0066A6] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
             title="Jaw selection (upper or lower arch)"
           >
             <ChinArcTeethIcon className="w-4 h-4" />
@@ -249,7 +263,7 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
 
         <button
           onClick={() => setIsPermanent(!isPermanent)}
-          className="px-3 py-1.5 bg-[#f0f7fc]0 text-white rounded-md text-sm font-medium hover:bg-[#00588f] transition-colors"
+          className="px-3 py-1.5 bg-[#0066A6] text-white rounded-md text-sm font-medium hover:bg-[#00588f] transition-colors"
         >
           {isPermanent ? 'Childish Teeth' : 'Permanent Teeth'}
         </button>
@@ -375,6 +389,7 @@ const AppointmentDetail = () => {
   const [appointmentRandevues, setAppointmentRandevues] = useState<Array<{ id: number; date: string; endTime: string }>>([]);
   const [selectedRandevueByTreatment, setSelectedRandevueByTreatment] = useState<Record<number, number>>({});
   const [linkingTreatmentId, setLinkingTreatmentId] = useState<number | null>(null);
+  const [unlinkingRandevueKey, setUnlinkingRandevueKey] = useState<string | null>(null);
   const [linkTreatmentError, setLinkTreatmentError] = useState('');
   const [showAddTreatment, setShowAddTreatment] = useState(false);
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>([]);
@@ -879,6 +894,23 @@ const AppointmentDetail = () => {
     }
   };
 
+  const refreshTreatmentsAndAppointmentRandevues = useCallback(async () => {
+    if (!appointment) return;
+    const treatmentsData = await toothTreatmentService.getAll({
+      appointment: appointment.id,
+    });
+    const { from, to } = randevueQueryRangeForAppointment(appointment);
+    const rangeList = await randevueService.getForRange(from, to);
+    setTreatments(treatmentsData);
+    setAppointmentRandevues(
+      filterRandevuesForAppointment(
+        rangeList,
+        appointment.id,
+        appointment.patient.id,
+      ),
+    );
+  }, [appointment]);
+
   const handleLinkTreatmentToRandevue = async (treatmentId: number) => {
     if (!appointment) return;
     const selectedRandevueId = selectedRandevueByTreatment[treatmentId];
@@ -893,19 +925,7 @@ const AppointmentDetail = () => {
       await randevueService.update(selectedRandevueId, {
         append_tooth_treatment_ids: [treatmentId],
       });
-      const treatmentsData = await toothTreatmentService.getAll({
-        appointment: appointment.id,
-      });
-      const { from, to } = randevueQueryRangeForAppointment(appointment);
-      const rangeList = await randevueService.getForRange(from, to);
-      setTreatments(treatmentsData);
-      setAppointmentRandevues(
-        filterRandevuesForAppointment(
-          rangeList,
-          appointment.id,
-          appointment.patient.id,
-        ),
-      );
+      await refreshTreatmentsAndAppointmentRandevues();
       setSelectedRandevueByTreatment((prev) => ({ ...prev, [treatmentId]: 0 }));
     } catch (err: any) {
       setLinkTreatmentError(
@@ -913,6 +933,29 @@ const AppointmentDetail = () => {
       );
     } finally {
       setLinkingTreatmentId(null);
+    }
+  };
+
+  const handleUnlinkTreatmentFromRandevue = async (
+    treatmentId: number,
+    randevueId: number,
+  ) => {
+    if (!appointment) return;
+    const key = `${treatmentId}-${randevueId}`;
+    setUnlinkingRandevueKey(key);
+    setLinkTreatmentError('');
+    try {
+      await randevueService.update(randevueId, {
+        remove_tooth_treatment_ids: [treatmentId],
+      });
+      await refreshTreatmentsAndAppointmentRandevues();
+    } catch (err: any) {
+      setLinkTreatmentError(
+        err.response?.data?.message ||
+          'Failed to remove randevue link from treatment.',
+      );
+    } finally {
+      setUnlinkingRandevueKey(null);
     }
   };
 
@@ -1176,6 +1219,7 @@ const AppointmentDetail = () => {
 
   const beginEditTreatment = async (tt: ToothTreatment) => {
     setError('');
+    setLinkTreatmentError('');
     setEditingTreatmentId(tt.id);
     if (allTreatments.length === 0) {
       const ts = await treatmentService.getAll();
@@ -1212,6 +1256,7 @@ const AppointmentDetail = () => {
   const cancelEditTreatment = () => {
     setEditingTreatmentId(null);
     setEditingMedicineQuantities({});
+    setLinkTreatmentError('');
   };
 
   const saveEditTreatment = async (tt: ToothTreatment) => {
@@ -1578,7 +1623,7 @@ const AppointmentDetail = () => {
             <h2 className="text-xl font-semibold text-gray-900">Treatments</h2>
             <button
               onClick={handleOpenAddTreatment}
-              className="flex items-center space-x-2 px-4 py-2 bg-[#f0f7fc]0 text-white rounded-md hover:bg-[#00588f] transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-[#0066A6] text-white rounded-md hover:bg-[#00588f] transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span>Add Treatment</span>
@@ -1986,7 +2031,7 @@ const AppointmentDetail = () => {
                       setShowAddMediaForNewTreatment((v) => !v);
                       setNewTreatmentMediaError('');
                     }}
-                    className="flex items-center space-x-1 px-3 py-1.5 bg-[#f0f7fc]0 text-white text-sm rounded-md hover:bg-[#00588f] transition-colors"
+                    className="flex items-center space-x-1 px-3 py-1.5 bg-[#0066A6] text-white text-sm rounded-md hover:bg-[#00588f] transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     <span>{showAddMediaForNewTreatment ? 'Hide' : 'Add Media'}</span>
@@ -2242,6 +2287,21 @@ const AppointmentDetail = () => {
                             </div>
                           )}
 
+                          <div className="mb-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                            <p className="mb-2 text-sm font-medium text-slate-900">Randevues</p>
+                            {(treatment.linkedRandevues?.length ?? 0) === 0 ? (
+                              <p className="text-sm text-gray-500">None linked.</p>
+                            ) : (
+                              <ul className="space-y-1.5">
+                                {(treatment.linkedRandevues ?? []).map((rv) => (
+                                  <li key={rv.id} className="text-sm text-slate-800">
+                                    {formatRandevueDateTimeRange(rv)}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+
                           {(() => {
                             const medias = treatmentMedias.get(treatment.id) || [];
                             return medias.length > 0 ? (
@@ -2399,63 +2459,32 @@ const AppointmentDetail = () => {
                             >
                               Cancel
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowAddMediaForTreatment(treatment.id)}
+                              className="flex items-center justify-center space-x-1 px-3 py-1.5 border border-[#0066A6] bg-white text-[#0066A6] rounded-md hover:bg-[#f0f7fc] transition-colors"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span>Add Media</span>
+                            </button>
                           </>
                         ) : (
                           <>
                             <button
                               onClick={() => beginEditTreatment(treatment)}
-                              className="flex items-center space-x-1 px-3 py-1.5 bg-[#f0f7fc]0 text-white rounded-md hover:bg-[#00588f] transition-colors"
+                              className="flex items-center space-x-1 px-3 py-1.5 bg-[#0066A6] text-white rounded-md hover:bg-[#00588f] transition-colors"
                             >
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
                             </button>
                             <button
+                              type="button"
                               onClick={() => setShowAddMediaForTreatment(treatment.id)}
-                              className="flex items-center space-x-1 px-3 py-1.5 bg-[#f0f7fc]0 text-white rounded-md hover:bg-[#00588f] transition-colors"
+                              className="flex items-center space-x-1 px-3 py-1.5 border border-[#0066A6] bg-white text-[#0066A6] rounded-md hover:bg-[#f0f7fc] transition-colors"
                             >
                               <Plus className="w-4 h-4" />
                               <span>Add Media</span>
                             </button>
-                            <div className="mt-2 w-52">
-                              <label className="mb-1 block text-xs font-medium text-gray-600">
-                                Connect to randevue
-                              </label>
-                              <select
-                                value={selectedRandevueByTreatment[treatment.id] || ''}
-                                onChange={(e) =>
-                                  setSelectedRandevueByTreatment((prev) => ({
-                                    ...prev,
-                                    [treatment.id]: Number(e.target.value) || 0,
-                                  }))
-                                }
-                                className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-[#0066A6] focus:outline-none"
-                                disabled={appointmentRandevues.length === 0}
-                              >
-                                <option value="">
-                                  {appointmentRandevues.length === 0
-                                    ? 'No randevues'
-                                    : 'Select randevue'}
-                                </option>
-                                {appointmentRandevues.map((rv) => (
-                                  <option key={rv.id} value={rv.id}>
-                                    #{rv.id} - {new Date(rv.date).toLocaleString()}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                type="button"
-                                onClick={() => handleLinkTreatmentToRandevue(treatment.id)}
-                                disabled={
-                                  linkingTreatmentId === treatment.id ||
-                                  appointmentRandevues.length === 0
-                                }
-                                className="mt-2 w-full rounded-md bg-[#0066A6] px-3 py-1.5 text-sm text-white hover:bg-[#00588f] disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                {linkingTreatmentId === treatment.id
-                                  ? 'Connecting...'
-                                  : 'Connect'}
-                              </button>
-                            </div>
                           </>
                         )}
                         <button
@@ -2606,6 +2635,91 @@ const AppointmentDetail = () => {
                               placeholder="Enter notes"
                             />
                           </div>
+                        </div>
+                        <div className="mt-6 border-t border-[#cce0f0] pt-4">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-2">Randevues</h4>
+                          {(treatment.linkedRandevues?.length ?? 0) === 0 ? (
+                            <p className="mb-4 text-sm text-gray-500">None linked yet.</p>
+                          ) : (
+                            <ul className="mb-4 space-y-2">
+                              {(treatment.linkedRandevues ?? []).map((rv) => {
+                                const unlinkKey = `${treatment.id}-${rv.id}`;
+                                return (
+                                  <li
+                                    key={rv.id}
+                                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+                                  >
+                                    <span className="text-gray-800">
+                                      {formatRandevueDateTimeRange(rv)}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleUnlinkTreatmentFromRandevue(treatment.id, rv.id)
+                                      }
+                                      disabled={unlinkingRandevueKey === unlinkKey}
+                                      className="rounded-md border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {unlinkingRandevueKey === unlinkKey ? 'Removing…' : 'Remove'}
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                          <label className="mb-1 block text-xs font-medium text-gray-600">
+                            Connect another randevue
+                          </label>
+                          <select
+                            value={selectedRandevueByTreatment[treatment.id] || ''}
+                            onChange={(e) =>
+                              setSelectedRandevueByTreatment((prev) => ({
+                                ...prev,
+                                [treatment.id]: Number(e.target.value) || 0,
+                              }))
+                            }
+                            className="w-full max-w-md rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-[#0066A6] focus:outline-none"
+                            disabled={
+                              appointmentRandevues.filter(
+                                (rv) =>
+                                  !(treatment.linkedRandevues ?? []).some((l) => l.id === rv.id),
+                              ).length === 0
+                            }
+                          >
+                            <option value="">
+                              {appointmentRandevues.length === 0
+                                ? 'No randevues for this appointment'
+                                : appointmentRandevues.every((rv) =>
+                                      (treatment.linkedRandevues ?? []).some((l) => l.id === rv.id),
+                                    )
+                                  ? 'All appointment randevues are already linked'
+                                  : 'Select randevue'}
+                            </option>
+                            {appointmentRandevues
+                              .filter(
+                                (rv) =>
+                                  !(treatment.linkedRandevues ?? []).some((l) => l.id === rv.id),
+                              )
+                              .map((rv) => (
+                                <option key={rv.id} value={rv.id}>
+                                  {formatRandevueDateTimeRange(rv)}
+                                </option>
+                              ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => void handleLinkTreatmentToRandevue(treatment.id)}
+                            disabled={
+                              linkingTreatmentId === treatment.id ||
+                              appointmentRandevues.filter(
+                                (rv) =>
+                                  !(treatment.linkedRandevues ?? []).some((l) => l.id === rv.id),
+                              ).length === 0
+                            }
+                            className="mt-2 max-w-md rounded-md bg-[#0066A6] px-3 py-1.5 text-sm text-white hover:bg-[#00588f] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {linkingTreatmentId === treatment.id ? 'Connecting…' : 'Connect'}
+                          </button>
                         </div>
                       </div>
                     )}
@@ -3017,7 +3131,7 @@ const AppointmentDetail = () => {
                       <button
                         type="button"
                         onClick={() => setEditedAppointment({ ...editedAppointment, chargedFee: appointment.calculatedFee })}
-                        className="w-full py-1.5 px-3 bg-[#f0f7fc]0 text-white text-sm rounded-md font-medium hover:bg-[#00588f] transition-colors"
+                        className="w-full py-1.5 px-3 bg-[#0066A6] text-white text-sm rounded-md font-medium hover:bg-[#00588f] transition-colors"
                       >
                         Set as Calculated Fee (${appointment.calculatedFee.toFixed(2)})
                       </button>
@@ -3036,7 +3150,7 @@ const AppointmentDetail = () => {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 py-2 bg-[#f0f7fc]0 text-white rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 py-2 bg-[#0066A6] text-white rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? 'Updating...' : 'Update Appointment'}
                   </button>

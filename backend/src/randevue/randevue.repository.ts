@@ -459,4 +459,33 @@ export class RandevueRepository {
     if (rowsToInsert.length === 0) return;
     await this.dataSource.getRepository(TreatmentRandevue).save(rowsToInsert);
   }
+
+  async unlinkToothTreatmentsFromRandevue(input: {
+    treatmentIds: number[];
+    appointmentId: number;
+    patientId: number;
+    randevueId: number;
+  }): Promise<void> {
+    const uniqueTreatmentIds = [...new Set(input.treatmentIds)];
+    if (uniqueTreatmentIds.length === 0) return;
+
+    const trRepo = this.dataSource.getRepository(TreatmentRandevue);
+    const links = await trRepo
+      .createQueryBuilder('tr')
+      .innerJoin('tr.randevue', 'rv')
+      .innerJoin('tr.toothTreatmentTeeth', 'ttt')
+      .innerJoin('ttt.toothTreatment', 'tt')
+      .where('rv.id = :randevueId', { randevueId: input.randevueId })
+      .andWhere('tt.id IN (:...treatmentIds)', {
+        treatmentIds: uniqueTreatmentIds,
+      })
+      .andWhere('tt.appointment = :appointmentId', {
+        appointmentId: input.appointmentId,
+      })
+      .andWhere('tt.patient = :patientId', { patientId: input.patientId })
+      .getMany();
+
+    if (links.length === 0) return;
+    await trRepo.remove(links);
+  }
 }

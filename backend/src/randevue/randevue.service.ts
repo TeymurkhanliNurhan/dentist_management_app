@@ -443,7 +443,14 @@ export class RandevueService {
       dto.append_tooth_treatment_ids?.filter(
         (value) => Number.isFinite(value) && value > 0,
       ) ?? [];
-    if (appendTreatmentIds.length > 0 && row.appointment == null) {
+    const removeTreatmentIds =
+      dto.remove_tooth_treatment_ids?.filter(
+        (value) => Number.isFinite(value) && value > 0,
+      ) ?? [];
+    if (
+      (appendTreatmentIds.length > 0 || removeTreatmentIds.length > 0) &&
+      row.appointment == null
+    ) {
       throw new BadRequestException(
         'This randevue is not linked to an appointment',
       );
@@ -475,6 +482,14 @@ export class RandevueService {
       if (appendTreatmentIds.length > 0) {
         await this.repo.linkToothTreatmentsToRandevue({
           treatmentIds: appendTreatmentIds,
+          appointmentId: row.appointment!.id,
+          patientId: row.patient.id,
+          randevueId: row.id,
+        });
+      }
+      if (removeTreatmentIds.length > 0) {
+        await this.repo.unlinkToothTreatmentsFromRandevue({
+          treatmentIds: removeTreatmentIds,
           appointmentId: row.appointment!.id,
           patientId: row.patient.id,
           randevueId: row.id,

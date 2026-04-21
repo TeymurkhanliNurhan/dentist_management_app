@@ -143,6 +143,34 @@ export class ToothTreatmentService {
             )
             .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
 
+        const linkedRandevueById = new Map<
+          number,
+          { id: number; date: string; endTime: string }
+        >();
+        for (const ttt of tt.toothTreatmentTeeth ?? []) {
+          for (const tr of ttt.treatmentRandevues ?? []) {
+            const rv = tr.randevue;
+            if (!rv?.id) continue;
+            const d = rv.date;
+            const e = rv.endTime;
+            linkedRandevueById.set(rv.id, {
+              id: rv.id,
+              date:
+                d instanceof Date
+                  ? d.toISOString()
+                  : new Date(d as string).toISOString(),
+              endTime:
+                e instanceof Date
+                  ? e.toISOString()
+                  : new Date(e as string).toISOString(),
+            });
+          }
+        }
+        const linkedRandevues = [...linkedRandevueById.values()].sort(
+          (a, b) =>
+            new Date(a.date).getTime() - new Date(b.date).getTime(),
+        );
+
         return {
           id: tt.id,
           patient: tt.patient,
@@ -169,6 +197,7 @@ export class ToothTreatmentService {
             pricePer: tt.treatment?.pricePer ?? null,
           },
           lastRandevueDate: formatDate(latestRandevueDate),
+          linkedRandevues,
           description: tt.description,
           toothTreatmentTeeth:
             tt.toothTreatmentTeeth?.map((ttt) => ({

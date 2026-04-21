@@ -453,6 +453,8 @@ export interface ToothTreatment {
     pricePer: TreatmentPricePer | null;
   };
   lastRandevueDate?: string | null;
+  /** Distinct randevues linked to this placement (via tooth rows). */
+  linkedRandevues?: { id: number; date: string; endTime: string }[];
   description: string | null;
   toothTreatmentTeeth: {
     id: number;
@@ -733,6 +735,7 @@ export interface UpdateRandevueDto {
   nurse_id?: number;
   clear_nurse?: boolean;
   append_tooth_treatment_ids?: number[];
+  remove_tooth_treatment_ids?: number[];
 }
 
 export const randevueService = {

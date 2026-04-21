@@ -105,4 +105,17 @@ export class UpdateRandevueDto {
   @IsNumber({}, { each: true })
   @Min(1, { each: true })
   append_tooth_treatment_ids?: number[];
+
+  @ApiPropertyOptional({
+    type: [Number],
+    description:
+      'Remove Treatment_Randevue links for these tooth treatments on this randevue',
+    example: [12, 15],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsNumber({}, { each: true })
+  @Min(1, { each: true })
+  remove_tooth_treatment_ids?: number[];
 }
