@@ -8,7 +8,7 @@ import api, {
   type SalaryRecord,
   type ToothTreatment,
 } from '../services/api';
-import { ChevronDown, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
@@ -129,18 +129,21 @@ const ClinicStaffDirectory = () => {
     });
   };
 
-  const formatSalaryPart = (staffId: number) => {
+  const formatSalaryDisplay = (staffId: number): { kind: 'none' | 'fixed' | 'percentage'; label: string } => {
     const salary = salariesByStaffId[staffId];
-    if (!salary) return 'Not set';
+    if (!salary) return { kind: 'none', label: 'Not set' };
     if (salary.salary != null) {
-      const dayText = salary.salaryDay != null ? ` (day ${salary.salaryDay})` : '';
-      return `$${Number(salary.salary).toFixed(2)}${dayText}`;
+      const dayText = salary.salaryDay != null ? ` · day ${salary.salaryDay}` : '';
+      return { kind: 'fixed', label: `$${Number(salary.salary).toFixed(2)}${dayText}` };
     }
     if (salary.treatmentPercentage != null) {
-      return `${Number(salary.treatmentPercentage).toFixed(2)}% per treatment`;
+      return { kind: 'percentage', label: `${Number(salary.treatmentPercentage).toFixed(2)}%` };
     }
-    return 'Not set';
+    return { kind: 'none', label: 'Not set' };
   };
+
+  const treatmentPeriodLabel =
+    treatmentPeriod === 'today' ? 'Today' : treatmentPeriod === 'week' ? 'Week' : 'Month';
 
   const currentPeriodRange = useMemo(() => {
     const start = startOfDay(periodAnchorDate);
@@ -349,83 +352,111 @@ const ClinicStaffDirectory = () => {
               </div>
             ) : null}
 
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
+            <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                  <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    <tr>
-                      <th className="px-4 py-3">Full name</th>
-                      <th className="px-4 py-3">Email</th>
-                      <th className="px-4 py-3">Salary part</th>
-                      <th className="px-4 py-3">
-                        <div className="inline-flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => shiftPeriod(-1)}
-                            className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
-                          >
-                            Previous
-                          </button>
-                          <span>Treatment</span>
-                          <ChevronDown size={14} />
-                          <select
-                            value={treatmentPeriod}
-                            onChange={(e) => setTreatmentPeriod(e.target.value as TreatmentPeriod)}
-                            className="rounded border border-slate-300 bg-white px-1 py-0.5 text-xs font-medium text-slate-600"
-                          >
-                            <option value="today">Today</option>
-                            <option value="week">Week</option>
-                            <option value="month">Month</option>
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => shiftPeriod(1)}
-                            className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
-                          >
-                            Next
-                          </button>
+                <table className="min-w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-[#f3f4f6] text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-600">
+                      <th className="px-6 py-4 text-left font-semibold">Full name</th>
+                      <th className="px-6 py-4 text-left font-semibold">Email</th>
+                      <th className="px-6 py-4 text-left font-semibold">Salary</th>
+                      <th className="px-6 py-4 text-center font-semibold">
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => shiftPeriod(-1)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-300/90 bg-white text-slate-600 transition hover:bg-slate-50"
+                              aria-label="Previous period"
+                            >
+                              <ChevronLeft size={16} strokeWidth={2} />
+                            </button>
+                            <span className="tracking-[0.06em]">Treatment</span>
+                            <span className="relative inline-flex items-center">
+                              <ChevronDown size={14} className="text-slate-500" strokeWidth={2} aria-hidden />
+                              <select
+                                value={treatmentPeriod}
+                                onChange={(e) => setTreatmentPeriod(e.target.value as TreatmentPeriod)}
+                                className="absolute inset-0 cursor-pointer opacity-0"
+                                aria-label="Treatment period"
+                              >
+                                <option value="today">Today</option>
+                                <option value="week">Week</option>
+                                <option value="month">Month</option>
+                              </select>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => shiftPeriod(1)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-300/90 bg-white text-slate-600 transition hover:bg-slate-50"
+                              aria-label="Next period"
+                            >
+                              <ChevronRight size={16} strokeWidth={2} />
+                            </button>
+                          </div>
+                          <span className="text-[10px] font-normal normal-case tracking-normal text-slate-400">
+                            {treatmentPeriodLabel}
+                          </span>
                         </div>
                       </th>
-                      <th className="px-4 py-3">Total</th>
+                      <th className="px-6 py-4 text-right font-semibold">Total</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                  <tbody className="divide-y divide-slate-200 text-slate-700">
                     {loading ? (
                       <tr>
-                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                        <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                           Loading…
                         </td>
                       </tr>
                     ) : dentists.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                        <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                           No dentists found.
                         </td>
                       </tr>
                     ) : (
-                      dentists.map((row) => (
-                        <tr key={row.id} className="hover:bg-slate-50/80">
-                          <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
-                            {row.staff?.name} {row.staff?.surname}
-                          </td>
-                          <td className="max-w-[260px] truncate px-4 py-3 text-slate-600">{row.staff?.gmail ?? '—'}</td>
-                          <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                            <button
-                              type="button"
-                              onClick={() => openSalaryEditor(row.staffId)}
-                              className="rounded px-1 py-0.5 font-medium text-[#0066A6] transition hover:bg-slate-100 hover:text-[#00588f]"
-                            >
-                              {formatSalaryPart(row.staffId)}
-                            </button>
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3">
-                            {getPeriodTreatmentStats(row.id).count}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3">
-                            ${getPeriodTreatmentStats(row.id).total.toFixed(2)}
-                          </td>
-                        </tr>
-                      ))
+                      dentists.map((row) => {
+                        const salaryDisp = formatSalaryDisplay(row.staffId);
+                        const { count, total } = getPeriodTreatmentStats(row.id);
+                        return (
+                          <tr key={row.id} className="bg-white">
+                            <td className="whitespace-nowrap px-6 py-4 font-bold text-slate-900">
+                              {row.staff?.name} {row.staff?.surname}
+                            </td>
+                            <td className="max-w-[280px] truncate px-6 py-4 font-normal text-slate-500">
+                              {row.staff?.gmail ?? '—'}
+                            </td>
+                            <td className="whitespace-nowrap px-6 py-4">
+                              <button
+                                type="button"
+                                onClick={() => openSalaryEditor(row.staffId)}
+                                className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-left transition hover:opacity-80"
+                              >
+                                {salaryDisp.kind === 'percentage' ? (
+                                  <span className="font-semibold text-[#0b7dd5]">{salaryDisp.label}</span>
+                                ) : salaryDisp.kind === 'fixed' ? (
+                                  <span className="font-medium text-slate-800">{salaryDisp.label}</span>
+                                ) : (
+                                  <span className="font-medium text-slate-500">{salaryDisp.label}</span>
+                                )}
+                              </button>
+                            </td>
+                            <td className="whitespace-nowrap px-6 py-4 text-center">
+                              <span
+                                className={`inline-block text-base font-medium tabular-nums ${
+                                  count > 0 ? 'cursor-pointer text-[#0b7dd5]' : 'text-slate-600'
+                                }`}
+                              >
+                                {count}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-6 py-4 text-right font-normal tabular-nums text-slate-500">
+                              ${total.toFixed(2)}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
