@@ -149,6 +149,45 @@ export interface DentistProfile {
   };
 }
 
+export interface SalaryRecord {
+  staffId: number;
+  salary: number | null;
+  salaryDay: number | null;
+  treatmentPercentage: number | null;
+}
+
+export interface CreateSalaryDto {
+  staffId: number;
+  salary?: number;
+  salaryDay?: number;
+  treatmentPercentage?: number;
+}
+
+export interface UpdateSalaryDto {
+  salary?: number | null;
+  salaryDay?: number | null;
+  treatmentPercentage?: number | null;
+}
+
+export const salaryService = {
+  getAll: async (filters?: { staffId?: number; salaryDay?: number }): Promise<SalaryRecord[]> => {
+    const params = new URLSearchParams();
+    if (filters?.staffId != null) params.append('staffId', String(filters.staffId));
+    if (filters?.salaryDay != null) params.append('salaryDay', String(filters.salaryDay));
+    const query = params.toString();
+    const response = await api.get<SalaryRecord[]>(`/salary${query ? `?${query}` : ''}`);
+    return response.data;
+  },
+  create: async (data: CreateSalaryDto): Promise<SalaryRecord> => {
+    const response = await api.post<SalaryRecord>('/salary', data);
+    return response.data;
+  },
+  update: async (staffId: number, data: UpdateSalaryDto): Promise<SalaryRecord> => {
+    const response = await api.patch<SalaryRecord>(`/salary/${staffId}`, data);
+    return response.data;
+  },
+};
+
 let currentDentistProfilePromise: Promise<DentistProfile | null> | null = null;
 
 /** Clears cached dentist profile so the next session fetches fresh data after login. */
