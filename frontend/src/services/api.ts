@@ -452,6 +452,7 @@ export interface ToothTreatment {
     price: number;
     pricePer: TreatmentPricePer | null;
   };
+  lastRandevueDate?: string | null;
   description: string | null;
   toothTreatmentTeeth: {
     id: number;

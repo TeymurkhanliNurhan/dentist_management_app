@@ -311,6 +311,11 @@ export class ToothTreatmentRepository {
         'toothTreatmentTeeth',
       )
       .leftJoinAndSelect('toothTreatmentTeeth.patientTooth', 'tttPatientTooth')
+      .leftJoinAndSelect(
+        'toothTreatmentTeeth.treatmentRandevues',
+        'treatmentRandevues',
+      )
+      .leftJoinAndSelect('treatmentRandevues.randevue', 'linkedRandevue')
       .leftJoinAndSelect('appointment.patient', 'appointmentPatient')
       .where('appointment.clinicId = :clinicId', { clinicId });
 

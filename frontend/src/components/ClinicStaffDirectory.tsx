@@ -178,7 +178,8 @@ const ClinicStaffDirectory = () => {
       let monthTotal = 0;
 
       for (const item of list) {
-        const ts = new Date(item.appointment?.startDate ?? '');
+        const effectiveDate = item.lastRandevueDate ?? item.appointment?.startDate ?? '';
+        const ts = new Date(effectiveDate);
         if (Number.isNaN(ts.getTime())) continue;
         const fee = Number(item.feeSnapshot ?? item.treatment?.price ?? 0);
 

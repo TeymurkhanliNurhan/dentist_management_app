@@ -27,6 +27,7 @@ import { Salary } from './src/salary/entities/salary.entity';
 import { Expense } from './src/expense/entities/expense.entity';
 import { PaymentDetails } from './src/payment_details/entities/payment_details.entity';
 import { PurchaseMedicine } from './src/purchase_medicine/entities/purchase_medicine.entity';
+import { TreatmentRandevue } from './src/treatment_randevue/entities/treatment_randevue.entity';
 
 export default new DataSource({
   type: 'postgres',
@@ -59,6 +60,7 @@ export default new DataSource({
     ToothTreatmentMedicine,
     Media,
     Randevue,
+    TreatmentRandevue,
   ],
   migrations: [
     'src/migrations/*.ts',

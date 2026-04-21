@@ -134,6 +134,15 @@ export class ToothTreatmentService {
           return date.toISOString().slice(0, 10);
         };
 
+        const latestRandevueDate =
+          tt.toothTreatmentTeeth
+            ?.flatMap((ttt) =>
+              (ttt.treatmentRandevues ?? [])
+                .map((tr) => tr.randevue?.date)
+                .filter((d): d is Date => d instanceof Date),
+            )
+            .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+
         return {
           id: tt.id,
           patient: tt.patient,
@@ -159,6 +168,7 @@ export class ToothTreatmentService {
             price: tt.treatment?.price,
             pricePer: tt.treatment?.pricePer ?? null,
           },
+          lastRandevueDate: formatDate(latestRandevueDate),
           description: tt.description,
           toothTreatmentTeeth:
             tt.toothTreatmentTeeth?.map((ttt) => ({
