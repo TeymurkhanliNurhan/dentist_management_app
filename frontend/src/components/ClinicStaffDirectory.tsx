@@ -8,12 +8,13 @@ import api, {
   type SalaryRecord,
   type ToothTreatment,
 } from '../services/api';
-import { X } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
 
 type SalaryMode = 'fixed' | 'percentage';
+type TreatmentPeriod = 'today' | 'week' | 'month';
 
 const ClinicStaffDirectory = () => {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ const ClinicStaffDirectory = () => {
   const [salariesByStaffId, setSalariesByStaffId] = useState<Record<number, SalaryRecord>>({});
   const [treatmentsByDentistId, setTreatmentsByDentistId] = useState<Record<number, ToothTreatment[]>>({});
   const [selectedStaffIds, setSelectedStaffIds] = useState<Set<number>>(new Set());
+  const [treatmentPeriod, setTreatmentPeriod] = useState<TreatmentPeriod>('today');
   const [activeStaffId, setActiveStaffId] = useState<number | null>(null);
   const [salaryMode, setSalaryMode] = useState<SalaryMode>('fixed');
   const [salaryValue, setSalaryValue] = useState('');
@@ -93,7 +95,7 @@ const ClinicStaffDirectory = () => {
           groupedTreatments[dentistId].push(treatment);
         }
         setTreatmentsByDentistId(groupedTreatments);
-        setSelectedStaffIds(new Set(sortedDentists.map((row) => row.staffId)));
+        setSelectedStaffIds(new Set());
       } catch (err: unknown) {
         console.error('Failed to load dentist salary data:', err);
         const message =
@@ -111,21 +113,12 @@ const ClinicStaffDirectory = () => {
     void load();
   }, [role]);
 
-  const allSelected = dentists.length > 0 && selectedStaffIds.size === dentists.length;
-
   const toggleStaffSelection = (staffId: number) => {
     setSelectedStaffIds((prev) => {
       const next = new Set(prev);
       if (next.has(staffId)) next.delete(staffId);
       else next.add(staffId);
       return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    setSelectedStaffIds((prev) => {
-      if (prev.size === dentists.length) return new Set();
-      return new Set(dentists.map((row) => row.staffId));
     });
   };
 
@@ -215,7 +208,13 @@ const ClinicStaffDirectory = () => {
     return result;
   }, [dentists, startOfMonth, startOfToday, startOfWeek, treatmentsByDentistId]);
 
-  const formatTreatmentCell = (count: number, total: number) => `${count} / $${total.toFixed(2)}`;
+  const getPeriodTreatmentStats = (dentistId: number) => {
+    const stats = treatmentStatsByDentistId[dentistId];
+    if (!stats) return { count: 0, total: 0 };
+    if (treatmentPeriod === 'week') return { count: stats.weekCount, total: stats.weekTotal };
+    if (treatmentPeriod === 'month') return { count: stats.monthCount, total: stats.monthTotal };
+    return { count: stats.todayCount, total: stats.todayTotal };
+  };
 
   const openSalaryEditor = (staffId: number) => {
     const current = salariesByStaffId[staffId];
@@ -352,46 +351,43 @@ const ClinicStaffDirectory = () => {
                 <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
                   <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <tr>
-                      <th className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          aria-label="Select all dentists"
-                          checked={allSelected}
-                          onChange={toggleSelectAll}
-                        />
-                      </th>
                       <th className="px-4 py-3">Full name</th>
                       <th className="px-4 py-3">Email</th>
                       <th className="px-4 py-3">Salary part</th>
-                      <th className="px-4 py-3">Today (count / total)</th>
-                      <th className="px-4 py-3">Week (count / total)</th>
-                      <th className="px-4 py-3">Month (count / total)</th>
+                      <th className="px-4 py-3">
+                        <div className="inline-flex items-center gap-1">
+                          <span>Treatment</span>
+                          <ChevronDown size={14} />
+                          <select
+                            value={treatmentPeriod}
+                            onChange={(e) => setTreatmentPeriod(e.target.value as TreatmentPeriod)}
+                            className="rounded border border-slate-300 bg-white px-1 py-0.5 text-xs font-medium text-slate-600"
+                          >
+                            <option value="today">Today</option>
+                            <option value="week">Week</option>
+                            <option value="month">Month</option>
+                          </select>
+                        </div>
+                      </th>
+                      <th className="px-4 py-3">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     {loading ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
+                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
                           Loading…
                         </td>
                       </tr>
                     ) : dentists.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
+                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
                           No dentists found.
                         </td>
                       </tr>
                     ) : (
                       dentists.map((row) => (
                         <tr key={row.id} className="hover:bg-slate-50/80">
-                          <td className="whitespace-nowrap px-4 py-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedStaffIds.has(row.staffId)}
-                              onChange={() => toggleStaffSelection(row.staffId)}
-                              aria-label={`Select ${row.staff?.name ?? ''} ${row.staff?.surname ?? ''}`}
-                            />
-                          </td>
                           <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
                             {row.staff?.name} {row.staff?.surname}
                           </td>
@@ -406,22 +402,10 @@ const ClinicStaffDirectory = () => {
                             </button>
                           </td>
                           <td className="whitespace-nowrap px-4 py-3">
-                            {formatTreatmentCell(
-                              treatmentStatsByDentistId[row.id]?.todayCount ?? 0,
-                              treatmentStatsByDentistId[row.id]?.todayTotal ?? 0,
-                            )}
+                            {getPeriodTreatmentStats(row.id).count}
                           </td>
                           <td className="whitespace-nowrap px-4 py-3">
-                            {formatTreatmentCell(
-                              treatmentStatsByDentistId[row.id]?.weekCount ?? 0,
-                              treatmentStatsByDentistId[row.id]?.weekTotal ?? 0,
-                            )}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3">
-                            {formatTreatmentCell(
-                              treatmentStatsByDentistId[row.id]?.monthCount ?? 0,
-                              treatmentStatsByDentistId[row.id]?.monthTotal ?? 0,
-                            )}
+                            ${getPeriodTreatmentStats(row.id).total.toFixed(2)}
                           </td>
                         </tr>
                       ))
@@ -502,9 +486,32 @@ const ClinicStaffDirectory = () => {
                     onChange={(e) => setApplyToSelectedOthers(e.target.checked)}
                   />
                   <span>
-                    Apply this change to selected dentists too ({selectedStaffIds.size} selected).
+                    Apply this change to multiple dentists.
                   </span>
                 </label>
+
+                {applyToSelectedOthers && (
+                  <div className="rounded-lg border border-slate-200 p-3">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Select dentists
+                    </p>
+                    <div className="max-h-48 space-y-1 overflow-y-auto">
+                      {dentists.map((d) => (
+                        <label key={d.id} className="flex items-center gap-2 text-sm text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={selectedStaffIds.has(d.staffId)}
+                            onChange={() => toggleStaffSelection(d.staffId)}
+                          />
+                          <span>
+                            {d.staff?.name} {d.staff?.surname}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">{selectedStaffIds.size} selected</p>
+                  </div>
+                )}
 
                 <button
                   type="button"
