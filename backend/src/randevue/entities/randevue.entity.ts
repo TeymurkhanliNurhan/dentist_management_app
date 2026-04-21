@@ -4,12 +4,14 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
 import { Appointment } from '../../appointment/entities/appointment.entity';
 import { Patient } from '../../patient/entities/patient.entity';
 import { Room } from '../../room/entities/room.entity';
 import { Nurse } from '../../nurse/entities/nurse.entity';
 import { Dentist } from '../../dentist/entities/dentist.entity';
+import { TreatmentRandevue } from '../../treatment_randevue/entities/treatment_randevue.entity';
 
 @Entity({ name: 'Randevue' })
 export class Randevue {
@@ -62,4 +64,7 @@ export class Randevue {
   })
   @JoinColumn({ name: 'dentist' })
   dentist: Dentist | null;
+
+  @OneToMany(() => TreatmentRandevue, (tr) => tr.randevue)
+  treatmentRandevues: TreatmentRandevue[];
 }

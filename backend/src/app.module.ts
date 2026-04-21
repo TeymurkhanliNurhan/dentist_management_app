@@ -53,6 +53,7 @@ import { SalaryModule } from './salary/salary.module';
 import { Expense } from './expense/entities/expense.entity';
 import { PaymentDetails } from './payment_details/entities/payment_details.entity';
 import { PurchaseMedicine } from './purchase_medicine/entities/purchase_medicine.entity';
+import { TreatmentRandevue } from './treatment_randevue/entities/treatment_randevue.entity';
 import { ExpenseModule } from './expense/expense.module';
 import { PaymentDetailsModule } from './payment_details/payment_details.module';
 import { PurchaseMedicineModule } from './purchase_medicine/purchase_medicine.module';
@@ -125,6 +126,7 @@ import { PurchaseMedicineModule } from './purchase_medicine/purchase_medicine.mo
               Expense,
               PaymentDetails,
               PurchaseMedicine,
+              TreatmentRandevue,
               Nurse,
               FrontDeskWorker,
               Director,
@@ -174,6 +176,7 @@ import { PurchaseMedicineModule } from './purchase_medicine/purchase_medicine.mo
               Expense,
               PaymentDetails,
               PurchaseMedicine,
+              TreatmentRandevue,
               Nurse,
               FrontDeskWorker,
               Director,
