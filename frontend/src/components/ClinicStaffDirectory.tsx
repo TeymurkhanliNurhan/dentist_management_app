@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import api, { dentistService, salaryService, type DentistProfile, type SalaryRecord } from '../services/api';
-import { CircleDollarSign, X } from 'lucide-react';
+import api, {
+  dentistService,
+  salaryService,
+  toothTreatmentService,
+  type DentistProfile,
+  type SalaryRecord,
+  type ToothTreatment,
+} from '../services/api';
+import { X } from 'lucide-react';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
@@ -16,6 +23,7 @@ const ClinicStaffDirectory = () => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [dentists, setDentists] = useState<DentistProfile[]>([]);
   const [salariesByStaffId, setSalariesByStaffId] = useState<Record<number, SalaryRecord>>({});
+  const [treatmentsByDentistId, setTreatmentsByDentistId] = useState<Record<number, ToothTreatment[]>>({});
   const [selectedStaffIds, setSelectedStaffIds] = useState<Set<number>>(new Set());
   const [activeStaffId, setActiveStaffId] = useState<number | null>(null);
   const [salaryMode, setSalaryMode] = useState<SalaryMode>('fixed');
@@ -75,6 +83,16 @@ const ClinicStaffDirectory = () => {
           nextSalaryMap[salary.staffId] = salary;
         }
         setSalariesByStaffId(nextSalaryMap);
+
+        const treatmentRows = await toothTreatmentService.getAll();
+        const groupedTreatments: Record<number, ToothTreatment[]> = {};
+        for (const treatment of treatmentRows) {
+          const dentistId = treatment.dentist?.id;
+          if (!dentistId) continue;
+          if (!groupedTreatments[dentistId]) groupedTreatments[dentistId] = [];
+          groupedTreatments[dentistId].push(treatment);
+        }
+        setTreatmentsByDentistId(groupedTreatments);
         setSelectedStaffIds(new Set(sortedDentists.map((row) => row.staffId)));
       } catch (err: unknown) {
         console.error('Failed to load dentist salary data:', err);
@@ -85,6 +103,7 @@ const ClinicStaffDirectory = () => {
         setError(message || 'Failed to load dentists');
         setDentists([]);
         setSalariesByStaffId({});
+        setTreatmentsByDentistId({});
       } finally {
         setLoading(false);
       }
@@ -122,6 +141,81 @@ const ClinicStaffDirectory = () => {
     }
     return 'Not set';
   };
+
+  const startOfToday = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  const startOfWeek = useMemo(() => {
+    const d = new Date(startOfToday);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d;
+  }, [startOfToday]);
+
+  const startOfMonth = useMemo(() => {
+    const d = new Date(startOfToday);
+    d.setDate(1);
+    return d;
+  }, [startOfToday]);
+
+  const treatmentStatsByDentistId = useMemo(() => {
+    const result: Record<
+      number,
+      {
+        todayCount: number;
+        todayTotal: number;
+        weekCount: number;
+        weekTotal: number;
+        monthCount: number;
+        monthTotal: number;
+      }
+    > = {};
+
+    for (const dentist of dentists) {
+      const list = treatmentsByDentistId[dentist.id] ?? [];
+      let todayCount = 0;
+      let weekCount = 0;
+      let monthCount = 0;
+      let todayTotal = 0;
+      let weekTotal = 0;
+      let monthTotal = 0;
+
+      for (const item of list) {
+        const ts = new Date(item.appointment?.startDate ?? '');
+        if (Number.isNaN(ts.getTime())) continue;
+        const fee = Number(item.feeSnapshot ?? item.treatment?.price ?? 0);
+
+        if (ts >= startOfMonth) {
+          monthCount += 1;
+          monthTotal += fee;
+        }
+        if (ts >= startOfWeek) {
+          weekCount += 1;
+          weekTotal += fee;
+        }
+        if (ts >= startOfToday) {
+          todayCount += 1;
+          todayTotal += fee;
+        }
+      }
+
+      result[dentist.id] = {
+        todayCount,
+        todayTotal,
+        weekCount,
+        weekTotal,
+        monthCount,
+        monthTotal,
+      };
+    }
+    return result;
+  }, [dentists, startOfMonth, startOfToday, startOfWeek, treatmentsByDentistId]);
+
+  const formatTreatmentCell = (count: number, total: number) => `${count} / $${total.toFixed(2)}`;
 
   const openSalaryEditor = (staffId: number) => {
     const current = salariesByStaffId[staffId];
@@ -240,7 +334,7 @@ const ClinicStaffDirectory = () => {
             <div className="mb-6">
               <h1 className="text-3xl font-bold text-slate-900">Dentist salary management</h1>
               <p className="mt-2 text-sm text-slate-500">
-                Click a dentist salary icon to open the edit board.
+                Click salary value to open the edit board.
               </p>
             </div>
 
@@ -269,19 +363,21 @@ const ClinicStaffDirectory = () => {
                       <th className="px-4 py-3">Full name</th>
                       <th className="px-4 py-3">Email</th>
                       <th className="px-4 py-3">Salary part</th>
-                      <th className="px-4 py-3">Edit</th>
+                      <th className="px-4 py-3">Today (count / total)</th>
+                      <th className="px-4 py-3">Week (count / total)</th>
+                      <th className="px-4 py-3">Month (count / total)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     {loading ? (
                       <tr>
-                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                        <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
                           Loading…
                         </td>
                       </tr>
                     ) : dentists.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                        <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
                           No dentists found.
                         </td>
                       </tr>
@@ -301,17 +397,31 @@ const ClinicStaffDirectory = () => {
                           </td>
                           <td className="max-w-[260px] truncate px-4 py-3 text-slate-600">{row.staff?.gmail ?? '—'}</td>
                           <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                            {formatSalaryPart(row.staffId)}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3">
                             <button
                               type="button"
                               onClick={() => openSalaryEditor(row.staffId)}
-                              className="rounded-md border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50"
-                              aria-label={`Edit salary for ${row.staff?.name ?? ''} ${row.staff?.surname ?? ''}`}
+                              className="rounded px-1 py-0.5 font-medium text-[#0066A6] transition hover:bg-slate-100 hover:text-[#00588f]"
                             >
-                              <CircleDollarSign size={16} />
+                              {formatSalaryPart(row.staffId)}
                             </button>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3">
+                            {formatTreatmentCell(
+                              treatmentStatsByDentistId[row.id]?.todayCount ?? 0,
+                              treatmentStatsByDentistId[row.id]?.todayTotal ?? 0,
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3">
+                            {formatTreatmentCell(
+                              treatmentStatsByDentistId[row.id]?.weekCount ?? 0,
+                              treatmentStatsByDentistId[row.id]?.weekTotal ?? 0,
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3">
+                            {formatTreatmentCell(
+                              treatmentStatsByDentistId[row.id]?.monthCount ?? 0,
+                              treatmentStatsByDentistId[row.id]?.monthTotal ?? 0,
+                            )}
                           </td>
                         </tr>
                       ))
