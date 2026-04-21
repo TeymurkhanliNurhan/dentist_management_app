@@ -3,9 +3,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import api, {
   dentistService,
   salaryService,
+  staffService,
   toothTreatmentService,
   type DentistProfile,
   type SalaryRecord,
+  type StaffListRecord,
   type ToothTreatment,
 } from '../services/api';
 import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -15,6 +17,63 @@ import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
 
 type SalaryMode = 'fixed' | 'percentage';
 type TreatmentPeriod = 'today' | 'week' | 'month';
+
+type StaffDirectoryRoleBucket = 'dentist' | 'nurse' | 'frontdesk' | 'director' | 'staff';
+
+const STAFF_DIR_VISIBLE_ROLES_KEY = 'directorStaffDirectoryVisibleRoles';
+
+const ALL_STAFF_DIRECTORY_ROLE_BUCKETS: StaffDirectoryRoleBucket[] = [
+  'dentist',
+  'nurse',
+  'frontdesk',
+  'director',
+  'staff',
+];
+
+const ROLE_BUCKET_LABEL: Record<StaffDirectoryRoleBucket, string> = {
+  dentist: 'Dentist',
+  nurse: 'Nurse',
+  frontdesk: 'Front desk',
+  director: 'Director',
+  staff: 'Other',
+};
+
+function readVisibleRoleBucketsFromStorage(): Set<StaffDirectoryRoleBucket> {
+  try {
+    const raw = localStorage.getItem(STAFF_DIR_VISIBLE_ROLES_KEY);
+    if (!raw) return new Set(ALL_STAFF_DIRECTORY_ROLE_BUCKETS);
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set(ALL_STAFF_DIRECTORY_ROLE_BUCKETS);
+    const next = new Set<StaffDirectoryRoleBucket>();
+    for (const item of parsed) {
+      if (typeof item === 'string' && ALL_STAFF_DIRECTORY_ROLE_BUCKETS.includes(item as StaffDirectoryRoleBucket)) {
+        next.add(item as StaffDirectoryRoleBucket);
+      }
+    }
+    return next.size > 0 ? next : new Set(ALL_STAFF_DIRECTORY_ROLE_BUCKETS);
+  } catch {
+    return new Set(ALL_STAFF_DIRECTORY_ROLE_BUCKETS);
+  }
+}
+
+function inferRoleBucketFromStaffRecord(staff: StaffListRecord): StaffDirectoryRoleBucket {
+  const r = (staff.role ?? '').toLowerCase().trim();
+  if (r === 'nurse' || r.includes('nurse')) return 'nurse';
+  if (r === 'frontdesk' || r.includes('frontdesk') || r.includes('front desk')) return 'frontdesk';
+  if (r === 'director' || r.includes('director')) return 'director';
+  if (r === 'dentist' || r.includes('dentist')) return 'dentist';
+  return 'staff';
+}
+
+type DirectoryTableRow = {
+  key: string;
+  roleBucket: StaffDirectoryRoleBucket;
+  dentistId: number | null;
+  staffId: number;
+  name: string;
+  surname: string;
+  gmail: string;
+};
 
 const startOfDay = (date: Date) => {
   const next = new Date(date);
@@ -29,6 +88,10 @@ const ClinicStaffDirectory = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [dentists, setDentists] = useState<DentistProfile[]>([]);
+  const [staffMembers, setStaffMembers] = useState<StaffListRecord[]>([]);
+  const [visibleRoleBuckets, setVisibleRoleBuckets] = useState<Set<StaffDirectoryRoleBucket>>(
+    () => readVisibleRoleBucketsFromStorage(),
+  );
   const [salariesByStaffId, setSalariesByStaffId] = useState<Record<number, SalaryRecord>>({});
   const [treatmentsByDentistId, setTreatmentsByDentistId] = useState<Record<number, ToothTreatment[]>>({});
   const [selectedStaffIds, setSelectedStaffIds] = useState<Set<number>>(new Set());
@@ -69,15 +132,24 @@ const ClinicStaffDirectory = () => {
   }, [role]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem(STAFF_DIR_VISIBLE_ROLES_KEY, JSON.stringify([...visibleRoleBuckets]));
+    } catch {
+      /* ignore */
+    }
+  }, [visibleRoleBuckets]);
+
+  useEffect(() => {
     const load = async () => {
       if (role !== 'director') return;
       setLoading(true);
       setError('');
       setSuccessMessage('');
       try {
-        const [dentistRows, salaryRows] = await Promise.all([
+        const [dentistRows, salaryRows, staffRows] = await Promise.all([
           dentistService.getAll(),
           salaryService.getAll(),
+          staffService.getAll({ active: true }),
         ]);
 
         const sortedDentists = [...dentistRows].sort((a, b) =>
@@ -86,6 +158,7 @@ const ClinicStaffDirectory = () => {
           ),
         );
         setDentists(sortedDentists);
+        setStaffMembers(Array.isArray(staffRows) ? staffRows : []);
 
         const nextSalaryMap: Record<number, SalaryRecord> = {};
         for (const salary of salaryRows) {
@@ -111,6 +184,7 @@ const ClinicStaffDirectory = () => {
             : undefined;
         setError(message || 'Failed to load dentists');
         setDentists([]);
+        setStaffMembers([]);
         setSalariesByStaffId({});
         setTreatmentsByDentistId({});
       } finally {
@@ -119,6 +193,51 @@ const ClinicStaffDirectory = () => {
     };
     void load();
   }, [role]);
+
+  const directoryRows: DirectoryTableRow[] = useMemo(() => {
+    const dentistStaffIds = new Set(dentists.map((d) => d.staffId));
+    const dentistPart: DirectoryTableRow[] = dentists.map((d) => ({
+      key: `dentist-${d.id}`,
+      roleBucket: 'dentist',
+      dentistId: d.id,
+      staffId: d.staffId,
+      name: d.staff?.name ?? '',
+      surname: d.staff?.surname ?? '',
+      gmail: d.staff?.gmail ?? '',
+    }));
+
+    const others: DirectoryTableRow[] = staffMembers
+      .filter((s) => !dentistStaffIds.has(s.id))
+      .map((s) => ({
+        key: `staff-${s.id}`,
+        roleBucket: inferRoleBucketFromStaffRecord(s),
+        dentistId: null,
+        staffId: s.id,
+        name: s.name,
+        surname: s.surname,
+        gmail: s.gmail,
+      }));
+
+    others.sort((a, b) =>
+      `${a.surname} ${a.name}`.localeCompare(`${b.surname} ${b.name}`, undefined, { sensitivity: 'base' }),
+    );
+
+    return [...dentistPart, ...others];
+  }, [dentists, staffMembers]);
+
+  const visibleDirectoryRows = useMemo(
+    () => directoryRows.filter((row) => visibleRoleBuckets.has(row.roleBucket)),
+    [directoryRows, visibleRoleBuckets],
+  );
+
+  const toggleRoleBucketFilter = (bucket: StaffDirectoryRoleBucket) => {
+    setVisibleRoleBuckets((prev) => {
+      const next = new Set(prev);
+      if (next.has(bucket)) next.delete(bucket);
+      else next.add(bucket);
+      return next;
+    });
+  };
 
   const toggleStaffSelection = (staffId: number) => {
     setSelectedStaffIds((prev) => {
@@ -131,7 +250,7 @@ const ClinicStaffDirectory = () => {
 
   const formatSalaryDisplay = (staffId: number): { kind: 'none' | 'fixed' | 'percentage'; label: string } => {
     const salary = salariesByStaffId[staffId];
-    if (!salary) return { kind: 'none', label: 'Not set' };
+    if (!salary) return { kind: 'none', label: '—' };
     if (salary.salary != null) {
       const dayText = salary.salaryDay != null ? ` · day ${salary.salaryDay}` : '';
       return { kind: 'fixed', label: `$${Number(salary.salary).toFixed(2)}${dayText}` };
@@ -139,7 +258,7 @@ const ClinicStaffDirectory = () => {
     if (salary.treatmentPercentage != null) {
       return { kind: 'percentage', label: `${Number(salary.treatmentPercentage).toFixed(2)}%` };
     }
-    return { kind: 'none', label: 'Not set' };
+    return { kind: 'none', label: '—' };
   };
 
   const treatmentPeriodLabel =
@@ -244,14 +363,14 @@ const ClinicStaffDirectory = () => {
   const saveSalaryChanges = async () => {
     if (activeStaffId == null) return;
     const selectedTargets = dentists.filter((d) => selectedStaffIds.has(d.staffId));
-    const primary = dentists.find((d) => d.staffId === activeStaffId);
+    const primaryRow = directoryRows.find((r) => r.staffId === activeStaffId);
     const targets =
       applyToSelectedOthers && selectedTargets.length > 0
         ? Array.from(new Set([activeStaffId, ...selectedTargets.map((d) => d.staffId)]))
         : [activeStaffId];
 
-    if (!primary) {
-      setError('Selected dentist was not found.');
+    if (!primaryRow) {
+      setError('Selected staff member was not found.');
       return;
     }
     const parsedValue = Number(salaryValue);
@@ -302,7 +421,7 @@ const ClinicStaffDirectory = () => {
       const nextSalaryMap: Record<number, SalaryRecord> = {};
       for (const row of freshSalaryRows) nextSalaryMap[row.staffId] = row;
       setSalariesByStaffId(nextSalaryMap);
-      setSuccessMessage(`Updated salary settings for ${targets.length} dentist(s).`);
+      setSuccessMessage(`Updated salary settings for ${targets.length} staff member(s).`);
       setActiveStaffId(null);
     } catch (err: unknown) {
       console.error('Failed to update salaries:', err);
@@ -337,9 +456,11 @@ const ClinicStaffDirectory = () => {
         >
           <main className="h-[calc(100vh-4rem)] flex-1 overflow-auto bg-[#f9fafb] px-6 py-6">
             <div className="mb-6">
-              <h1 className="text-3xl font-bold text-slate-900">Dentist salary management</h1>
+              <h1 className="text-3xl font-bold text-slate-900">Clinic staff and salaries</h1>
               <p className="mt-2 text-sm text-slate-500">
-                Click salary value to open the edit board.
+                Dentists are listed first with treatment counts and totals for the selected period. Other staff
+                appear below; treatment and total are not applicable for those roles. Click a salary cell to edit.
+                Use the role checkboxes to choose who appears in the table.
               </p>
             </div>
 
@@ -352,11 +473,29 @@ const ClinicStaffDirectory = () => {
               </div>
             ) : null}
 
+            <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-slate-200/80 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+              <span className="font-semibold text-slate-800">Roles in table</span>
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                {ALL_STAFF_DIRECTORY_ROLE_BUCKETS.map((bucket) => (
+                  <label key={bucket} className="inline-flex cursor-pointer items-center gap-2 text-slate-600">
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-300"
+                      checked={visibleRoleBuckets.has(bucket)}
+                      onChange={() => toggleRoleBucketFilter(bucket)}
+                    />
+                    <span>{ROLE_BUCKET_LABEL[bucket]}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
               <div className="overflow-x-auto">
                 <table className="min-w-full border-collapse text-left text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-[#f3f4f6] text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-600">
+                      <th className="px-6 py-4 text-left font-semibold">Role</th>
                       <th className="px-6 py-4 text-left font-semibold">Full name</th>
                       <th className="px-6 py-4 text-left font-semibold">Email</th>
                       <th className="px-6 py-4 text-left font-semibold">Salary</th>
@@ -405,27 +544,40 @@ const ClinicStaffDirectory = () => {
                   <tbody className="divide-y divide-slate-200 text-slate-700">
                     {loading ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                           Loading…
                         </td>
                       </tr>
-                    ) : dentists.length === 0 ? (
+                    ) : directoryRows.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                          No dentists found.
+                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                          No staff found.
+                        </td>
+                      </tr>
+                    ) : visibleDirectoryRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                          No rows match the selected roles. Turn on at least one role above.
                         </td>
                       </tr>
                     ) : (
-                      dentists.map((row) => {
+                      visibleDirectoryRows.map((row) => {
                         const salaryDisp = formatSalaryDisplay(row.staffId);
-                        const { count, total } = getPeriodTreatmentStats(row.id);
+                        const isDentistRow = row.dentistId != null;
+                        const { count, total } =
+                          isDentistRow && row.dentistId != null
+                            ? getPeriodTreatmentStats(row.dentistId)
+                            : { count: 0, total: 0 };
                         return (
-                          <tr key={row.id} className="bg-white">
+                          <tr key={row.key} className="bg-white">
+                            <td className="whitespace-nowrap px-6 py-4 text-slate-600">
+                              {ROLE_BUCKET_LABEL[row.roleBucket]}
+                            </td>
                             <td className="whitespace-nowrap px-6 py-4 font-bold text-slate-900">
-                              {row.staff?.name} {row.staff?.surname}
+                              {row.name} {row.surname}
                             </td>
                             <td className="max-w-[280px] truncate px-6 py-4 font-normal text-slate-500">
-                              {row.staff?.gmail ?? '—'}
+                              {row.gmail?.trim() ? row.gmail : '—'}
                             </td>
                             <td className="whitespace-nowrap px-6 py-4">
                               <button
@@ -443,16 +595,20 @@ const ClinicStaffDirectory = () => {
                               </button>
                             </td>
                             <td className="whitespace-nowrap px-6 py-4 text-center">
-                              <span
-                                className={`inline-block text-base font-medium tabular-nums ${
-                                  count > 0 ? 'cursor-pointer text-[#0b7dd5]' : 'text-slate-600'
-                                }`}
-                              >
-                                {count}
-                              </span>
+                              {isDentistRow ? (
+                                <span
+                                  className={`inline-block text-base font-medium tabular-nums ${
+                                    count > 0 ? 'cursor-pointer text-[#0b7dd5]' : 'text-slate-600'
+                                  }`}
+                                >
+                                  {count}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
                             </td>
                             <td className="whitespace-nowrap px-6 py-4 text-right font-normal tabular-nums text-slate-500">
-                              ${total.toFixed(2)}
+                              {isDentistRow ? `$${total.toFixed(2)}` : <span className="text-slate-400">—</span>}
                             </td>
                           </tr>
                         );

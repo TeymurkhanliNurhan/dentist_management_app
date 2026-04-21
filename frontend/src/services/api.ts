@@ -149,6 +149,33 @@ export interface DentistProfile {
   };
 }
 
+/** Staff list row from `GET /staff` (director context uses clinic-wide list). */
+export interface StaffListRecord {
+  id: number;
+  name: string;
+  surname: string;
+  birthDate: string;
+  gmail: string;
+  isEmailVerified: boolean;
+  verificationCodeExpiry: string | null;
+  active: boolean;
+  startDate: string;
+  endDate: string | null;
+  clinicId: number;
+  role: string | null;
+}
+
+export const staffService = {
+  getAll: async (filters?: { id?: number; active?: boolean }): Promise<StaffListRecord[]> => {
+    const params = new URLSearchParams();
+    if (filters?.id != null) params.append('id', String(filters.id));
+    if (filters?.active !== undefined) params.append('active', String(filters.active));
+    const query = params.toString();
+    const response = await api.get<StaffListRecord[]>(`/staff${query ? `?${query}` : ''}`);
+    return response.data;
+  },
+};
+
 export interface SalaryRecord {
   staffId: number;
   salary: number | null;
