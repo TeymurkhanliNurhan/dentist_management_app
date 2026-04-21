@@ -16,6 +16,12 @@ import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
 type SalaryMode = 'fixed' | 'percentage';
 type TreatmentPeriod = 'today' | 'week' | 'month';
 
+const startOfDay = (date: Date) => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+};
+
 const ClinicStaffDirectory = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -27,6 +33,7 @@ const ClinicStaffDirectory = () => {
   const [treatmentsByDentistId, setTreatmentsByDentistId] = useState<Record<number, ToothTreatment[]>>({});
   const [selectedStaffIds, setSelectedStaffIds] = useState<Set<number>>(new Set());
   const [treatmentPeriod, setTreatmentPeriod] = useState<TreatmentPeriod>('today');
+  const [periodAnchorDate, setPeriodAnchorDate] = useState<Date>(() => startOfDay(new Date()));
   const [activeStaffId, setActiveStaffId] = useState<number | null>(null);
   const [salaryMode, setSalaryMode] = useState<SalaryMode>('fixed');
   const [salaryValue, setSalaryValue] = useState('');
@@ -135,47 +142,40 @@ const ClinicStaffDirectory = () => {
     return 'Not set';
   };
 
-  const startOfToday = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
+  const currentPeriodRange = useMemo(() => {
+    const start = startOfDay(periodAnchorDate);
+    const end = new Date(start);
 
-  const startOfWeek = useMemo(() => {
-    const d = new Date(startOfToday);
-    const day = d.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    d.setDate(d.getDate() + diff);
-    return d;
-  }, [startOfToday]);
+    if (treatmentPeriod === 'today') {
+      end.setDate(end.getDate() + 1);
+      return { start, end };
+    }
 
-  const startOfMonth = useMemo(() => {
-    const d = new Date(startOfToday);
-    d.setDate(1);
-    return d;
-  }, [startOfToday]);
+    if (treatmentPeriod === 'week') {
+      const day = start.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      start.setDate(start.getDate() + diff);
+      end.setTime(start.getTime());
+      end.setDate(end.getDate() + 7);
+      return { start, end };
+    }
+
+    start.setDate(1);
+    end.setTime(start.getTime());
+    end.setMonth(end.getMonth() + 1);
+    return { start, end };
+  }, [periodAnchorDate, treatmentPeriod]);
 
   const treatmentStatsByDentistId = useMemo(() => {
     const result: Record<
       number,
-      {
-        todayCount: number;
-        todayTotal: number;
-        weekCount: number;
-        weekTotal: number;
-        monthCount: number;
-        monthTotal: number;
-      }
+      { periodCount: number; periodTotal: number }
     > = {};
 
     for (const dentist of dentists) {
       const list = treatmentsByDentistId[dentist.id] ?? [];
-      let todayCount = 0;
-      let weekCount = 0;
-      let monthCount = 0;
-      let todayTotal = 0;
-      let weekTotal = 0;
-      let monthTotal = 0;
+      let periodCount = 0;
+      let periodTotal = 0;
 
       for (const item of list) {
         const effectiveDate = item.lastRandevueDate ?? item.appointment?.startDate ?? '';
@@ -183,38 +183,40 @@ const ClinicStaffDirectory = () => {
         if (Number.isNaN(ts.getTime())) continue;
         const fee = Number(item.feeSnapshot ?? item.treatment?.price ?? 0);
 
-        if (ts >= startOfMonth) {
-          monthCount += 1;
-          monthTotal += fee;
-        }
-        if (ts >= startOfWeek) {
-          weekCount += 1;
-          weekTotal += fee;
-        }
-        if (ts >= startOfToday) {
-          todayCount += 1;
-          todayTotal += fee;
+        if (ts >= currentPeriodRange.start && ts < currentPeriodRange.end) {
+          periodCount += 1;
+          periodTotal += fee;
         }
       }
 
       result[dentist.id] = {
-        todayCount,
-        todayTotal,
-        weekCount,
-        weekTotal,
-        monthCount,
-        monthTotal,
+        periodCount,
+        periodTotal,
       };
     }
     return result;
-  }, [dentists, startOfMonth, startOfToday, startOfWeek, treatmentsByDentistId]);
+  }, [currentPeriodRange.end, currentPeriodRange.start, dentists, treatmentsByDentistId]);
 
   const getPeriodTreatmentStats = (dentistId: number) => {
     const stats = treatmentStatsByDentistId[dentistId];
     if (!stats) return { count: 0, total: 0 };
-    if (treatmentPeriod === 'week') return { count: stats.weekCount, total: stats.weekTotal };
-    if (treatmentPeriod === 'month') return { count: stats.monthCount, total: stats.monthTotal };
-    return { count: stats.todayCount, total: stats.todayTotal };
+    return { count: stats.periodCount, total: stats.periodTotal };
+  };
+
+  const shiftPeriod = (direction: -1 | 1) => {
+    setPeriodAnchorDate((previous) => {
+      const next = startOfDay(previous);
+      if (treatmentPeriod === 'today') {
+        next.setDate(next.getDate() + direction);
+        return next;
+      }
+      if (treatmentPeriod === 'week') {
+        next.setDate(next.getDate() + direction * 7);
+        return next;
+      }
+      next.setMonth(next.getMonth() + direction);
+      return next;
+    });
   };
 
   const openSalaryEditor = (staffId: number) => {
@@ -356,7 +358,14 @@ const ClinicStaffDirectory = () => {
                       <th className="px-4 py-3">Email</th>
                       <th className="px-4 py-3">Salary part</th>
                       <th className="px-4 py-3">
-                        <div className="inline-flex items-center gap-1">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => shiftPeriod(-1)}
+                            className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
+                          >
+                            Previous
+                          </button>
                           <span>Treatment</span>
                           <ChevronDown size={14} />
                           <select
@@ -368,6 +377,13 @@ const ClinicStaffDirectory = () => {
                             <option value="week">Week</option>
                             <option value="month">Month</option>
                           </select>
+                          <button
+                            type="button"
+                            onClick={() => shiftPeriod(1)}
+                            className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
+                          >
+                            Next
+                          </button>
                         </div>
                       </th>
                       <th className="px-4 py-3">Total</th>
