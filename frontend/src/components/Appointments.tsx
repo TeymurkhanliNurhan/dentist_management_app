@@ -78,6 +78,7 @@ const Appointments = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [financeError, setFinanceError] = useState<string | null>(null);
   const [financeLoading, setFinanceLoading] = useState(false);
+  const [expandedExpenses, setExpandedExpenses] = useState<Set<string>>(new Set());
   const [expandedPaymentDetails, setExpandedPaymentDetails] = useState<Set<number>>(new Set());
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [financeSubmitError, setFinanceSubmitError] = useState<string | null>(null);
@@ -180,6 +181,18 @@ const Appointments = () => {
         next.delete(paymentDetailId);
       } else {
         next.add(paymentDetailId);
+      }
+      return next;
+    });
+  };
+
+  const toggleExpenseExpanded = (expenseKey: string) => {
+    setExpandedExpenses((prev) => {
+      const next = new Set(prev);
+      if (next.has(expenseKey)) {
+        next.delete(expenseKey);
+      } else {
+        next.add(expenseKey);
       }
       return next;
     });
@@ -359,6 +372,32 @@ const Appointments = () => {
   if (isDirector) {
     const totalOutcome = financeOverview?.outcome?.total ?? 0;
     const netProfit = (financeOverview?.monthlyIncome ?? 0) - totalOutcome;
+    const expenseGroups = Array.from(
+      (financeOverview?.otherPaymentDetails?.items ?? []).reduce(
+        (acc, item) => {
+          const key = `${item.expenseId ?? 'none'}-${item.expenseName ?? 'Other'}`;
+          const entry = acc.get(key) ?? {
+            key,
+            expenseName: item.expenseName ?? 'Other',
+            totalCost: 0,
+            paymentDetails: [] as FinanceOverviewResponse['otherPaymentDetails']['items'],
+          };
+          entry.totalCost += Number(item.cost ?? 0);
+          entry.paymentDetails.push(item);
+          acc.set(key, entry);
+          return acc;
+        },
+        new Map<
+          string,
+          {
+            key: string;
+            expenseName: string;
+            totalCost: number;
+            paymentDetails: NonNullable<FinanceOverviewResponse['otherPaymentDetails']>['items'];
+          }
+        >(),
+      ).values(),
+    );
     return (
       <>
         <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
@@ -531,7 +570,7 @@ const Appointments = () => {
 
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
-                      <h2 className="text-lg font-semibold text-slate-900">Payment Details</h2>
+                      <h2 className="text-lg font-semibold text-slate-900">Expenses</h2>
                       <button
                         type="button"
                         onClick={() => {
@@ -545,65 +584,86 @@ const Appointments = () => {
                       </button>
                     </div>
                     <div className="space-y-2 text-sm">
-                      {(financeOverview?.otherPaymentDetails?.items ?? []).map((item) => {
-                        const isExpanded = expandedPaymentDetails.has(item.id);
-                        const purchaseRows = item.purchaseMedicines ?? [];
+                      {expenseGroups.map((group) => {
+                        const isExpenseExpanded = expandedExpenses.has(group.key);
                         return (
                           <div
-                            key={item.id}
+                            key={group.key}
                             className="rounded-md border border-slate-200 px-3 py-2"
                           >
                             <div className="flex items-center justify-between gap-3">
                               <div>
                                 <p className="font-medium text-slate-800">
-                                  {item.expenseName ?? 'Expense'} | {item.date}
-                                </p>
-                                <p className="text-xs text-slate-500">
-                                  PaymentDetail #{item.id}
+                                  {group.expenseName}
                                 </p>
                               </div>
                               <div className="flex items-center gap-3">
                                 <span className="font-semibold text-slate-900">
-                                  -{formatCurrency(item.cost)}
+                                  -{formatCurrency(group.totalCost)}
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={() => togglePaymentDetailExpanded(item.id)}
+                                  onClick={() => toggleExpenseExpanded(group.key)}
                                   className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                                 >
-                                  {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                  {isExpanded ? 'Hide medicines' : 'Show medicines'}
+                                  {isExpenseExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                  {isExpenseExpanded ? 'Hide payment details' : 'Show payment details'}
                                 </button>
                               </div>
                             </div>
-                            {isExpanded ? (
+                            {isExpenseExpanded ? (
                               <div className="mt-2 rounded-md bg-slate-50 p-2">
-                                {purchaseRows.length === 0 ? (
-                                  <p className="text-xs text-slate-500">
-                                    No purchase_medicine rows linked to this PaymentDetail.
-                                  </p>
-                                ) : (
-                                  purchaseRows.map((purchase) => (
-                                    <div
-                                      key={purchase.id}
-                                      className="flex items-center justify-between border-b border-slate-200 py-1 text-xs last:border-b-0"
-                                    >
-                                      <span className="text-slate-700">
-                                        {purchase.medicineName ?? '-'} | count: {purchase.count}
-                                      </span>
-                                      <span className="font-medium text-slate-900">
-                                        {formatCurrency(purchase.totalPrice)}
-                                      </span>
+                                {group.paymentDetails.map((paymentDetail) => {
+                                  const isPaymentExpanded = expandedPaymentDetails.has(paymentDetail.id);
+                                  const purchaseRows = paymentDetail.purchaseMedicines ?? [];
+                                  return (
+                                    <div key={paymentDetail.id} className="mb-2 rounded-md border border-slate-200 bg-white px-2 py-2 last:mb-0">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <p className="text-xs font-medium text-slate-700">
+                                          {paymentDetail.date} | {formatCurrency(paymentDetail.cost)}
+                                        </p>
+                                        <button
+                                          type="button"
+                                          onClick={() => togglePaymentDetailExpanded(paymentDetail.id)}
+                                          className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                                        >
+                                          {isPaymentExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                          {isPaymentExpanded ? 'Hide medicines' : 'Show medicines'}
+                                        </button>
+                                      </div>
+                                      {isPaymentExpanded ? (
+                                        <div className="mt-2 rounded-md bg-slate-50 p-2">
+                                          {purchaseRows.length === 0 ? (
+                                            <p className="text-xs text-slate-500">
+                                              No purchase_medicine rows linked to this PaymentDetail.
+                                            </p>
+                                          ) : (
+                                            purchaseRows.map((purchase) => (
+                                              <div
+                                                key={purchase.id}
+                                                className="flex items-center justify-between border-b border-slate-200 py-1 text-xs last:border-b-0"
+                                              >
+                                                <span className="text-slate-700">
+                                                  {purchase.medicineName ?? '-'} | number: {purchase.count}
+                                                </span>
+                                                <span className="font-medium text-slate-900">
+                                                  totalCost: {formatCurrency(purchase.totalPrice)}
+                                                </span>
+                                              </div>
+                                            ))
+                                          )}
+                                        </div>
+                                      ) : null}
                                     </div>
-                                  ))
-                                )}
+                                  );
+                                })}
                               </div>
                             ) : null}
                           </div>
                         );
                       })}
-                      {(financeOverview?.otherPaymentDetails?.items ?? []).length === 0 ? (
-                        <p className="text-slate-500">No payment details for this month.</p>
+                      {expenseGroups.length === 0 ? (
+                        <p className="text-slate-500">No expenses for this month.</p>
                       ) : null}
                     </div>
                   </div>
