@@ -1,12 +1,29 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, Plus, X, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Search, Plus, X, ChevronLeft, ChevronRight, UserPlus, Settings } from 'lucide-react';
 import Header from './Header';
-import { appointmentService, patientService } from '../services/api';
-import type { Appointment, AppointmentFilters, CreateAppointmentDto, Patient, CreatePatientDto } from '../services/api';
+import { appointmentService, patientService, paymentDetailsService } from '../services/api';
+import type {
+  Appointment,
+  AppointmentFilters,
+  CreateAppointmentDto,
+  Patient,
+  CreatePatientDto,
+  FinanceOverviewResponse,
+} from '../services/api';
 import { useTranslation } from 'react-i18next';
+import { ClinicPortalShell } from './ClinicPortalShell';
+import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
+import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 
 const PAGE_SIZE = 10;
+
+function formatCurrency(value: number): string {
+  return `$${value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
 
 function localDateString(): string {
   const d = new Date();
@@ -28,7 +45,18 @@ function filterAppointmentsByEnd(appointments: Appointment[], mode: AppointmentL
 
 const Appointments = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation('appointments');
+  const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
+  const isDirector = role === 'director';
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [directorDisplayName, setDirectorDisplayName] = useState('');
+  const [financeOverview, setFinanceOverview] = useState<FinanceOverviewResponse | null>(null);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [financeError, setFinanceError] = useState<string | null>(null);
+  const [financeLoading, setFinanceLoading] = useState(false);
   const [rawAppointments, setRawAppointments] = useState<Appointment[]>([]);
   const [listPage, setListPage] = useState(1);
   const [listMode, setListMode] = useState<AppointmentListMode>('open');
@@ -97,7 +125,21 @@ const Appointments = () => {
     effectivePage * PAGE_SIZE,
   );
 
+  const fetchFinanceOverview = async (year = selectedYear, month = selectedMonth) => {
+    setFinanceLoading(true);
+    setFinanceError(null);
+    try {
+      const data = await paymentDetailsService.getFinanceOverview({ year, month });
+      setFinanceOverview(data);
+    } catch (err: any) {
+      setFinanceError(err?.response?.data?.message ?? 'Failed to fetch finance overview');
+    } finally {
+      setFinanceLoading(false);
+    }
+  };
+
   useEffect(() => {
+    if (isDirector) return;
     fetchAppointments();
     const fetchPatients = async () => {
       try {
@@ -108,7 +150,16 @@ const Appointments = () => {
       }
     };
     fetchPatients();
-  }, []);
+  }, [isDirector]);
+
+  useEffect(() => {
+    if (!isDirector) return;
+    const staffName = localStorage.getItem('name') ?? '';
+    const staffSurname = localStorage.getItem('surname') ?? '';
+    setDirectorDisplayName(`${staffName} ${staffSurname}`.trim());
+    void fetchFinanceOverview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDirector]);
 
   const handleAddAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,6 +243,154 @@ const Appointments = () => {
     : error === CREATE_ERROR_KEY
       ? t('createError')
       : error;
+
+  if (isDirector) {
+    const totalOutcome = (financeOverview?.outcome.totalSalaries ?? 0) + (financeOverview?.otherPaymentDetails.total ?? 0);
+    const netProfit = (financeOverview?.monthlyIncome ?? 0) - totalOutcome;
+    return (
+      <>
+        <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
+          <ClinicPortalShell
+            brandTitle="Precision Dental"
+            portalBadge="Admin Portal"
+            userDisplayName={directorDisplayName || '-'}
+            userSubtitle="Clinic Director"
+            menuItems={DIRECTOR_PORTAL_MENU}
+            pathname={location.pathname}
+            isSidebarOpen={isSidebarOpen}
+            setIsSidebarOpen={setIsSidebarOpen}
+            navigate={navigate}
+            onLogoutClick={() => setShowLogoutConfirm(true)}
+            headerActions={
+              <button
+                type="button"
+                onClick={() => navigate('/staff')}
+                className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100"
+                aria-label="Staff and doctors"
+              >
+                <Settings size={16} />
+              </button>
+            }
+          >
+            <main className="flex-1 bg-[#f9fafb] px-6 py-6">
+              <div className="mx-auto max-w-6xl space-y-6">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl font-bold text-slate-900">Financial Overview</h1>
+                    <p className="text-sm text-slate-500">Monthly clinic finance snapshot</p>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-500">Year</label>
+                      <input
+                        type="number"
+                        min={2000}
+                        max={3000}
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                        className="w-24 rounded-md border border-slate-300 px-2 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-500">Month</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                        className="w-20 rounded-md border border-slate-300 px-2 py-2 text-sm"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void fetchFinanceOverview(selectedYear, selectedMonth)}
+                      className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                {financeError ? (
+                  <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {financeError}
+                  </div>
+                ) : null}
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-sm text-slate-500">Monthly Income</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">
+                      {financeLoading ? '...' : formatCurrency(financeOverview?.monthlyIncome ?? 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-sm text-slate-500">Debt</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">
+                      {financeLoading ? '...' : formatCurrency(financeOverview?.debt ?? 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-sm text-slate-500">Net Profit</p>
+                    <p className="mt-2 text-3xl font-bold text-emerald-700">
+                      {financeLoading ? '...' : formatCurrency(netProfit)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <h2 className="text-lg font-semibold text-slate-900">Outcome Breakdown</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Salaries and other payment details
+                    </p>
+                    <div className="mt-4 space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Salaries</span>
+                        <span className="font-medium">
+                          {formatCurrency(financeOverview?.outcome.totalSalaries ?? 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Other expenses</span>
+                        <span className="font-medium">
+                          {formatCurrency(financeOverview?.otherPaymentDetails.total ?? 0)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <h2 className="text-lg font-semibold text-slate-900">Other Payment Details</h2>
+                    <div className="mt-3 space-y-2 text-sm">
+                      {(financeOverview?.otherPaymentDetails.byCategory ?? []).map((item) => (
+                        <div key={item.name} className="flex justify-between">
+                          <span className="text-slate-600">{item.name}</span>
+                          <span className="font-medium">-{formatCurrency(item.totalCost)}</span>
+                        </div>
+                      ))}
+                      {(financeOverview?.otherPaymentDetails.byCategory ?? []).length === 0 ? (
+                        <p className="text-slate-500">No other payment details for this month.</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </ClinicPortalShell>
+        </div>
+        <LogoutConfirmModal
+          open={showLogoutConfirm}
+          onCancel={() => setShowLogoutConfirm(false)}
+          onConfirm={() => {
+            performLogout(navigate);
+            setShowLogoutConfirm(false);
+          }}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-blue-50">

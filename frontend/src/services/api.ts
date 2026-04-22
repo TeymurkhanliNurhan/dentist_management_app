@@ -196,6 +196,43 @@ export interface UpdateSalaryDto {
   treatmentPercentage?: number | null;
 }
 
+export interface FinanceOverviewSalaryRow {
+  staffId: number;
+  name: string;
+  surname: string;
+  role: string | null;
+  amount: number;
+  type: 'percentage' | 'fixed';
+  percentage: number | null;
+}
+
+export interface FinanceOverviewResponse {
+  period: {
+    year: number;
+    month: number;
+  };
+  monthlyIncome: number;
+  debt: number;
+  outcome: {
+    totalSalaries: number;
+    salaries: FinanceOverviewSalaryRow[];
+  };
+  otherPaymentDetails: {
+    total: number;
+    byCategory: Array<{
+      name: string;
+      totalCost: number;
+    }>;
+    items: Array<{
+      id: number;
+      date: string;
+      cost: number;
+      expenseId: number | null;
+      expenseName: string | null;
+    }>;
+  };
+}
+
 export const salaryService = {
   getAll: async (filters?: { staffId?: number; salaryDay?: number }): Promise<SalaryRecord[]> => {
     const params = new URLSearchParams();
@@ -211,6 +248,22 @@ export const salaryService = {
   },
   update: async (staffId: number, data: UpdateSalaryDto): Promise<SalaryRecord> => {
     const response = await api.patch<SalaryRecord>(`/salary/${staffId}`, data);
+    return response.data;
+  },
+};
+
+export const paymentDetailsService = {
+  getFinanceOverview: async (filters?: {
+    year?: number;
+    month?: number;
+  }): Promise<FinanceOverviewResponse> => {
+    const params = new URLSearchParams();
+    if (filters?.year != null) params.append('year', String(filters.year));
+    if (filters?.month != null) params.append('month', String(filters.month));
+    const query = params.toString();
+    const response = await api.get<FinanceOverviewResponse>(
+      `/payment-details/finance-overview${query ? `?${query}` : ''}`,
+    );
     return response.data;
   },
 };
