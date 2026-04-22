@@ -290,11 +290,14 @@ const Finance = () => {
   });
   const chartMinRaw = enabledMetricValues.length > 0 ? Math.min(...enabledMetricValues) : 0;
   const chartMaxRaw = enabledMetricValues.length > 0 ? Math.max(...enabledMetricValues) : 0;
-  const chartMin = Math.min(0, chartMinRaw);
   const chartMax = Math.max(0, chartMaxRaw);
+  // Keep a negative range under the X-axis even when all series are non-negative.
+  const fallbackNegativeMin = chartMax > 0 ? -chartMax * 0.25 : -1;
+  const chartMin = Math.min(chartMinRaw, fallbackNegativeMin);
   const chartRange = chartMax - chartMin || 1;
   const chartYForValue = (value: number) =>
     chartPadding.top + ((chartMax - value) / chartRange) * plotHeight;
+  const xAxisY = chartYForValue(0);
   const chartTicks = Array.from({ length: 5 }, (_, i) => {
     const value = chartMax - (chartRange * i) / 4;
     return {
@@ -555,10 +558,10 @@ const Finance = () => {
                         />
                         <line
                           x1={chartPadding.left}
-                          y1={chartHeight - chartPadding.bottom}
+                          y1={xAxisY}
                           x2={chartWidth - chartPadding.right}
-                          y2={chartHeight - chartPadding.bottom}
-                          stroke="#cbd5e1"
+                          y2={xAxisY}
+                          stroke="#94a3b8"
                         />
 
                         {chartTicks.map((tick, index) => (
