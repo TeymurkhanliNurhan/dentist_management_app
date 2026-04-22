@@ -8,6 +8,7 @@ import { PaymentDetailsRepository } from './payment_details.repository';
 import { CreatePaymentDetailsDto } from './dto/create-payment-details.dto';
 import { GetPaymentDetailsDto } from './dto/get-payment-details.dto';
 import { UpdatePaymentDetailsDto } from './dto/update-payment-details.dto';
+import { GetFinanceOverviewDto } from './dto/get-finance-overview.dto';
 
 @Injectable()
 export class PaymentDetailsService {
@@ -89,5 +90,14 @@ export class PaymentDetailsService {
       }
       throw new BadRequestException('Failed to delete payment details');
     }
+  }
+
+  async getFinanceOverview(
+    dentistId: number,
+    role: string | undefined,
+    dto: GetFinanceOverviewDto,
+  ) {
+    this.ensureDirectorOrReceptionist(role);
+    return await this.repo.getFinanceOverviewForDentist(dentistId, dto);
   }
 }

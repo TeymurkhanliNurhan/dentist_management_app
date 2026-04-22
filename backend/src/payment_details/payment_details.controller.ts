@@ -25,11 +25,22 @@ import { PaymentDetailsService } from './payment_details.service';
 import { CreatePaymentDetailsDto } from './dto/create-payment-details.dto';
 import { GetPaymentDetailsDto } from './dto/get-payment-details.dto';
 import { UpdatePaymentDetailsDto } from './dto/update-payment-details.dto';
+import { GetFinanceOverviewDto } from './dto/get-finance-overview.dto';
 
 @ApiTags('payment_details')
 @Controller('payment-details')
 export class PaymentDetailsController {
   constructor(private readonly service: PaymentDetailsService) {}
+
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
+  @Get('finance-overview')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get finance overview for a selected month' })
+  @ApiOkResponse({ description: 'Finance overview retrieved' })
+  async getFinanceOverview(@User() user: any, @Query() dto: GetFinanceOverviewDto) {
+    return await this.service.getFinanceOverview(user.userId, user.role, dto);
+  }
 
   @ApiBearerAuth('bearer')
   @UseGuards(JwtAuthGuard)

@@ -5,6 +5,8 @@ import { PaymentDetails } from './entities/payment_details.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
 import { Expense } from '../expense/entities/expense.entity';
 import { Salary } from '../salary/entities/salary.entity';
+import { Appointment } from '../appointment/entities/appointment.entity';
+import { ToothTreatment } from '../tooth_treatment/entities/tooth_treatment.entity';
 
 @Injectable()
 export class PaymentDetailsRepository {
@@ -145,5 +147,144 @@ export class PaymentDetailsRepository {
       .getOne();
     if (!existing) throw new Error('PaymentDetails not found');
     await this.repo.remove(existing);
+  }
+
+  async getFinanceOverviewForDentist(
+    dentistId: number,
+    filters: { year?: number; month?: number },
+  ) {
+    const clinicId = await this.getClinicIdForDentist(dentistId);
+
+    const now = new Date();
+    const year = filters.year ?? now.getFullYear();
+    const month = filters.month ?? now.getMonth() + 1;
+
+    const appointmentRepo = this.dataSource.getRepository(Appointment);
+    const toothTreatmentRepo = this.dataSource.getRepository(ToothTreatment);
+
+    const incomeRaw = await appointmentRepo
+      .createQueryBuilder('appointment')
+      .select('COALESCE(SUM(appointment.calculatedFee), 0)', 'total')
+      .where('appointment.clinicId = :clinicId', { clinicId })
+      .andWhere('EXTRACT(YEAR FROM appointment.startDate) = :year', { year })
+      .andWhere('EXTRACT(MONTH FROM appointment.startDate) = :month', { month })
+      .getRawOne<{ total: string }>();
+
+    const debtRaw = await appointmentRepo
+      .createQueryBuilder('appointment')
+      .select('COALESCE(SUM(appointment.discountFee), 0)', 'total')
+      .where('appointment.clinicId = :clinicId', { clinicId })
+      .andWhere('EXTRACT(YEAR FROM appointment.startDate) = :year', { year })
+      .andWhere('EXTRACT(MONTH FROM appointment.startDate) = :month', { month })
+      .getRawOne<{ total: string }>();
+
+    const salaries = await this.dataSource
+      .getRepository(Salary)
+      .createQueryBuilder('salary')
+      .innerJoinAndSelect('salary.staff', 'staff')
+      .where('staff.clinicId = :clinicId', { clinicId })
+      .getMany();
+
+    const salaryBreakdown: Array<{
+      staffId: number;
+      name: string;
+      surname: string;
+      role: string | null;
+      amount: number;
+      type: 'percentage' | 'fixed';
+      percentage: number | null;
+    }> = [];
+    let totalSalaryOutcome = 0;
+
+    for (const salary of salaries) {
+      const staff = salary.staff;
+      const isDentist = (staff.role ?? '').toLowerCase() === 'dentist';
+      const hasPercentage =
+        salary.treatmentPercentage !== null && salary.treatmentPercentage !== undefined;
+
+      if (isDentist && hasPercentage) {
+        const treatmentRaw = await toothTreatmentRepo
+          .createQueryBuilder('toothTreatment')
+          .innerJoin('toothTreatment.appointment', 'appointment')
+          .innerJoin('toothTreatment.dentist', 'dentist')
+          .select('COALESCE(SUM(toothTreatment.feeSnapshot), 0)', 'totalTreatmentCost')
+          .where('appointment.clinicId = :clinicId', { clinicId })
+          .andWhere('dentist.staffId = :staffId', { staffId: staff.id })
+          .andWhere('EXTRACT(YEAR FROM appointment.startDate) = :year', { year })
+          .andWhere('EXTRACT(MONTH FROM appointment.startDate) = :month', { month })
+          .getRawOne<{ totalTreatmentCost: string }>();
+
+        const totalTreatmentCost = Number(treatmentRaw?.totalTreatmentCost ?? 0);
+        const amount = (totalTreatmentCost * (salary.treatmentPercentage ?? 0)) / 100;
+        totalSalaryOutcome += amount;
+        salaryBreakdown.push({
+          staffId: staff.id,
+          name: staff.name,
+          surname: staff.surname,
+          role: staff.role,
+          amount,
+          type: 'percentage',
+          percentage: salary.treatmentPercentage,
+        });
+      } else {
+        const amount = Number(salary.salary ?? 0);
+        totalSalaryOutcome += amount;
+        salaryBreakdown.push({
+          staffId: staff.id,
+          name: staff.name,
+          surname: staff.surname,
+          role: staff.role,
+          amount,
+          type: 'fixed',
+          percentage: null,
+        });
+      }
+    }
+
+    const otherPaymentDetails = await this.repo
+      .createQueryBuilder('paymentDetails')
+      .leftJoinAndSelect('paymentDetails.expense', 'expense')
+      .where('paymentDetails.salary IS NULL')
+      .andWhere('expense.id IS NOT NULL')
+      .andWhere('EXTRACT(YEAR FROM paymentDetails.date) = :year', { year })
+      .andWhere('EXTRACT(MONTH FROM paymentDetails.date) = :month', { month })
+      .andWhere('expense.clinicId = :clinicId', { clinicId })
+      .orderBy('paymentDetails.date', 'DESC')
+      .getMany();
+
+    const otherPaymentsByCategory = new Map<string, number>();
+    for (const paymentDetail of otherPaymentDetails) {
+      const category = paymentDetail.expense?.name ?? 'Other';
+      otherPaymentsByCategory.set(
+        category,
+        (otherPaymentsByCategory.get(category) ?? 0) + Number(paymentDetail.cost ?? 0),
+      );
+    }
+
+    return {
+      period: { year, month },
+      monthlyIncome: Number(incomeRaw?.total ?? 0),
+      debt: Number(debtRaw?.total ?? 0),
+      outcome: {
+        totalSalaries: totalSalaryOutcome,
+        salaries: salaryBreakdown,
+      },
+      otherPaymentDetails: {
+        total: otherPaymentDetails.reduce((acc, item) => acc + Number(item.cost ?? 0), 0),
+        byCategory: Array.from(otherPaymentsByCategory.entries()).map(
+          ([name, totalCost]) => ({
+            name,
+            totalCost,
+          }),
+        ),
+        items: otherPaymentDetails.map((item) => ({
+          id: item.id,
+          date: item.date,
+          cost: item.cost,
+          expenseId: item.expense?.id ?? null,
+          expenseName: item.expense?.name ?? null,
+        })),
+      },
+    };
   }
 }
