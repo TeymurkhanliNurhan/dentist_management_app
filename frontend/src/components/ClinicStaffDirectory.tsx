@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api, {
+  directorService,
   dentistService,
+  frontDeskWorkerService,
+  nurseService,
   salaryService,
   staffService,
   toothTreatmentService,
@@ -10,7 +13,7 @@ import api, {
   type StaffListRecord,
   type ToothTreatment,
 } from '../services/api';
-import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
@@ -75,11 +78,15 @@ type DirectoryTableRow = {
   gmail: string;
 };
 
+type NewStaffType = 'staff' | 'dentist' | 'nurse' | 'frontdesk' | 'director';
+
 const startOfDay = (date: Date) => {
   const next = new Date(date);
   next.setHours(0, 0, 0, 0);
   return next;
 };
+
+const toIsoDateInput = (date: Date) => date.toISOString().slice(0, 10);
 
 const ClinicStaffDirectory = () => {
   const navigate = useNavigate();
@@ -106,6 +113,18 @@ const ClinicStaffDirectory = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showCreateStaffForm, setShowCreateStaffForm] = useState(false);
+  const [isCreatingStaff, setIsCreatingStaff] = useState(false);
+  const [newStaffForm, setNewStaffForm] = useState({
+    name: '',
+    surname: '',
+    birthDate: '',
+    gmail: '',
+    password: '',
+    confirmPassword: '',
+    startDate: toIsoDateInput(new Date()),
+    staffType: 'staff' as NewStaffType,
+  });
 
   const [displayName, setDisplayName] = useState('');
 
@@ -139,60 +158,61 @@ const ClinicStaffDirectory = () => {
     }
   }, [visibleRoleBuckets]);
 
-  useEffect(() => {
-    const load = async () => {
-      if (role !== 'director') return;
-      setLoading(true);
-      setError('');
-      setSuccessMessage('');
-      try {
-        const [dentistRows, salaryRows, staffRows] = await Promise.all([
-          dentistService.getAll(),
-          salaryService.getAll(),
-          staffService.getAll({ active: true }),
-        ]);
+  const loadDirectoryData = useCallback(async () => {
+    if (role !== 'director') return;
+    setLoading(true);
+    setError('');
+    setSuccessMessage('');
+    try {
+      const [dentistRows, salaryRows, staffRows] = await Promise.all([
+        dentistService.getAll(),
+        salaryService.getAll(),
+        staffService.getAll({ active: true }),
+      ]);
 
-        const sortedDentists = [...dentistRows].sort((a, b) =>
-          `${a.staff?.surname ?? ''} ${a.staff?.name ?? ''}`.localeCompare(
-            `${b.staff?.surname ?? ''} ${b.staff?.name ?? ''}`,
-          ),
-        );
-        setDentists(sortedDentists);
-        setStaffMembers(Array.isArray(staffRows) ? staffRows : []);
+      const sortedDentists = [...dentistRows].sort((a, b) =>
+        `${a.staff?.surname ?? ''} ${a.staff?.name ?? ''}`.localeCompare(
+          `${b.staff?.surname ?? ''} ${b.staff?.name ?? ''}`,
+        ),
+      );
+      setDentists(sortedDentists);
+      setStaffMembers(Array.isArray(staffRows) ? staffRows : []);
 
-        const nextSalaryMap: Record<number, SalaryRecord> = {};
-        for (const salary of salaryRows) {
-          nextSalaryMap[salary.staffId] = salary;
-        }
-        setSalariesByStaffId(nextSalaryMap);
-
-        const treatmentRows = await toothTreatmentService.getAll();
-        const groupedTreatments: Record<number, ToothTreatment[]> = {};
-        for (const treatment of treatmentRows) {
-          const dentistId = treatment.dentist?.id;
-          if (!dentistId) continue;
-          if (!groupedTreatments[dentistId]) groupedTreatments[dentistId] = [];
-          groupedTreatments[dentistId].push(treatment);
-        }
-        setTreatmentsByDentistId(groupedTreatments);
-        setSelectedStaffIds(new Set());
-      } catch (err: unknown) {
-        console.error('Failed to load dentist salary data:', err);
-        const message =
-          err && typeof err === 'object' && 'response' in err
-            ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-            : undefined;
-        setError(message || 'Failed to load dentists');
-        setDentists([]);
-        setStaffMembers([]);
-        setSalariesByStaffId({});
-        setTreatmentsByDentistId({});
-      } finally {
-        setLoading(false);
+      const nextSalaryMap: Record<number, SalaryRecord> = {};
+      for (const salary of salaryRows) {
+        nextSalaryMap[salary.staffId] = salary;
       }
-    };
-    void load();
+      setSalariesByStaffId(nextSalaryMap);
+
+      const treatmentRows = await toothTreatmentService.getAll();
+      const groupedTreatments: Record<number, ToothTreatment[]> = {};
+      for (const treatment of treatmentRows) {
+        const dentistId = treatment.dentist?.id;
+        if (!dentistId) continue;
+        if (!groupedTreatments[dentistId]) groupedTreatments[dentistId] = [];
+        groupedTreatments[dentistId].push(treatment);
+      }
+      setTreatmentsByDentistId(groupedTreatments);
+      setSelectedStaffIds(new Set());
+    } catch (err: unknown) {
+      console.error('Failed to load dentist salary data:', err);
+      const message =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      setError(message || 'Failed to load dentists');
+      setDentists([]);
+      setStaffMembers([]);
+      setSalariesByStaffId({});
+      setTreatmentsByDentistId({});
+    } finally {
+      setLoading(false);
+    }
   }, [role]);
+
+  useEffect(() => {
+    void loadDirectoryData();
+  }, [loadDirectoryData]);
 
   const directoryRows: DirectoryTableRow[] = useMemo(() => {
     const dentistStaffIds = new Set(dentists.map((d) => d.staffId));
@@ -434,6 +454,71 @@ const ClinicStaffDirectory = () => {
     }
   };
 
+  const resetCreateStaffForm = () => {
+    setNewStaffForm({
+      name: '',
+      surname: '',
+      birthDate: '',
+      gmail: '',
+      password: '',
+      confirmPassword: '',
+      startDate: toIsoDateInput(new Date()),
+      staffType: 'staff',
+    });
+  };
+
+  const handleCreateStaffSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError('');
+    setSuccessMessage('');
+
+    if (newStaffForm.password !== newStaffForm.confirmPassword) {
+      setError('Password and confirmation password must match.');
+      return;
+    }
+    if (newStaffForm.password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    setIsCreatingStaff(true);
+    try {
+      const createdStaff = await staffService.create({
+        name: newStaffForm.name.trim(),
+        surname: newStaffForm.surname.trim(),
+        birthDate: newStaffForm.birthDate,
+        gmail: newStaffForm.gmail.trim(),
+        password: newStaffForm.password,
+        startDate: newStaffForm.startDate,
+        active: true,
+      });
+
+      if (newStaffForm.staffType === 'dentist') {
+        await dentistService.create({ staffId: createdStaff.id });
+      } else if (newStaffForm.staffType === 'nurse') {
+        await nurseService.create({ staffId: createdStaff.id });
+      } else if (newStaffForm.staffType === 'frontdesk') {
+        await frontDeskWorkerService.create({ staffId: createdStaff.id });
+      } else if (newStaffForm.staffType === 'director') {
+        await directorService.create({ staffId: createdStaff.id });
+      }
+
+      await loadDirectoryData();
+      setShowCreateStaffForm(false);
+      resetCreateStaffForm();
+      setSuccessMessage('Staff member created successfully.');
+    } catch (err: unknown) {
+      console.error('Failed to create staff member:', err);
+      const message =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      setError(message || 'Failed to create staff member.');
+    } finally {
+      setIsCreatingStaff(false);
+    }
+  };
+
   if (role !== 'director') {
     return null;
   }
@@ -455,13 +540,148 @@ const ClinicStaffDirectory = () => {
         >
           <main className="h-[calc(100vh-4rem)] flex-1 overflow-auto bg-[#f9fafb] px-6 py-6">
             <div className="mb-6">
-              <h1 className="text-3xl font-bold text-slate-900">Clinic staff and salaries</h1>
-              <p className="mt-2 text-sm text-slate-500">
-                Dentists are listed first with treatment counts and totals for the selected period. Other staff
-                appear below; treatment and total are not applicable for those roles. Click a salary cell to edit.
-                Use the role checkboxes to choose who appears in the table.
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl font-bold text-slate-900">Staff</h1>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Dentists are listed first with treatment counts and totals for the selected period. Other staff
+                    appear below; treatment and total are not applicable for those roles. Click a salary cell to edit.
+                    Use the role checkboxes to choose who appears in the table.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateStaffForm((prev) => !prev)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#00588f]"
+                >
+                  <Plus size={16} />
+                  {showCreateStaffForm ? 'Close form' : 'New staff'}
+                </button>
+              </div>
             </div>
+
+            {showCreateStaffForm ? (
+              <form
+                onSubmit={(event) => void handleCreateStaffSubmit(event)}
+                className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+              >
+                <h2 className="text-lg font-semibold text-slate-900">Add new staff member</h2>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">First name</label>
+                    <input
+                      required
+                      type="text"
+                      value={newStaffForm.name}
+                      onChange={(event) => setNewStaffForm((prev) => ({ ...prev, name: event.target.value }))}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Last name</label>
+                    <input
+                      required
+                      type="text"
+                      value={newStaffForm.surname}
+                      onChange={(event) => setNewStaffForm((prev) => ({ ...prev, surname: event.target.value }))}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Birth date</label>
+                    <input
+                      required
+                      type="date"
+                      value={newStaffForm.birthDate}
+                      onChange={(event) => setNewStaffForm((prev) => ({ ...prev, birthDate: event.target.value }))}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Start date</label>
+                    <input
+                      required
+                      type="date"
+                      value={newStaffForm.startDate}
+                      onChange={(event) => setNewStaffForm((prev) => ({ ...prev, startDate: event.target.value }))}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+                    <input
+                      required
+                      type="email"
+                      value={newStaffForm.gmail}
+                      onChange={(event) => setNewStaffForm((prev) => ({ ...prev, gmail: event.target.value }))}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Password</label>
+                    <input
+                      required
+                      minLength={6}
+                      type="password"
+                      value={newStaffForm.password}
+                      onChange={(event) => setNewStaffForm((prev) => ({ ...prev, password: event.target.value }))}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Confirm password</label>
+                    <input
+                      required
+                      minLength={6}
+                      type="password"
+                      value={newStaffForm.confirmPassword}
+                      onChange={(event) =>
+                        setNewStaffForm((prev) => ({ ...prev, confirmPassword: event.target.value }))
+                      }
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Staff type</label>
+                    <select
+                      value={newStaffForm.staffType}
+                      onChange={(event) =>
+                        setNewStaffForm((prev) => ({
+                          ...prev,
+                          staffType: event.target.value as NewStaffType,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="staff">Other staff</option>
+                      <option value="dentist">Dentist</option>
+                      <option value="nurse">Nurse</option>
+                      <option value="frontdesk">Front desk</option>
+                      <option value="director">Director</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-4 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateStaffForm(false);
+                      resetCreateStaffForm();
+                    }}
+                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreatingStaff}
+                    className="rounded-lg bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#00588f] disabled:opacity-50"
+                  >
+                    {isCreatingStaff ? 'Creating...' : 'Create staff'}
+                  </button>
+                </div>
+              </form>
+            ) : null}
 
             {error ? (
               <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>

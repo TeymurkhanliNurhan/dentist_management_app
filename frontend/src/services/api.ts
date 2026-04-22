@@ -126,6 +126,10 @@ export const dentistService = {
     const response = await api.get(`/dentist/${id}`);
     return response.data;
   },
+  create: async (payload: { staffId: number }) => {
+    const response = await api.post('/dentist', payload);
+    return response.data;
+  },
   update: async (data: { name?: string; surname?: string; birthDate?: string }) => {
     const response = await api.patch(`/dentist`, data);
     return response.data;
@@ -172,6 +176,39 @@ export const staffService = {
     if (filters?.active !== undefined) params.append('active', String(filters.active));
     const query = params.toString();
     const response = await api.get<StaffListRecord[]>(`/staff${query ? `?${query}` : ''}`);
+    return response.data;
+  },
+  create: async (payload: {
+    name: string;
+    surname: string;
+    birthDate: string;
+    gmail: string;
+    password: string;
+    startDate: string;
+    active?: boolean;
+  }): Promise<StaffListRecord> => {
+    const response = await api.post<StaffListRecord>('/staff', payload);
+    return response.data;
+  },
+};
+
+export const nurseService = {
+  create: async (payload: { staffId: number }) => {
+    const response = await api.post('/nurse', payload);
+    return response.data;
+  },
+};
+
+export const frontDeskWorkerService = {
+  create: async (payload: { staffId: number }) => {
+    const response = await api.post('/front-desk-worker', payload);
+    return response.data;
+  },
+};
+
+export const directorService = {
+  create: async (payload: { staffId: number }) => {
+    const response = await api.post('/director', payload);
     return response.data;
   },
 };

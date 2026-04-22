@@ -1497,7 +1497,7 @@ const Schedule = () => {
     { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
     { label: 'Treatments', icon: Activity, path: '/treatments' },
     { label: 'Inventory', icon: Package, path: '/medicines' },
-    { label: 'Staff & dentists', icon: Users, path: '/staff' },
+    { label: 'Staff', icon: Users, path: '/staff' },
     { label: 'Finance', icon: Wallet, path: '/appointments' },
   ];
   return (
