@@ -8,6 +8,13 @@ import {
 import { Room } from '../../room/entities/room.entity';
 import { Staff } from '../../staff/entities/staff.entity';
 
+export enum BlockingHoursApprovalStatus {
+  AWAITING = 'awaiting',
+  CANCELED = 'canceled',
+  REJECTED = 'rejected',
+  APPROVED = 'approved',
+}
+
 @Entity({ name: 'Blocking_hours' })
 export class BlockingHours {
   @PrimaryGeneratedColumn()
@@ -27,6 +34,13 @@ export class BlockingHours {
 
   @Column({ type: 'varchar', length: 127, nullable: true })
   name: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: BlockingHoursApprovalStatus,
+    default: BlockingHoursApprovalStatus.AWAITING,
+  })
+  approvalStatus: BlockingHoursApprovalStatus;
 
   @ManyToOne(() => Staff, (staff) => staff.blockingHours, {
     nullable: true,

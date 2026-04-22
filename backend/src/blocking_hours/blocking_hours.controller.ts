@@ -38,7 +38,7 @@ export class BlockingHoursController {
   @ApiOperation({ summary: 'Get blocking hours with optional filters' })
   @ApiOkResponse({ description: 'Blocking hours retrieved' })
   async findAll(@User() user: any, @Query() dto: GetBlockingHoursDto) {
-    return await this.service.findAll(user.userId, dto);
+    return await this.service.findAll(user.userId, dto, user);
   }
 
   @ApiBearerAuth('bearer')
@@ -73,5 +73,35 @@ export class BlockingHoursController {
   @ApiOkResponse({ description: 'Blocking hours deleted' })
   async delete(@User() user: any, @Param('id', ParseIntPipe) id: number) {
     return await this.service.delete(user.userId, id, user);
+  }
+
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/approve')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Approve blocking hours by id' })
+  @ApiOkResponse({ description: 'Blocking hours approved' })
+  async approve(@User() user: any, @Param('id', ParseIntPipe) id: number) {
+    return await this.service.approve(user.userId, id, user);
+  }
+
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reject blocking hours by id' })
+  @ApiOkResponse({ description: 'Blocking hours rejected' })
+  async reject(@User() user: any, @Param('id', ParseIntPipe) id: number) {
+    return await this.service.reject(user.userId, id, user);
+  }
+
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancel blocking hours by id (dentist only)' })
+  @ApiOkResponse({ description: 'Blocking hours canceled' })
+  async cancel(@User() user: any, @Param('id', ParseIntPipe) id: number) {
+    return await this.service.cancel(user.userId, id, user);
   }
 }

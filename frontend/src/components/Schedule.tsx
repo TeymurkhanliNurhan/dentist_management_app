@@ -289,6 +289,7 @@ interface BlockingHourRow {
   staffId: number | null;
   roomId: number | null;
   name?: string | null;
+  approvalStatus?: 'awaiting' | 'approved' | 'rejected' | 'canceled';
 }
 
 const SLOT_MINUTES = 30;
@@ -314,8 +315,10 @@ const Schedule = () => {
   const { t, i18n } = useTranslation('schedule');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
+  const isReception = role === 'frontdesk';
+  const isDirectorOrReception = isDirector || isReception;
   const isDentistUser = role === 'dentist';
-  const useClinicScheduleUi = isDirector || isDentistUser;
+  const useClinicScheduleUi = isDirectorOrReception || isDentistUser;
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [directorStaff, setDirectorStaff] = useState<StaffSummary | null>(null);
@@ -405,7 +408,7 @@ const Schedule = () => {
 
   useEffect(() => {
     const fetchDirectorStaff = async () => {
-      if (!isDirector) {
+      if (!isDirectorOrReception) {
         setDirectorStaff(null);
         return;
       }
@@ -431,7 +434,7 @@ const Schedule = () => {
     };
 
     void fetchDirectorStaff();
-  }, [isDirector]);
+  }, [isDirectorOrReception]);
 
   useEffect(() => {
     const fetchDirectorAvailabilityData = async () => {
@@ -719,7 +722,8 @@ const Schedule = () => {
     setNewPatient({ name: '', surname: '', birthDate: '' });
     setPatientFormMsg(null);
     setSubmitError(null);
-    const tab: 'randevue' | 'blocking' = !isDentistUser ? 'randevue' : initialTab;
+    const tab: 'randevue' | 'blocking' =
+      isDentistUser || isDirectorOrReception ? initialTab : 'randevue';
     setCreateModalTab(tab);
     if (tab === 'blocking') {
       setBlockFormDate(formatYmd(baseDay));
@@ -798,13 +802,20 @@ const Schedule = () => {
       setBlockSubmitError(t('timeOrderError'));
       return;
     }
-    if (!isDentistUser) return;
+    if (!isDentistUser && !isDirectorOrReception) return;
     setBlockSubmitBusy(true);
     try {
       const body: Record<string, unknown> = {
         startTime: start.toISOString(),
         endTime: end.toISOString(),
       };
+      if (isDirectorOrReception) {
+        const selectedDentistStaffId =
+          formDentistId > 0 ? dentistStaffIdByDentistId.get(formDentistId) : undefined;
+        if (selectedDentistStaffId) {
+          body.staffId = selectedDentistStaffId;
+        }
+      }
       const trimmedName = blockFormName.trim();
       if (trimmedName) body.name = trimmedName.slice(0, 127);
       const res = await fetch(`${API_BASE_URL}/blocking-hours`, {
@@ -835,7 +846,7 @@ const Schedule = () => {
     blockingDetailId != null ? scheduleBlockingHours.find((x) => x.id === blockingDetailId) : undefined;
 
   const openBlockingDetail = (bh: BlockingHourRow) => {
-    if (!isDentistUser) return;
+    if (!isDentistUser && !isDirectorOrReception) return;
     setDetailId(null);
     setModalOpen(false);
     setBlockingDetailId(bh.id);
@@ -880,16 +891,54 @@ const Schedule = () => {
     }
   };
 
-  const handleDeleteBlockingDetail = async () => {
-    if (blockingDetailId == null) return;
+  const handleApproveBlockingDetail = async () => {
+    if (blockingDetailId == null || !isDirectorOrReception) return;
+    setBlockingDetailError(null);
+    setBlockingDetailBusy(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/blocking-hours/${blockingDetailId}/approve`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+      });
+      if (!res.ok) throw new Error('blocking approve');
+      setBlockingDetailId(null);
+      void fetchSchedule();
+    } catch {
+      setBlockingDetailError(t('blockingUpdateError'));
+    } finally {
+      setBlockingDetailBusy(false);
+    }
+  };
+
+  const handleRejectBlockingDetail = async () => {
+    if (blockingDetailId == null || !isDirectorOrReception) return;
+    setBlockingDetailError(null);
+    setBlockingDetailBusy(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/blocking-hours/${blockingDetailId}/reject`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+      });
+      if (!res.ok) throw new Error('blocking reject');
+      setBlockingDetailId(null);
+      void fetchSchedule();
+    } catch {
+      setBlockingDetailError(t('blockingUpdateError'));
+    } finally {
+      setBlockingDetailBusy(false);
+    }
+  };
+
+  const handleCancelBlockingDetail = async () => {
+    if (blockingDetailId == null || !isDentistUser) return;
     setBlockingDetailError(null);
     setBlockingDeleteBusy(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/blocking-hours/${blockingDetailId}`, {
-        method: 'DELETE',
+      const res = await fetch(`${API_BASE_URL}/blocking-hours/${blockingDetailId}/cancel`, {
+        method: 'PATCH',
         headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
       });
-      if (!res.ok) throw new Error('blocking delete');
+      if (!res.ok) throw new Error('blocking cancel');
       setBlockingDetailId(null);
       void fetchSchedule();
     } catch {
@@ -961,11 +1010,16 @@ const Schedule = () => {
   }, [dentists]);
 
   const blockingStaffLabel = useMemo(() => {
+    if (isDirectorOrReception) {
+      const selected = dentists.find((x) => x.id === formDentistId);
+      if (!selected?.staff) return '';
+      return `${selected.staff.name ?? ''} ${selected.staff.surname ?? ''}`.trim();
+    }
     const id = Number(localStorage.getItem('dentistId'));
     const d = dentists.find((x) => x.id === id);
     if (!d?.staff) return '';
     return `${d.staff.name ?? ''} ${d.staff.surname ?? ''}`.trim();
-  }, [dentists]);
+  }, [dentists, formDentistId, isDirectorOrReception]);
 
   const roomTitleById = useMemo(() => {
     const map = new Map<number, string>();
@@ -1029,7 +1083,7 @@ const Schedule = () => {
 
   const randevuesForClinicGrid = useMemo(() => {
     if (!useClinicScheduleUi) return randevues;
-    if (!isDirector || viewMode !== 'weekly') return randevues;
+    if (!isDirectorOrReception || viewMode !== 'weekly') return randevues;
     if (!directorWeeklyShowRandevues) return [];
     return randevues.filter((r) => {
       const did = r.dentist?.id;
@@ -1039,14 +1093,14 @@ const Schedule = () => {
   }, [
     directorWeeklyShowRandevues,
     directorWeeklyVisibleDentistIds,
-    isDirector,
+    isDirectorOrReception,
     randevues,
     useClinicScheduleUi,
     viewMode,
   ]);
 
   useEffect(() => {
-    if (!isDirector) return;
+    if (!isDirectorOrReception) return;
     const ids = dentists.map((d) => d.id).filter((id) => Number.isFinite(id) && id > 0);
     setDirectorWeeklyVisibleDentistIds((prev) => {
       if (ids.length === 0) return new Set();
@@ -1060,7 +1114,7 @@ const Schedule = () => {
       }
       return next;
     });
-  }, [dentists, isDirector]);
+  }, [dentists, isDirectorOrReception]);
 
   useLayoutEffect(() => {
     const el = directorWeeklyAllTypesCheckboxRef.current;
@@ -1660,7 +1714,7 @@ const Schedule = () => {
                 >
                   {t('viewWeekly')}
                 </button>
-                {isDirector ? (
+                {isDirectorOrReception ? (
                   <>
                     <button
                       type="button"
@@ -1695,7 +1749,7 @@ const Schedule = () => {
             >
               {t('newRandevue')}
             </button>
-            {isDentistUser && (
+            {(isDentistUser || isDirectorOrReception) && (
               <button
                 type="button"
                 onClick={() => openNewModal(undefined, undefined, 'blocking')}
@@ -1707,7 +1761,7 @@ const Schedule = () => {
           </div>
         </div>
 
-        {isDirector && viewMode === 'weekly' && !loading && !loadError && (
+        {isDirectorOrReception && viewMode === 'weekly' && !loading && !loadError && (
           <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg border border-slate-200/60 bg-slate-50/40 p-2">
             <div className="min-w-0 rounded border border-slate-200/50 bg-white/60">
               <button
@@ -2004,10 +2058,19 @@ const Schedule = () => {
                           })()}
                         {useClinicScheduleUi &&
                           scheduleBlockingHours
-                            .filter(() => !isDirector || viewMode !== 'weekly' || directorWeeklyShowBlocking)
+                            .filter(
+                              () =>
+                                !isDirectorOrReception ||
+                                viewMode !== 'weekly' ||
+                                directorWeeklyShowBlocking,
+                            )
                             .filter((bh) => bh.staffId != null)
                             .filter((bh) => {
-                              if (isDirector && viewMode === 'weekly' && bh.staffId != null) {
+                              if (
+                                isDirectorOrReception &&
+                                viewMode === 'weekly' &&
+                                bh.staffId != null
+                              ) {
                                 const d = dentistByStaffIdForSchedule.get(bh.staffId);
                                 if (d && !directorWeeklyVisibleDentistIds.has(d.id)) return false;
                               }
@@ -2051,21 +2114,19 @@ const Schedule = () => {
                                   role="button"
                                   tabIndex={0}
                                   className={`absolute left-0.5 right-0.5 rounded-md bg-amber-500/85 text-white text-[10px] px-1 py-0.5 shadow-sm z-[12] overflow-hidden ${
-                                    isDentistUser
+                                    isDentistUser || isDirectorOrReception
                                       ? 'pointer-events-auto cursor-pointer hover:bg-amber-600/90'
-                                      : isDirector
-                                        ? 'pointer-events-auto cursor-default hover:brightness-105'
-                                        : 'pointer-events-none'
+                                      : 'pointer-events-none'
                                   }`}
                                   style={{ top: seg.top, height: seg.height }}
                                   title={bh.name?.trim() || t('blockingFallbackLabel')}
                                   onClick={(ev) => {
-                                    if (!isDentistUser) return;
+                                    if (!isDentistUser && !isDirectorOrReception) return;
                                     ev.stopPropagation();
                                     openBlockingDetail(bh);
                                   }}
                                   onKeyDown={(ev) => {
-                                    if (!isDentistUser) return;
+                                    if (!isDentistUser && !isDirectorOrReception) return;
                                     if (ev.key === 'Enter' || ev.key === ' ') {
                                       ev.preventDefault();
                                       ev.stopPropagation();
@@ -2073,7 +2134,7 @@ const Schedule = () => {
                                     }
                                   }}
                                   onMouseEnter={(ev) => {
-                                    if (!isDirector && !isDentistUser) return;
+                                    if (!isDirectorOrReception && !isDentistUser) return;
                                     setHoverTip({
                                       kind: 'blocking',
                                       bh,
@@ -2082,7 +2143,7 @@ const Schedule = () => {
                                     });
                                   }}
                                   onMouseMove={(ev) => {
-                                    if (!isDirector && !isDentistUser) return;
+                                    if (!isDirectorOrReception && !isDentistUser) return;
                                     setHoverTip((prev) =>
                                       prev?.kind === 'blocking' && prev.bh.id === bh.id
                                         ? { kind: 'blocking', bh, clientX: ev.clientX, clientY: ev.clientY }
@@ -2095,7 +2156,7 @@ const Schedule = () => {
                                     )
                                   }
                                 >
-                                  {isDirector && bhDentistLine ? (
+                                  {isDirectorOrReception && bhDentistLine ? (
                                     <span className="block truncate text-[9px] font-medium leading-tight opacity-95">
                                       {bhDentistLine}
                                     </span>
@@ -2201,46 +2262,69 @@ const Schedule = () => {
                 <p className="text-sm text-gray-600">{t('blockingDetailNotFound')}</p>
               ) : (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('blockingNameLabel')}</label>
-                    <input
-                      type="text"
-                      value={blockEditName}
-                      onChange={(e) => setBlockEditName(e.target.value)}
-                      maxLength={127}
-                      placeholder={t('blockingNameOptionalHint')}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('date')}</label>
-                    <input
-                      type="date"
-                      value={blockEditDate}
-                      onChange={(e) => setBlockEditDate(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
-                      <input
-                        type="time"
-                        value={blockEditStart}
-                        onChange={(e) => setBlockEditStart(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
-                      <input
-                        type="time"
-                        value={blockEditEnd}
-                        onChange={(e) => setBlockEditEnd(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                      />
-                    </div>
-                  </div>
+                  {isDentistUser ? (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('blockingNameLabel')}</label>
+                        <input
+                          type="text"
+                          value={blockEditName}
+                          onChange={(e) => setBlockEditName(e.target.value)}
+                          maxLength={127}
+                          placeholder={t('blockingNameOptionalHint')}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{t('date')}</label>
+                        <input
+                          type="date"
+                          value={blockEditDate}
+                          onChange={(e) => setBlockEditDate(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
+                          <input
+                            type="time"
+                            value={blockEditStart}
+                            onChange={(e) => setBlockEditStart(e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
+                          <input
+                            type="time"
+                            value={blockEditEnd}
+                            onChange={(e) => setBlockEditEnd(e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium">{t('blockingNameLabel')}:</span>{' '}
+                        {blockingDetailRow.name?.trim() || t('blockingFallbackLabel')}
+                      </p>
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium">{t('date')}:</span>{' '}
+                        {new Date(blockingDetailRow.startTime).toLocaleDateString(i18n.language)}
+                      </p>
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium">{t('startTime')}:</span>{' '}
+                        {localTimeHm(new Date(blockingDetailRow.startTime))}
+                      </p>
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium">{t('endTime')}:</span>{' '}
+                        {localTimeHm(new Date(blockingDetailRow.endTime))}
+                      </p>
+                    </>
+                  )}
                   {blockingDetailRow.roomId != null && (
                     <p className="text-sm text-gray-600">
                       {t('room')}:{' '}
@@ -2251,22 +2335,53 @@ const Schedule = () => {
                   )}
                   {blockingDetailError && <p className="text-sm text-red-600">{blockingDetailError}</p>}
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-                    <button
-                      type="button"
-                      disabled={blockingDeleteBusy || blockingDetailBusy}
-                      onClick={() => void handleDeleteBlockingDetail()}
-                      className="px-4 py-2 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50"
-                    >
-                      {blockingDeleteBusy ? t('blockingDeleting') : t('blockingDelete')}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={blockingDetailBusy || blockingDeleteBusy}
-                      onClick={() => void handleSaveBlockingDetail()}
-                      className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 disabled:opacity-50"
-                    >
-                      {blockingDetailBusy ? t('saving') : t('saveChanges')}
-                    </button>
+                    {isDentistUser ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={blockingDeleteBusy || blockingDetailBusy}
+                          onClick={() => void handleCancelBlockingDetail()}
+                          className="px-4 py-2 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {blockingDeleteBusy ? t('blockingDeleting') : t('blockingDelete')}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={blockingDetailBusy || blockingDeleteBusy}
+                          onClick={() => void handleSaveBlockingDetail()}
+                          className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 disabled:opacity-50"
+                        >
+                          {blockingDetailBusy ? t('saving') : t('saveChanges')}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          disabled={
+                            blockingDetailBusy ||
+                            blockingDeleteBusy ||
+                            blockingDetailRow.approvalStatus !== 'awaiting'
+                          }
+                          onClick={() => void handleRejectBlockingDetail()}
+                          className="px-4 py-2 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            blockingDetailBusy ||
+                            blockingDeleteBusy ||
+                            blockingDetailRow.approvalStatus !== 'awaiting'
+                          }
+                          onClick={() => void handleApproveBlockingDetail()}
+                          className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                          Approve
+                        </button>
+                      </>
+                    )}
                   </div>
                 </>
               )
@@ -2586,9 +2701,11 @@ const Schedule = () => {
             aria-labelledby="randevue-modal-title"
           >
             <h2 id="randevue-modal-title" className="text-xl font-bold text-gray-900 mb-4">
-              {createModalTab === 'blocking' && isDentistUser ? t('blockingModalTitle') : t('modalTitle')}
+              {createModalTab === 'blocking' && (isDentistUser || isDirectorOrReception)
+                ? t('blockingModalTitle')
+                : t('modalTitle')}
             </h2>
-            {isDentistUser && (
+            {(isDentistUser || isDirectorOrReception) && (
               <div className="flex rounded-lg border border-gray-200 p-0.5 mb-4 bg-gray-50">
                 <button
                   type="button"
@@ -2621,12 +2738,29 @@ const Schedule = () => {
                 </button>
               </div>
             )}
-            {createModalTab === 'blocking' && isDentistUser ? (
+            {createModalTab === 'blocking' && (isDentistUser || isDirectorOrReception) ? (
               <div className="space-y-4">
                 <p className="text-sm text-gray-600">
                   {t('blockingStaffLabel')}:{' '}
                   <span className="font-semibold text-gray-900">{blockingStaffLabel || '—'}</span>
                 </p>
+                {isDirectorOrReception && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('doctor')}</label>
+                    <select
+                      value={formDentistId || ''}
+                      onChange={(e) => setFormDentistId(Number(e.target.value) || 0)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    >
+                      <option value="">{t('selectDoctor')}</option>
+                      {dentists.map((dentist) => (
+                        <option key={dentist.id} value={dentist.id}>
+                          {`Dr. ${dentist.staff?.surname || `#${dentist.id}`}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('blockingNameLabel')}</label>
                   <input

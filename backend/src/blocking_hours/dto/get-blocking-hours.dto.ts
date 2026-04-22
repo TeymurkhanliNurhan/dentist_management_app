@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDateString, IsInt, IsOptional, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import { BlockingHoursApprovalStatus } from '../entities/blocking_hours.entity';
 
 export class GetBlockingHoursDto {
   @ApiPropertyOptional({ example: 1, description: 'Blocking hours ID' })
@@ -33,4 +34,12 @@ export class GetBlockingHoursDto {
   @IsInt()
   @Min(1)
   roomId?: number;
+
+  @ApiPropertyOptional({
+    enum: BlockingHoursApprovalStatus,
+    description: 'Approval status filter',
+  })
+  @IsOptional()
+  @IsEnum(BlockingHoursApprovalStatus)
+  approvalStatus?: BlockingHoursApprovalStatus;
 }

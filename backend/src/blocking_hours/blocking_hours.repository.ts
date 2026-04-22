@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { BlockingHours } from './entities/blocking_hours.entity';
+import {
+  BlockingHours,
+  BlockingHoursApprovalStatus,
+} from './entities/blocking_hours.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
 import { Staff } from '../staff/entities/staff.entity';
 import { Room } from '../room/entities/room.entity';
@@ -66,6 +69,7 @@ export class BlockingHoursRepository {
       staffId?: number;
       roomId?: number;
       name?: string | null;
+      approvalStatus: BlockingHoursApprovalStatus;
     },
   ): Promise<BlockingHours> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
@@ -81,6 +85,7 @@ export class BlockingHoursRepository {
       staffId: input.staffId ?? null,
       roomId: input.roomId ?? null,
       name: input.name ?? null,
+      approvalStatus: input.approvalStatus,
     });
     return await this.repo.save(created);
   }
@@ -93,6 +98,7 @@ export class BlockingHoursRepository {
       endTime?: string;
       staffId?: number;
       roomId?: number;
+      approvalStatus?: BlockingHoursApprovalStatus;
     },
   ): Promise<BlockingHours[]> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
@@ -117,6 +123,11 @@ export class BlockingHoursRepository {
       });
     if (filters.endTime !== undefined)
       qb.andWhere('bh.endTime = :endTime', { endTime: filters.endTime });
+    if (filters.approvalStatus !== undefined) {
+      qb.andWhere('bh.approvalStatus = :approvalStatus', {
+        approvalStatus: filters.approvalStatus,
+      });
+    }
 
     return await qb.getMany();
   }
@@ -130,6 +141,7 @@ export class BlockingHoursRepository {
       staffId?: number;
       roomId?: number;
       name?: string | null;
+      approvalStatus?: BlockingHoursApprovalStatus;
     },
   ): Promise<BlockingHours> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
@@ -158,6 +170,8 @@ export class BlockingHoursRepository {
     if (updates.endTime !== undefined)
       existing.endTime = new Date(updates.endTime);
     if (updates.name !== undefined) existing.name = updates.name;
+    if (updates.approvalStatus !== undefined)
+      existing.approvalStatus = updates.approvalStatus;
 
     return await this.repo.save(existing);
   }

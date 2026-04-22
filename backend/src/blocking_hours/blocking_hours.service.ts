@@ -9,12 +9,17 @@ import { CreateBlockingHoursDto } from './dto/create-blocking-hours.dto';
 import { GetBlockingHoursDto } from './dto/get-blocking-hours.dto';
 import { UpdateBlockingHoursDto } from './dto/update-blocking-hours.dto';
 import { LogWriter } from '../log-writer';
+import { BlockingHoursApprovalStatus } from './entities/blocking_hours.entity';
 
 @Injectable()
 export class BlockingHoursService {
   private readonly logger = new Logger(BlockingHoursService.name);
 
   constructor(private readonly repo: BlockingHoursRepository) {}
+
+  private isDirectorOrReception(role: string): boolean {
+    return role === 'director' || role === 'frontdesk';
+  }
 
   private parseNumericId(value: unknown): number {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -62,6 +67,12 @@ export class BlockingHoursService {
         staffId,
         roomId: dto.roomId,
         name,
+        approvalStatus:
+          role === 'dentist'
+            ? BlockingHoursApprovalStatus.AWAITING
+            : this.isDirectorOrReception(role)
+              ? BlockingHoursApprovalStatus.APPROVED
+              : BlockingHoursApprovalStatus.AWAITING,
       });
       const msg = `Dentist with id ${dentistId} created BlockingHours with id ${created.id}`;
       this.logger.log(msg);
@@ -76,8 +87,34 @@ export class BlockingHoursService {
     }
   }
 
-  async findAll(dentistId: number, dto: GetBlockingHoursDto) {
-    return await this.repo.findForDentist(dentistId, dto);
+  async findAll(dentistId: number, dto: GetBlockingHoursDto, user?: any) {
+    const role = (user?.role ?? '').toLowerCase();
+    const filters = { ...dto };
+
+    if (role === 'dentist') {
+      const staffId = await this.resolveDentistJwtStaffId(user, dentistId);
+      filters.staffId = staffId;
+      return await this.repo.findForDentist(dentistId, filters);
+    }
+
+    if (this.isDirectorOrReception(role) && !filters.approvalStatus) {
+      const [awaiting, approved] = await Promise.all([
+        this.repo.findForDentist(dentistId, {
+          ...filters,
+          approvalStatus: BlockingHoursApprovalStatus.AWAITING,
+        }),
+        this.repo.findForDentist(dentistId, {
+          ...filters,
+          approvalStatus: BlockingHoursApprovalStatus.APPROVED,
+        }),
+      ]);
+
+      const dedup = new Map<number, (typeof awaiting)[number]>();
+      for (const row of [...awaiting, ...approved]) dedup.set(row.id, row);
+      return Array.from(dedup.values());
+    }
+
+    return await this.repo.findForDentist(dentistId, filters);
   }
 
   async patch(dentistId: number, id: number, dto: UpdateBlockingHoursDto, user?: any) {
@@ -142,6 +179,86 @@ export class BlockingHoursService {
       if (e?.message?.includes('Forbidden'))
         throw new NotFoundException('Blocking hours not found');
       throw new BadRequestException('Failed to delete blocking hours');
+    }
+  }
+
+  async approve(dentistId: number, id: number, user?: any) {
+    const role = (user?.role ?? '').toLowerCase();
+    if (!this.isDirectorOrReception(role)) {
+      throw new BadRequestException(
+        'Only director or reception can approve blocking hours',
+      );
+    }
+
+    const rows = await this.repo.findForDentist(dentistId, { id });
+    const existing = rows[0];
+    if (!existing) throw new NotFoundException('Blocking hours not found');
+    if (existing.approvalStatus !== BlockingHoursApprovalStatus.AWAITING) {
+      throw new BadRequestException(
+        'Only awaiting blocking hours can be approved',
+      );
+    }
+
+    try {
+      return await this.repo.updateForDentist(dentistId, id, {
+        approvalStatus: BlockingHoursApprovalStatus.APPROVED,
+      });
+    } catch (e: any) {
+      if (e?.message?.includes('Forbidden'))
+        throw new NotFoundException('Blocking hours not found');
+      throw new BadRequestException('Failed to approve blocking hours');
+    }
+  }
+
+  async reject(dentistId: number, id: number, user?: any) {
+    const role = (user?.role ?? '').toLowerCase();
+    if (!this.isDirectorOrReception(role)) {
+      throw new BadRequestException(
+        'Only director or reception can reject blocking hours',
+      );
+    }
+
+    const rows = await this.repo.findForDentist(dentistId, { id });
+    const existing = rows[0];
+    if (!existing) throw new NotFoundException('Blocking hours not found');
+    if (existing.approvalStatus !== BlockingHoursApprovalStatus.AWAITING) {
+      throw new BadRequestException(
+        'Only awaiting blocking hours can be rejected',
+      );
+    }
+
+    try {
+      return await this.repo.updateForDentist(dentistId, id, {
+        approvalStatus: BlockingHoursApprovalStatus.REJECTED,
+      });
+    } catch (e: any) {
+      if (e?.message?.includes('Forbidden'))
+        throw new NotFoundException('Blocking hours not found');
+      throw new BadRequestException('Failed to reject blocking hours');
+    }
+  }
+
+  async cancel(dentistId: number, id: number, user?: any) {
+    const role = (user?.role ?? '').toLowerCase();
+    if (role !== 'dentist') {
+      throw new BadRequestException('Only dentist can cancel blocking hours');
+    }
+
+    const jwtStaffId = await this.resolveDentistJwtStaffId(user, dentistId);
+    const rows = await this.repo.findForDentist(dentistId, { id });
+    const existing = rows[0];
+    if (!existing || existing.staffId !== jwtStaffId) {
+      throw new NotFoundException('Blocking hours not found');
+    }
+
+    try {
+      return await this.repo.updateForDentist(dentistId, id, {
+        approvalStatus: BlockingHoursApprovalStatus.CANCELED,
+      });
+    } catch (e: any) {
+      if (e?.message?.includes('Forbidden'))
+        throw new NotFoundException('Blocking hours not found');
+      throw new BadRequestException('Failed to cancel blocking hours');
     }
   }
 }
