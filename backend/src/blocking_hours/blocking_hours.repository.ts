@@ -127,6 +127,10 @@ export class BlockingHoursRepository {
       qb.andWhere('bh.approvalStatus = :approvalStatus', {
         approvalStatus: filters.approvalStatus,
       });
+    } else {
+      qb.andWhere('bh.approvalStatus != :canceledStatus', {
+        canceledStatus: BlockingHoursApprovalStatus.CANCELED,
+      });
     }
 
     return await qb.getMany();
