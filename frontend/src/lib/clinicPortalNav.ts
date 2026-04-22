@@ -22,7 +22,7 @@ export const DIRECTOR_PORTAL_MENU: ClinicPortalMenuItem[] = [
   { label: 'Treatments', icon: Activity, path: '/treatments' },
   { label: 'Inventory', icon: Package, path: '/medicines' },
   { label: 'Staff & dentists', icon: Users, path: '/staff' },
-  { label: 'Finance', icon: Wallet, path: '/appointments' },
+  { label: 'Finance', icon: Wallet, path: '/finance' },
 ];
 
 export function isDirectorPortalNavActive(itemPath: string, pathname: string): boolean {
