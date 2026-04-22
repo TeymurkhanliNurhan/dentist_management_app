@@ -7,7 +7,6 @@ import { Expense } from '../expense/entities/expense.entity';
 import { Salary } from '../salary/entities/salary.entity';
 import { Appointment } from '../appointment/entities/appointment.entity';
 import { ToothTreatment } from '../tooth_treatment/entities/tooth_treatment.entity';
-import { PurchaseMedicine } from '../purchase_medicine/entities/purchase_medicine.entity';
 
 @Injectable()
 export class PaymentDetailsRepository {
@@ -268,19 +267,27 @@ export class PaymentDetailsRepository {
       }
     }
 
-    const otherPaymentDetails = await this.repo
+    const monthlyPaymentDetails = await this.repo
       .createQueryBuilder('paymentDetails')
       .leftJoinAndSelect('paymentDetails.expense', 'expense')
+      .leftJoinAndSelect(
+        'paymentDetails.purchaseMedicineRecords',
+        'purchaseMedicineRecords',
+      )
+      .leftJoinAndSelect('purchaseMedicineRecords.medicine', 'purchaseMedicineMedicine')
+      .leftJoin('purchaseMedicineMedicine.clinic', 'purchaseMedicineClinic')
       .where('paymentDetails.salary IS NULL')
-      .andWhere('expense.id IS NOT NULL')
       .andWhere('EXTRACT(YEAR FROM paymentDetails.date) = :year', { year })
       .andWhere('EXTRACT(MONTH FROM paymentDetails.date) = :month', { month })
-      .andWhere('expense.clinicId = :clinicId', { clinicId })
+      .andWhere(
+        '(expense.clinicId = :clinicId OR purchaseMedicineClinic.id = :clinicId)',
+        { clinicId },
+      )
       .orderBy('paymentDetails.date', 'DESC')
       .getMany();
 
     const otherPaymentsByCategory = new Map<string, number>();
-    for (const paymentDetail of otherPaymentDetails) {
+    for (const paymentDetail of monthlyPaymentDetails) {
       const category = paymentDetail.expense?.name ?? 'Other';
       otherPaymentsByCategory.set(
         category,
@@ -288,16 +295,9 @@ export class PaymentDetailsRepository {
       );
     }
 
-    const purchaseMedicineRepo = this.dataSource.getRepository(PurchaseMedicine);
-    const purchaseMedicines = await purchaseMedicineRepo
-      .createQueryBuilder('purchaseMedicine')
-      .innerJoinAndSelect('purchaseMedicine.paymentDetails', 'paymentDetails')
-      .innerJoinAndSelect('purchaseMedicine.medicine', 'medicine')
-      .where('EXTRACT(YEAR FROM paymentDetails.date) = :year', { year })
-      .andWhere('EXTRACT(MONTH FROM paymentDetails.date) = :month', { month })
-      .andWhere('medicine.clinicId = :clinicId', { clinicId })
-      .orderBy('paymentDetails.date', 'DESC')
-      .getMany();
+    const purchaseMedicines = monthlyPaymentDetails.flatMap(
+      (paymentDetail) => paymentDetail.purchaseMedicineRecords ?? [],
+    );
 
     const medicinePurchasesByName = new Map<string, number>();
     for (const purchase of purchaseMedicines) {
@@ -308,7 +308,7 @@ export class PaymentDetailsRepository {
       );
     }
 
-    const totalOtherPaymentDetails = otherPaymentDetails.reduce(
+    const totalOtherPaymentDetails = monthlyPaymentDetails.reduce(
       (acc, item) => acc + Number(item.cost ?? 0),
       0,
     );
@@ -363,12 +363,18 @@ export class PaymentDetailsRepository {
             totalCost,
           }),
         ),
-        items: otherPaymentDetails.map((item) => ({
+        items: monthlyPaymentDetails.map((item) => ({
           id: item.id,
           date: item.date,
           cost: item.cost,
           expenseId: item.expense?.id ?? null,
           expenseName: item.expense?.name ?? null,
+          purchaseMedicines: (item.purchaseMedicineRecords ?? []).map((purchase) => ({
+            id: purchase.id,
+            medicineName: purchase.medicine?.name ?? null,
+            count: purchase.count,
+            totalPrice: purchase.totalPrice,
+          })),
         })),
       },
     };

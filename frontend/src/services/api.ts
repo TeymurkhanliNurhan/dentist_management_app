@@ -257,8 +257,36 @@ export interface FinanceOverviewResponse {
       cost: number;
       expenseId: number | null;
       expenseName: string | null;
+      purchaseMedicines: Array<{
+        id: number;
+        medicineName: string | null;
+        count: number;
+        totalPrice: number;
+      }>;
     }>;
   };
+}
+
+export interface CreateExpenseDto {
+  name: string;
+  description?: string;
+  fixedCost?: number;
+  dayOfMonth?: number;
+}
+
+export interface ExpenseRecord {
+  id: number;
+  name: string;
+  description: string | null;
+  fixedCost: number | null;
+  dayOfMonth: number | null;
+}
+
+export interface CreatePaymentDetailsDto {
+  date: string;
+  cost: number;
+  expenseId?: number;
+  salaryId?: number;
 }
 
 export const salaryService = {
@@ -292,6 +320,17 @@ export const paymentDetailsService = {
     const response = await api.get<FinanceOverviewResponse>(
       `/payment-details/finance-overview${query ? `?${query}` : ''}`,
     );
+    return response.data;
+  },
+  create: async (payload: CreatePaymentDetailsDto) => {
+    const response = await api.post('/payment-details', payload);
+    return response.data;
+  },
+};
+
+export const expenseService = {
+  create: async (payload: CreateExpenseDto): Promise<ExpenseRecord> => {
+    const response = await api.post<ExpenseRecord>('/expense', payload);
     return response.data;
   },
 };

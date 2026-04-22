@@ -1,8 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, Plus, X, ChevronLeft, ChevronRight, UserPlus, Settings } from 'lucide-react';
+import {
+  Search,
+  Plus,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  UserPlus,
+  Settings,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import Header from './Header';
-import { appointmentService, patientService, paymentDetailsService } from '../services/api';
+import {
+  appointmentService,
+  patientService,
+  paymentDetailsService,
+  expenseService,
+} from '../services/api';
 import type {
   Appointment,
   AppointmentFilters,
@@ -10,6 +25,8 @@ import type {
   Patient,
   CreatePatientDto,
   FinanceOverviewResponse,
+  CreateExpenseDto,
+  CreatePaymentDetailsDto,
 } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { ClinicPortalShell } from './ClinicPortalShell';
@@ -28,6 +45,10 @@ function formatCurrency(value: number): string {
 function localDateString(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function buildDefaultPaymentDate(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-01`;
 }
 
 type AppointmentListMode = 'open' | 'past' | 'all';
@@ -57,6 +78,20 @@ const Appointments = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [financeError, setFinanceError] = useState<string | null>(null);
   const [financeLoading, setFinanceLoading] = useState(false);
+  const [expandedPaymentDetails, setExpandedPaymentDetails] = useState<Set<number>>(new Set());
+  const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
+  const [financeSubmitError, setFinanceSubmitError] = useState<string | null>(null);
+  const [isCreatingExpenseWithPayment, setIsCreatingExpenseWithPayment] = useState(false);
+  const [newExpense, setNewExpense] = useState<CreateExpenseDto>({
+    name: '',
+    description: '',
+    fixedCost: undefined,
+    dayOfMonth: undefined,
+  });
+  const [newPaymentDetail, setNewPaymentDetail] = useState<CreatePaymentDetailsDto>({
+    date: buildDefaultPaymentDate(new Date().getFullYear(), new Date().getMonth() + 1),
+    cost: 0,
+  });
   const [rawAppointments, setRawAppointments] = useState<Appointment[]>([]);
   const [listPage, setListPage] = useState(1);
   const [listMode, setListMode] = useState<AppointmentListMode>('open');
@@ -138,6 +173,75 @@ const Appointments = () => {
     }
   };
 
+  const togglePaymentDetailExpanded = (paymentDetailId: number) => {
+    setExpandedPaymentDetails((prev) => {
+      const next = new Set(prev);
+      if (next.has(paymentDetailId)) {
+        next.delete(paymentDetailId);
+      } else {
+        next.add(paymentDetailId);
+      }
+      return next;
+    });
+  };
+
+  const resetFinanceCreateState = () => {
+    setNewExpense({
+      name: '',
+      description: '',
+      fixedCost: undefined,
+      dayOfMonth: undefined,
+    });
+    setNewPaymentDetail({
+      date: buildDefaultPaymentDate(selectedYear, selectedMonth),
+      cost: 0,
+    });
+    setFinanceSubmitError(null);
+  };
+
+  const handleCreateExpenseAndPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFinanceSubmitError(null);
+    if (!newExpense.name.trim()) {
+      setFinanceSubmitError('Expense name is required.');
+      return;
+    }
+    if (!newPaymentDetail.date) {
+      setFinanceSubmitError('Payment date is required.');
+      return;
+    }
+    if (!Number.isFinite(newPaymentDetail.cost ?? NaN) || (newPaymentDetail.cost ?? 0) < 0) {
+      setFinanceSubmitError('Payment cost must be a valid non-negative number.');
+      return;
+    }
+
+    setIsCreatingExpenseWithPayment(true);
+    try {
+      const createdExpense = await expenseService.create({
+        name: newExpense.name.trim(),
+        description: newExpense.description?.trim() || undefined,
+        fixedCost: newExpense.fixedCost,
+        dayOfMonth: newExpense.dayOfMonth,
+      });
+
+      await paymentDetailsService.create({
+        date: newPaymentDetail.date,
+        cost: Number(newPaymentDetail.cost),
+        expenseId: createdExpense.id,
+      });
+
+      setShowAddExpenseModal(false);
+      resetFinanceCreateState();
+      await fetchFinanceOverview(selectedYear, selectedMonth);
+    } catch (err: any) {
+      setFinanceSubmitError(
+        err?.response?.data?.message ?? 'Failed to create expense and payment detail.',
+      );
+    } finally {
+      setIsCreatingExpenseWithPayment(false);
+    }
+  };
+
   useEffect(() => {
     if (isDirector) return;
     fetchAppointments();
@@ -160,6 +264,14 @@ const Appointments = () => {
     void fetchFinanceOverview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDirector]);
+
+  useEffect(() => {
+    if (!isDirector) return;
+    setNewPaymentDetail((prev) => ({
+      ...prev,
+      date: buildDefaultPaymentDate(selectedYear, selectedMonth),
+    }));
+  }, [isDirector, selectedMonth, selectedYear]);
 
   const handleAddAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -418,53 +530,80 @@ const Appointments = () => {
                   </div>
 
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
-                    <h2 className="text-lg font-semibold text-slate-900">Other Payment Details</h2>
-                    <div className="mt-3 space-y-2 text-sm">
-                      {(financeOverview?.otherPaymentDetails?.byCategory ?? []).map((item) => (
-                        <div key={item.name} className="flex justify-between">
-                          <span className="text-slate-600">{item.name}</span>
-                          <span className="font-medium">-{formatCurrency(item.totalCost)}</span>
-                        </div>
-                      ))}
-                      {(financeOverview?.otherPaymentDetails?.byCategory ?? []).length === 0 ? (
-                        <p className="text-slate-500">No other payment details for this month.</p>
-                      ) : null}
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h2 className="text-lg font-semibold text-slate-900">Payment Details</h2>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetFinanceCreateState();
+                          setShowAddExpenseModal(true);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
+                      >
+                        <Plus size={14} />
+                        Add Expense + Payment
+                      </button>
                     </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-xl border border-slate-200 bg-white p-4">
-                    <h2 className="text-lg font-semibold text-slate-900">Medicine Purchases</h2>
-                    <div className="mt-3 space-y-2 text-sm">
-                      {(financeOverview?.outcome?.medicinePurchases?.byMedicine ?? []).map((item) => (
-                        <div key={item.medicineName} className="flex justify-between">
-                          <span className="text-slate-600">{item.medicineName}</span>
-                          <span className="font-medium">-{formatCurrency(item.totalCost)}</span>
-                        </div>
-                      ))}
-                      {(financeOverview?.outcome?.medicinePurchases?.byMedicine ?? []).length === 0 ? (
-                        <p className="text-slate-500">No medicine purchases for this month.</p>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-200 bg-white p-4">
-                    <h2 className="text-lg font-semibold text-slate-900">Recent Medicine Items</h2>
-                    <div className="mt-3 space-y-2 text-sm">
-                      {(financeOverview?.outcome?.medicinePurchases?.items ?? []).slice(0, 8).map((item) => (
-                        <div key={item.id} className="flex justify-between gap-3 border-b border-slate-100 pb-2">
-                          <div>
-                            <p className="font-medium text-slate-700">{item.medicineName ?? '-'}</p>
-                            <p className="text-xs text-slate-500">
-                              {item.date ?? '-'} | qty {item.count} x {formatCurrency(item.pricePerOne)}
-                            </p>
+                    <div className="space-y-2 text-sm">
+                      {(financeOverview?.otherPaymentDetails?.items ?? []).map((item) => {
+                        const isExpanded = expandedPaymentDetails.has(item.id);
+                        const purchaseRows = item.purchaseMedicines ?? [];
+                        return (
+                          <div
+                            key={item.id}
+                            className="rounded-md border border-slate-200 px-3 py-2"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="font-medium text-slate-800">
+                                  {item.expenseName ?? 'Expense'} | {item.date}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  PaymentDetail #{item.id}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="font-semibold text-slate-900">
+                                  -{formatCurrency(item.cost)}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => togglePaymentDetailExpanded(item.id)}
+                                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                                >
+                                  {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                  {isExpanded ? 'Hide medicines' : 'Show medicines'}
+                                </button>
+                              </div>
+                            </div>
+                            {isExpanded ? (
+                              <div className="mt-2 rounded-md bg-slate-50 p-2">
+                                {purchaseRows.length === 0 ? (
+                                  <p className="text-xs text-slate-500">
+                                    No purchase_medicine rows linked to this PaymentDetail.
+                                  </p>
+                                ) : (
+                                  purchaseRows.map((purchase) => (
+                                    <div
+                                      key={purchase.id}
+                                      className="flex items-center justify-between border-b border-slate-200 py-1 text-xs last:border-b-0"
+                                    >
+                                      <span className="text-slate-700">
+                                        {purchase.medicineName ?? '-'} | count: {purchase.count}
+                                      </span>
+                                      <span className="font-medium text-slate-900">
+                                        {formatCurrency(purchase.totalPrice)}
+                                      </span>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            ) : null}
                           </div>
-                          <span className="font-medium">-{formatCurrency(item.totalPrice)}</span>
-                        </div>
-                      ))}
-                      {(financeOverview?.outcome?.medicinePurchases?.items ?? []).length === 0 ? (
-                        <p className="text-slate-500">No medicine purchase entries.</p>
+                        );
+                      })}
+                      {(financeOverview?.otherPaymentDetails?.items ?? []).length === 0 ? (
+                        <p className="text-slate-500">No payment details for this month.</p>
                       ) : null}
                     </div>
                   </div>
@@ -473,6 +612,133 @@ const Appointments = () => {
             </main>
           </ClinicPortalShell>
         </div>
+        {showAddExpenseModal ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">Add Expense + PaymentDetail</h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddExpenseModal(false);
+                    setFinanceSubmitError(null);
+                  }}
+                  className="text-slate-500 hover:text-slate-800"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <form onSubmit={handleCreateExpenseAndPayment} className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs text-slate-600">Expense name</label>
+                  <input
+                    type="text"
+                    value={newExpense.name}
+                    onChange={(e) => setNewExpense((prev) => ({ ...prev, name: e.target.value }))}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-600">Description (optional)</label>
+                  <textarea
+                    value={newExpense.description ?? ''}
+                    onChange={(e) =>
+                      setNewExpense((prev) => ({ ...prev, description: e.target.value }))
+                    }
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    rows={2}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-600">Fixed cost (optional)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={newExpense.fixedCost ?? ''}
+                      onChange={(e) =>
+                        setNewExpense((prev) => ({
+                          ...prev,
+                          fixedCost: e.target.value === '' ? undefined : Number(e.target.value),
+                        }))
+                      }
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-600">Day of month (optional)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={newExpense.dayOfMonth ?? ''}
+                      onChange={(e) =>
+                        setNewExpense((prev) => ({
+                          ...prev,
+                          dayOfMonth: e.target.value === '' ? undefined : Number(e.target.value),
+                        }))
+                      }
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-600">Payment date</label>
+                    <input
+                      type="date"
+                      value={newPaymentDetail.date}
+                      onChange={(e) =>
+                        setNewPaymentDetail((prev) => ({ ...prev, date: e.target.value }))
+                      }
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-600">Payment cost</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={newPaymentDetail.cost ?? ''}
+                      onChange={(e) =>
+                        setNewPaymentDetail((prev) => ({
+                          ...prev,
+                          cost: e.target.value === '' ? 0 : Number(e.target.value),
+                        }))
+                      }
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                      required
+                    />
+                  </div>
+                </div>
+                {financeSubmitError ? (
+                  <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
+                    {financeSubmitError}
+                  </p>
+                ) : null}
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddExpenseModal(false)}
+                    className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreatingExpenseWithPayment}
+                    className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
+                  >
+                    {isCreatingExpenseWithPayment ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : null}
         <LogoutConfirmModal
           open={showLogoutConfirm}
           onCancel={() => setShowLogoutConfirm(false)}
