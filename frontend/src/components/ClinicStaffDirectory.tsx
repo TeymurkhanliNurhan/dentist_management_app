@@ -252,8 +252,7 @@ const ClinicStaffDirectory = () => {
     const salary = salariesByStaffId[staffId];
     if (!salary) return { kind: 'none', label: '—' };
     if (salary.salary != null) {
-      const dayText = salary.salaryDay != null ? ` · day ${salary.salaryDay}` : '';
-      return { kind: 'fixed', label: `$${Number(salary.salary).toFixed(2)}${dayText}` };
+      return { kind: 'fixed', label: `$${Number(salary.salary).toFixed(2)}` };
     }
     if (salary.treatmentPercentage != null) {
       return { kind: 'percentage', label: `${Number(salary.treatmentPercentage).toFixed(2)}%` };
