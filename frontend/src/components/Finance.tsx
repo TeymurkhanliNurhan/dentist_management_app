@@ -53,6 +53,7 @@ const Finance = () => {
   const [financeLoading, setFinanceLoading] = useState(false);
   const [annualLoading, setAnnualLoading] = useState(false);
   const [annualOverview, setAnnualOverview] = useState<AnnualPoint[]>([]);
+  const [showGraph, setShowGraph] = useState(false);
   const [visibleSeries, setVisibleSeries] = useState<{
     income: boolean;
     outcome: boolean;
@@ -294,6 +295,14 @@ const Finance = () => {
   const chartRange = chartMax - chartMin || 1;
   const chartYForValue = (value: number) =>
     chartPadding.top + ((chartMax - value) / chartRange) * plotHeight;
+  const chartTicks = Array.from({ length: 5 }, (_, i) => {
+    const value = chartMax - (chartRange * i) / 4;
+    return {
+      value,
+      y: chartYForValue(value),
+      label: Number.isFinite(value) ? Math.round(value).toLocaleString() : '0',
+    };
+  });
 
   const seriesColor = {
     income: '#0f766e',
@@ -487,92 +496,117 @@ const Finance = () => {
                       Monthly trend for income, outcome and profit in {selectedYear}
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-4 text-xs">
-                    <label className="inline-flex items-center gap-2 text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={visibleSeries.income}
-                        onChange={(e) =>
-                          setVisibleSeries((prev) => ({ ...prev, income: e.target.checked }))
-                        }
-                      />
-                      <span className="font-medium" style={{ color: seriesColor.income }}>Income</span>
-                    </label>
-                    <label className="inline-flex items-center gap-2 text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={visibleSeries.outcome}
-                        onChange={(e) =>
-                          setVisibleSeries((prev) => ({ ...prev, outcome: e.target.checked }))
-                        }
-                      />
-                      <span className="font-medium" style={{ color: seriesColor.outcome }}>Outcome</span>
-                    </label>
-                    <label className="inline-flex items-center gap-2 text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={visibleSeries.profit}
-                        onChange={(e) =>
-                          setVisibleSeries((prev) => ({ ...prev, profit: e.target.checked }))
-                        }
-                      />
-                      <span className="font-medium" style={{ color: seriesColor.profit }}>Profit</span>
-                    </label>
-                  </div>
-                </div>
-                <div className="mt-4 overflow-x-auto">
-                  <svg
-                    viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                    className="h-[320px] min-w-[760px] w-full"
-                    role="img"
-                    aria-label="Financial statistics by month"
+                  <button
+                    type="button"
+                    onClick={() => setShowGraph((prev) => !prev)}
+                    className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                   >
-                    <line
-                      x1={chartPadding.left}
-                      y1={chartPadding.top}
-                      x2={chartPadding.left}
-                      y2={chartHeight - chartPadding.bottom}
-                      stroke="#cbd5e1"
-                    />
-                    <line
-                      x1={chartPadding.left}
-                      y1={chartHeight - chartPadding.bottom}
-                      x2={chartWidth - chartPadding.right}
-                      y2={chartHeight - chartPadding.bottom}
-                      stroke="#cbd5e1"
-                    />
-                    <line
-                      x1={chartPadding.left}
-                      y1={chartYForValue(0)}
-                      x2={chartWidth - chartPadding.right}
-                      y2={chartYForValue(0)}
-                      stroke="#e2e8f0"
-                      strokeDasharray="4 4"
-                    />
-
-                    {annualOverview.map((point) => (
-                      <text
-                        key={point.month}
-                        x={chartXForMonth(point.month)}
-                        y={chartHeight - chartPadding.bottom + 18}
-                        textAnchor="middle"
-                        className="fill-slate-500 text-[10px]"
-                      >
-                        {point.monthLabel}
-                      </text>
-                    ))}
-
-                    {visibleSeries.income ? (
-                      <path d={buildSeriesPath('income')} fill="none" stroke={seriesColor.income} strokeWidth={2.5} />
-                    ) : null}
-                    {visibleSeries.outcome ? (
-                      <path d={buildSeriesPath('outcome')} fill="none" stroke={seriesColor.outcome} strokeWidth={2.5} />
-                    ) : null}
-                    {visibleSeries.profit ? (
-                      <path d={buildSeriesPath('profit')} fill="none" stroke={seriesColor.profit} strokeWidth={2.5} />
-                    ) : null}
-                  </svg>
+                    {showGraph ? 'Close graph' : 'See graph'}
+                  </button>
                 </div>
+
+                {showGraph ? (
+                  <>
+                    <div className="mt-3 flex flex-wrap items-center gap-4 text-xs">
+                      <label className="inline-flex items-center gap-2 text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={visibleSeries.income}
+                          onChange={(e) =>
+                            setVisibleSeries((prev) => ({ ...prev, income: e.target.checked }))
+                          }
+                        />
+                        <span className="font-medium" style={{ color: seriesColor.income }}>Income</span>
+                      </label>
+                      <label className="inline-flex items-center gap-2 text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={visibleSeries.outcome}
+                          onChange={(e) =>
+                            setVisibleSeries((prev) => ({ ...prev, outcome: e.target.checked }))
+                          }
+                        />
+                        <span className="font-medium" style={{ color: seriesColor.outcome }}>Outcome</span>
+                      </label>
+                      <label className="inline-flex items-center gap-2 text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={visibleSeries.profit}
+                          onChange={(e) =>
+                            setVisibleSeries((prev) => ({ ...prev, profit: e.target.checked }))
+                          }
+                        />
+                        <span className="font-medium" style={{ color: seriesColor.profit }}>Profit</span>
+                      </label>
+                    </div>
+                    <div className="mt-4 overflow-x-auto">
+                      <svg
+                        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                        className="h-[320px] min-w-[760px] w-full"
+                        role="img"
+                        aria-label="Financial statistics by month"
+                      >
+                        <line
+                          x1={chartPadding.left}
+                          y1={chartPadding.top}
+                          x2={chartPadding.left}
+                          y2={chartHeight - chartPadding.bottom}
+                          stroke="#cbd5e1"
+                        />
+                        <line
+                          x1={chartPadding.left}
+                          y1={chartHeight - chartPadding.bottom}
+                          x2={chartWidth - chartPadding.right}
+                          y2={chartHeight - chartPadding.bottom}
+                          stroke="#cbd5e1"
+                        />
+
+                        {chartTicks.map((tick, index) => (
+                          <g key={`tick-${index}`}>
+                            <line
+                              x1={chartPadding.left}
+                              y1={tick.y}
+                              x2={chartWidth - chartPadding.right}
+                              y2={tick.y}
+                              stroke="#e2e8f0"
+                              strokeDasharray="4 4"
+                            />
+                            <text
+                              x={chartPadding.left - 8}
+                              y={tick.y + 4}
+                              textAnchor="end"
+                              className="fill-slate-500 text-[10px]"
+                            >
+                              {tick.label}
+                            </text>
+                          </g>
+                        ))}
+
+                        {annualOverview.map((point) => (
+                          <text
+                            key={point.month}
+                            x={chartXForMonth(point.month)}
+                            y={chartHeight - chartPadding.bottom + 18}
+                            textAnchor="middle"
+                            className="fill-slate-500 text-[10px]"
+                          >
+                            {point.monthLabel}
+                          </text>
+                        ))}
+
+                        {visibleSeries.income ? (
+                          <path d={buildSeriesPath('income')} fill="none" stroke={seriesColor.income} strokeWidth={2.5} />
+                        ) : null}
+                        {visibleSeries.outcome ? (
+                          <path d={buildSeriesPath('outcome')} fill="none" stroke={seriesColor.outcome} strokeWidth={2.5} />
+                        ) : null}
+                        {visibleSeries.profit ? (
+                          <path d={buildSeriesPath('profit')} fill="none" stroke={seriesColor.profit} strokeWidth={2.5} />
+                        ) : null}
+                      </svg>
+                    </div>
+                  </>
+                ) : null}
               </div>
 
               {viewMode === 'monthly' ? (
