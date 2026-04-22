@@ -42,7 +42,7 @@ const Finance = () => {
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [selectedExpenseForPayment, setSelectedExpenseForPayment] = useState<{
-    id: number;
+    id: number | null;
     name: string;
   } | null>(null);
   const [financeSubmitError, setFinanceSubmitError] = useState<string | null>(null);
@@ -151,7 +151,7 @@ const Finance = () => {
     e.preventDefault();
     setFinanceSubmitError(null);
 
-    if (!selectedExpenseForPayment?.id) {
+    if (selectedExpenseForPayment?.id == null) {
       setFinanceSubmitError('Please select an expense before adding a payment.');
       return;
     }
@@ -440,7 +440,7 @@ const Finance = () => {
                               </p>
                             </div>
                             <div className="flex items-center gap-3">
-                              {group.expenseId ? (
+                              {group.expenseId != null ? (
                                 <button
                                   type="button"
                                   onClick={() => {
