@@ -23,6 +23,19 @@ function buildDefaultPaymentDate(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}-01`;
 }
 
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+type FinanceViewMode = 'monthly' | 'annual';
+
+type AnnualPoint = {
+  month: number;
+  monthLabel: string;
+  income: number;
+  debt: number;
+  outcome: number;
+  profit: number;
+};
+
 const Finance = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -35,8 +48,20 @@ const Finance = () => {
   const [financeOverview, setFinanceOverview] = useState<FinanceOverviewResponse | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [viewMode, setViewMode] = useState<FinanceViewMode>('monthly');
   const [financeError, setFinanceError] = useState<string | null>(null);
   const [financeLoading, setFinanceLoading] = useState(false);
+  const [annualLoading, setAnnualLoading] = useState(false);
+  const [annualOverview, setAnnualOverview] = useState<AnnualPoint[]>([]);
+  const [visibleSeries, setVisibleSeries] = useState<{
+    income: boolean;
+    outcome: boolean;
+    profit: boolean;
+  }>({
+    income: true,
+    outcome: true,
+    profit: true,
+  });
   const [expandedExpenses, setExpandedExpenses] = useState<Set<string>>(new Set());
   const [expandedPaymentDetails, setExpandedPaymentDetails] = useState<Set<number>>(new Set());
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
@@ -68,6 +93,34 @@ const Finance = () => {
       setFinanceError(err?.response?.data?.message ?? 'Failed to fetch finance overview');
     } finally {
       setFinanceLoading(false);
+    }
+  };
+
+  const fetchAnnualOverview = async (year = selectedYear) => {
+    setAnnualLoading(true);
+    setFinanceError(null);
+    try {
+      const monthRequests = Array.from({ length: 12 }, (_, i) =>
+        paymentDetailsService.getFinanceOverview({ year, month: i + 1 }),
+      );
+      const monthlyData = await Promise.all(monthRequests);
+      const annualRows = monthlyData.map((item, i) => {
+        const outcome = Number(item?.outcome?.total ?? 0);
+        const income = Number(item?.monthlyIncome ?? 0);
+        return {
+          month: i + 1,
+          monthLabel: MONTH_LABELS[i],
+          income,
+          debt: Number(item?.debt ?? 0),
+          outcome,
+          profit: income - outcome,
+        };
+      });
+      setAnnualOverview(annualRows);
+    } catch (err: any) {
+      setFinanceError(err?.response?.data?.message ?? 'Failed to fetch annual overview');
+    } finally {
+      setAnnualLoading(false);
     }
   };
 
@@ -195,6 +248,7 @@ const Finance = () => {
     const staffSurname = localStorage.getItem('surname') ?? '';
     setDirectorDisplayName(`${staffName} ${staffSurname}`.trim());
     void fetchFinanceOverview();
+    void fetchAnnualOverview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDirector, navigate]);
 
@@ -206,8 +260,54 @@ const Finance = () => {
     }));
   }, [isDirector, selectedMonth, selectedYear]);
 
+  useEffect(() => {
+    if (!isDirector) return;
+    void fetchAnnualOverview(selectedYear);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDirector, selectedYear]);
+
   const totalOutcome = financeOverview?.outcome?.total ?? 0;
   const netProfit = (financeOverview?.monthlyIncome ?? 0) - totalOutcome;
+  const annualIncomeTotal = annualOverview.reduce((acc, item) => acc + item.income, 0);
+  const annualProfitTotal = annualOverview.reduce((acc, item) => acc + item.profit, 0);
+  const annualDebtTotal = annualOverview.reduce((acc, item) => acc + item.debt, 0);
+
+  const chartWidth = 760;
+  const chartHeight = 300;
+  const chartPadding = { top: 24, right: 24, bottom: 42, left: 56 };
+  const plotWidth = chartWidth - chartPadding.left - chartPadding.right;
+  const plotHeight = chartHeight - chartPadding.top - chartPadding.bottom;
+  const chartXForMonth = (month: number) =>
+    chartPadding.left + ((month - 1) / 11) * plotWidth;
+
+  const enabledMetricValues = annualOverview.flatMap((row) => {
+    const values: number[] = [];
+    if (visibleSeries.income) values.push(row.income);
+    if (visibleSeries.outcome) values.push(row.outcome);
+    if (visibleSeries.profit) values.push(row.profit);
+    return values;
+  });
+  const chartMinRaw = enabledMetricValues.length > 0 ? Math.min(...enabledMetricValues) : 0;
+  const chartMaxRaw = enabledMetricValues.length > 0 ? Math.max(...enabledMetricValues) : 0;
+  const chartMin = Math.min(0, chartMinRaw);
+  const chartMax = Math.max(0, chartMaxRaw);
+  const chartRange = chartMax - chartMin || 1;
+  const chartYForValue = (value: number) =>
+    chartPadding.top + ((chartMax - value) / chartRange) * plotHeight;
+
+  const seriesColor = {
+    income: '#0f766e',
+    outcome: '#b91c1c',
+    profit: '#1d4ed8',
+  };
+  const buildSeriesPath = (metric: 'income' | 'outcome' | 'profit') =>
+    annualOverview
+      .map((point, index) => {
+        const x = chartXForMonth(point.month);
+        const y = chartYForValue(point[metric]);
+        return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+      })
+      .join(' ');
   const expenseGroups = Array.from(
     (financeOverview?.otherPaymentDetails?.items ?? []).reduce(
       (acc, item) => {
@@ -270,9 +370,24 @@ const Finance = () => {
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-bold text-slate-900">Financial Overview</h1>
-                  <p className="text-sm text-slate-500">Monthly clinic finance snapshot</p>
+                  <p className="text-sm text-slate-500">
+                    {viewMode === 'annual'
+                      ? 'Annual clinic finance review'
+                      : 'Monthly clinic finance snapshot'}
+                  </p>
                 </div>
                 <div className="flex items-end gap-2">
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-500">Mode</label>
+                    <select
+                      value={viewMode}
+                      onChange={(e) => setViewMode(e.target.value as FinanceViewMode)}
+                      className="rounded-md border border-slate-300 px-2 py-2 text-sm"
+                    >
+                      <option value="monthly">Monthly</option>
+                      <option value="annual">Annual</option>
+                    </select>
+                  </div>
                   <div>
                     <label className="mb-1 block text-xs text-slate-500">Year</label>
                     <input
@@ -284,20 +399,28 @@ const Finance = () => {
                       className="w-24 rounded-md border border-slate-300 px-2 py-2 text-sm"
                     />
                   </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-500">Month</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={12}
-                      value={selectedMonth}
-                      onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                      className="w-20 rounded-md border border-slate-300 px-2 py-2 text-sm"
-                    />
-                  </div>
+                  {viewMode === 'monthly' ? (
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-500">Month</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                        className="w-20 rounded-md border border-slate-300 px-2 py-2 text-sm"
+                      />
+                    </div>
+                  ) : null}
                   <button
                     type="button"
-                    onClick={() => void fetchFinanceOverview(selectedYear, selectedMonth)}
+                    onClick={() => {
+                      if (viewMode === 'annual') {
+                        void fetchAnnualOverview(selectedYear);
+                      } else {
+                        void fetchFinanceOverview(selectedYear, selectedMonth);
+                      }
+                    }}
                     className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
                   >
                     Refresh
@@ -313,25 +436,147 @@ const Finance = () => {
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm text-slate-500">Monthly Income</p>
+                  <p className="text-sm text-slate-500">
+                    {viewMode === 'annual' ? 'Annual Income' : 'Monthly Income'}
+                  </p>
                   <p className="mt-2 text-3xl font-bold text-slate-900">
-                    {financeLoading ? '...' : formatCurrency(financeOverview?.monthlyIncome ?? 0)}
+                    {viewMode === 'annual'
+                      ? annualLoading
+                        ? '...'
+                        : formatCurrency(annualIncomeTotal)
+                      : financeLoading
+                        ? '...'
+                        : formatCurrency(financeOverview?.monthlyIncome ?? 0)}
                   </p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm text-slate-500">Debt</p>
+                  <p className="text-sm text-slate-500">
+                    {viewMode === 'annual' ? 'Annual Debt' : 'Debt'}
+                  </p>
                   <p className="mt-2 text-3xl font-bold text-slate-900">
-                    {financeLoading ? '...' : formatCurrency(financeOverview?.debt ?? 0)}
+                    {viewMode === 'annual'
+                      ? annualLoading
+                        ? '...'
+                        : formatCurrency(annualDebtTotal)
+                      : financeLoading
+                        ? '...'
+                        : formatCurrency(financeOverview?.debt ?? 0)}
                   </p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm text-slate-500">Net Profit</p>
+                  <p className="text-sm text-slate-500">
+                    {viewMode === 'annual' ? 'Annual Profit' : 'Net Profit'}
+                  </p>
                   <p className="mt-2 text-3xl font-bold text-emerald-700">
-                    {financeLoading ? '...' : formatCurrency(netProfit)}
+                    {viewMode === 'annual'
+                      ? annualLoading
+                        ? '...'
+                        : formatCurrency(annualProfitTotal)
+                      : financeLoading
+                        ? '...'
+                        : formatCurrency(netProfit)}
                   </p>
                 </div>
               </div>
 
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">Financial Statistics</h2>
+                    <p className="text-sm text-slate-500">
+                      Monthly trend for income, outcome and profit in {selectedYear}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 text-xs">
+                    <label className="inline-flex items-center gap-2 text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={visibleSeries.income}
+                        onChange={(e) =>
+                          setVisibleSeries((prev) => ({ ...prev, income: e.target.checked }))
+                        }
+                      />
+                      <span className="font-medium" style={{ color: seriesColor.income }}>Income</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={visibleSeries.outcome}
+                        onChange={(e) =>
+                          setVisibleSeries((prev) => ({ ...prev, outcome: e.target.checked }))
+                        }
+                      />
+                      <span className="font-medium" style={{ color: seriesColor.outcome }}>Outcome</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={visibleSeries.profit}
+                        onChange={(e) =>
+                          setVisibleSeries((prev) => ({ ...prev, profit: e.target.checked }))
+                        }
+                      />
+                      <span className="font-medium" style={{ color: seriesColor.profit }}>Profit</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="mt-4 overflow-x-auto">
+                  <svg
+                    viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                    className="h-[320px] min-w-[760px] w-full"
+                    role="img"
+                    aria-label="Financial statistics by month"
+                  >
+                    <line
+                      x1={chartPadding.left}
+                      y1={chartPadding.top}
+                      x2={chartPadding.left}
+                      y2={chartHeight - chartPadding.bottom}
+                      stroke="#cbd5e1"
+                    />
+                    <line
+                      x1={chartPadding.left}
+                      y1={chartHeight - chartPadding.bottom}
+                      x2={chartWidth - chartPadding.right}
+                      y2={chartHeight - chartPadding.bottom}
+                      stroke="#cbd5e1"
+                    />
+                    <line
+                      x1={chartPadding.left}
+                      y1={chartYForValue(0)}
+                      x2={chartWidth - chartPadding.right}
+                      y2={chartYForValue(0)}
+                      stroke="#e2e8f0"
+                      strokeDasharray="4 4"
+                    />
+
+                    {annualOverview.map((point) => (
+                      <text
+                        key={point.month}
+                        x={chartXForMonth(point.month)}
+                        y={chartHeight - chartPadding.bottom + 18}
+                        textAnchor="middle"
+                        className="fill-slate-500 text-[10px]"
+                      >
+                        {point.monthLabel}
+                      </text>
+                    ))}
+
+                    {visibleSeries.income ? (
+                      <path d={buildSeriesPath('income')} fill="none" stroke={seriesColor.income} strokeWidth={2.5} />
+                    ) : null}
+                    {visibleSeries.outcome ? (
+                      <path d={buildSeriesPath('outcome')} fill="none" stroke={seriesColor.outcome} strokeWidth={2.5} />
+                    ) : null}
+                    {visibleSeries.profit ? (
+                      <path d={buildSeriesPath('profit')} fill="none" stroke={seriesColor.profit} strokeWidth={2.5} />
+                    ) : null}
+                  </svg>
+                </div>
+              </div>
+
+              {viewMode === 'monthly' ? (
+                <>
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <h2 className="text-lg font-semibold text-slate-900">Income Breakdown</h2>
@@ -536,6 +781,8 @@ const Finance = () => {
                   </div>
                 </div>
               </div>
+                </>
+              ) : null}
             </div>
           </main>
         </ClinicPortalShell>
