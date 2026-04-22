@@ -204,6 +204,7 @@ export interface FinanceOverviewSalaryRow {
   amount: number;
   type: 'percentage' | 'fixed';
   percentage: number | null;
+  treatmentCost: number | null;
 }
 
 export interface FinanceOverviewResponse {
@@ -213,9 +214,36 @@ export interface FinanceOverviewResponse {
   };
   monthlyIncome: number;
   debt: number;
+  incomeBreakdown: {
+    byDentists: Array<{
+      staffId: number;
+      name: string;
+      surname: string;
+      amount: number;
+    }>;
+  };
   outcome: {
+    total: number;
     totalSalaries: number;
+    totalOtherPaymentDetails: number;
+    totalMedicinePurchases: number;
     salaries: FinanceOverviewSalaryRow[];
+    medicinePurchases: {
+      total: number;
+      byMedicine: Array<{
+        medicineName: string;
+        totalCost: number;
+      }>;
+      items: Array<{
+        id: number;
+        date: string | null;
+        medicineId: number | null;
+        medicineName: string | null;
+        count: number;
+        pricePerOne: number;
+        totalPrice: number;
+      }>;
+    };
   };
   otherPaymentDetails: {
     total: number;

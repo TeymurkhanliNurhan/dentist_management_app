@@ -7,6 +7,7 @@ import { Expense } from '../expense/entities/expense.entity';
 import { Salary } from '../salary/entities/salary.entity';
 import { Appointment } from '../appointment/entities/appointment.entity';
 import { ToothTreatment } from '../tooth_treatment/entities/tooth_treatment.entity';
+import { PurchaseMedicine } from '../purchase_medicine/entities/purchase_medicine.entity';
 
 @Injectable()
 export class PaymentDetailsRepository {
@@ -193,8 +194,32 @@ export class PaymentDetailsRepository {
       amount: number;
       type: 'percentage' | 'fixed';
       percentage: number | null;
+      treatmentCost: number | null;
     }> = [];
     let totalSalaryOutcome = 0;
+
+    const incomeByDentistRaw = await toothTreatmentRepo
+      .createQueryBuilder('toothTreatment')
+      .innerJoin('toothTreatment.appointment', 'appointment')
+      .innerJoin('toothTreatment.dentist', 'dentist')
+      .innerJoin('dentist.staff', 'staff')
+      .select('staff.id', 'staffId')
+      .addSelect('staff.name', 'name')
+      .addSelect('staff.surname', 'surname')
+      .addSelect('COALESCE(SUM(toothTreatment.feeSnapshot), 0)', 'amount')
+      .where('appointment.clinicId = :clinicId', { clinicId })
+      .andWhere('EXTRACT(YEAR FROM appointment.startDate) = :year', { year })
+      .andWhere('EXTRACT(MONTH FROM appointment.startDate) = :month', { month })
+      .groupBy('staff.id')
+      .addGroupBy('staff.name')
+      .addGroupBy('staff.surname')
+      .orderBy('COALESCE(SUM(toothTreatment.feeSnapshot), 0)', 'DESC')
+      .getRawMany<{
+        staffId: string;
+        name: string;
+        surname: string;
+        amount: string;
+      }>();
 
     for (const salary of salaries) {
       const staff = salary.staff;
@@ -225,6 +250,7 @@ export class PaymentDetailsRepository {
           amount,
           type: 'percentage',
           percentage: salary.treatmentPercentage,
+          treatmentCost: totalTreatmentCost,
         });
       } else {
         const amount = Number(salary.salary ?? 0);
@@ -237,6 +263,7 @@ export class PaymentDetailsRepository {
           amount,
           type: 'fixed',
           percentage: null,
+          treatmentCost: null,
         });
       }
     }
@@ -261,16 +288,75 @@ export class PaymentDetailsRepository {
       );
     }
 
+    const purchaseMedicineRepo = this.dataSource.getRepository(PurchaseMedicine);
+    const purchaseMedicines = await purchaseMedicineRepo
+      .createQueryBuilder('purchaseMedicine')
+      .innerJoinAndSelect('purchaseMedicine.paymentDetails', 'paymentDetails')
+      .innerJoinAndSelect('purchaseMedicine.medicine', 'medicine')
+      .where('EXTRACT(YEAR FROM paymentDetails.date) = :year', { year })
+      .andWhere('EXTRACT(MONTH FROM paymentDetails.date) = :month', { month })
+      .andWhere('medicine.clinicId = :clinicId', { clinicId })
+      .orderBy('paymentDetails.date', 'DESC')
+      .getMany();
+
+    const medicinePurchasesByName = new Map<string, number>();
+    for (const purchase of purchaseMedicines) {
+      const medicineName = purchase.medicine?.name ?? 'Unknown medicine';
+      medicinePurchasesByName.set(
+        medicineName,
+        (medicinePurchasesByName.get(medicineName) ?? 0) + Number(purchase.totalPrice ?? 0),
+      );
+    }
+
+    const totalOtherPaymentDetails = otherPaymentDetails.reduce(
+      (acc, item) => acc + Number(item.cost ?? 0),
+      0,
+    );
+    const totalMedicinePurchases = purchaseMedicines.reduce(
+      (acc, item) => acc + Number(item.totalPrice ?? 0),
+      0,
+    );
+    const totalOutcome = totalSalaryOutcome + totalOtherPaymentDetails + totalMedicinePurchases;
+
     return {
       period: { year, month },
       monthlyIncome: Number(incomeRaw?.total ?? 0),
       debt: Number(debtRaw?.total ?? 0),
+      incomeBreakdown: {
+        byDentists: incomeByDentistRaw.map((row) => ({
+          staffId: Number(row.staffId),
+          name: row.name,
+          surname: row.surname,
+          amount: Number(row.amount ?? 0),
+        })),
+      },
       outcome: {
+        total: totalOutcome,
         totalSalaries: totalSalaryOutcome,
+        totalOtherPaymentDetails,
+        totalMedicinePurchases,
         salaries: salaryBreakdown,
+        medicinePurchases: {
+          total: totalMedicinePurchases,
+          byMedicine: Array.from(medicinePurchasesByName.entries()).map(
+            ([medicineName, totalCost]) => ({
+              medicineName,
+              totalCost,
+            }),
+          ),
+          items: purchaseMedicines.map((item) => ({
+            id: item.id,
+            date: item.paymentDetails?.date ?? null,
+            medicineId: item.medicine?.id ?? null,
+            medicineName: item.medicine?.name ?? null,
+            count: item.count,
+            pricePerOne: item.pricePerOne,
+            totalPrice: item.totalPrice,
+          })),
+        },
       },
       otherPaymentDetails: {
-        total: otherPaymentDetails.reduce((acc, item) => acc + Number(item.cost ?? 0), 0),
+        total: totalOtherPaymentDetails,
         byCategory: Array.from(otherPaymentsByCategory.entries()).map(
           ([name, totalCost]) => ({
             name,

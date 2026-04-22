@@ -245,7 +245,7 @@ const Appointments = () => {
       : error;
 
   if (isDirector) {
-    const totalOutcome = (financeOverview?.outcome.totalSalaries ?? 0) + (financeOverview?.otherPaymentDetails.total ?? 0);
+    const totalOutcome = financeOverview?.outcome.total ?? 0;
     const netProfit = (financeOverview?.monthlyIncome ?? 0) - totalOutcome;
     return (
       <>
@@ -341,11 +341,33 @@ const Appointments = () => {
 
                 <div className="grid gap-4 lg:grid-cols-2">
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <h2 className="text-lg font-semibold text-slate-900">Income Breakdown</h2>
+                    <p className="mt-1 text-sm text-slate-500">Income by dentists</p>
+                    <div className="mt-3 space-y-2 text-sm">
+                      {(financeOverview?.incomeBreakdown.byDentists ?? []).map((item) => (
+                        <div key={item.staffId} className="flex justify-between">
+                          <span className="text-slate-600">{item.name} {item.surname}</span>
+                          <span className="font-medium">{formatCurrency(item.amount)}</span>
+                        </div>
+                      ))}
+                      {(financeOverview?.incomeBreakdown.byDentists ?? []).length === 0 ? (
+                        <p className="text-slate-500">No dentist income records for this month.</p>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <h2 className="text-lg font-semibold text-slate-900">Outcome Breakdown</h2>
                     <p className="mt-1 text-sm text-slate-500">
-                      Salaries and other payment details
+                      Salaries, medicine purchases and other payment details
                     </p>
                     <div className="mt-4 space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Total outcome</span>
+                        <span className="font-semibold">
+                          {formatCurrency(financeOverview?.outcome.total ?? 0)}
+                        </span>
+                      </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Salaries</span>
                         <span className="font-medium">
@@ -353,11 +375,45 @@ const Appointments = () => {
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-600">Other expenses</span>
+                        <span className="text-slate-600">Medicine purchases</span>
                         <span className="font-medium">
-                          {formatCurrency(financeOverview?.otherPaymentDetails.total ?? 0)}
+                          {formatCurrency(financeOverview?.outcome.totalMedicinePurchases ?? 0)}
                         </span>
                       </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Other payment details</span>
+                        <span className="font-medium">
+                          {formatCurrency(financeOverview?.outcome.totalOtherPaymentDetails ?? 0)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <h2 className="text-lg font-semibold text-slate-900">Salary Details</h2>
+                    <div className="mt-3 space-y-2 text-sm">
+                      {(financeOverview?.outcome.salaries ?? []).map((salary) => (
+                        <div key={salary.staffId} className="rounded-md border border-slate-100 px-3 py-2">
+                          <div className="flex justify-between">
+                            <span className="font-medium text-slate-700">
+                              {salary.name} {salary.surname}
+                            </span>
+                            <span className="font-semibold text-slate-900">
+                              {formatCurrency(salary.amount)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500">
+                            {salary.role ?? 'staff'} | {salary.type === 'percentage'
+                              ? `${salary.percentage ?? 0}% of ${formatCurrency(salary.treatmentCost ?? 0)}`
+                              : 'fixed salary'}
+                          </p>
+                        </div>
+                      ))}
+                      {(financeOverview?.outcome.salaries ?? []).length === 0 ? (
+                        <p className="text-slate-500">No salary records for this month.</p>
+                      ) : null}
                     </div>
                   </div>
 
@@ -372,6 +428,43 @@ const Appointments = () => {
                       ))}
                       {(financeOverview?.otherPaymentDetails.byCategory ?? []).length === 0 ? (
                         <p className="text-slate-500">No other payment details for this month.</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <h2 className="text-lg font-semibold text-slate-900">Medicine Purchases</h2>
+                    <div className="mt-3 space-y-2 text-sm">
+                      {(financeOverview?.outcome.medicinePurchases.byMedicine ?? []).map((item) => (
+                        <div key={item.medicineName} className="flex justify-between">
+                          <span className="text-slate-600">{item.medicineName}</span>
+                          <span className="font-medium">-{formatCurrency(item.totalCost)}</span>
+                        </div>
+                      ))}
+                      {(financeOverview?.outcome.medicinePurchases.byMedicine ?? []).length === 0 ? (
+                        <p className="text-slate-500">No medicine purchases for this month.</p>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <h2 className="text-lg font-semibold text-slate-900">Recent Medicine Items</h2>
+                    <div className="mt-3 space-y-2 text-sm">
+                      {(financeOverview?.outcome.medicinePurchases.items ?? []).slice(0, 8).map((item) => (
+                        <div key={item.id} className="flex justify-between gap-3 border-b border-slate-100 pb-2">
+                          <div>
+                            <p className="font-medium text-slate-700">{item.medicineName ?? '-'}</p>
+                            <p className="text-xs text-slate-500">
+                              {item.date ?? '-'} | qty {item.count} x {formatCurrency(item.pricePerOne)}
+                            </p>
+                          </div>
+                          <span className="font-medium">-{formatCurrency(item.totalPrice)}</span>
+                        </div>
+                      ))}
+                      {(financeOverview?.outcome.medicinePurchases.items ?? []).length === 0 ? (
+                        <p className="text-slate-500">No medicine purchase entries.</p>
                       ) : null}
                     </div>
                   </div>
