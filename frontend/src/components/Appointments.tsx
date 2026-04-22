@@ -245,7 +245,7 @@ const Appointments = () => {
       : error;
 
   if (isDirector) {
-    const totalOutcome = financeOverview?.outcome.total ?? 0;
+    const totalOutcome = financeOverview?.outcome?.total ?? 0;
     const netProfit = (financeOverview?.monthlyIncome ?? 0) - totalOutcome;
     return (
       <>
@@ -344,13 +344,13 @@ const Appointments = () => {
                     <h2 className="text-lg font-semibold text-slate-900">Income Breakdown</h2>
                     <p className="mt-1 text-sm text-slate-500">Income by dentists</p>
                     <div className="mt-3 space-y-2 text-sm">
-                      {(financeOverview?.incomeBreakdown.byDentists ?? []).map((item) => (
+                      {(financeOverview?.incomeBreakdown?.byDentists ?? []).map((item) => (
                         <div key={item.staffId} className="flex justify-between">
                           <span className="text-slate-600">{item.name} {item.surname}</span>
                           <span className="font-medium">{formatCurrency(item.amount)}</span>
                         </div>
                       ))}
-                      {(financeOverview?.incomeBreakdown.byDentists ?? []).length === 0 ? (
+                      {(financeOverview?.incomeBreakdown?.byDentists ?? []).length === 0 ? (
                         <p className="text-slate-500">No dentist income records for this month.</p>
                       ) : null}
                     </div>
@@ -365,25 +365,25 @@ const Appointments = () => {
                       <div className="flex justify-between">
                         <span className="text-slate-600">Total outcome</span>
                         <span className="font-semibold">
-                          {formatCurrency(financeOverview?.outcome.total ?? 0)}
+                          {formatCurrency(financeOverview?.outcome?.total ?? 0)}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Salaries</span>
                         <span className="font-medium">
-                          {formatCurrency(financeOverview?.outcome.totalSalaries ?? 0)}
+                          {formatCurrency(financeOverview?.outcome?.totalSalaries ?? 0)}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Medicine purchases</span>
                         <span className="font-medium">
-                          {formatCurrency(financeOverview?.outcome.totalMedicinePurchases ?? 0)}
+                          {formatCurrency(financeOverview?.outcome?.totalMedicinePurchases ?? 0)}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-600">Other payment details</span>
                         <span className="font-medium">
-                          {formatCurrency(financeOverview?.outcome.totalOtherPaymentDetails ?? 0)}
+                          {formatCurrency(financeOverview?.outcome?.totalOtherPaymentDetails ?? 0)}
                         </span>
                       </div>
                     </div>
@@ -394,7 +394,7 @@ const Appointments = () => {
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <h2 className="text-lg font-semibold text-slate-900">Salary Details</h2>
                     <div className="mt-3 space-y-2 text-sm">
-                      {(financeOverview?.outcome.salaries ?? []).map((salary) => (
+                      {(financeOverview?.outcome?.salaries ?? []).map((salary) => (
                         <div key={salary.staffId} className="rounded-md border border-slate-100 px-3 py-2">
                           <div className="flex justify-between">
                             <span className="font-medium text-slate-700">
@@ -411,7 +411,7 @@ const Appointments = () => {
                           </p>
                         </div>
                       ))}
-                      {(financeOverview?.outcome.salaries ?? []).length === 0 ? (
+                      {(financeOverview?.outcome?.salaries ?? []).length === 0 ? (
                         <p className="text-slate-500">No salary records for this month.</p>
                       ) : null}
                     </div>
@@ -420,13 +420,13 @@ const Appointments = () => {
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <h2 className="text-lg font-semibold text-slate-900">Other Payment Details</h2>
                     <div className="mt-3 space-y-2 text-sm">
-                      {(financeOverview?.otherPaymentDetails.byCategory ?? []).map((item) => (
+                      {(financeOverview?.otherPaymentDetails?.byCategory ?? []).map((item) => (
                         <div key={item.name} className="flex justify-between">
                           <span className="text-slate-600">{item.name}</span>
                           <span className="font-medium">-{formatCurrency(item.totalCost)}</span>
                         </div>
                       ))}
-                      {(financeOverview?.otherPaymentDetails.byCategory ?? []).length === 0 ? (
+                      {(financeOverview?.otherPaymentDetails?.byCategory ?? []).length === 0 ? (
                         <p className="text-slate-500">No other payment details for this month.</p>
                       ) : null}
                     </div>
@@ -437,13 +437,13 @@ const Appointments = () => {
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <h2 className="text-lg font-semibold text-slate-900">Medicine Purchases</h2>
                     <div className="mt-3 space-y-2 text-sm">
-                      {(financeOverview?.outcome.medicinePurchases.byMedicine ?? []).map((item) => (
+                      {(financeOverview?.outcome?.medicinePurchases?.byMedicine ?? []).map((item) => (
                         <div key={item.medicineName} className="flex justify-between">
                           <span className="text-slate-600">{item.medicineName}</span>
                           <span className="font-medium">-{formatCurrency(item.totalCost)}</span>
                         </div>
                       ))}
-                      {(financeOverview?.outcome.medicinePurchases.byMedicine ?? []).length === 0 ? (
+                      {(financeOverview?.outcome?.medicinePurchases?.byMedicine ?? []).length === 0 ? (
                         <p className="text-slate-500">No medicine purchases for this month.</p>
                       ) : null}
                     </div>
@@ -452,7 +452,7 @@ const Appointments = () => {
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <h2 className="text-lg font-semibold text-slate-900">Recent Medicine Items</h2>
                     <div className="mt-3 space-y-2 text-sm">
-                      {(financeOverview?.outcome.medicinePurchases.items ?? []).slice(0, 8).map((item) => (
+                      {(financeOverview?.outcome?.medicinePurchases?.items ?? []).slice(0, 8).map((item) => (
                         <div key={item.id} className="flex justify-between gap-3 border-b border-slate-100 pb-2">
                           <div>
                             <p className="font-medium text-slate-700">{item.medicineName ?? '-'}</p>
@@ -463,7 +463,7 @@ const Appointments = () => {
                           <span className="font-medium">-{formatCurrency(item.totalPrice)}</span>
                         </div>
                       ))}
-                      {(financeOverview?.outcome.medicinePurchases.items ?? []).length === 0 ? (
+                      {(financeOverview?.outcome?.medicinePurchases?.items ?? []).length === 0 ? (
                         <p className="text-slate-500">No medicine purchase entries.</p>
                       ) : null}
                     </div>
