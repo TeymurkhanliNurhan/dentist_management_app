@@ -124,6 +124,9 @@ const ClinicStaffDirectory = () => {
     confirmPassword: '',
     startDate: toIsoDateInput(new Date()),
     staffType: 'staff' as NewStaffType,
+    salaryMode: 'fixed' as SalaryMode,
+    salaryValue: '',
+    salaryDay: '',
   });
 
   const [displayName, setDisplayName] = useState('');
@@ -464,6 +467,9 @@ const ClinicStaffDirectory = () => {
       confirmPassword: '',
       startDate: toIsoDateInput(new Date()),
       staffType: 'staff',
+      salaryMode: 'fixed',
+      salaryValue: '',
+      salaryDay: '',
     });
   };
 
@@ -480,6 +486,16 @@ const ClinicStaffDirectory = () => {
       setError('Password must be at least 6 characters long.');
       return;
     }
+    const parsedSalaryValue = Number(newStaffForm.salaryValue);
+    if (!Number.isFinite(parsedSalaryValue) || parsedSalaryValue < 0) {
+      setError('Salary value must be a non-negative number.');
+      return;
+    }
+    const parsedSalaryDay = Number(newStaffForm.salaryDay);
+    if (!Number.isInteger(parsedSalaryDay) || parsedSalaryDay < 1 || parsedSalaryDay > 31) {
+      setError('Salary day is required and must be between 1 and 31.');
+      return;
+    }
 
     setIsCreatingStaff(true);
     try {
@@ -491,6 +507,13 @@ const ClinicStaffDirectory = () => {
         password: newStaffForm.password,
         startDate: newStaffForm.startDate,
         active: true,
+      });
+      await salaryService.create({
+        staffId: createdStaff.id,
+        salaryDay: parsedSalaryDay,
+        salary: newStaffForm.salaryMode === 'fixed' ? parsedSalaryValue : undefined,
+        treatmentPercentage:
+          newStaffForm.salaryMode === 'percentage' ? parsedSalaryValue : undefined,
       });
 
       if (newStaffForm.staffType === 'dentist') {
@@ -659,6 +682,52 @@ const ClinicStaffDirectory = () => {
                       <option value="frontdesk">Front desk</option>
                       <option value="director">Director</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Salary type</label>
+                    <select
+                      value={newStaffForm.salaryMode}
+                      onChange={(event) =>
+                        setNewStaffForm((prev) => ({
+                          ...prev,
+                          salaryMode: event.target.value as SalaryMode,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="fixed">Fixed salary</option>
+                      <option value="percentage">Treatment percentage</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">
+                      {newStaffForm.salaryMode === 'fixed' ? 'Salary amount' : 'Percentage value'}
+                    </label>
+                    <input
+                      required
+                      min={0}
+                      step="0.01"
+                      type="number"
+                      value={newStaffForm.salaryValue}
+                      onChange={(event) =>
+                        setNewStaffForm((prev) => ({ ...prev, salaryValue: event.target.value }))
+                      }
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Salary day (1-31)</label>
+                    <input
+                      required
+                      min={1}
+                      max={31}
+                      type="number"
+                      value={newStaffForm.salaryDay}
+                      onChange={(event) =>
+                        setNewStaffForm((prev) => ({ ...prev, salaryDay: event.target.value }))
+                      }
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
                   </div>
                 </div>
                 <div className="mt-4 flex justify-end gap-3">
