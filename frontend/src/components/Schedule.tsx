@@ -292,6 +292,13 @@ interface BlockingHourRow {
   approvalStatus?: 'awaiting' | 'approved' | 'rejected' | 'canceled';
 }
 
+function blockingStatusTone(status?: BlockingHourRow['approvalStatus']): string {
+  if (status === 'approved') return 'bg-emerald-500/90 hover:bg-emerald-600/90';
+  if (status === 'rejected') return 'bg-rose-500/90 hover:bg-rose-600/90';
+  if (status === 'awaiting') return 'bg-amber-500/90 hover:bg-amber-600/90';
+  return 'bg-slate-500/90 hover:bg-slate-600/90';
+}
+
 const SLOT_MINUTES = 30;
 const TIME_OPTIONS = Array.from({ length: (24 * 60) / SLOT_MINUTES }, (_, i) => {
   const minutes = i * SLOT_MINUTES;
@@ -2108,14 +2115,15 @@ const Schedule = () => {
                                         : '';
                                     })()
                                   : '';
+                              const bhStatus = bh.approvalStatus ?? 'awaiting';
                               return segs.map((seg, segIdx) => (
                                 <div
                                   key={`bh-${bh.id}-${column.key}-${segIdx}`}
                                   role="button"
                                   tabIndex={0}
-                                  className={`absolute left-0.5 right-0.5 rounded-md bg-amber-500/85 text-white text-[10px] px-1 py-0.5 shadow-sm z-[12] overflow-hidden ${
+                                  className={`absolute left-0.5 right-0.5 rounded-md ${blockingStatusTone(bhStatus)} text-white text-[10px] px-1 py-0.5 shadow-sm z-[12] overflow-hidden ${
                                     isDentistUser || isDirectorOrReception
-                                      ? 'pointer-events-auto cursor-pointer hover:bg-amber-600/90'
+                                      ? 'pointer-events-auto cursor-pointer'
                                       : 'pointer-events-none'
                                   }`}
                                   style={{ top: seg.top, height: seg.height }}
@@ -2163,6 +2171,9 @@ const Schedule = () => {
                                   ) : null}
                                   <span className="block truncate font-semibold leading-tight">
                                     {bh.name?.trim() || t('blockingFallbackLabel')}
+                                  </span>
+                                  <span className="block truncate text-[9px] uppercase tracking-wide opacity-95">
+                                    {bhStatus}
                                   </span>
                                 </div>
                               ));
@@ -2287,21 +2298,31 @@ const Schedule = () => {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
-                          <input
-                            type="time"
+                          <select
                             value={blockEditStart}
                             onChange={(e) => setBlockEditStart(e.target.value)}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                          />
+                          >
+                            {TIME_OPTIONS.map((hm) => (
+                              <option key={`block-edit-start-${hm}`} value={hm}>
+                                {hm}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
-                          <input
-                            type="time"
+                          <select
                             value={blockEditEnd}
                             onChange={(e) => setBlockEditEnd(e.target.value)}
                             className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                          />
+                          >
+                            {TIME_OPTIONS.map((hm) => (
+                              <option key={`block-edit-end-${hm}`} value={hm}>
+                                {hm}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
                     </>
@@ -2343,7 +2364,7 @@ const Schedule = () => {
                           onClick={() => void handleCancelBlockingDetail()}
                           className="px-4 py-2 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50"
                         >
-                          {blockingDeleteBusy ? t('blockingDeleting') : t('blockingDelete')}
+                          {blockingDeleteBusy ? t('saving') : t('cancel')}
                         </button>
                         <button
                           type="button"
@@ -2784,21 +2805,31 @@ const Schedule = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{t('startTime')}</label>
-                    <input
-                      type="time"
+                    <select
                       value={blockFormStart}
                       onChange={(e) => setBlockFormStart(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    />
+                    >
+                      {TIME_OPTIONS.map((hm) => (
+                        <option key={`block-create-start-${hm}`} value={hm}>
+                          {hm}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{t('endTime')}</label>
-                    <input
-                      type="time"
+                    <select
                       value={blockFormEnd}
                       onChange={(e) => setBlockFormEnd(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    />
+                    >
+                      {TIME_OPTIONS.map((hm) => (
+                        <option key={`block-create-end-${hm}`} value={hm}>
+                          {hm}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 {blockSubmitError && <p className="text-sm text-red-600">{blockSubmitError}</p>}
