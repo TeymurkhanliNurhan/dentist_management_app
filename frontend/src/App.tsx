@@ -5,6 +5,7 @@ import Dashboard from './components/Dashboard';
 import MainBoard from './components/MainBoard';
 import Appointments from './components/Appointments';
 import Finance from './components/Finance';
+import CourseOfTreatments from './components/CourseOfTreatments';
 import AppointmentDetail from './components/AppointmentDetail';
 import Patients from './components/Patients';
 import PatientDetail from './components/PatientDetail';
@@ -28,6 +29,7 @@ function App() {
         <Route path="/main" element={<MainBoard />} />
         <Route path="/appointments" element={<Appointments />} />
         <Route path="/finance" element={<Finance />} />
+        <Route path="/course-of-treatments" element={<CourseOfTreatments />} />
         <Route path="/appointments/:id" element={<AppointmentDetail />} />
         <Route path="/patients" element={<Patients />} />
         <Route path="/patients/:id" element={<PatientDetail />} />

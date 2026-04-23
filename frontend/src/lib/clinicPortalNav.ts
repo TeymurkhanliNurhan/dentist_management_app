@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
   CalendarDays,
+  ClipboardList,
   LayoutDashboard,
   Package,
   UserRound,
@@ -21,6 +22,7 @@ export const DIRECTOR_PORTAL_MENU: ClinicPortalMenuItem[] = [
   { label: 'Patients', icon: UserRound, path: '/patients' },
   { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
   { label: 'Treatments', icon: Activity, path: '/treatments' },
+  { label: 'Course of Treatments', icon: ClipboardList, path: '/course-of-treatments' },
   { label: 'Inventory', icon: Package, path: '/medicines' },
   { label: 'Staff', icon: Users, path: '/staff' },
   { label: 'Finance', icon: Wallet, path: '/finance' },
