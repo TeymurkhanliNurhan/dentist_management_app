@@ -638,7 +638,14 @@ export interface ToothTreatment {
   };
   lastRandevueDate?: string | null;
   /** Distinct randevues linked to this placement (via tooth rows). */
-  linkedRandevues?: { id: number; date: string; endTime: string }[];
+  linkedRandevues?: Array<{
+    id: number;
+    date: string;
+    endTime: string;
+    room: { id: number; number: string | null; description: string | null } | null;
+    nurse: { id: number; name: string; surname: string } | null;
+    dentist: { id: number; name: string; surname: string } | null;
+  }>;
   description: string | null;
   toothTreatmentTeeth: {
     id: number;
@@ -887,8 +894,8 @@ export interface Randevue {
   };
   appointment: { id: number } | null;
   room?: { id: number; number: string; description: string };
-  nurse: { id: number } | null;
-  dentist?: { id: number } | null;
+  nurse: { id: number; name?: string; surname?: string } | null;
+  dentist?: { id: number; name?: string; surname?: string } | null;
 }
 
 export interface CreateRandevueDto {

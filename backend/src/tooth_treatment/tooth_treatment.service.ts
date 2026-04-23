@@ -145,7 +145,26 @@ export class ToothTreatmentService {
 
         const linkedRandevueById = new Map<
           number,
-          { id: number; date: string; endTime: string }
+          {
+            id: number;
+            date: string;
+            endTime: string;
+            room: {
+              id: number;
+              number: string | null;
+              description: string | null;
+            } | null;
+            nurse: {
+              id: number;
+              name: string;
+              surname: string;
+            } | null;
+            dentist: {
+              id: number;
+              name: string;
+              surname: string;
+            } | null;
+          }
         >();
         for (const ttt of tt.toothTreatmentTeeth ?? []) {
           for (const tr of ttt.treatmentRandevues ?? []) {
@@ -163,6 +182,27 @@ export class ToothTreatmentService {
                 e instanceof Date
                   ? e.toISOString()
                   : new Date(e as string).toISOString(),
+              room: rv.room
+                ? {
+                    id: rv.room.id,
+                    number: rv.room.number ?? null,
+                    description: rv.room.description ?? null,
+                  }
+                : null,
+              nurse: rv.nurse
+                ? {
+                    id: rv.nurse.id,
+                    name: rv.nurse.staff?.name ?? '',
+                    surname: rv.nurse.staff?.surname ?? '',
+                  }
+                : null,
+              dentist: rv.dentist
+                ? {
+                    id: rv.dentist.id,
+                    name: rv.dentist.staff?.name ?? '',
+                    surname: rv.dentist.staff?.surname ?? '',
+                  }
+                : null,
             });
           }
         }

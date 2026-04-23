@@ -32,12 +32,10 @@ function filterRandevuesForAppointment(
   list: Randevue[],
   appointmentId: number,
   patientId: number,
-): Array<{ id: number; date: string; endTime: string }> {
-  return list
-    .filter(
-      (r) => r.appointment?.id === appointmentId && r.patient.id === patientId,
-    )
-    .map((r) => ({ id: r.id, date: r.date, endTime: r.endTime }));
+): Randevue[] {
+  return list.filter(
+    (r) => r.appointment?.id === appointmentId && r.patient.id === patientId,
+  );
 }
 
 /** Local date plus start–end times only (no id or extra fields). */
@@ -52,6 +50,19 @@ function formatRandevueDateTimeRange(rv: { date: string; endTime: string }): str
   });
   const timeOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
   return `${datePart} · ${start.toLocaleTimeString(undefined, timeOpts)} – ${end.toLocaleTimeString(undefined, timeOpts)}`;
+}
+
+function formatStaffName(person?: { name?: string | null; surname?: string | null } | null): string {
+  if (!person) return 'Not assigned';
+  const fullName = `${person.name ?? ''} ${person.surname ?? ''}`.trim();
+  return fullName || 'Not assigned';
+}
+
+function formatRoomLabel(room?: { number?: string | null; description?: string | null } | null): string {
+  if (!room) return 'Not assigned';
+  if (room.number) return `Room ${room.number}`;
+  if (room.description) return room.description;
+  return 'Not assigned';
 }
 
 function apiDayOfWeekFromDate(d: Date): number {
@@ -386,7 +397,7 @@ const AppointmentDetail = () => {
   const [newRandevueWorkingHours, setNewRandevueWorkingHours] = useState<WorkingHourRow[]>([]);
   const [newRandevueBlockingHours, setNewRandevueBlockingHours] = useState<BlockingHourRow[]>([]);
   const [newRandevueDayRandevues, setNewRandevueDayRandevues] = useState<Array<{ id: number; date: string; endTime: string; dentist?: { id: number } | null; nurse?: { id: number } | null; room?: { id: number } | null }>>([]);
-  const [appointmentRandevues, setAppointmentRandevues] = useState<Array<{ id: number; date: string; endTime: string }>>([]);
+  const [appointmentRandevues, setAppointmentRandevues] = useState<Randevue[]>([]);
   const [selectedRandevueByTreatment, setSelectedRandevueByTreatment] = useState<Record<number, number>>({});
   const [linkingTreatmentId, setLinkingTreatmentId] = useState<number | null>(null);
   const [unlinkingRandevueKey, setUnlinkingRandevueKey] = useState<string | null>(null);
@@ -2228,6 +2239,15 @@ const AppointmentDetail = () => {
                           <p className="text-sm text-gray-600 mb-3">
                             {treatment.treatment.description}
                           </p>
+
+                          <div className="mb-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                              Dentist
+                            </p>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {formatStaffName(treatment.dentist?.staff)}
+                            </p>
+                          </div>
                           
                           {toothInfos.length > 0 && (
                             <div className="mb-3 p-3 bg-[#f0f7fc] rounded-md">
@@ -2294,8 +2314,11 @@ const AppointmentDetail = () => {
                             ) : (
                               <ul className="space-y-1.5">
                                 {(treatment.linkedRandevues ?? []).map((rv) => (
-                                  <li key={rv.id} className="text-sm text-slate-800">
-                                    {formatRandevueDateTimeRange(rv)}
+                                  <li key={rv.id} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
+                                    <p className="font-medium">{formatRandevueDateTimeRange(rv)}</p>
+                                    <p className="text-xs text-slate-600">
+                                      Room: {formatRoomLabel(rv.room)} | Nurse: {formatStaffName(rv.nurse)} | Dentist: {formatStaffName(rv.dentist)}
+                                    </p>
                                   </li>
                                 ))}
                               </ul>
@@ -2649,9 +2672,12 @@ const AppointmentDetail = () => {
                                     key={rv.id}
                                     className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
                                   >
-                                    <span className="text-gray-800">
-                                      {formatRandevueDateTimeRange(rv)}
-                                    </span>
+                                    <div className="text-gray-800">
+                                      <p className="font-medium">{formatRandevueDateTimeRange(rv)}</p>
+                                      <p className="text-xs text-gray-600">
+                                        Room: {formatRoomLabel(rv.room)} | Nurse: {formatStaffName(rv.nurse)} | Dentist: {formatStaffName(rv.dentist)}
+                                      </p>
+                                    </div>
                                     <button
                                       type="button"
                                       onClick={() =>

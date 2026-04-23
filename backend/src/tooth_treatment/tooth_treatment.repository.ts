@@ -316,6 +316,17 @@ export class ToothTreatmentRepository {
         'treatmentRandevues',
       )
       .leftJoinAndSelect('treatmentRandevues.randevue', 'linkedRandevue')
+      .leftJoinAndSelect('linkedRandevue.room', 'linkedRandevueRoom')
+      .leftJoinAndSelect('linkedRandevue.nurse', 'linkedRandevueNurse')
+      .leftJoinAndSelect(
+        'linkedRandevueNurse.staff',
+        'linkedRandevueNurseStaff',
+      )
+      .leftJoinAndSelect('linkedRandevue.dentist', 'linkedRandevueDentist')
+      .leftJoinAndSelect(
+        'linkedRandevueDentist.staff',
+        'linkedRandevueDentistStaff',
+      )
       .leftJoinAndSelect('appointment.patient', 'appointmentPatient')
       .where('appointment.clinicId = :clinicId', { clinicId });
 
