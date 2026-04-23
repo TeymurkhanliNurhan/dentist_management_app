@@ -186,16 +186,14 @@ function isWholeDayBlocking(start: Date, end: Date): boolean {
   return startAtMidnight && (sameDayEndAtLastMinute || nextDayEndAtMidnight);
 }
 
-function formatBlockingRequestDateRange(start: Date, end: Date, language: string): string {
-  const dayMonth = new Intl.DateTimeFormat(language, {
-    day: 'numeric',
-    month: 'long',
-  })
-    .format(start)
-    .toLowerCase();
+function formatBlockingRequestDateRange(start: Date, end: Date): string {
+  const dateLabel = `${String(start.getDate()).padStart(2, '0')}.${String(start.getMonth() + 1).padStart(
+    2,
+    '0',
+  )}.${start.getFullYear()}`;
 
   if (isWholeDayBlocking(start, end)) {
-    return `${dayMonth}.`;
+    return dateLabel;
   }
 
   const sameDay =
@@ -203,15 +201,14 @@ function formatBlockingRequestDateRange(start: Date, end: Date, language: string
     start.getMonth() === end.getMonth() &&
     start.getDate() === end.getDate();
   if (sameDay) {
-    return `${dayMonth} ${localTimeHm(start)}-${localTimeHm(end)}`;
+    return `${dateLabel} ${localTimeHm(start)}-${localTimeHm(end)}`;
   }
 
-  return `${dayMonth} ${localTimeHm(start)} - ${new Intl.DateTimeFormat(language, {
-    day: 'numeric',
-    month: 'long',
-  })
-    .format(end)
-    .toLowerCase()} ${localTimeHm(end)}`;
+  const endDateLabel = `${String(end.getDate()).padStart(2, '0')}.${String(end.getMonth() + 1).padStart(
+    2,
+    '0',
+  )}.${end.getFullYear()}`;
+  return `${dateLabel} ${localTimeHm(start)} - ${endDateLabel} ${localTimeHm(end)}`;
 }
 
 function tooltipLeft(clientX: number): number {
@@ -1910,7 +1907,7 @@ const Schedule = () => {
                     fullNameFromDentistList || fullNameFromRow || request.name?.trim() || t('dentistUnknown');
                   const start = new Date(request.startTime);
                   const end = new Date(request.endTime);
-                  const timeRange = formatBlockingRequestDateRange(start, end, i18n.language);
+                  const timeRange = formatBlockingRequestDateRange(start, end);
                   const requestName = request.name?.trim() || t('blockingFallbackLabel');
                   const isBusy = requestActionBusyId === request.id;
                   return (
