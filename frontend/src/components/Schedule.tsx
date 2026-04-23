@@ -6,6 +6,7 @@ import {
   Activity,
   Bell,
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -290,6 +291,11 @@ interface BlockingHourRow {
   roomId: number | null;
   name?: string | null;
   approvalStatus?: 'awaiting' | 'approved' | 'rejected' | 'canceled';
+  staff?: {
+    id?: number;
+    name?: string;
+    surname?: string;
+  } | null;
 }
 
 function blockingStatusTone(status?: BlockingHourRow['approvalStatus']): string {
@@ -412,6 +418,8 @@ const Schedule = () => {
   const [directorWeeklyFilterDentistsOpen, setDirectorWeeklyFilterDentistsOpen] = useState(false);
   const [directorWeeklyFilterTypesOpen, setDirectorWeeklyFilterTypesOpen] = useState(false);
   const directorWeeklyAllTypesCheckboxRef = useRef<HTMLInputElement>(null);
+  const [showDirectorRequests, setShowDirectorRequests] = useState(false);
+  const [requestActionBusyId, setRequestActionBusyId] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchDirectorStaff = async () => {
@@ -1028,6 +1036,27 @@ const Schedule = () => {
     return `${d.staff.name ?? ''} ${d.staff.surname ?? ''}`.trim();
   }, [dentists, formDentistId, isDirectorOrReception]);
 
+  const dentistDisplayNameByStaffId = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const d of dentists) {
+      const sid = d.staff?.id;
+      if (!sid) continue;
+      const fullName = `${d.staff?.name ?? ''} ${d.staff?.surname ?? ''}`.trim();
+      if (fullName) map.set(sid, fullName);
+    }
+    return map;
+  }, [dentists]);
+
+  const awaitingBlockingRequests = useMemo(
+    () =>
+      scheduleBlockingHours
+        .filter((bh) => bh.approvalStatus === 'awaiting')
+        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
+    [scheduleBlockingHours],
+  );
+
+  const awaitingBlockingCount = awaitingBlockingRequests.length;
+
   const roomTitleById = useMemo(() => {
     const map = new Map<number, string>();
     for (const room of rooms) {
@@ -1555,12 +1584,35 @@ const Schedule = () => {
   const directorMenuItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { label: 'Patients', icon: UserRound, path: '/patients' },
-    { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
+    {
+      label: 'Schedule',
+      icon: CalendarDays,
+      path: '/schedule',
+      notificationCount: isDirector ? awaitingBlockingCount : 0,
+    },
     { label: 'Treatments', icon: Activity, path: '/treatments' },
     { label: 'Inventory', icon: Package, path: '/medicines' },
     { label: 'Staff', icon: Users, path: '/staff' },
     { label: 'Finance', icon: Wallet, path: '/appointments' },
   ];
+
+  const handleDirectorRequestAction = async (id: number, action: 'approve' | 'reject') => {
+    if (!isDirector) return;
+    setRequestActionBusyId(id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/blocking-hours/${id}/${action}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+      });
+      if (!res.ok) throw new Error(`blocking ${action}`);
+      if (blockingDetailId === id) setBlockingDetailId(null);
+      void fetchSchedule();
+    } catch {
+      setBlockingDetailError(t('blockingUpdateError'));
+    } finally {
+      setRequestActionBusyId(null);
+    }
+  };
   return (
     <>
     <div className={isDirector ? 'min-h-screen bg-[#f4f6f8] text-slate-700' : 'min-h-screen bg-slate-50 flex flex-col'}>
@@ -1633,7 +1685,14 @@ const Schedule = () => {
                         : 'text-slate-500 hover:bg-white/80'
                     }`}
                   >
-                    <item.icon size={16} />
+                    <span className="relative inline-flex">
+                      <item.icon size={16} />
+                      {item.notificationCount != null && item.notificationCount > 0 && (
+                        <span className="absolute -right-2 -top-2 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-white">
+                          {item.notificationCount > 99 ? '99+' : item.notificationCount}
+                        </span>
+                      )}
+                    </span>
                     {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
                   </button>
                 ))}
@@ -1765,8 +1824,81 @@ const Schedule = () => {
                 {t('newBlocking')}
               </button>
             )}
+            {isDirector && (
+              <button
+                type="button"
+                onClick={() => setShowDirectorRequests((prev) => !prev)}
+                className="relative px-4 py-2.5 rounded-lg border border-violet-300 bg-violet-50 text-violet-800 text-sm font-semibold shadow-sm hover:bg-violet-100"
+              >
+                {t('requestsButton')}
+                {awaitingBlockingCount > 0 && (
+                  <span className="ml-2 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-white">
+                    {awaitingBlockingCount > 99 ? '99+' : awaitingBlockingCount}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         </div>
+
+        {isDirector && showDirectorRequests && (
+          <div className="mb-4 rounded-xl border border-violet-200 bg-violet-50/60 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-800">{t('requestsPanelTitle')}</h2>
+              <span className="text-xs text-slate-500">
+                {t('requestsCountLabel', { count: awaitingBlockingCount })}
+              </span>
+            </div>
+            {awaitingBlockingRequests.length === 0 ? (
+              <p className="text-sm text-slate-600">{t('requestsEmpty')}</p>
+            ) : (
+              <div className="space-y-2">
+                {awaitingBlockingRequests.map((request) => {
+                  const fullNameFromDentistList =
+                    request.staffId != null ? dentistDisplayNameByStaffId.get(request.staffId) : '';
+                  const fullNameFromRow = `${request.staff?.name ?? ''} ${request.staff?.surname ?? ''}`.trim();
+                  const dentistFullName =
+                    fullNameFromDentistList || fullNameFromRow || request.name?.trim() || t('dentistUnknown');
+                  const start = new Date(request.startTime);
+                  const end = new Date(request.endTime);
+                  const timeRange = `${start.toLocaleString(i18n.language)} - ${end.toLocaleString(i18n.language)}`;
+                  const isBusy = requestActionBusyId === request.id;
+                  return (
+                    <div
+                      key={request.id}
+                      className="flex flex-col gap-2 rounded-lg border border-violet-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-800">{dentistFullName}</p>
+                        <p className="truncate text-xs text-slate-500">{timeRange}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleDirectorRequestAction(request.id, 'approve')}
+                          disabled={isBusy}
+                          className="inline-flex items-center justify-center rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          aria-label={t('requestApprove')}
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDirectorRequestAction(request.id, 'reject')}
+                          disabled={isBusy}
+                          className="inline-flex items-center justify-center rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          aria-label={t('requestReject')}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {isDirectorOrReception && viewMode === 'weekly' && !loading && !loadError && (
           <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg border border-slate-200/60 bg-slate-50/40 p-2">

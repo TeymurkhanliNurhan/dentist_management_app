@@ -76,5 +76,11 @@
   "directorWeeklyFilterTypes": "Göstərilənlər",
   "directorWeeklyAllTypes": "Hamısı",
   "directorWeeklyLayerRandevues": "Randevular",
-  "directorWeeklyLayerBlocking": "Blok saatları"
+  "directorWeeklyLayerBlocking": "Blok saatları",
+  "requestsButton": "Sorğular",
+  "requestsPanelTitle": "Gözləyən blok sorğuları",
+  "requestsCountLabel": "{{count}} gözləyir",
+  "requestsEmpty": "Gözləyən sorğu yoxdur.",
+  "requestApprove": "Sorğunu təsdiqlə",
+  "requestReject": "Sorğunu rədd et"
 }

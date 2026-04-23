@@ -76,5 +76,11 @@
   "directorWeeklyFilterTypes": "What to show",
   "directorWeeklyAllTypes": "All",
   "directorWeeklyLayerRandevues": "Randevues",
-  "directorWeeklyLayerBlocking": "Blocking hours"
+  "directorWeeklyLayerBlocking": "Blocking hours",
+  "requestsButton": "Requests",
+  "requestsPanelTitle": "Awaiting blocking requests",
+  "requestsCountLabel": "{{count}} awaiting",
+  "requestsEmpty": "No awaiting requests.",
+  "requestApprove": "Accept request",
+  "requestReject": "Reject request"
 }

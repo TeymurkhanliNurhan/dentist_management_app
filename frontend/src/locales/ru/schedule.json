@@ -76,5 +76,11 @@
   "directorWeeklyFilterTypes": "Что показывать",
   "directorWeeklyAllTypes": "Всё",
   "directorWeeklyLayerRandevues": "Записи (randevue)",
-  "directorWeeklyLayerBlocking": "Блокировки"
+  "directorWeeklyLayerBlocking": "Блокировки",
+  "requestsButton": "Запросы",
+  "requestsPanelTitle": "Ожидающие запросы на блокировку",
+  "requestsCountLabel": "Ожидают: {{count}}",
+  "requestsEmpty": "Нет ожидающих запросов.",
+  "requestApprove": "Подтвердить запрос",
+  "requestReject": "Отклонить запрос"
 }
