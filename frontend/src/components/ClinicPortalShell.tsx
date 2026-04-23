@@ -23,6 +23,7 @@ export type ClinicPortalShellProps = {
   showProfileStrip?: boolean;
   collapseToggleVariant?: CollapseToggleVariant;
   asideHeightClassName?: string;
+  scheduleNotificationCount?: number;
 };
 
 export function ClinicPortalShell({
@@ -42,6 +43,7 @@ export function ClinicPortalShell({
   showProfileStrip = true,
   collapseToggleVariant = 'chevron',
   asideHeightClassName = 'h-[calc(100vh-4rem)]',
+  scheduleNotificationCount = 0,
 }: ClinicPortalShellProps) {
   const collapseLabel = isSidebarOpen ? 'Collapse menu' : 'Expand menu';
 
@@ -108,7 +110,14 @@ export function ClinicPortalShell({
                       : 'text-slate-500 hover:bg-white/80'
                   }`}
                 >
-                  <item.icon size={16} className="shrink-0" />
+                  <span className="relative inline-flex">
+                    <item.icon size={16} className="shrink-0" />
+                    {item.path === '/schedule' && scheduleNotificationCount > 0 && (
+                      <span className="absolute -right-2 -top-2 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-white">
+                        {scheduleNotificationCount > 99 ? '99+' : scheduleNotificationCount}
+                      </span>
+                    )}
+                  </span>
                   {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
                 </button>
               ))}

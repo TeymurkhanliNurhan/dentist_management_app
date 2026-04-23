@@ -1,14 +1,62 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CircleHelp, LogOut } from 'lucide-react';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { DIRECTOR_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
+import { API_BASE_URL } from '../services/api';
 
 export default function ClinicManagementLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [awaitingBlockingCount, setAwaitingBlockingCount] = useState(0);
+
+  const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
+  const isDirector = role === 'director';
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchAwaitingCount = async () => {
+      if (!isDirector) {
+        setAwaitingBlockingCount(0);
+        return;
+      }
+      const token = localStorage.getItem('access_token') || '';
+      try {
+        const res = await fetch(`${API_BASE_URL}/blocking-hours`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error('failed');
+        const data = await res.json();
+        const count = Array.isArray(data)
+          ? data.filter((x) => x?.approvalStatus === 'awaiting').length
+          : 0;
+        if (!cancelled) setAwaitingBlockingCount(count);
+      } catch {
+        if (!cancelled) setAwaitingBlockingCount(0);
+      }
+    };
+
+    void fetchAwaitingCount();
+    const timer = window.setInterval(() => {
+      void fetchAwaitingCount();
+    }, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [isDirector, pathname]);
+
+  const menuItems = useMemo(
+    () =>
+      DIRECTOR_PORTAL_MENU.map((item) =>
+        item.path === '/schedule'
+          ? { ...item, notificationCount: awaitingBlockingCount }
+          : item,
+      ),
+    [awaitingBlockingCount],
+  );
 
   return (
     <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
@@ -35,7 +83,7 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
         >
           <div className="flex h-[calc(100vh-4rem)] flex-col justify-between py-6">
             <nav className="space-y-1 px-3">
-              {DIRECTOR_PORTAL_MENU.map((item) => (
+              {menuItems.map((item) => (
                 <button
                   key={item.path}
                   type="button"
@@ -46,7 +94,14 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
                       : 'text-slate-500 hover:bg-white/80'
                   }`}
                 >
-                  <item.icon size={16} />
+                  <span className="relative inline-flex">
+                    <item.icon size={16} />
+                    {item.notificationCount != null && item.notificationCount > 0 && (
+                      <span className="absolute -right-2 -top-2 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-white">
+                        {item.notificationCount > 99 ? '99+' : item.notificationCount}
+                      </span>
+                    )}
+                  </span>
                   {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
                 </button>
               ))}

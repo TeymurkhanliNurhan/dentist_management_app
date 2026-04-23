@@ -13,6 +13,7 @@ export type ClinicPortalMenuItem = {
   label: string;
   icon: LucideIcon;
   path: string;
+  notificationCount?: number;
 };
 
 export const DIRECTOR_PORTAL_MENU: ClinicPortalMenuItem[] = [

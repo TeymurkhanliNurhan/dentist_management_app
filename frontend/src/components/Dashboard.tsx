@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { DASHBOARD_TILE_IMAGES, type DashboardTileKey } from '../lib/dashboardTileImages';
 import { useEffect, useMemo, useState } from 'react';
 import { Settings } from 'lucide-react';
-import api from '../services/api';
+import api, { API_BASE_URL } from '../services/api';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
@@ -24,6 +24,7 @@ const Dashboard = () => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const [directorStaff, setDirectorStaff] = useState<StaffSummary | null>(null);
+  const [awaitingBlockingCount, setAwaitingBlockingCount] = useState(0);
 
   useEffect(() => {
     const fetchDirectorStaff = async () => {
@@ -59,6 +60,39 @@ const Dashboard = () => {
 
     void fetchDirectorStaff();
   }, [role]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchAwaitingCount = async () => {
+      if (role !== 'director') {
+        setAwaitingBlockingCount(0);
+        return;
+      }
+      const token = localStorage.getItem('access_token') || '';
+      try {
+        const res = await fetch(`${API_BASE_URL}/blocking-hours`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error('failed');
+        const data = await res.json();
+        const count = Array.isArray(data)
+          ? data.filter((x) => x?.approvalStatus === 'awaiting').length
+          : 0;
+        if (!cancelled) setAwaitingBlockingCount(count);
+      } catch {
+        if (!cancelled) setAwaitingBlockingCount(0);
+      }
+    };
+
+    void fetchAwaitingCount();
+    const timer = window.setInterval(() => {
+      void fetchAwaitingCount();
+    }, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [location.pathname, role]);
 
   const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
 
@@ -105,6 +139,7 @@ const Dashboard = () => {
           setIsSidebarOpen={setIsSidebarOpen}
           navigate={navigate}
           onLogoutClick={() => setShowLogoutConfirm(true)}
+          scheduleNotificationCount={awaitingBlockingCount}
           headerActions={
             <button
               type="button"
