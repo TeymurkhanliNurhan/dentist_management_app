@@ -165,6 +165,55 @@ function localTimeHm(d: Date): string {
   return `${hh}:${mm}`;
 }
 
+function isWholeDayBlocking(start: Date, end: Date): boolean {
+  const startAtMidnight =
+    start.getHours() === 0 &&
+    start.getMinutes() === 0 &&
+    start.getSeconds() === 0;
+  const sameDayEndAtLastMinute =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate() &&
+    end.getHours() === 23 &&
+    end.getMinutes() >= 59;
+  const nextDayEndAtMidnight =
+    end.getHours() === 0 &&
+    end.getMinutes() === 0 &&
+    end.getSeconds() === 0 &&
+    addDays(new Date(start.getFullYear(), start.getMonth(), start.getDate()), 1).getTime() ===
+      new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+
+  return startAtMidnight && (sameDayEndAtLastMinute || nextDayEndAtMidnight);
+}
+
+function formatBlockingRequestDateRange(start: Date, end: Date, language: string): string {
+  const dayMonth = new Intl.DateTimeFormat(language, {
+    day: 'numeric',
+    month: 'long',
+  })
+    .format(start)
+    .toLowerCase();
+
+  if (isWholeDayBlocking(start, end)) {
+    return `${dayMonth}.`;
+  }
+
+  const sameDay =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate();
+  if (sameDay) {
+    return `${dayMonth} ${localTimeHm(start)}-${localTimeHm(end)}`;
+  }
+
+  return `${dayMonth} ${localTimeHm(start)} - ${new Intl.DateTimeFormat(language, {
+    day: 'numeric',
+    month: 'long',
+  })
+    .format(end)
+    .toLowerCase()} ${localTimeHm(end)}`;
+}
+
 function tooltipLeft(clientX: number): number {
   const pad = 14;
   const w = 280;
@@ -1861,7 +1910,8 @@ const Schedule = () => {
                     fullNameFromDentistList || fullNameFromRow || request.name?.trim() || t('dentistUnknown');
                   const start = new Date(request.startTime);
                   const end = new Date(request.endTime);
-                  const timeRange = `${start.toLocaleString(i18n.language)} - ${end.toLocaleString(i18n.language)}`;
+                  const timeRange = formatBlockingRequestDateRange(start, end, i18n.language);
+                  const requestName = request.name?.trim() || t('blockingFallbackLabel');
                   const isBusy = requestActionBusyId === request.id;
                   return (
                     <div
@@ -1871,6 +1921,7 @@ const Schedule = () => {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-slate-800">{dentistFullName}</p>
                         <p className="truncate text-xs text-slate-500">{timeRange}</p>
+                        <p className="truncate text-xs text-slate-500">{requestName}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
