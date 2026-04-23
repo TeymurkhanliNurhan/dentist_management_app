@@ -123,7 +123,9 @@ export class RandevueRepository {
       .leftJoinAndSelect('r.appointment', 'appt')
       .leftJoinAndSelect('r.room', 'rm')
       .leftJoinAndSelect('r.nurse', 'nv')
+      .leftJoinAndSelect('nv.staff', 'nvStaff')
       .leftJoinAndSelect('r.dentist', 'rdentist')
+      .leftJoinAndSelect('rdentist.staff', 'rdentistStaff')
       .where('ptclinic.id = :clinicId', { clinicId })
       .andWhere('r.date < :toBound', { toBound: to })
       .andWhere('r.endTime > :fromBound', { fromBound: from });

@@ -71,8 +71,20 @@ export class RandevueService {
             description: r.room.description,
           }
         : undefined,
-      nurse: r.nurse ? { id: r.nurse.id } : null,
-      dentist: r.dentist ? { id: r.dentist.id } : null,
+      nurse: r.nurse
+        ? {
+            id: r.nurse.id,
+            name: r.nurse.staff?.name ?? '',
+            surname: r.nurse.staff?.surname ?? '',
+          }
+        : null,
+      dentist: r.dentist
+        ? {
+            id: r.dentist.id,
+            name: r.dentist.staff?.name ?? '',
+            surname: r.dentist.staff?.surname ?? '',
+          }
+        : null,
     };
   }
 

@@ -52,16 +52,18 @@ function formatRandevueDateTimeRange(rv: { date: string; endTime: string }): str
   return `${datePart} · ${start.toLocaleTimeString(undefined, timeOpts)} – ${end.toLocaleTimeString(undefined, timeOpts)}`;
 }
 
-function formatStaffName(person?: { name?: string | null; surname?: string | null } | null): string {
+function formatStaffName(person?: { id?: number; name?: string | null; surname?: string | null } | null): string {
   if (!person) return 'Not assigned';
   const fullName = `${person.name ?? ''} ${person.surname ?? ''}`.trim();
+  if (!fullName && person.id != null) return `#${person.id}`;
   return fullName || 'Not assigned';
 }
 
-function formatRoomLabel(room?: { number?: string | null; description?: string | null } | null): string {
+function formatRoomLabel(room?: { id?: number; number?: string | null; description?: string | null } | null): string {
   if (!room) return 'Not assigned';
   if (room.number) return `Room ${room.number}`;
   if (room.description) return room.description;
+  if (room.id != null) return `#${room.id}`;
   return 'Not assigned';
 }
 
