@@ -499,13 +499,16 @@ const Schedule = () => {
 
   useEffect(() => {
     const fetchDirectorAvailabilityData = async () => {
-      if (!useClinicScheduleUi || !modalOpen || !formDate) {
+      const targetDateYmd =
+        modalOpen && formDate ? formDate : detailId != null && editDate ? editDate : '';
+
+      if (!useClinicScheduleUi || !targetDateYmd) {
         setDirectorWorkingHours([]);
         setDirectorBlockingHours([]);
         return;
       }
 
-      const targetDate = parseLocalDateYmd(formDate);
+      const targetDate = parseLocalDateYmd(targetDateYmd);
       const dayOfWeek = apiDayOfWeekFromDate(targetDate);
 
       try {
@@ -530,7 +533,7 @@ const Schedule = () => {
     };
 
     void fetchDirectorAvailabilityData();
-  }, [formDate, modalOpen, useClinicScheduleUi]);
+  }, [detailId, editDate, formDate, modalOpen, useClinicScheduleUi]);
 
   const loggedInDentistId = useMemo(() => {
     const raw = localStorage.getItem('dentistId');

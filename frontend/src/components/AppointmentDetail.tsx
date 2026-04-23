@@ -2242,15 +2242,6 @@ const AppointmentDetail = () => {
                             {treatment.treatment.description}
                           </p>
 
-                          <div className="mb-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-                            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                              Dentist
-                            </p>
-                            <p className="text-sm font-semibold text-slate-900">
-                              {formatStaffName(treatment.dentist?.staff)}
-                            </p>
-                          </div>
-                          
                           {toothInfos.length > 0 && (
                             <div className="mb-3 p-3 bg-[#f0f7fc] rounded-md">
                               <p className="text-sm font-medium text-slate-900 mb-1">
