@@ -1,24 +1,17 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Header from './Header';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import {
-  Activity,
   Bell,
   CalendarDays,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
-  LayoutDashboard,
   LogOut,
   Menu,
-  Package,
   Settings,
-  UserRound,
-  Users,
-  Wallet,
   X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -34,6 +27,7 @@ import {
   type Randevue,
   type UpdateRandevueDto,
 } from '../services/api';
+import { DIRECTOR_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
 
 /** Visible schedule window (top->bottom): 08:00 ... 21:00 (end boundary 22:00). */
 const SCHEDULE_START_HOUR = 8;
@@ -379,6 +373,7 @@ function timeStringToMinutes(value: string): number {
 
 const Schedule = () => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { t, i18n } = useTranslation('schedule');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
@@ -909,6 +904,11 @@ const Schedule = () => {
   };
 
   const openRandevueDetail = (r: Randevue) => {
+    const apptId = r.appointment?.id;
+    if (apptId != null) {
+      navigate(`/appointments/${apptId}`);
+      return;
+    }
     setBlockingDetailId(null);
     setDetailId(r.id);
     setModalOpen(false);
@@ -1650,20 +1650,15 @@ const Schedule = () => {
   ]);
 
   const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
-  const directorMenuItems = [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { label: 'Patients', icon: UserRound, path: '/patients' },
-    {
-      label: 'Schedule',
-      icon: CalendarDays,
-      path: '/schedule',
-      notificationCount: isDirector ? awaitingBlockingCount : 0,
-    },
-    { label: 'Treatments', icon: Activity, path: '/treatments' },
-    { label: 'Inventory', icon: Package, path: '/medicines' },
-    { label: 'Staff', icon: Users, path: '/staff' },
-    { label: 'Finance', icon: Wallet, path: '/appointments' },
-  ];
+  const directorMenuItems = useMemo(
+    () =>
+      DIRECTOR_PORTAL_MENU.map((item) =>
+        item.path === '/schedule'
+          ? { ...item, notificationCount: isDirector ? awaitingBlockingCount : 0 }
+          : item,
+      ),
+    [awaitingBlockingCount, isDirector],
+  );
 
   const handleDirectorRequestAction = async (id: number, action: 'approve' | 'reject') => {
     if (!isDirector) return;
@@ -1684,11 +1679,17 @@ const Schedule = () => {
   };
   return (
     <>
-    <div className={isDirector ? 'min-h-screen bg-[#f4f6f8] text-slate-700' : 'min-h-screen bg-slate-50 flex flex-col'}>
+    <div
+      className={
+        isDirector
+          ? 'flex min-h-screen flex-col bg-[#f4f6f8] text-slate-700'
+          : 'flex min-h-screen flex-col bg-slate-50'
+      }
+    >
       {!isDirector && <Header />}
 
       {isDirector && (
-        <header className="h-16 border-b border-slate-200 bg-white px-6">
+        <header className="h-16 shrink-0 border-b border-slate-200 bg-white px-6">
           <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <button
@@ -1734,28 +1735,34 @@ const Schedule = () => {
         </header>
       )}
 
-      <div className={isDirector ? 'mx-auto flex w-full max-w-[1600px] min-h-[calc(100vh-4rem)]' : 'flex flex-1 min-h-0'}>
+      <div
+        className={
+          isDirector
+            ? 'mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 overflow-hidden'
+            : 'flex min-h-0 flex-1'
+        }
+      >
         {isDirector && (
           <aside
-            className={`relative border-r border-slate-200 bg-[#f0f3f7] transition-all duration-300 ${
+            className={`relative shrink-0 border-r border-slate-200 bg-[#f0f3f7] transition-all duration-300 ${
               isSidebarOpen ? 'w-64' : 'w-20'
             }`}
           >
-            <div className="flex h-full flex-col justify-between py-6">
-              <nav className="space-y-1 px-3">
+            <div className="flex h-full min-h-0 flex-col py-6">
+              <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3">
                 {directorMenuItems.map((item) => (
                   <button
                     key={item.label}
                     type="button"
                     onClick={() => navigate(item.path)}
                     className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition ${
-                      item.path === '/schedule'
+                      isDirectorPortalNavActive(item.path, pathname)
                         ? 'bg-white text-slate-800 shadow-sm'
                         : 'text-slate-500 hover:bg-white/80'
                     }`}
                   >
                     <span className="relative inline-flex">
-                      <item.icon size={16} />
+                      <item.icon size={16} className="shrink-0" />
                       {item.notificationCount != null && item.notificationCount > 0 && (
                         <span className="absolute -right-2 -top-2 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-white">
                           {item.notificationCount > 99 ? '99+' : item.notificationCount}
@@ -1767,21 +1774,13 @@ const Schedule = () => {
                 ))}
               </nav>
 
-              <div className="space-y-1 px-3">
-                <button
-                  type="button"
-                  onClick={() => navigate('/contact')}
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
-                >
-                  <CircleHelp size={16} />
-                  {isSidebarOpen && <span className="ml-3 truncate">Help</span>}
-                </button>
+              <div className="mt-auto shrink-0 space-y-1 border-t border-slate-200/80 px-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowLogoutConfirm(true)}
                   className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
                 >
-                  <LogOut size={16} />
+                  <LogOut size={16} className="shrink-0" />
                   {isSidebarOpen && <span className="ml-3 truncate">Logout</span>}
                 </button>
               </div>
@@ -1789,8 +1788,14 @@ const Schedule = () => {
           </aside>
         )}
 
-      <div className="flex flex-1 min-h-0">
-      <main className={isDirector ? 'flex-1 min-w-0 px-6 py-6 overflow-x-auto' : 'flex-1 min-w-0 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 overflow-x-auto'}>
+      <div className={`flex min-h-0 flex-1 ${isDirector ? 'min-w-0 overflow-hidden' : ''}`}>
+      <main
+        className={
+          isDirector
+            ? 'min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto px-6 py-6'
+            : 'mx-auto flex-1 min-w-0 max-w-[1600px] overflow-x-auto px-4 py-6 sm:px-6 lg:px-8'
+        }
+      >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <CalendarDays className="w-9 h-9 text-violet-600" aria-hidden />

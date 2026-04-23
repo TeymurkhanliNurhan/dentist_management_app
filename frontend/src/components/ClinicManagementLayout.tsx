@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, CircleHelp, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { DIRECTOR_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
 import { API_BASE_URL } from '../services/api';
@@ -59,8 +59,8 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
   );
 
   return (
-    <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
-      <header className="h-16 border-b border-slate-200 bg-white px-6">
+    <div className="flex min-h-screen flex-col bg-[#f4f6f8] text-slate-700">
+      <header className="h-16 shrink-0 border-b border-slate-200 bg-white px-6">
         <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between">
           <div className="flex items-center gap-3">
             <button
@@ -75,14 +75,14 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
           </div>
         </div>
       </header>
-      <div className="mx-auto flex max-w-[1600px]">
+      <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 overflow-hidden">
         <aside
-          className={`relative border-r border-slate-200 bg-[#f0f3f7] transition-all duration-300 ${
+          className={`relative shrink-0 border-r border-slate-200 bg-[#f0f3f7] transition-all duration-300 ${
             isSidebarOpen ? 'w-64' : 'w-20'
           }`}
         >
-          <div className="flex h-[calc(100vh-4rem)] flex-col justify-between py-6">
-            <nav className="space-y-1 px-3">
+          <div className="flex h-full min-h-0 flex-col py-6">
+            <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3">
               {menuItems.map((item) => (
                 <button
                   key={item.path}
@@ -106,15 +106,7 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
                 </button>
               ))}
             </nav>
-            <div className="space-y-1 px-3">
-              <button
-                type="button"
-                onClick={() => navigate('/contact')}
-                className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
-              >
-                <CircleHelp size={16} />
-                {isSidebarOpen && <span className="ml-3 truncate">Help</span>}
-              </button>
+            <div className="mt-auto shrink-0 space-y-1 border-t border-slate-200/80 px-3 pt-4">
               <button
                 type="button"
                 onClick={() => setShowLogoutConfirm(true)}
@@ -126,7 +118,7 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
             </div>
           </div>
         </aside>
-        <div className="relative h-[calc(100vh-4rem)] flex-1 overflow-auto bg-[#f9fafb] px-6 py-6">{children}</div>
+        <div className="relative min-h-0 min-w-0 flex-1 overflow-y-auto bg-[#f9fafb] px-6 py-6">{children}</div>
       </div>
       <LogoutConfirmModal
         open={showLogoutConfirm}

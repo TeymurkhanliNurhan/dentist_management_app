@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import type { NavigateFunction } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, CircleHelp, LogOut, Menu } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LogOut, Menu } from 'lucide-react';
 import type { ClinicPortalMenuItem } from '../lib/clinicPortalNav';
 import { isDirectorPortalNavActive } from '../lib/clinicPortalNav';
 import { API_BASE_URL } from '../services/api';
@@ -43,7 +43,7 @@ export function ClinicPortalShell({
   onLogoutClick,
   showProfileStrip = true,
   collapseToggleVariant = 'chevron',
-  asideHeightClassName = 'h-[calc(100vh-4rem)]',
+  asideHeightClassName = 'h-full',
   scheduleNotificationCount,
 }: ClinicPortalShellProps) {
   const collapseLabel = isSidebarOpen ? 'Collapse menu' : 'Expand menu';
@@ -87,7 +87,7 @@ export function ClinicPortalShell({
 
   return (
     <>
-      <header className="h-16 border-b border-slate-200 bg-white px-6">
+      <header className="h-16 shrink-0 border-b border-slate-200 bg-white px-6">
         <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <button
@@ -129,14 +129,14 @@ export function ClinicPortalShell({
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-[1600px] min-h-[calc(100vh-4rem)]">
+      <div className="mx-auto flex h-[calc(100vh-4rem)] min-h-0 w-full max-w-[1600px] overflow-hidden">
         <aside
-          className={`relative border-r border-slate-200 bg-[#f0f3f7] transition-all duration-300 ${
+          className={`relative shrink-0 border-r border-slate-200 bg-[#f0f3f7] transition-all duration-300 ${
             isSidebarOpen ? 'w-64' : 'w-20'
           }`}
         >
-          <div className={`flex ${asideHeightClassName} flex-col justify-between py-6`}>
-            <nav className="space-y-1 px-3">
+          <div className={`flex min-h-0 flex-col py-6 ${asideHeightClassName}`}>
+            <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3">
               {menuItems.map((item) => (
                 <button
                   key={item.label}
@@ -169,15 +169,7 @@ export function ClinicPortalShell({
               ))}
             </nav>
 
-            <div className="space-y-1 px-3">
-              <button
-                type="button"
-                onClick={() => navigate('/contact')}
-                className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
-              >
-                <CircleHelp size={16} className="shrink-0" />
-                {isSidebarOpen && <span className="ml-3 truncate">Help</span>}
-              </button>
+            <div className="mt-auto shrink-0 space-y-1 border-t border-slate-200/80 px-3 pt-4">
               <button
                 type="button"
                 onClick={onLogoutClick}
@@ -190,7 +182,7 @@ export function ClinicPortalShell({
           </div>
         </aside>
 
-        {children}
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</div>
       </div>
     </>
   );
