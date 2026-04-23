@@ -1638,28 +1638,6 @@ const Schedule = () => {
     useClinicScheduleUi,
   ]);
 
-  useEffect(() => {
-    if (!useClinicScheduleUi || detailId == null) return;
-    if (!detailAvailableStartTimes.includes(editStart)) {
-      setEditStart(detailAvailableStartTimes[0] ?? '09:00');
-      return;
-    }
-    if (!detailAvailableEndTimes.includes(editEnd)) {
-      const fallback =
-        detailAvailableEndTimes.find((x) => hmToMinutes(x) > hmToMinutes(editStart)) ??
-        detailAvailableEndTimes[0] ??
-        '10:00';
-      setEditEnd(fallback);
-    }
-  }, [
-    detailAvailableEndTimes,
-    detailAvailableStartTimes,
-    detailId,
-    editEnd,
-    editStart,
-    useClinicScheduleUi,
-  ]);
-
   const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
   const directorMenuItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },

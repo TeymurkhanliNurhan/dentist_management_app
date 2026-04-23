@@ -8,6 +8,24 @@ import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 
 const PAGE_SIZE = 12;
 
+function localDateString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+type AppointmentListMode = 'open' | 'past' | 'all';
+
+function filterAppointmentsByEnd(appointments: Appointment[], mode: AppointmentListMode): Appointment[] {
+  const today = localDateString();
+  if (mode === 'past') {
+    return appointments.filter((a) => a.endDate != null && a.endDate < today);
+  }
+  if (mode === 'open') {
+    return appointments.filter((a) => a.endDate == null);
+  }
+  return appointments;
+}
+
 export default function CourseOfTreatments() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -17,7 +35,8 @@ export default function CourseOfTreatments() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [directorDisplayName, setDirectorDisplayName] = useState('');
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [rawAppointments, setRawAppointments] = useState<Appointment[]>([]);
+  const [listMode, setListMode] = useState<AppointmentListMode>('open');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -32,7 +51,7 @@ export default function CourseOfTreatments() {
     setError(null);
     try {
       const response = await appointmentService.getAll(nextFilters ?? filters);
-      setAppointments(response.appointments ?? []);
+      setRawAppointments(response.appointments ?? []);
       setCurrentPage(1);
     } catch (err: any) {
       setError(err?.response?.data?.message ?? 'Failed to load appointments');
@@ -53,9 +72,15 @@ export default function CourseOfTreatments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDirector, navigate]);
 
-  const totalPages = Math.max(1, Math.ceil(appointments.length / PAGE_SIZE));
+  const filteredAppointments = useMemo(
+    () => filterAppointmentsByEnd(rawAppointments, listMode),
+    [rawAppointments, listMode],
+  );
+
+  const totalFiltered = filteredAppointments.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
   const page = Math.min(currentPage, totalPages);
-  const pagedAppointments = appointments.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pagedAppointments = filteredAppointments.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <>
@@ -180,6 +205,26 @@ export default function CourseOfTreatments() {
                 </div>
               </form>
 
+              <div className="flex flex-wrap gap-2">
+                {(['open', 'past', 'all'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => {
+                      setListMode(mode);
+                      setCurrentPage(1);
+                    }}
+                    className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
+                      listMode === mode
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {mode === 'open' ? 'Current' : mode === 'past' ? 'Past' : 'All'}
+                  </button>
+                ))}
+              </div>
+
               {error ? (
                 <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {error}
@@ -244,8 +289,8 @@ export default function CourseOfTreatments() {
               {totalPages > 1 ? (
                 <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
                   <p className="text-slate-500">
-                    Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, appointments.length)} of{' '}
-                    {appointments.length}
+                    Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, totalFiltered)} of{' '}
+                    {totalFiltered}
                   </p>
                   <div className="flex items-center gap-2">
                     <button
