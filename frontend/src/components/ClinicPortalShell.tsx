@@ -1,8 +1,9 @@
-import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import type { NavigateFunction } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CircleHelp, LogOut, Menu } from 'lucide-react';
 import type { ClinicPortalMenuItem } from '../lib/clinicPortalNav';
 import { isDirectorPortalNavActive } from '../lib/clinicPortalNav';
+import { API_BASE_URL } from '../services/api';
 
 type CollapseToggleVariant = 'chevron' | 'menu';
 
@@ -43,9 +44,46 @@ export function ClinicPortalShell({
   showProfileStrip = true,
   collapseToggleVariant = 'chevron',
   asideHeightClassName = 'h-[calc(100vh-4rem)]',
-  scheduleNotificationCount = 0,
+  scheduleNotificationCount,
 }: ClinicPortalShellProps) {
   const collapseLabel = isSidebarOpen ? 'Collapse menu' : 'Expand menu';
+  const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
+  const isDirector = role === 'director';
+  const [globalScheduleNotificationCount, setGlobalScheduleNotificationCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchAwaitingCount = async () => {
+      if (!isDirector) {
+        setGlobalScheduleNotificationCount(0);
+        return;
+      }
+      const token = localStorage.getItem('access_token') || '';
+      try {
+        const res = await fetch(`${API_BASE_URL}/blocking-hours`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error('failed to fetch blocking hours');
+        const data = await res.json();
+        const count = Array.isArray(data)
+          ? data.filter((x) => x?.approvalStatus === 'awaiting').length
+          : 0;
+        if (!cancelled) setGlobalScheduleNotificationCount(count);
+      } catch {
+        if (!cancelled) setGlobalScheduleNotificationCount(0);
+      }
+    };
+
+    void fetchAwaitingCount();
+    const timer = window.setInterval(() => {
+      void fetchAwaitingCount();
+    }, 30_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [isDirector, pathname]);
 
   return (
     <>
@@ -110,14 +148,22 @@ export function ClinicPortalShell({
                       : 'text-slate-500 hover:bg-white/80'
                   }`}
                 >
+                  {(() => {
+                    const badgeCount =
+                      item.path === '/schedule'
+                        ? (scheduleNotificationCount ?? item.notificationCount ?? globalScheduleNotificationCount)
+                        : (item.notificationCount ?? 0);
+                    return (
                   <span className="relative inline-flex">
                     <item.icon size={16} className="shrink-0" />
-                    {item.path === '/schedule' && scheduleNotificationCount > 0 && (
+                        {badgeCount > 0 && (
                       <span className="absolute -right-2 -top-2 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-white">
-                        {scheduleNotificationCount > 99 ? '99+' : scheduleNotificationCount}
+                            {badgeCount > 99 ? '99+' : badgeCount}
                       </span>
                     )}
                   </span>
+                    );
+                  })()}
                   {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
                 </button>
               ))}
