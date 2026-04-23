@@ -8,25 +8,6 @@ import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 
 const PAGE_SIZE = 12;
 
-type AppointmentWithDentist = Appointment & {
-  dentist?: {
-    id?: number;
-    staff?: {
-      name?: string | null;
-      surname?: string | null;
-    } | null;
-    name?: string | null;
-    surname?: string | null;
-  } | null;
-};
-
-function getDentistLabel(appointment: AppointmentWithDentist): string {
-  const staffName = appointment.dentist?.staff?.name ?? appointment.dentist?.name ?? '';
-  const staffSurname = appointment.dentist?.staff?.surname ?? appointment.dentist?.surname ?? '';
-  const fullName = `${staffName} ${staffSurname}`.trim();
-  return fullName || 'Not assigned';
-}
-
 export default function CourseOfTreatments() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -36,7 +17,7 @@ export default function CourseOfTreatments() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [directorDisplayName, setDirectorDisplayName] = useState('');
-  const [appointments, setAppointments] = useState<AppointmentWithDentist[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -51,7 +32,7 @@ export default function CourseOfTreatments() {
     setError(null);
     try {
       const response = await appointmentService.getAll(nextFilters ?? filters);
-      setAppointments((response.appointments ?? []) as AppointmentWithDentist[]);
+      setAppointments(response.appointments ?? []);
       setCurrentPage(1);
     } catch (err: any) {
       setError(err?.response?.data?.message ?? 'Failed to load appointments');
@@ -213,7 +194,6 @@ export default function CourseOfTreatments() {
                         <th className="px-4 py-3 text-left">Start date</th>
                         <th className="px-4 py-3 text-left">End date</th>
                         <th className="px-4 py-3 text-left">Patient</th>
-                        <th className="px-4 py-3 text-left">Dentist</th>
                         <th className="px-4 py-3 text-right">Calculated</th>
                         <th className="px-4 py-3 text-right">Charged</th>
                         <th className="px-4 py-3 text-right">Discount</th>
@@ -222,13 +202,13 @@ export default function CourseOfTreatments() {
                     <tbody className="divide-y divide-slate-100">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                          <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                             Loading appointments...
                           </td>
                         </tr>
                       ) : pagedAppointments.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                          <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                             No appointments found.
                           </td>
                         </tr>
@@ -244,7 +224,6 @@ export default function CourseOfTreatments() {
                             <td className="px-4 py-3 text-slate-700">
                               {appointment.patient.name} {appointment.patient.surname}
                             </td>
-                            <td className="px-4 py-3 text-slate-700">{getDentistLabel(appointment)}</td>
                             <td className="px-4 py-3 text-right text-slate-900">
                               ${appointment.calculatedFee.toFixed(2)}
                             </td>
