@@ -892,7 +892,11 @@ export interface Randevue {
     name: string;
     surname: string;
   };
-  appointment: { id: number } | null;
+  appointment: {
+    id: number;
+    startDate: string;
+    endDate: string | null;
+  } | null;
   room?: { id: number; number: string; description: string };
   nurse: { id: number; name?: string; surname?: string } | null;
   dentist?: { id: number; name?: string; surname?: string } | null;

@@ -43,6 +43,12 @@ export class RandevueService {
     return fallback;
   }
 
+  private formatAppointmentDate(d: Date | string | null | undefined): string | null {
+    if (d == null) return null;
+    const dt = d instanceof Date ? d : new Date(d as string);
+    return dt.toISOString().slice(0, 10);
+  }
+
   private toResponse(r: Randevue) {
     return {
       id: r.id,
@@ -63,7 +69,13 @@ export class RandevueService {
             surname: r.patient.surname,
           }
         : undefined,
-      appointment: r.appointment ? { id: r.appointment.id } : null,
+      appointment: r.appointment
+        ? {
+            id: r.appointment.id,
+            startDate: this.formatAppointmentDate(r.appointment.startDate) ?? '',
+            endDate: this.formatAppointmentDate(r.appointment.endDate),
+          }
+        : null,
       room: r.room
         ? {
             id: r.room.id,

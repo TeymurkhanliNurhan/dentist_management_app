@@ -55,7 +55,6 @@
   "detailNotFound": "Этой записи больше нет в расписании.",
   "tooltipStartDate": "Дата начала",
   "noNote": "—",
-  "currentAppointmentLink": "текущая привязка (нет в списке открытых)",
   "newBlocking": "Заблокировать время",
   "blockingModalTitle": "Заблокировать время в календаре",
   "blockingStaffLabel": "Сотрудник",

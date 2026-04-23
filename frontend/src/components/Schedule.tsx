@@ -211,6 +211,14 @@ function formatBlockingRequestDateRange(start: Date, end: Date): string {
   return `${dateLabel} ${localTimeHm(start)} - ${endDateLabel} ${localTimeHm(end)}`;
 }
 
+/** Display API date `YYYY-MM-DD` as `DD.MM.YYYY` for appointment pickers. */
+function formatYmdDisplay(ymd: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd.trim());
+  if (!m) return ymd;
+  const [, y, mo, d] = m;
+  return `${d}.${mo}.${y}`;
+}
+
 function tooltipLeft(clientX: number): number {
   const pad = 14;
   const w = 280;
@@ -683,7 +691,9 @@ const Schedule = () => {
     setDetailNurseId(r.nurse?.id ?? 0);
     setEditPatientId(r.patient.id);
     setEditNote(r.note ?? '');
-    setDetailAppointmentChoice(r.appointment ? r.appointment.id : 'none');
+    const appt = r.appointment;
+    const apptOpen = Boolean(appt && (appt.endDate == null || appt.endDate === ''));
+    setDetailAppointmentChoice(apptOpen && appt ? appt.id : 'none');
     setDetailError(null);
   }, [detailId, randevues]);
 
@@ -748,8 +758,6 @@ const Schedule = () => {
           setDetailAppointmentChoice((prev) => {
             if (prev === 'none' || prev === 'new') return prev;
             if (open.some((a) => a.id === prev)) return prev;
-            const cur = randevues.find((x) => x.id === detailId);
-            if (cur?.appointment?.id === prev) return prev;
             return 'none';
           });
         }
@@ -1027,6 +1035,9 @@ const Schedule = () => {
     }
     const hadLink = detailRandevue?.appointment != null;
     const linkedId = detailRandevue?.appointment?.id ?? null;
+    const linkedEnd = detailRandevue?.appointment?.endDate ?? null;
+    const linkWasClosed =
+      hadLink && linkedEnd != null && String(linkedEnd).trim() !== '';
 
     const body: UpdateRandevueDto = {
       startDateTime: start.toISOString(),
@@ -1048,7 +1059,7 @@ const Schedule = () => {
       if (detailAppointmentChoice !== linkedId) {
         body.appointment_id = detailAppointmentChoice;
       }
-    } else if (hadLink) {
+    } else if (hadLink && !linkWasClosed) {
       body.clear_appointment = true;
     }
 
@@ -2736,11 +2747,9 @@ const Schedule = () => {
                       <p className="text-sm text-gray-500">…</p>
                     ) : (
                       <>
-                        {detailOpenAppointments.length === 0 &&
-                          !(
-                            detailRandevue?.appointment &&
-                            !detailOpenAppointments.some((a) => a.id === detailRandevue.appointment!.id)
-                          ) && <p className="text-sm text-gray-500 mb-2">{t('noOpenAppointments')}</p>}
+                        {detailOpenAppointments.length === 0 && (
+                          <p className="text-sm text-gray-500 mb-2">{t('noOpenAppointments')}</p>
+                        )}
                         <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
                           <label className="flex items-center gap-2 text-sm cursor-pointer">
                             <input
@@ -2751,20 +2760,6 @@ const Schedule = () => {
                             />
                             {t('noneStandalone')}
                           </label>
-                          {detailRandevue?.appointment &&
-                            !detailOpenAppointments.some((a) => a.id === detailRandevue.appointment!.id) && (
-                              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name="detail-appt"
-                                  checked={detailAppointmentChoice === detailRandevue.appointment.id}
-                                  onChange={() =>
-                                    setDetailAppointmentChoice(detailRandevue.appointment!.id)
-                                  }
-                                />
-                                #{detailRandevue.appointment.id} — {t('currentAppointmentLink')}
-                              </label>
-                            )}
                           {detailOpenAppointments.map((a) => (
                             <label key={a.id} className="flex items-center gap-2 text-sm cursor-pointer">
                               <input
@@ -2773,7 +2768,7 @@ const Schedule = () => {
                                 checked={detailAppointmentChoice === a.id}
                                 onChange={() => setDetailAppointmentChoice(a.id)}
                               />
-                              #{a.id} — {a.startDate}
+                              {formatYmdDisplay(a.startDate)}
                             </label>
                           ))}
                           <label className="flex items-center gap-2 text-sm cursor-pointer pt-1 border-t border-gray-100">
@@ -3265,7 +3260,7 @@ const Schedule = () => {
                               checked={appointmentChoice === a.id}
                               onChange={() => setAppointmentChoice(a.id)}
                             />
-                            #{a.id} — {a.startDate}
+                            {formatYmdDisplay(a.startDate)}
                           </label>
                         ))}
                         <label className="flex items-center gap-2 text-sm cursor-pointer pt-1 border-t border-gray-100">
