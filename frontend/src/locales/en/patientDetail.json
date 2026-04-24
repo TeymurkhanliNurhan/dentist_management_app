@@ -20,6 +20,8 @@
   "dentist": "Dentist",
   "viewByAppointment": "By appointment",
   "viewByDoctor": "By doctor",
+  "appointmentsMine": "Mine",
+  "appointmentsAll": "All",
   "filterByDentist": "Dentist",
   "allDentists": "All dentists",
   "unknownDentist": "Unknown dentist",

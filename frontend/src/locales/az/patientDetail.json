@@ -20,6 +20,8 @@
   "dentist": "Həkim",
   "viewByAppointment": "Qəbula görə",
   "viewByDoctor": "Həkimə görə",
+  "appointmentsMine": "Mənim",
+  "appointmentsAll": "Bütün",
   "filterByDentist": "Həkim",
   "allDentists": "Bütün həkimlər",
   "unknownDentist": "Həkim göstərilmir",

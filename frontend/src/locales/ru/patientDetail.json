@@ -20,6 +20,8 @@
   "dentist": "Врач",
   "viewByAppointment": "По приёму",
   "viewByDoctor": "По врачу",
+  "appointmentsMine": "Мои",
+  "appointmentsAll": "Все",
   "filterByDentist": "Врач",
   "allDentists": "Все врачи",
   "unknownDentist": "Врач не указан",
