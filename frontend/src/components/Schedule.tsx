@@ -452,6 +452,7 @@ const Schedule = () => {
   const [detailAppointmentChoice, setDetailAppointmentChoice] = useState<AppointmentChoice>('none');
   const [detailOpenAppointments, setDetailOpenAppointments] = useState<Appointment[]>([]);
   const [detailApptsLoading, setDetailApptsLoading] = useState(false);
+  const [randevueDetailEditMode, setRandevueDetailEditMode] = useState(false);
 
   type ScheduleHoverTip =
     | { kind: 'randevue'; r: Randevue; clientX: number; clientY: number }
@@ -666,16 +667,16 @@ const Schedule = () => {
       if (e.key !== 'Escape') return;
       if (modalOpen) setModalOpen(false);
       else if (blockingDetailId != null) setBlockingDetailId(null);
-      else if (detailId != null) setDetailId(null);
+      else if (detailId != null) {
+        setDetailId(null);
+        setRandevueDetailEditMode(false);
+      }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [blockingDetailId, detailId, modalOpen]);
 
-  useEffect(() => {
-    if (detailId == null) return;
-    const r = randevues.find((x) => x.id === detailId);
-    if (!r) return;
+  const syncDetailFormFromRandevue = useCallback((r: Randevue) => {
     const s = new Date(r.date);
     const e = new Date(r.endTime);
     setEditDate(formatYmd(s));
@@ -690,7 +691,14 @@ const Schedule = () => {
     const apptOpen = Boolean(appt && (appt.endDate == null || appt.endDate === ''));
     setDetailAppointmentChoice(apptOpen && appt ? appt.id : 'none');
     setDetailError(null);
-  }, [detailId, randevues]);
+  }, []);
+
+  useEffect(() => {
+    if (detailId == null) return;
+    const r = randevues.find((x) => x.id === detailId);
+    if (!r) return;
+    syncDetailFormFromRandevue(r);
+  }, [detailId, randevues, syncDetailFormFromRandevue]);
 
   useEffect(() => {
     let cancelled = false;
@@ -769,6 +777,7 @@ const Schedule = () => {
 
   const openNewModal = (day?: Date, hour?: number, initialTab: 'randevue' | 'blocking' = 'randevue') => {
     setDetailId(null);
+    setRandevueDetailEditMode(false);
     const baseDay = day ?? new Date();
     const startHm = hour != null ? `${String(hour).padStart(2, '0')}:00` : '09:00';
     const endHm = hour != null ? `${String(Math.min(hour + 1, 23)).padStart(2, '0')}:00` : '10:00';
@@ -904,12 +913,8 @@ const Schedule = () => {
   };
 
   const openRandevueDetail = (r: Randevue) => {
-    const apptId = r.appointment?.id;
-    if (apptId != null) {
-      navigate(`/appointments/${apptId}`);
-      return;
-    }
     setBlockingDetailId(null);
+    setRandevueDetailEditMode(false);
     setDetailId(r.id);
     setModalOpen(false);
   };
@@ -920,6 +925,7 @@ const Schedule = () => {
   const openBlockingDetail = (bh: BlockingHourRow) => {
     if (!isDentistUser && !isDirectorOrReception) return;
     setDetailId(null);
+    setRandevueDetailEditMode(false);
     setModalOpen(false);
     setBlockingDetailId(bh.id);
     setBlockEditName(bh.name?.trim() ?? '');
@@ -1066,6 +1072,7 @@ const Schedule = () => {
     setDetailBusy(true);
     try {
       await randevueService.update(detailId, body);
+      setRandevueDetailEditMode(false);
       void fetchSchedule();
     } catch {
       setDetailError(t('updateError'));
@@ -2457,17 +2464,28 @@ const Schedule = () => {
       {(detailId != null || blockingDetailId != null) && (
         <aside
           className="w-full max-w-md flex-shrink-0 border-l border-gray-200 bg-white shadow-lg z-40 flex flex-col max-h-[calc(100vh-4rem)] lg:max-h-none lg:min-h-[calc(100vh-5rem)]"
-          aria-label={blockingDetailId != null ? t('blockingEditTitle') : t('editRandevue')}
+          aria-label={
+            blockingDetailId != null
+              ? t('blockingEditTitle')
+              : randevueDetailEditMode
+                ? t('editRandevue')
+                : t('randevueDetails')
+          }
         >
           <div className="flex items-center justify-between gap-2 p-4 border-b border-gray-100">
             <h2 className="text-lg font-bold text-gray-900">
-              {blockingDetailId != null ? t('blockingEditTitle') : t('editRandevue')}
+              {blockingDetailId != null
+                ? t('blockingEditTitle')
+                : randevueDetailEditMode
+                  ? t('editRandevue')
+                  : t('randevueDetails')}
             </h2>
             <button
               type="button"
               onClick={() => {
                 setDetailId(null);
                 setBlockingDetailId(null);
+                setRandevueDetailEditMode(false);
               }}
               className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800"
               aria-label={t('closeDetail')}
@@ -2616,6 +2634,86 @@ const Schedule = () => {
               )
             ) : !detailRandevue ? (
               <p className="text-sm text-gray-600">{t('detailNotFound')}</p>
+            ) : !randevueDetailEditMode ? (
+              <>
+                <div className="space-y-3 text-sm text-gray-800">
+                  <p>
+                    <span className="font-medium text-gray-700">{t('patient')}:</span>{' '}
+                    {detailRandevue.patient.name} {detailRandevue.patient.surname}
+                  </p>
+                  <p>
+                    <span className="font-medium text-gray-700">{t('date')}:</span>{' '}
+                    {new Date(detailRandevue.date).toLocaleDateString(i18n.language, {
+                      weekday: 'short',
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </p>
+                  <p>
+                    <span className="font-medium text-gray-700">{t('time')}:</span>{' '}
+                    {localTimeHm(new Date(detailRandevue.date))} –{' '}
+                    {localTimeHm(new Date(detailRandevue.endTime))}
+                  </p>
+                  {useClinicScheduleUi && (
+                    <p>
+                      <span className="font-medium text-gray-700">{t('room')}:</span>{' '}
+                      {roomTitleById.get(detailRandevue.room?.id ?? 0) || t('roomUnknown')}
+                    </p>
+                  )}
+                  <p>
+                    <span className="font-medium text-gray-700">{t('doctor')}:</span>{' '}
+                    {detailRandevue.dentist?.id != null
+                      ? (dentistFullNameByDentistId.get(detailRandevue.dentist.id) ?? t('dentistUnknown'))
+                      : t('dentistUnknown')}
+                  </p>
+                  {isDirector && useClinicScheduleUi && (
+                    <p>
+                      <span className="font-medium text-gray-700">{t('nurse')}:</span>{' '}
+                      {detailRandevue.nurse?.id != null
+                        ? (nurseFullNameByNurseId.get(detailRandevue.nurse.id) ??
+                            (`${detailRandevue.nurse.surname ?? ''} ${detailRandevue.nurse.name ?? ''}`.trim() ||
+                              `—`))
+                        : '—'}
+                    </p>
+                  )}
+                  <p>
+                    <span className="font-medium text-gray-700">{t('status')}:</span>{' '}
+                    {detailRandevue.status}
+                  </p>
+                  {detailRandevue.appointment && (
+                    <p>
+                      <span className="font-medium text-gray-700">{t('linkedAppointment')}:</span>{' '}
+                      #{detailRandevue.appointment.id}
+                      {detailRandevue.appointment.startDate
+                        ? ` · ${formatYmdDisplay(String(detailRandevue.appointment.startDate).slice(0, 10))}`
+                        : null}
+                    </p>
+                  )}
+                  <p>
+                    <span className="font-medium text-gray-700">{t('note')}:</span>{' '}
+                    {detailRandevue.note?.trim() ? detailRandevue.note : t('noNote')}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-4">
+                  {detailRandevue.appointment?.id != null && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/appointments/${detailRandevue.appointment!.id}`)}
+                      className="rounded-lg border border-violet-300 bg-white px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-50"
+                    >
+                      {t('goToAppointment')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setRandevueDetailEditMode(true)}
+                    className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                  >
+                    {t('editDetails')}
+                  </button>
+                </div>
+              </>
             ) : (
               <>
                 <div>
@@ -2802,7 +2900,19 @@ const Schedule = () => {
                   />
                 </div>
                 {detailError && <p className="text-sm text-red-600">{detailError}</p>}
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex flex-wrap justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const r = detailId != null ? randevues.find((x) => x.id === detailId) : undefined;
+                      if (r) syncDetailFormFromRandevue(r);
+                      setRandevueDetailEditMode(false);
+                    }}
+                    disabled={detailBusy}
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {t('cancel')}
+                  </button>
                   <button
                     type="button"
                     onClick={() => void handleSaveDetail()}
