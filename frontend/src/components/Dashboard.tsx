@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { DASHBOARD_TILE_IMAGES, type DashboardTileKey } from '../lib/dashboardTileImages';
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, DollarSign, MinusCircle, Settings, UserRound, Users } from 'lucide-react';
-import api, { API_BASE_URL } from '../services/api';
+import api, { API_BASE_URL, dentistService } from '../services/api';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
-import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
+import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
 
 const TILE_IMAGE_QUERY = '?v=2';
 
@@ -280,6 +280,7 @@ const Dashboard = () => {
   const [activeDetailsPanel, setActiveDetailsPanel] = useState<
     'income' | 'outcome' | 'appointments' | 'requests' | null
   >(null);
+  const [dentistPortalDisplayName, setDentistPortalDisplayName] = useState('');
 
   useEffect(() => {
     const fetchDirectorStaff = async () => {
@@ -314,6 +315,30 @@ const Dashboard = () => {
     };
 
     void fetchDirectorStaff();
+  }, [role]);
+
+  useEffect(() => {
+    if (role !== 'dentist') {
+      setDentistPortalDisplayName('');
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      const raw = localStorage.getItem('dentistId');
+      const id = raw ? parseInt(raw, 10) : NaN;
+      if (!Number.isFinite(id) || id <= 0) return;
+      try {
+        const profile = await dentistService.getById(id);
+        const label = `${profile?.staff?.name ?? ''} ${profile?.staff?.surname ?? ''}`.trim();
+        if (!cancelled) setDentistPortalDisplayName(label || `Dentist #${id}`);
+      } catch {
+        if (!cancelled) setDentistPortalDisplayName('');
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, [role]);
 
   useEffect(() => {
@@ -1037,6 +1062,58 @@ const Dashboard = () => {
           setShowLogoutConfirm(false);
         }}
       />
+      </>
+    );
+  }
+
+  if (role === 'dentist') {
+    return (
+      <>
+        <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
+          <ClinicPortalShell
+            brandTitle="Clinic Management"
+            portalBadge="Dentist Portal"
+            userDisplayName={dentistPortalDisplayName}
+            userSubtitle="Dentist"
+            menuItems={DENTIST_PORTAL_MENU}
+            pathname={location.pathname}
+            isSidebarOpen={isSidebarOpen}
+            setIsSidebarOpen={setIsSidebarOpen}
+            navigate={navigate}
+            onLogoutClick={() => setShowLogoutConfirm(true)}
+            showProfileStrip
+          >
+            <main className="min-h-0 flex-1 overflow-y-auto bg-[#f9fafb] p-6">
+              <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+                <section>
+                  <h1 className="text-3xl font-semibold text-slate-800">{t('ourServices')}</h1>
+                  <p className="mt-1 text-sm text-slate-500">Open any section from the sidebar or the shortcuts below.</p>
+                </section>
+                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {DENTIST_PORTAL_MENU.filter((item) => item.path !== '/dashboard').map((item) => (
+                    <button
+                      key={item.path}
+                      type="button"
+                      onClick={() => navigate(item.path)}
+                      className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm ring-1 ring-slate-100 transition hover:border-[#0066A6]/30 hover:shadow-md"
+                    >
+                      <item.icon className="h-8 w-8 shrink-0 text-[#0066A6]" />
+                      <span className="text-lg font-semibold text-slate-800">{item.label}</span>
+                    </button>
+                  ))}
+                </section>
+              </div>
+            </main>
+          </ClinicPortalShell>
+        </div>
+        <LogoutConfirmModal
+          open={showLogoutConfirm}
+          onCancel={() => setShowLogoutConfirm(false)}
+          onConfirm={() => {
+            performLogout(navigate);
+            setShowLogoutConfirm(false);
+          }}
+        />
       </>
     );
   }
