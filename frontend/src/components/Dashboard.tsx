@@ -116,17 +116,37 @@ function DirectorWeekIncomeOutcomeChart({
 }) {
   const w = 640;
   const h = 220;
-  const padL = 44;
+  const padL = 58;
   const padR = 12;
   const padB = 32;
-  const padT = 10;
+  const padT = 12;
   const innerW = w - padL - padR;
   const innerH = h - padT - padB;
-  const maxVal = Math.max(1, ...data.flatMap((d) => [d.income, d.outcome]));
-  const groupW = innerW / (data.length || 1);
-  const barW = (groupW * 0.35) as number;
-  const gap = groupW * 0.1;
   const y0 = h - padB;
+
+  const maxRaw =
+    data.length > 0 ? Math.max(...data.flatMap((d) => [d.income, d.outcome])) : 0;
+  const maxVal = Math.max(maxRaw, 1);
+
+  const yForValue = (v: number) => y0 - (v / maxVal) * innerH;
+
+  const tickSteps = 7;
+  const ticks = Array.from({ length: tickSteps }, (_, i) => {
+    const value = (maxVal * i) / (tickSteps - 1);
+    return { value, y: yForValue(value) };
+  });
+
+  const xForIndex = (i: number) => {
+    const n = data.length;
+    if (n <= 1) return padL + innerW / 2;
+    return padL + (i / (n - 1)) * innerW;
+  };
+
+  const formatY = (v: number) => Math.round(v).toLocaleString();
+
+  const incomePoints = data.map((row, i) => `${xForIndex(i)},${yForValue(row.income)}`).join(' ');
+  const outcomePoints = data.map((row, i) => `${xForIndex(i)},${yForValue(row.outcome)}`).join(' ');
+
   return (
     <svg
       viewBox={`0 0 ${w} ${h}`}
@@ -134,6 +154,17 @@ function DirectorWeekIncomeOutcomeChart({
       role="img"
       aria-label="This week income and outcome by day"
     >
+      {ticks.map(({ value, y }) => (
+        <line
+          key={`grid-${value}`}
+          x1={padL}
+          y1={y}
+          x2={w - padR}
+          y2={y}
+          className="stroke-slate-100"
+          strokeWidth="1"
+        />
+      ))}
       <line
         x1={padL}
         y1={y0}
@@ -142,48 +173,70 @@ function DirectorWeekIncomeOutcomeChart({
         className="stroke-slate-300"
         strokeWidth="1"
       />
-      <text x={4} y={padT + 10} className="fill-slate-500" fontSize="10">
-        {maxVal.toFixed(0)}
-      </text>
-      <text x={4} y={y0 - 2} className="fill-slate-500" fontSize="10">
-        0
-      </text>
-      {data.map((row, i) => {
-        const xGroup = padL + i * groupW;
-        const incomeH = (row.income / maxVal) * innerH;
-        const outcomeH = (row.outcome / maxVal) * innerH;
-        const x1 = xGroup + gap / 2;
-        const x2 = x1 + barW + gap * 0.2;
-        return (
-          <g key={row.ymd}>
-            <rect
-              x={x1}
-              y={y0 - incomeH}
-              width={barW}
-              height={incomeH}
-              className="fill-emerald-500"
-              rx="2"
-            />
-            <rect
-              x={x2}
-              y={y0 - outcomeH}
-              width={barW}
-              height={outcomeH}
-              className="fill-rose-500"
-              rx="2"
-            />
-            <text
-              x={xGroup + groupW / 2}
-              y={h - 8}
-              textAnchor="middle"
-              className="fill-slate-600"
-              fontSize="11"
-            >
-              {row.dayLabel}
-            </text>
-          </g>
-        );
-      })}
+      {ticks.map(({ value, y }) => (
+        <text
+          key={`tick-${value}`}
+          x={padL - 6}
+          y={y + 4}
+          textAnchor="end"
+          className="fill-slate-500"
+          fontSize="10"
+        >
+          {formatY(value)}
+        </text>
+      ))}
+      {data.length > 0 && (
+        <>
+          <polyline
+            fill="none"
+            stroke="currentColor"
+            className="text-emerald-600"
+            strokeWidth="2"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            points={incomePoints}
+          />
+          <polyline
+            fill="none"
+            stroke="currentColor"
+            className="text-rose-600"
+            strokeWidth="2"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            points={outcomePoints}
+          />
+          {data.map((row, i) => (
+            <g key={row.ymd}>
+              <circle
+                cx={xForIndex(i)}
+                cy={yForValue(row.income)}
+                r={3.5}
+                className="fill-emerald-500 stroke-white"
+                strokeWidth="1.5"
+              />
+              <circle
+                cx={xForIndex(i)}
+                cy={yForValue(row.outcome)}
+                r={3.5}
+                className="fill-rose-500 stroke-white"
+                strokeWidth="1.5"
+              />
+            </g>
+          ))}
+        </>
+      )}
+      {data.map((row, i) => (
+        <text
+          key={`x-${row.ymd}`}
+          x={xForIndex(i)}
+          y={h - 8}
+          textAnchor="middle"
+          className="fill-slate-600"
+          fontSize="11"
+        >
+          {row.dayLabel}
+        </text>
+      ))}
     </svg>
   );
 }
