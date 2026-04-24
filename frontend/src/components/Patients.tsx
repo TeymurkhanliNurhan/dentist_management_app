@@ -4,12 +4,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Header from './Header';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
-import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
-import { appointmentService, patientService, toothTreatmentService } from '../services/api';
+import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
+import { appointmentService, dentistService, patientService, toothTreatmentService } from '../services/api';
 import type { Patient, PatientFilters, CreatePatientDto, ToothTreatment } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
-type DirectorPatientRow = Patient & {
+type PortalPatientRow = Patient & {
   treatmentCount: number;
   totalDebt: number;
 };
@@ -21,6 +21,10 @@ const Patients = () => {
   const location = useLocation();
   const { t, i18n } = useTranslation('patients');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
+  const isDirector = role === 'director';
+  const isDentist = role === 'dentist';
+  const usePatientsPortalShell = isDirector || isDentist;
+  const [dentistPortalDisplayName, setDentistPortalDisplayName] = useState('');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [treatmentCountsByPatient, setTreatmentCountsByPatient] = useState<Record<number, number>>({});
   const [debtByPatient, setDebtByPatient] = useState<Record<number, number>>({});
@@ -58,29 +62,38 @@ const Patients = () => {
     };
   }, [showLanguageMenu]);
 
-  const fetchDirectorAggregates = async () => {
+  const fetchPortalPatientAggregates = async () => {
     const [appointmentsData, toothTreatments] = await Promise.all([
       appointmentService.getAll(),
       toothTreatmentService.getAll(),
     ]);
 
     const debtMap: Record<number, number> = {};
-    for (const appointment of appointmentsData.appointments) {
-      const patientId = appointment.patient?.id;
-      if (!patientId) {
-        continue;
+    if (isDirector) {
+      for (const appointment of appointmentsData.appointments) {
+        const patientId = appointment.patient?.id;
+        if (!patientId) {
+          continue;
+        }
+        const calculatedFee = Number(appointment.calculatedFee || 0);
+        const chargedFee = Number(appointment.chargedFee || 0);
+        const debt = calculatedFee - chargedFee;
+        debtMap[patientId] = (debtMap[patientId] || 0) + debt;
       }
-      const calculatedFee = Number(appointment.calculatedFee || 0);
-      const chargedFee = Number(appointment.chargedFee || 0);
-      const debt = calculatedFee - chargedFee;
-      debtMap[patientId] = (debtMap[patientId] || 0) + debt;
     }
 
+    const myDentistId = Number(localStorage.getItem('dentistId')) || 0;
     const treatmentMap: Record<number, number> = {};
     for (const toothTreatment of toothTreatments as ToothTreatment[]) {
       const patientId = Number(toothTreatment.patient);
       if (!Number.isFinite(patientId) || patientId <= 0) {
         continue;
+      }
+      if (isDentist && myDentistId > 0) {
+        const did = toothTreatment.dentist?.id;
+        if (did == null || did !== myDentistId) {
+          continue;
+        }
       }
       treatmentMap[patientId] = (treatmentMap[patientId] || 0) + 1;
     }
@@ -95,7 +108,7 @@ const Patients = () => {
     try {
       const [data] = await Promise.all([
         patientService.getAll(searchFilters),
-        role === 'director' ? fetchDirectorAggregates() : Promise.resolve(),
+        usePatientsPortalShell ? fetchPortalPatientAggregates() : Promise.resolve(),
       ]);
       setPatients(data);
       setCurrentPage(1);
@@ -110,6 +123,30 @@ const Patients = () => {
   useEffect(() => {
     void fetchPatients();
   }, [role]);
+
+  useEffect(() => {
+    if (!isDentist) {
+      setDentistPortalDisplayName('');
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      const raw = localStorage.getItem('dentistId');
+      const id = raw ? parseInt(raw, 10) : NaN;
+      if (!Number.isFinite(id) || id <= 0) return;
+      try {
+        const profile = await dentistService.getById(id);
+        const label = `${profile?.staff?.name ?? ''} ${profile?.staff?.surname ?? ''}`.trim();
+        if (!cancelled) setDentistPortalDisplayName(label || `Dentist #${id}`);
+      } catch {
+        if (!cancelled) setDentistPortalDisplayName('');
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isDentist]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,7 +199,7 @@ const Patients = () => {
       maximumFractionDigits: 2,
     }).format(debt);
 
-  const directorRows: DirectorPatientRow[] = useMemo(
+  const portalRows: PortalPatientRow[] = useMemo(
     () =>
       patients.map((patient) => ({
         ...patient,
@@ -172,28 +209,30 @@ const Patients = () => {
     [debtByPatient, patients, treatmentCountsByPatient],
   );
 
-  const totalPages = Math.max(1, Math.ceil(directorRows.length / DIRECTOR_PAGE_SIZE));
-  const paginatedDirectorRows = useMemo(() => {
+  const totalPages = Math.max(1, Math.ceil(portalRows.length / DIRECTOR_PAGE_SIZE));
+  const paginatedPortalRows = useMemo(() => {
     const startIndex = (currentPage - 1) * DIRECTOR_PAGE_SIZE;
-    return directorRows.slice(startIndex, startIndex + DIRECTOR_PAGE_SIZE);
-  }, [currentPage, directorRows]);
+    return portalRows.slice(startIndex, startIndex + DIRECTOR_PAGE_SIZE);
+  }, [currentPage, portalRows]);
 
-  if (role === 'director') {
+  if (usePatientsPortalShell) {
     return (
       <>
       <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
           brandTitle="Clinic Management"
-          userDisplayName=""
-          userSubtitle="Clinic Director"
-          menuItems={DIRECTOR_PORTAL_MENU}
+          portalBadge={isDirector ? undefined : 'Dentist Portal'}
+          userDisplayName={isDentist ? dentistPortalDisplayName : ''}
+          userSubtitle={isDirector ? 'Clinic Director' : 'Dentist'}
+          menuItems={isDirector ? DIRECTOR_PORTAL_MENU : DENTIST_PORTAL_MENU}
           pathname={location.pathname}
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
           navigate={navigate}
           onLogoutClick={() => setShowLogoutConfirm(true)}
-          showProfileStrip={false}
+          showProfileStrip={isDentist}
           headerActions={
+            isDirector ? (
             <button
               type="button"
               onClick={() => setShowAddModal(true)}
@@ -201,6 +240,7 @@ const Patients = () => {
             >
               + Register New Patient
             </button>
+            ) : null
           }
         >
           <main className="min-h-0 flex-1 bg-[#f9fafb] px-6 py-6">
@@ -208,6 +248,7 @@ const Patients = () => {
               <h1 className="text-4xl font-bold text-slate-900">Patient Directory</h1>
               <p className="mt-2 text-sm text-slate-500">
                 {patients.length.toLocaleString('en-US')} total registered patients
+                {isDentist ? ' · Treatment counts show your procedures only' : ''}
               </p>
             </div>
 
@@ -267,25 +308,25 @@ const Patients = () => {
                     <th className="px-4 py-3 text-left">Surname</th>
                     <th className="px-4 py-3 text-left">Birthdate</th>
                     <th className="px-4 py-3 text-left">Contact</th>
-                    <th className="px-4 py-3 text-left">Treatments</th>
-                    <th className="px-4 py-3 text-left">Debt Status</th>
+                    <th className="px-4 py-3 text-left">{isDentist ? 'Your treatments' : 'Treatments'}</th>
+                    {isDirector ? <th className="px-4 py-3 text-left">Debt Status</th> : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">
+                      <td colSpan={isDirector ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-500">
                         Loading patients...
                       </td>
                     </tr>
-                  ) : paginatedDirectorRows.length === 0 ? (
+                  ) : paginatedPortalRows.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">
+                      <td colSpan={isDirector ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-500">
                         No patients found.
                       </td>
                     </tr>
                   ) : (
-                    paginatedDirectorRows.map((patient) => (
+                    paginatedPortalRows.map((patient) => (
                       <tr
                         key={patient.id}
                         onClick={() => navigate(`/patients/${patient.id}`)}
@@ -296,6 +337,7 @@ const Patients = () => {
                         <td className="px-4 py-3">{formatBirthDate(patient.birthDate)}</td>
                         <td className="px-4 py-3 text-slate-400">-</td>
                         <td className="px-4 py-3">{patient.treatmentCount}</td>
+                        {isDirector ? (
                         <td
                           className={`px-4 py-3 font-semibold ${
                             patient.totalDebt > 0 ? 'text-red-600' : 'text-slate-400'
@@ -303,6 +345,7 @@ const Patients = () => {
                         >
                           {formatDebt(patient.totalDebt)}
                         </td>
+                        ) : null}
                       </tr>
                     ))
                   )}
@@ -312,7 +355,7 @@ const Patients = () => {
 
             <div className="mt-4 flex items-center justify-between text-xs uppercase tracking-wide text-slate-400">
               <span>
-                Showing {paginatedDirectorRows.length} of {directorRows.length} records
+                Showing {paginatedPortalRows.length} of {portalRows.length} records
               </span>
               <div className="flex items-center gap-1">
                 <button
@@ -350,7 +393,7 @@ const Patients = () => {
           </main>
         </ClinicPortalShell>
 
-        {showAddModal && (
+        {isDirector && showAddModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
             <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
