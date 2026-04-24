@@ -26,7 +26,10 @@
     "namePlaceholder": "Enter medicine name",
     "descriptionPlaceholder": "Enter description",
     "pricePlaceholder": "Enter price",
-    "purchasePricePlaceholder": "Enter purchase price"
+    "purchasePricePlaceholder": "Enter purchase price",
+    "stockLimit": "Stock limit",
+    "stockLimitPlaceholder": "e.g. 5",
+    "stockLimitHint": "Leave empty to turn off low-stock highlighting for this medicine."
   },
   "adding": "Adding...",
   "add": "Add Medicine",
@@ -51,6 +54,9 @@
     "nameRequired": "Please enter the medicine name",
     "total": "Total:",
     "creating": "Creating...",
-    "create": "Create"
+    "create": "Create",
+    "countPlaceholder": "1",
+    "pricePlaceholder": "0.00",
+    "fillRequired": "Select a medicine and enter a valid count (at least 1) and price per unit for each line."
   }
 }

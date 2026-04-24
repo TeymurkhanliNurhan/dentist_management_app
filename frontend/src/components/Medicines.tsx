@@ -3,11 +3,7 @@ import { Search, Plus, X, Edit, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ClinicManagementLayout from './ClinicManagementLayout';
 import { medicineService, purchaseMedicineService } from '../services/api';
-import type {
-  Medicine,
-  MedicineFilters,
-  CreatePurchaseSessionItemDto,
-} from '../services/api';
+import type { Medicine, MedicineFilters } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
 /** Lets users clear the field before typing (e.g. replace 0 with 5 without "05"). */
@@ -21,6 +17,27 @@ function parsePriceDraft(raw: string): DraftNumber {
 
 function priceDraftToNumber(v: DraftNumber): number {
   return v === '' ? 0 : v;
+}
+
+/** Purchase row uses string fields so the inputs can stay empty with numeric placeholders. */
+type PurchaseFormItem = {
+  medicineId: number;
+  count: string;
+  pricePerOne: string;
+};
+
+function parsePurchaseCount(s: string): number | null {
+  if (s.trim() === '') return null;
+  const n = parseInt(s, 10);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return n;
+}
+
+function parsePurchasePricePerOne(s: string): number | null {
+  if (s.trim() === '') return null;
+  const n = parseFloat(s);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
 }
 
 type NewMedicineForm = {
@@ -42,6 +59,8 @@ type EditMedicineForm = {
   description: string;
   price: DraftNumber;
   purchasePrice: number;
+  /** Empty string means clear limit (null on API). */
+  stockLimit: number | '';
 };
 
 const Medicines = () => {
@@ -67,12 +86,11 @@ const Medicines = () => {
     description: '',
     price: 0,
     purchasePrice: 0,
+    stockLimit: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
-  const [purchaseItems, setPurchaseItems] = useState<CreatePurchaseSessionItemDto[]>(
-    [],
-  );
+  const [purchaseItems, setPurchaseItems] = useState<PurchaseFormItem[]>([]);
   const [editingStockMedicineId, setEditingStockMedicineId] = useState<number | null>(
     null,
   );
@@ -145,6 +163,10 @@ const Medicines = () => {
       description: medicine.description,
       price: medicine.price,
       purchasePrice: medicine.purchasePrice ?? 0,
+      stockLimit:
+        medicine.stockLimit === null || medicine.stockLimit === undefined
+          ? ''
+          : medicine.stockLimit,
     });
     setShowEditModal(true);
   };
@@ -161,10 +183,20 @@ const Medicines = () => {
         description: updatedMedicine.description,
         price: priceDraftToNumber(updatedMedicine.price),
         purchasePrice: updatedMedicine.purchasePrice,
+        stockLimit:
+          updatedMedicine.stockLimit === ''
+            ? null
+            : updatedMedicine.stockLimit,
       });
       setShowEditModal(false);
       setEditingMedicine(null);
-      setUpdatedMedicine({ name: '', description: '', price: 0, purchasePrice: 0 });
+      setUpdatedMedicine({
+        name: '',
+        description: '',
+        price: 0,
+        purchasePrice: 0,
+        stockLimit: '',
+      });
       fetchMedicines();
     } catch (err: any) {
       console.error('Failed to update medicine:', err);
@@ -207,8 +239,8 @@ const Medicines = () => {
     setPurchaseItems([
       {
         medicineId: firstMedicine?.id ?? 0,
-        count: 1,
-        pricePerOne: firstMedicine?.purchasePrice ?? 0,
+        count: '',
+        pricePerOne: '',
       },
     ]);
     setShowQuickMedicineModal(false);
@@ -242,9 +274,8 @@ const Medicines = () => {
         ...prev,
         {
           medicineId: created.id,
-          count: 1,
-          pricePerOne:
-            created.purchasePrice ?? priceDraftToNumber(quickMedicine.purchasePrice),
+          count: '',
+          pricePerOne: '',
         },
       ]);
       setShowQuickMedicineModal(false);
@@ -259,15 +290,14 @@ const Medicines = () => {
 
   const handlePurchaseItemChange = (
     index: number,
-    patch: Partial<CreatePurchaseSessionItemDto>,
+    patch: Partial<PurchaseFormItem>,
   ) => {
     setPurchaseItems((prev) =>
       prev.map((item, itemIndex) => {
         if (itemIndex !== index) return item;
         const updated = { ...item, ...patch };
         if (patch.medicineId !== undefined) {
-          const selected = medicines.find((m) => m.id === patch.medicineId);
-          if (selected) updated.pricePerOne = selected.purchasePrice ?? 0;
+          updated.pricePerOne = '';
         }
         return updated;
       }),
@@ -282,8 +312,8 @@ const Medicines = () => {
       ...prev,
       {
         medicineId: fallback?.id ?? 0,
-        count: 1,
-        pricePerOne: fallback?.purchasePrice ?? 0,
+        count: '',
+        pricePerOne: '',
       },
     ]);
   };
@@ -296,17 +326,20 @@ const Medicines = () => {
 
   const handleCreatePurchase = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validItems = purchaseItems.filter(
-      (item) =>
-        Number.isFinite(item.medicineId) &&
-        item.medicineId > 0 &&
-        Number.isFinite(item.count) &&
-        item.count > 0,
-    );
-
-    if (validItems.length === 0) {
-      setError('Please select medicine and count');
-      return;
+    const validItems: { medicineId: number; count: number; pricePerOne: number }[] = [];
+    for (const item of purchaseItems) {
+      const count = parsePurchaseCount(item.count);
+      const pricePerOne = parsePurchasePricePerOne(item.pricePerOne);
+      if (
+        !item.medicineId ||
+        item.medicineId <= 0 ||
+        count === null ||
+        pricePerOne === null
+      ) {
+        setError(t('purchase.fillRequired'));
+        return;
+      }
+      validItems.push({ medicineId: item.medicineId, count, pricePerOne });
     }
 
     setIsSubmitting(true);
@@ -740,6 +773,32 @@ const Medicines = () => {
                 />
               </div>
 
+              <div>
+                <label htmlFor="editStockLimit" className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('form.stockLimit')}
+                </label>
+                <input
+                  type="number"
+                  id="editStockLimit"
+                  min="0"
+                  step="1"
+                  value={updatedMedicine.stockLimit === '' ? '' : updatedMedicine.stockLimit}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setUpdatedMedicine({ ...updatedMedicine, stockLimit: '' });
+                      return;
+                    }
+                    const n = parseInt(raw, 10);
+                    if (!Number.isFinite(n) || n < 0) return;
+                    setUpdatedMedicine({ ...updatedMedicine, stockLimit: n });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6] placeholder:text-slate-400"
+                  placeholder={t('form.stockLimitPlaceholder')}
+                />
+                <p className="mt-1 text-xs text-gray-500">{t('form.stockLimitHint')}</p>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
@@ -779,7 +838,13 @@ const Medicines = () => {
             </div>
 
             <form onSubmit={handleCreatePurchase} className="space-y-4">
-              {purchaseItems.map((item, index) => (
+              {purchaseItems.map((item, index) => {
+                const selectedMedicine = medicines.find((m) => m.id === item.medicineId);
+                const pricePlaceholder =
+                  selectedMedicine != null
+                    ? Number(selectedMedicine.purchasePrice ?? 0).toFixed(2)
+                    : t('purchase.pricePlaceholder');
+                return (
                 <div
                   key={index}
                   className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 p-3 md:grid-cols-12"
@@ -820,19 +885,21 @@ const Medicines = () => {
                       {t('purchase.count')}
                     </label>
                     <input
-                      type="number"
-                      min="1"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
                       value={item.count}
-                      onChange={(e) =>
-                        handlePurchaseItemChange(index, {
-                          count:
-                            e.target.value === ''
-                              ? 1
-                              : Math.max(1, parseInt(e.target.value, 10)),
-                        })
-                      }
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
-                      required
+                      onChange={(e) => {
+                        let v = e.target.value;
+                        if (v === '') {
+                          handlePurchaseItemChange(index, { count: '' });
+                          return;
+                        }
+                        v = v.replace(/\D/g, '');
+                        handlePurchaseItemChange(index, { count: v });
+                      }}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                      placeholder={t('purchase.countPlaceholder')}
                     />
                   </div>
                   <div className="md:col-span-3">
@@ -840,20 +907,27 @@ const Medicines = () => {
                       {t('purchase.pricePerOne')}
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
                       value={item.pricePerOne}
-                      onChange={(e) =>
-                        handlePurchaseItemChange(index, {
-                          pricePerOne:
-                            e.target.value === ''
-                              ? 0
-                              : Math.max(0, parseFloat(e.target.value)),
-                        })
-                      }
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
-                      required
+                      onChange={(e) => {
+                        let v = e.target.value;
+                        if (v === '') {
+                          handlePurchaseItemChange(index, { pricePerOne: '' });
+                          return;
+                        }
+                        v = v.replace(/[^\d.]/g, '');
+                        const dot = v.indexOf('.');
+                        if (dot !== -1) {
+                          v =
+                            v.slice(0, dot + 1) +
+                            v.slice(dot + 1).replace(/\./g, '');
+                        }
+                        handlePurchaseItemChange(index, { pricePerOne: v });
+                      }}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                      placeholder={pricePlaceholder}
                     />
                   </div>
                   <div className="flex items-end md:col-span-1">
@@ -866,7 +940,8 @@ const Medicines = () => {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap gap-2">
@@ -895,7 +970,12 @@ const Medicines = () => {
                 <p className="text-sm font-semibold text-slate-700">
                   {t('purchase.total')}{' '}
                   {purchaseItems
-                    .reduce((sum, item) => sum + item.count * item.pricePerOne, 0)
+                    .reduce((sum, item) => {
+                      const c = parsePurchaseCount(item.count);
+                      const p = parsePurchasePricePerOne(item.pricePerOne);
+                      if (c === null || p === null) return sum;
+                      return sum + c * p;
+                    }, 0)
                     .toFixed(2)}{' '}
                   USD
                 </p>

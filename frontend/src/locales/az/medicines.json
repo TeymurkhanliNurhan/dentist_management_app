@@ -26,7 +26,10 @@
     "namePlaceholder": "Dərmanın adını daxil edin",
     "descriptionPlaceholder": "Təsviri daxil edin",
     "pricePlaceholder": "Qiyməti daxil edin",
-    "purchasePricePlaceholder": "Alış qiymətini daxil edin"
+    "purchasePricePlaceholder": "Alış qiymətini daxil edin",
+    "stockLimit": "Stok limiti",
+    "stockLimitPlaceholder": "məs. 5",
+    "stockLimitHint": "Boş buraxın: bu dərman üçün aşağı stok vurğulaması söndürülür."
   },
   "adding": "Əlavə olunur...",
   "add": "Dərman əlavə et",
@@ -51,6 +54,9 @@
     "nameRequired": "Dərmanın adını daxil edin",
     "total": "Cəmi:",
     "creating": "Yaradılır...",
-    "create": "Yarat"
+    "create": "Yarat",
+    "countPlaceholder": "1",
+    "pricePlaceholder": "0.00",
+    "fillRequired": "Hər sətir üçün dərman seçin, say (ən azı 1) və vahid qiymətini daxil edin."
   }
 }

@@ -26,7 +26,10 @@
     "namePlaceholder": "Введите название лекарства",
     "descriptionPlaceholder": "Введите описание",
     "pricePlaceholder": "Введите цену",
-    "purchasePricePlaceholder": "Введите закупочную цену"
+    "purchasePricePlaceholder": "Введите закупочную цену",
+    "stockLimit": "Лимит остатка",
+    "stockLimitPlaceholder": "напр. 5",
+    "stockLimitHint": "Оставьте пустым, чтобы отключить подсветку низкого остатка для этого лекарства."
   },
   "adding": "Добавление...",
   "add": "Добавить лекарство",
@@ -51,6 +54,9 @@
     "nameRequired": "Введите название лекарства",
     "total": "Итого:",
     "creating": "Создание...",
-    "create": "Создать"
+    "create": "Создать",
+    "countPlaceholder": "1",
+    "pricePlaceholder": "0.00",
+    "fillRequired": "Для каждой строки выберите лекарство и укажите количество (не менее 1) и цену за единицу."
   }
 }
