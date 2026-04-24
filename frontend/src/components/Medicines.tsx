@@ -462,9 +462,20 @@ const Medicines = () => {
                     </td>
                   </tr>
                 ) : (
-                  medicines.map((medicine) => (
-                    <tr key={medicine.id} className="transition-colors hover:bg-slate-50">
-                      <td className="px-6 py-4 text-center text-sm font-semibold text-[#0066A6]">
+                  medicines.map((medicine) => {
+                    const isBelowStockLimit =
+                      medicine.stockLimit !== null &&
+                      medicine.stockLimit !== undefined &&
+                      medicine.stock < medicine.stockLimit;
+
+                    return (
+                    <tr
+                      key={medicine.id}
+                      className={`transition-colors ${isBelowStockLimit ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}`}
+                    >
+                      <td
+                        className={`px-6 py-4 text-center text-sm font-semibold ${isBelowStockLimit ? 'text-red-700' : 'text-[#0066A6]'}`}
+                      >
                         {medicine.name}
                       </td>
                       <td className="px-6 py-4 text-center text-sm text-slate-600">
@@ -487,7 +498,9 @@ const Medicines = () => {
                               >
                                 <Minus className="h-3 w-3" />
                               </button>
-                              <span className="min-w-8 text-center font-semibold text-slate-900">
+                              <span
+                                className={`min-w-8 text-center font-semibold ${isBelowStockLimit ? 'text-red-700' : 'text-slate-900'}`}
+                              >
                                 {draftStock}
                               </span>
                               <button
@@ -520,7 +533,7 @@ const Medicines = () => {
                             <button
                               type="button"
                               onClick={() => startStockEditing(medicine)}
-                              className="rounded border border-slate-200 px-3 py-1 font-semibold text-slate-900 transition hover:bg-slate-50"
+                              className={`rounded px-3 py-1 font-semibold transition ${isBelowStockLimit ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100' : 'border-slate-200 text-slate-900 hover:bg-slate-50'}`}
                             >
                               {medicine.stock ?? 0}
                             </button>
@@ -537,7 +550,8 @@ const Medicines = () => {
                         </button>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>

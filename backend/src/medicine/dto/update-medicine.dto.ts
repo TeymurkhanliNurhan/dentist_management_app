@@ -42,6 +42,12 @@ export class UpdateMedicineDto {
   @Min(0)
   stock?: number;
 
+  @ApiPropertyOptional({ example: 5, nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  stockLimit?: number | null;
+
   @ApiPropertyOptional({ example: 18.75 })
   @IsOptional()
   @IsNumber()

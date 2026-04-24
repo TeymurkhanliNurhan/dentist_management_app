@@ -32,6 +32,12 @@ export class CreateMedicineDto {
   @Min(0)
   stock: number;
 
+  @ApiPropertyOptional({ example: 5, nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  stockLimit?: number | null;
+
   @ApiProperty({ example: 18.75 })
   @IsNumber()
   @Min(0)

@@ -27,6 +27,9 @@ export class Medicine {
   @Column({ type: 'int', default: 0 })
   stock: number;
 
+  @Column({ type: 'int', nullable: true })
+  stockLimit: number | null;
+
   @Column({ type: 'double precision', default: 0 })
   purchasePrice: number;
 

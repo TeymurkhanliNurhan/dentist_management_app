@@ -471,6 +471,7 @@ export interface Medicine {
   description: string;
   price: number;
   stock: number;
+  stockLimit?: number | null;
   purchasePrice: number;
 }
 
@@ -484,6 +485,7 @@ export interface CreateMedicineDto {
   description?: string;
   price: number;
   stock?: number;
+  stockLimit?: number | null;
   purchasePrice?: number;
 }
 
@@ -492,6 +494,7 @@ export interface UpdateMedicineDto {
   description?: string;
   price?: number;
   stock?: number;
+  stockLimit?: number | null;
   purchasePrice?: number;
 }
 

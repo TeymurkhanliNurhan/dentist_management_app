@@ -23,6 +23,7 @@ export class MedicineService {
         description: (dto.description ?? '').trim(),
         price: dto.price,
         stock: dto.stock,
+        stockLimit: dto.stockLimit,
         purchasePrice: dto.purchasePrice,
       });
       const msg = `Dentist with id ${dentistId} created Medicine with id ${created.id}`;
@@ -34,6 +35,7 @@ export class MedicineService {
         description: created.description,
         price: created.price,
         stock: created.stock,
+        stockLimit: created.stockLimit,
         purchasePrice: created.purchasePrice,
       };
     } catch (e: any) {
@@ -51,6 +53,7 @@ export class MedicineService {
           description: dto.description,
           price: dto.price,
           stock: dto.stock,
+          stockLimit: dto.stockLimit,
           purchasePrice: dto.purchasePrice,
         },
       );
@@ -63,6 +66,7 @@ export class MedicineService {
         description: updated.description,
         price: updated.price,
         stock: updated.stock,
+        stockLimit: updated.stockLimit,
         purchasePrice: updated.purchasePrice,
       };
     } catch (e: any) {
@@ -89,6 +93,7 @@ export class MedicineService {
         description: medicine.description,
         price: medicine.price,
         stock: medicine.stock,
+        stockLimit: medicine.stockLimit,
         purchasePrice: medicine.purchasePrice,
       }));
     } catch (e: any) {

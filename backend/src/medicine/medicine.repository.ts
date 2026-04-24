@@ -33,6 +33,7 @@ export class MedicineRepository {
       description: string;
       price: number;
       stock: number;
+      stockLimit?: number | null;
       purchasePrice: number;
     },
   ): Promise<Medicine> {
@@ -55,6 +56,7 @@ export class MedicineRepository {
       description: string;
       price: number;
       stock: number;
+      stockLimit: number | null;
       purchasePrice: number;
     }>,
   ): Promise<Medicine> {
@@ -68,6 +70,7 @@ export class MedicineRepository {
       med.description = updates.description;
     if (updates.price !== undefined) med.price = updates.price;
     if (updates.stock !== undefined) med.stock = updates.stock;
+    if (updates.stockLimit !== undefined) med.stockLimit = updates.stockLimit;
     if (updates.purchasePrice !== undefined)
       med.purchasePrice = updates.purchasePrice;
     return await this.repo.save(med);
