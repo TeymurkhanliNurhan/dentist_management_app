@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DASHBOARD_TILE_IMAGES, type DashboardTileKey } from '../lib/dashboardTileImages';
 import { useEffect, useMemo, useState } from 'react';
-import { Settings } from 'lucide-react';
+import { CalendarDays, DollarSign, MinusCircle, Settings, UserRound, Users } from 'lucide-react';
 import api, { API_BASE_URL } from '../services/api';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
@@ -16,6 +16,57 @@ interface StaffSummary {
   surname?: string;
 }
 
+type StaffStatus = 'on-site' | 'in-surgery' | 'off-clock' | 'resting';
+
+interface DirectorMetrics {
+  dailyIncome: number;
+  dailyOutcome: number;
+  dailyAppointments: number;
+  occupiedRooms: number;
+  totalRooms: number;
+  staffStatuses: Array<{
+    id: number;
+    name: string;
+    surname: string;
+    role: string | null;
+    status: StaffStatus;
+  }>;
+  blockingRequestsCount: number;
+  lowStockMedicines: Array<{
+    id: number;
+    name: string;
+    stock: number;
+    stockLimit: number;
+  }>;
+  todayRandevues: Array<{
+    id: number;
+    patientName: string;
+    treatingDentist: string;
+    time: string;
+    status: string;
+    linkedToAppointment: boolean;
+  }>;
+}
+
+function toYmd(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function hmFromIso(isoString: string): string {
+  const d = new Date(isoString);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function secondsOfTime(value: string): number {
+  const [hh = '0', mm = '0', ss = '0'] = value.split(':');
+  return Number(hh) * 3600 + Number(mm) * 60 + Number(ss);
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,6 +76,8 @@ const Dashboard = () => {
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const [directorStaff, setDirectorStaff] = useState<StaffSummary | null>(null);
   const [awaitingBlockingCount, setAwaitingBlockingCount] = useState(0);
+  const [metrics, setMetrics] = useState<DirectorMetrics | null>(null);
+  const [loadingMetrics, setLoadingMetrics] = useState(false);
 
   useEffect(() => {
     const fetchDirectorStaff = async () => {
@@ -63,10 +116,10 @@ const Dashboard = () => {
 
   useEffect(() => {
     let cancelled = false;
-    const fetchAwaitingCount = async () => {
+    const fetchAwaitingCount = async (): Promise<number> => {
       if (role !== 'director') {
         setAwaitingBlockingCount(0);
-        return;
+        return 0;
       }
       const token = localStorage.getItem('access_token') || '';
       try {
@@ -79,8 +132,10 @@ const Dashboard = () => {
           ? data.filter((x) => x?.approvalStatus === 'awaiting').length
           : 0;
         if (!cancelled) setAwaitingBlockingCount(count);
+        return count;
       } catch {
         if (!cancelled) setAwaitingBlockingCount(0);
+        return 0;
       }
     };
 
@@ -93,6 +148,236 @@ const Dashboard = () => {
       window.clearInterval(timer);
     };
   }, [location.pathname, role]);
+
+  useEffect(() => {
+    let disposed = false;
+    const fetchDirectorDashboard = async () => {
+      if (role !== 'director') {
+        setMetrics(null);
+        return;
+      }
+      setLoadingMetrics(true);
+      const now = new Date();
+      const todayYmd = toYmd(now);
+      const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+      const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      const nowSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      const apiDayOfWeek = now.getDay() === 0 ? 7 : now.getDay();
+
+      try {
+        const [
+          appointmentsResponse,
+          paymentDetailsResponse,
+          randevuesResponse,
+          staffResponse,
+          workingHoursResponse,
+          blockingHoursResponse,
+          roomsResponse,
+          medicinesResponse,
+          blockingRequestsCount,
+        ] = await Promise.all([
+          api.get('/appointment', { params: { startDate: todayYmd, page: 1, limit: 500 } }),
+          api.get('/payment-details', { params: { date: todayYmd } }),
+          api.get('/randevue', { params: { from: dayStart.toISOString(), to: dayEnd.toISOString() } }),
+          api.get('/staff', { params: { active: true } }),
+          api.get('/working-hours'),
+          api.get('/blocking-hours'),
+          api.get('/room'),
+          api.get('/medicine'),
+          (async () => {
+            const res = await fetch(`${API_BASE_URL}/blocking-hours`, {
+              headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+            });
+            if (!res.ok) return 0;
+            const data = await res.json();
+            return Array.isArray(data)
+              ? data.filter((x) => x?.approvalStatus === 'awaiting').length
+              : 0;
+          })(),
+        ]);
+
+        const appointments = appointmentsResponse.data?.appointments ?? [];
+        const paymentDetails = Array.isArray(paymentDetailsResponse.data)
+          ? paymentDetailsResponse.data
+          : [];
+        const randevues = Array.isArray(randevuesResponse.data) ? randevuesResponse.data : [];
+        const staffRows = Array.isArray(staffResponse.data) ? staffResponse.data : [];
+        const workingHours = Array.isArray(workingHoursResponse.data) ? workingHoursResponse.data : [];
+        const blockingHours = Array.isArray(blockingHoursResponse.data) ? blockingHoursResponse.data : [];
+        const rooms = Array.isArray(roomsResponse.data) ? roomsResponse.data : [];
+        const medicines = Array.isArray(medicinesResponse.data) ? medicinesResponse.data : [];
+
+        const dailyIncome = appointments.reduce(
+          (sum: number, item: { calculatedFee?: number }) => sum + Number(item?.calculatedFee ?? 0),
+          0,
+        );
+        const dailyOutcome = paymentDetails.reduce(
+          (sum: number, item: { cost?: number }) => sum + Number(item?.cost ?? 0),
+          0,
+        );
+
+        const activeRandevuesNow = randevues.filter((r: { date: string; endTime: string }) => {
+          const start = new Date(r.date).getTime();
+          const end = new Date(r.endTime).getTime();
+          const nowMs = now.getTime();
+          return start <= nowMs && nowMs < end;
+        });
+
+        const occupiedRoomIds = new Set(
+          activeRandevuesNow
+            .map((r: { room?: { id?: number } }) => r.room?.id)
+            .filter((id: number | undefined): id is number => typeof id === 'number'),
+        );
+
+        const activeByStaffId = new Map<number, { roomDescription?: string }>();
+        activeRandevuesNow.forEach(
+          (r: {
+            dentist?: { id?: number };
+            nurse?: { id?: number };
+            room?: { description?: string };
+          }) => {
+            if (typeof r?.dentist?.id === 'number') {
+              activeByStaffId.set(r.dentist.id, { roomDescription: r.room?.description });
+            }
+            if (typeof r?.nurse?.id === 'number') {
+              activeByStaffId.set(r.nurse.id, { roomDescription: r.room?.description });
+            }
+          },
+        );
+
+        const blockingByStaffId = new Set<number>();
+        blockingHours.forEach(
+          (item: {
+            staffId?: number;
+            approvalStatus?: string;
+            startTime?: string;
+            endTime?: string;
+          }) => {
+            if (item.approvalStatus !== 'approved') return;
+            if (typeof item.staffId !== 'number') return;
+            const start = new Date(item.startTime ?? '').getTime();
+            const end = new Date(item.endTime ?? '').getTime();
+            const nowMs = now.getTime();
+            if (Number.isFinite(start) && Number.isFinite(end) && start <= nowMs && nowMs < end) {
+              blockingByStaffId.add(item.staffId);
+            }
+          },
+        );
+
+        const workingByStaffId = new Map<number, Array<{ startTime: string; endTime: string }>>();
+        workingHours.forEach(
+          (item: { staffId?: number; dayOfWeek?: number; startTime?: string; endTime?: string }) => {
+            if (item.dayOfWeek !== apiDayOfWeek || typeof item.staffId !== 'number') return;
+            const arr = workingByStaffId.get(item.staffId) ?? [];
+            arr.push({
+              startTime: item.startTime ?? '00:00:00',
+              endTime: item.endTime ?? '00:00:00',
+            });
+            workingByStaffId.set(item.staffId, arr);
+          },
+        );
+
+        const relevantStaff = staffRows.filter((s: { role?: string | null }) => {
+          const roleName = (s.role ?? '').toLowerCase();
+          return roleName === 'dentist' || roleName === 'nurse';
+        });
+
+        const staffStatuses = relevantStaff.map(
+          (staff: { id: number; name: string; surname: string; role: string | null }) => {
+            const windows = workingByStaffId.get(staff.id) ?? [];
+            const inWorkingHours = windows.some(
+              (w) =>
+                secondsOfTime(w.startTime) <= nowSeconds &&
+                nowSeconds < secondsOfTime(w.endTime),
+            );
+
+            let status: StaffStatus = 'off-clock';
+            const active = activeByStaffId.get(staff.id);
+            if (!inWorkingHours) {
+              status = 'off-clock';
+            } else if (active) {
+              const isSurgery = (active.roomDescription ?? '').toLowerCase().includes('surgery');
+              status = isSurgery ? 'in-surgery' : 'on-site';
+            } else if (blockingByStaffId.has(staff.id)) {
+              status = 'resting';
+            } else {
+              status = 'on-site';
+            }
+            return { ...staff, status };
+          },
+        );
+
+        const lowStockMedicines = medicines
+          .filter((m: { stock?: number; stockLimit?: number | null }) => {
+            if (typeof m.stockLimit !== 'number') return false;
+            return Number(m.stock ?? 0) <= m.stockLimit;
+          })
+          .map((m: { id: number; name: string; stock: number; stockLimit: number }) => ({
+            id: m.id,
+            name: m.name,
+            stock: Number(m.stock ?? 0),
+            stockLimit: Number(m.stockLimit ?? 0),
+          }))
+          .slice(0, 6);
+
+        const todayRandevues = randevues
+          .slice()
+          .sort(
+            (a: { date: string }, b: { date: string }) =>
+              new Date(a.date).getTime() - new Date(b.date).getTime(),
+          )
+          .slice(0, 8)
+          .map(
+            (item: {
+              id: number;
+              date: string;
+              status: string;
+              patient?: { name?: string; surname?: string };
+              dentist?: { name?: string; surname?: string } | null;
+              appointment?: { id?: number } | null;
+            }) => ({
+              id: item.id,
+              patientName:
+                `${item.patient?.name ?? ''} ${item.patient?.surname ?? ''}`.trim() || '-',
+              treatingDentist:
+                `${item.dentist?.name ?? ''} ${item.dentist?.surname ?? ''}`.trim() || '-',
+              time: hmFromIso(item.date),
+              status: item.status ?? '-',
+              linkedToAppointment: !!item.appointment?.id,
+            }),
+          );
+
+        if (!disposed) {
+          setAwaitingBlockingCount(blockingRequestsCount);
+          setMetrics({
+            dailyIncome,
+            dailyOutcome,
+            dailyAppointments: appointments.length,
+            occupiedRooms: occupiedRoomIds.size,
+            totalRooms: rooms.length,
+            staffStatuses,
+            blockingRequestsCount,
+            lowStockMedicines,
+            todayRandevues,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load director dashboard metrics', error);
+        if (!disposed) setMetrics(null);
+      } finally {
+        if (!disposed) setLoadingMetrics(false);
+      }
+    };
+
+    void fetchDirectorDashboard();
+    const timer = window.setInterval(() => {
+      void fetchDirectorDashboard();
+    }, 30_000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [role]);
 
   const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
 
@@ -151,7 +436,142 @@ const Dashboard = () => {
             </button>
           }
         >
-          <main className="min-h-0 flex-1 bg-[#f9fafb]" />
+          <main className="min-h-0 flex-1 overflow-y-auto bg-[#f9fafb] p-6">
+            <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+              <section>
+                <h1 className="text-3xl font-semibold text-slate-800">Director&apos;s Overview</h1>
+                <p className="text-sm text-slate-500">
+                  Real-time and daily clinic performance snapshot.
+                </p>
+              </section>
+
+              <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <DollarSign className="h-4 w-4 text-emerald-600" />
+                    Daily Income
+                  </div>
+                  <p className="text-2xl font-semibold text-slate-800">
+                    ${Number(metrics?.dailyIncome ?? 0).toFixed(2)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <MinusCircle className="h-4 w-4 text-rose-600" />
+                    Daily Outcome
+                  </div>
+                  <p className="text-2xl font-semibold text-slate-800">
+                    ${Number(metrics?.dailyOutcome ?? 0).toFixed(2)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <CalendarDays className="h-4 w-4 text-blue-600" />
+                    Appointments Today
+                  </div>
+                  <p className="text-2xl font-semibold text-slate-800">{metrics?.dailyAppointments ?? 0}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <Users className="h-4 w-4 text-indigo-600" />
+                    Room Occupancy
+                  </div>
+                  <p className="text-2xl font-semibold text-slate-800">
+                    {metrics?.occupiedRooms ?? 0} / {metrics?.totalRooms ?? 0}
+                  </p>
+                </div>
+              </section>
+
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 xl:col-span-2">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-slate-800">Recent Randevues</h2>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/appointments')}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                    >
+                      View all
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                          <th className="py-2 pr-3">Patient</th>
+                          <th className="py-2 pr-3">Dentist</th>
+                          <th className="py-2 pr-3">Time</th>
+                          <th className="py-2 pr-3">Status</th>
+                          <th className="py-2">Link</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(metrics?.todayRandevues ?? []).map((row) => (
+                          <tr key={row.id} className="border-b border-slate-100">
+                            <td className="py-2 pr-3 font-medium text-slate-700">{row.patientName}</td>
+                            <td className="py-2 pr-3 text-slate-600">{row.treatingDentist}</td>
+                            <td className="py-2 pr-3 text-slate-600">{row.time}</td>
+                            <td className="py-2 pr-3 capitalize text-slate-600">{row.status}</td>
+                            <td className="py-2 text-slate-600">
+                              {row.linkedToAppointment ? 'Randevue + Appointment' : 'Randevue only'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-slate-800">Staff Status</h2>
+                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700">
+                        {metrics?.blockingRequestsCount ?? 0} requests
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {(metrics?.staffStatuses ?? []).slice(0, 6).map((staff) => (
+                        <div key={staff.id} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <UserRound className="h-4 w-4 text-slate-500" />
+                            <span className="text-sm text-slate-700">
+                              {staff.name} {staff.surname}
+                            </span>
+                          </div>
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                            {staff.status.replace('-', ' ')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+                    <h2 className="mb-2 text-lg font-semibold text-rose-800">Medicines to Purchase</h2>
+                    <div className="space-y-2">
+                      {(metrics?.lowStockMedicines ?? []).length === 0 ? (
+                        <p className="text-sm text-rose-700">No low-stock medicines right now.</p>
+                      ) : (
+                        (metrics?.lowStockMedicines ?? []).map((medicine) => (
+                          <div key={medicine.id} className="flex items-center justify-between rounded-md bg-white px-3 py-2">
+                            <span className="text-sm font-medium text-slate-700">{medicine.name}</span>
+                            <span className="text-xs font-semibold text-rose-700">
+                              {medicine.stock} / {medicine.stockLimit}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {loadingMetrics && (
+                <p className="text-sm text-slate-500">Refreshing dashboard data...</p>
+              )}
+            </div>
+          </main>
         </ClinicPortalShell>
       </div>
       <LogoutConfirmModal
