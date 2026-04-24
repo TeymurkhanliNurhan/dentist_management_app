@@ -15,6 +15,16 @@ export class GetPaymentDetailsDto {
   @IsDateString()
   date?: string;
 
+  @ApiPropertyOptional({ example: '2026-04-19', description: 'Payment date from (inclusive), range' })
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @ApiPropertyOptional({ example: '2026-04-25', description: 'Payment date to (inclusive), range' })
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
+
   @ApiPropertyOptional({ example: 10, description: 'Expense ID' })
   @IsOptional()
   @Type(() => Number)

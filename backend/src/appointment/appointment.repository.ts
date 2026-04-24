@@ -121,6 +121,8 @@ export class AppointmentRepository {
     filters: {
       id?: number;
       startDate?: string;
+      startDateFrom?: string;
+      startDateTo?: string;
       endDate?: string;
       patient?: number;
       patientName?: string;
@@ -145,6 +147,17 @@ export class AppointmentRepository {
       queryBuilder.andWhere('appointment.startDate = :startDate', {
         startDate: filters.startDate,
       });
+    } else {
+      if (filters.startDateFrom !== undefined) {
+        queryBuilder.andWhere('appointment.startDate >= :startDateFrom', {
+          startDateFrom: filters.startDateFrom,
+        });
+      }
+      if (filters.startDateTo !== undefined) {
+        queryBuilder.andWhere('appointment.startDate <= :startDateTo', {
+          startDateTo: filters.startDateTo,
+        });
+      }
     }
     if (filters.endDate !== undefined) {
       queryBuilder.andWhere('appointment.endDate = :endDate', {

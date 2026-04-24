@@ -71,6 +71,12 @@ interface DirectorMetrics {
     endTime: string;
     requestName: string | null;
   }>;
+  weeklyChart: Array<{
+    dayLabel: string;
+    ymd: string;
+    income: number;
+    outcome: number;
+  }>;
 }
 
 function toYmd(date: Date): string {
@@ -78,6 +84,108 @@ function toYmd(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+function startOfWeekMondayFromDate(d: Date): Date {
+  const c = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = c.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  c.setDate(c.getDate() + diff);
+  return c;
+}
+
+function ymdFromApiDate(value: string | Date | null | undefined, fallback: string): string {
+  if (value == null) return fallback;
+  if (typeof value === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    if (value.length >= 10) return value.slice(0, 10);
+  }
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return fallback;
+    return toYmd(value);
+  }
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return fallback;
+  return toYmd(d);
+}
+
+function DirectorWeekIncomeOutcomeChart({
+  data,
+}: {
+  data: Array<{ dayLabel: string; ymd: string; income: number; outcome: number }>;
+}) {
+  const w = 640;
+  const h = 220;
+  const padL = 44;
+  const padR = 12;
+  const padB = 32;
+  const padT = 10;
+  const innerW = w - padL - padR;
+  const innerH = h - padT - padB;
+  const maxVal = Math.max(1, ...data.flatMap((d) => [d.income, d.outcome]));
+  const groupW = innerW / (data.length || 1);
+  const barW = (groupW * 0.35) as number;
+  const gap = groupW * 0.1;
+  const y0 = h - padB;
+  return (
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      className="h-52 w-full"
+      role="img"
+      aria-label="This week income and outcome by day"
+    >
+      <line
+        x1={padL}
+        y1={y0}
+        x2={w - padR}
+        y2={y0}
+        className="stroke-slate-300"
+        strokeWidth="1"
+      />
+      <text x={4} y={padT + 10} className="fill-slate-500" fontSize="10">
+        {maxVal.toFixed(0)}
+      </text>
+      <text x={4} y={y0 - 2} className="fill-slate-500" fontSize="10">
+        0
+      </text>
+      {data.map((row, i) => {
+        const xGroup = padL + i * groupW;
+        const incomeH = (row.income / maxVal) * innerH;
+        const outcomeH = (row.outcome / maxVal) * innerH;
+        const x1 = xGroup + gap / 2;
+        const x2 = x1 + barW + gap * 0.2;
+        return (
+          <g key={row.ymd}>
+            <rect
+              x={x1}
+              y={y0 - incomeH}
+              width={barW}
+              height={incomeH}
+              className="fill-emerald-500"
+              rx="2"
+            />
+            <rect
+              x={x2}
+              y={y0 - outcomeH}
+              width={barW}
+              height={outcomeH}
+              className="fill-rose-500"
+              rx="2"
+            />
+            <text
+              x={xGroup + groupW / 2}
+              y={h - 8}
+              textAnchor="middle"
+              className="fill-slate-600"
+              fontSize="11"
+            >
+              {row.dayLabel}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
 }
 
 function hmFromIso(isoString: string): string {
@@ -200,6 +308,11 @@ const Dashboard = () => {
       setLoadingMetrics(true);
       const now = new Date();
       const todayYmd = toYmd(now);
+      const weekStart = startOfWeekMondayFromDate(now);
+      const weekEndD = new Date(weekStart);
+      weekEndD.setDate(weekEndD.getDate() + 6);
+      const monYmd = toYmd(weekStart);
+      const sunYmd = toYmd(weekEndD);
       const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
       const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
       const nowSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
@@ -217,8 +330,10 @@ const Dashboard = () => {
           medicinesResponse,
           blockingRequestsCount,
         ] = await Promise.all([
-          api.get('/appointment', { params: { startDate: todayYmd, page: 1, limit: 500 } }),
-          api.get('/payment-details', { params: { date: todayYmd } }),
+          api.get('/appointment', {
+            params: { startDateFrom: monYmd, startDateTo: sunYmd, page: 1, limit: 2000 },
+          }),
+          api.get('/payment-details', { params: { dateFrom: monYmd, dateTo: sunYmd } }),
           api.get('/randevue', { params: { from: dayStart.toISOString(), to: dayEnd.toISOString() } }),
           api.get('/staff', { params: { active: true } }),
           api.get('/working-hours'),
@@ -237,10 +352,18 @@ const Dashboard = () => {
           })(),
         ]);
 
-        const appointments = appointmentsResponse.data?.appointments ?? [];
-        const paymentDetails = Array.isArray(paymentDetailsResponse.data)
+        const allWeekAppointments = appointmentsResponse.data?.appointments ?? [];
+        const allWeekPaymentDetails = Array.isArray(paymentDetailsResponse.data)
           ? paymentDetailsResponse.data
           : [];
+
+        const appointments = allWeekAppointments.filter(
+          (item: { startDate?: string | Date }) =>
+            ymdFromApiDate(item.startDate, todayYmd) === todayYmd,
+        );
+        const paymentDetails = allWeekPaymentDetails.filter((item: { date?: string | Date | null }) =>
+          ymdFromApiDate(item.date, todayYmd) === todayYmd,
+        );
         const randevues = Array.isArray(randevuesResponse.data) ? randevuesResponse.data : [];
         const staffRows = Array.isArray(staffResponse.data) ? staffResponse.data : [];
         const workingHours = Array.isArray(workingHoursResponse.data) ? workingHoursResponse.data : [];
@@ -361,6 +484,45 @@ const Dashboard = () => {
           }))
           .slice(0, 6);
 
+        const ymdInWeek: string[] = [];
+        for (let i = 0; i < 7; i += 1) {
+          const cur = new Date(weekStart);
+          cur.setDate(cur.getDate() + i);
+          ymdInWeek.push(toYmd(cur));
+        }
+        const incomeByYmd: Record<string, number> = Object.fromEntries(ymdInWeek.map((y) => [y, 0]));
+        const outcomeByYmd: Record<string, number> = Object.fromEntries(ymdInWeek.map((y) => [y, 0]));
+        for (const item of allWeekAppointments) {
+          const y = ymdFromApiDate(
+            (item as { startDate?: string | Date | null })?.startDate,
+            monYmd,
+          );
+          if (y in incomeByYmd) {
+            incomeByYmd[y] += Number(
+              (item as { calculatedFee?: number } | null)?.calculatedFee ?? 0,
+            );
+          }
+        }
+        for (const item of allWeekPaymentDetails) {
+          const y = ymdFromApiDate(
+            (item as { date?: string | Date | null })?.date,
+            monYmd,
+          );
+          if (y in outcomeByYmd) {
+            outcomeByYmd[y] += Number((item as { cost?: number })?.cost ?? 0);
+          }
+        }
+        const weeklyChart = ymdInWeek.map((ymd) => {
+          const d = new Date(ymd + 'T12:00:00');
+          const dayLabel = d.toLocaleDateString('en-GB', { weekday: 'short' });
+          return {
+            ymd,
+            dayLabel,
+            income: incomeByYmd[ymd] ?? 0,
+            outcome: outcomeByYmd[ymd] ?? 0,
+          };
+        });
+
         const staffNameById = new Map<number, string>();
         staffRows.forEach((row: { id: number; name?: string; surname?: string }) => {
           const fullName = `${row.name ?? ''} ${row.surname ?? ''}`.trim() || '-';
@@ -429,7 +591,7 @@ const Dashboard = () => {
               id: item.id,
               source,
               amount: Number(item.cost ?? 0),
-              date: item.date ?? todayYmd,
+              date: ymdFromApiDate(item.date, todayYmd),
             };
           },
         );
@@ -445,7 +607,7 @@ const Dashboard = () => {
             id: item.id,
             patientName:
               `${item.patient?.name ?? ''} ${item.patient?.surname ?? ''}`.trim() || '-',
-            startDate: item.startDate ?? todayYmd,
+            startDate: ymdFromApiDate(item.startDate, todayYmd),
             chargedFee: item.chargedFee ?? null,
             calculatedFee: Number(item.calculatedFee ?? 0),
           }),
@@ -495,6 +657,7 @@ const Dashboard = () => {
             dailyOutcomeBreakdown,
             dailyAppointmentsBreakdown,
             awaitingBlockingRequests,
+            weeklyChart,
           });
         }
       } catch (error) {
@@ -630,6 +793,28 @@ const Dashboard = () => {
                 </div>
               </section>
 
+              <section className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-800">
+                      This week: income and outcome by day
+                    </h2>
+                    <p className="text-sm text-slate-500">Monday to Sunday, current calendar week</p>
+                  </div>
+                  <div className="flex gap-4 text-xs text-slate-600">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+                      Income
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-2.5 rounded-sm bg-rose-500" />
+                      Outcome
+                    </span>
+                  </div>
+                </div>
+                <DirectorWeekIncomeOutcomeChart data={metrics?.weeklyChart ?? []} />
+              </section>
+
               {activeDetailsPanel && (
                 <section className="rounded-xl border border-slate-200 bg-white p-4">
                   <div className="mb-3 flex items-center justify-between">
@@ -698,7 +883,7 @@ const Dashboard = () => {
               <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                 <div className="rounded-xl border border-slate-200 bg-white p-4 xl:col-span-2">
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-slate-800">Recent Randevues</h2>
+                    <h2 className="text-lg font-semibold text-slate-800">Today&apos;s Randevues</h2>
                     <button
                       type="button"
                       onClick={() => navigate('/appointments')}

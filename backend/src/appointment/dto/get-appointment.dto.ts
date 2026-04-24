@@ -20,6 +20,16 @@ export class GetAppointmentDto {
   @IsDateString()
   endDate?: string;
 
+  @ApiPropertyOptional({ example: '2025-01-01', description: 'Start date (inclusive), range filter' })
+  @IsOptional()
+  @IsDateString()
+  startDateFrom?: string;
+
+  @ApiPropertyOptional({ example: '2025-01-07', description: 'Start date (inclusive), range filter' })
+  @IsOptional()
+  @IsDateString()
+  startDateTo?: string;
+
   @ApiPropertyOptional({ example: 1, description: 'Patient ID' })
   @IsOptional()
   @Type(() => Number)

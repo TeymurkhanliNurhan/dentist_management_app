@@ -66,7 +66,14 @@ export class PaymentDetailsRepository {
 
   async findForDentist(
     dentistId: number,
-    filters: { id?: number; date?: string; expenseId?: number; salaryId?: number },
+    filters: {
+      id?: number;
+      date?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      expenseId?: number;
+      salaryId?: number;
+    },
   ): Promise<PaymentDetails[]> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const qb = this.repo
@@ -81,7 +88,18 @@ export class PaymentDetailsRepository {
 
     if (filters.id !== undefined)
       qb.andWhere('paymentDetails.id = :id', { id: filters.id });
-    if (filters.date) qb.andWhere('paymentDetails.date = :date', { date: filters.date });
+    if (filters.date) {
+      qb.andWhere("to_char(paymentDetails.date, 'YYYY-MM-DD') = :singleDate", {
+        singleDate: filters.date,
+      });
+    } else {
+      if (filters.dateFrom) {
+        qb.andWhere('paymentDetails.date >= :dateFrom', { dateFrom: filters.dateFrom });
+      }
+      if (filters.dateTo) {
+        qb.andWhere('paymentDetails.date <= :dateTo', { dateTo: filters.dateTo });
+      }
+    }
     if (filters.expenseId !== undefined) {
       qb.andWhere('expense.id = :expenseId', { expenseId: filters.expenseId });
     }

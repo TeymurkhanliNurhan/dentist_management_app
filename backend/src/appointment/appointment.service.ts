@@ -124,6 +124,8 @@ export class AppointmentService {
         await this.repo.findAppointmentsForDentist(dentistId, {
           id: dto.id,
           startDate: dto.startDate,
+          startDateFrom: dto.startDateFrom,
+          startDateTo: dto.startDateTo,
           endDate: dto.endDate,
           patient: dto.patient,
           patientName: dto.patientName,
