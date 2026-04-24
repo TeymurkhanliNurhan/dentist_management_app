@@ -103,9 +103,9 @@ const ToothDetail = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-blue-50">
+      <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
         <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="min-h-0 flex-1 overflow-y-auto max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <p className="text-gray-500">{t('loading')}</p>
           </div>
@@ -115,10 +115,10 @@ const ToothDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-blue-50">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
       <Header />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
+      <main className="min-h-0 flex-1 overflow-y-auto max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         <div className="absolute top-4 right-4" ref={languageMenuRef}>
           <button
             onClick={() => setShowLanguageMenu(!showLanguageMenu)}

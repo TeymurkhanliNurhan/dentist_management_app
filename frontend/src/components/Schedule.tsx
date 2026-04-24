@@ -1689,8 +1689,8 @@ const Schedule = () => {
     <div
       className={
         isDirector
-          ? 'flex min-h-screen flex-col bg-[#f4f6f8] text-slate-700'
-          : 'flex min-h-screen flex-col bg-slate-50'
+          ? 'flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f4f6f8] text-slate-700'
+          : 'flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-50'
       }
     >
       {!isDirector && <Header />}
@@ -1746,7 +1746,7 @@ const Schedule = () => {
         className={
           isDirector
             ? 'mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 overflow-hidden'
-            : 'flex min-h-0 flex-1'
+            : 'flex min-h-0 min-w-0 flex-1 overflow-hidden'
         }
       >
         {isDirector && (
@@ -1795,12 +1795,12 @@ const Schedule = () => {
           </aside>
         )}
 
-      <div className={`flex min-h-0 flex-1 ${isDirector ? 'min-w-0 overflow-hidden' : ''}`}>
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <main
         className={
           isDirector
             ? 'min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto px-6 py-6'
-            : 'mx-auto flex-1 min-w-0 max-w-[1600px] overflow-x-auto px-4 py-6 sm:px-6 lg:px-8'
+            : 'mx-auto min-h-0 flex-1 min-w-0 max-w-[1600px] overflow-x-auto overflow-y-auto px-4 py-6 sm:px-6 lg:px-8'
         }
       >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -2463,7 +2463,7 @@ const Schedule = () => {
 
       {(detailId != null || blockingDetailId != null) && (
         <aside
-          className="w-full max-w-md flex-shrink-0 border-l border-gray-200 bg-white shadow-lg z-40 flex flex-col max-h-[calc(100vh-4rem)] lg:max-h-none lg:min-h-[calc(100vh-5rem)]"
+          className="z-40 flex max-h-full min-h-0 w-full max-w-md shrink-0 flex-col border-l border-gray-200 bg-white shadow-lg lg:max-h-none lg:self-stretch"
           aria-label={
             blockingDetailId != null
               ? t('blockingEditTitle')

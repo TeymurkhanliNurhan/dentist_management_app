@@ -65,7 +65,7 @@ const Header = () => {
   const currentLanguage = languages.find((lang) => lang.code === i18n.language) || languages[0];
 
   return (
-    <header className="bg-gradient-to-r from-teal-500 to-teal-600 shadow-lg">
+    <header className="shrink-0 bg-gradient-to-r from-teal-500 to-teal-600 shadow-lg">
       <div className="w-full px-6 sm:px-8 lg:px-12">
         <div className="flex justify-between items-center h-20">
           <div className="flex items-center space-x-6">

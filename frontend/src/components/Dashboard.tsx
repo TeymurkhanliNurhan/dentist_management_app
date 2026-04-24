@@ -127,7 +127,7 @@ const Dashboard = () => {
   if (role === 'director') {
     return (
       <>
-      <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
+      <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
           brandTitle="Precision Dental"
           portalBadge="Admin Portal"
@@ -151,7 +151,7 @@ const Dashboard = () => {
             </button>
           }
         >
-          <main className="h-[calc(100vh-4rem)] flex-1 bg-[#f9fafb]" />
+          <main className="min-h-0 flex-1 bg-[#f9fafb]" />
         </ClinicPortalShell>
       </div>
       <LogoutConfirmModal
@@ -167,10 +167,10 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-blue-50">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
       <Header />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <main className="min-h-0 flex-1 overflow-y-auto max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold text-gray-800 mb-3">{t('ourServices')}</h1>
           <div className="w-20 h-1 bg-teal-500 mx-auto"></div>

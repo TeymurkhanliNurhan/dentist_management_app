@@ -181,7 +181,7 @@ const Patients = () => {
   if (role === 'director') {
     return (
       <>
-      <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
+      <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
           brandTitle="Clinic Management"
           userDisplayName=""
@@ -203,7 +203,7 @@ const Patients = () => {
             </button>
           }
         >
-          <main className="h-[calc(100vh-4rem)] flex-1 overflow-auto bg-[#f9fafb] px-6 py-6">
+          <main className="min-h-0 flex-1 bg-[#f9fafb] px-6 py-6">
             <div className="mb-6">
               <h1 className="text-4xl font-bold text-slate-900">Patient Directory</h1>
               <p className="mt-2 text-sm text-slate-500">
@@ -439,9 +439,9 @@ const Patients = () => {
   }
 
   return (
-    <div className="min-h-screen bg-blue-50">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
       <Header />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
+      <main className="min-h-0 flex-1 overflow-y-auto max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         <div className="absolute top-4 right-4" ref={languageMenuRef}>
           <button
             onClick={() => setShowLanguageMenu(!showLanguageMenu)}

@@ -84,7 +84,7 @@ export default function CourseOfTreatments() {
 
   return (
     <>
-      <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
+      <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
           brandTitle="Precision Dental"
           portalBadge="Admin Portal"
@@ -107,7 +107,7 @@ export default function CourseOfTreatments() {
             </button>
           }
         >
-          <main className="flex-1 bg-[#f9fafb] px-6 py-6">
+          <main className="min-h-0 flex-1 bg-[#f9fafb] px-6 py-6">
             <div className="mx-auto max-w-7xl space-y-5">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>

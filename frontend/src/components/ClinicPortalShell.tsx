@@ -86,7 +86,7 @@ export function ClinicPortalShell({
   }, [isDirector, pathname]);
 
   return (
-    <>
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
       <header className="h-16 shrink-0 border-b border-slate-200 bg-white px-6">
         <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -129,7 +129,7 @@ export function ClinicPortalShell({
         </div>
       </header>
 
-      <div className="mx-auto flex h-[calc(100vh-4rem)] min-h-0 w-full max-w-[1600px] overflow-hidden">
+      <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[1600px] overflow-hidden">
         <aside
           className={`relative shrink-0 border-r border-slate-200 bg-[#f0f3f7] transition-all duration-300 ${
             isSidebarOpen ? 'w-64' : 'w-20'
@@ -184,6 +184,6 @@ export function ClinicPortalShell({
 
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</div>
       </div>
-    </>
+    </div>
   );
 }

@@ -233,9 +233,9 @@ const Settings = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-blue-50">
+      <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
         <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="min-h-0 flex-1 overflow-y-auto max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <p className="text-gray-500">Loading settings...</p>
           </div>
@@ -246,9 +246,9 @@ const Settings = () => {
 
   if (error && !dentist) {
     return (
-      <div className="min-h-screen bg-blue-50">
+      <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
         <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="min-h-0 flex-1 overflow-y-auto max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <p className="text-red-600">{error}</p>
           </div>
@@ -258,10 +258,10 @@ const Settings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-blue-50">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
       <Header />
       
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="min-h-0 flex-1 overflow-y-auto max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow-md p-8">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-3xl font-bold text-gray-900">Settings</h1>

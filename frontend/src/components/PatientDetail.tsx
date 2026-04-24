@@ -270,7 +270,7 @@ const PatientDetail = () => {
     if (isDirector) {
       return (
         <>
-        <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
+        <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
           <ClinicPortalShell
             brandTitle="Clinic Management"
             userDisplayName=""
@@ -283,7 +283,7 @@ const PatientDetail = () => {
             onLogoutClick={() => setShowLogoutConfirm(true)}
             showProfileStrip={false}
           >
-            <main className="relative h-[calc(100vh-4rem)] flex-1 overflow-auto bg-[#f9fafb] px-6 py-6">
+            <main className="relative min-h-0 flex-1 bg-[#f9fafb] px-6 py-6">
               {children}
             </main>
           </ClinicPortalShell>
@@ -301,9 +301,11 @@ const PatientDetail = () => {
     }
 
     return (
-      <div className="min-h-screen bg-[#f4f6f8]">
+      <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f4f6f8]">
         <Header />
-        <main className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">{children}</main>
+        <main className="relative mx-auto min-h-0 flex-1 max-w-7xl overflow-y-auto px-4 py-8 sm:px-6 lg:px-8">
+          {children}
+        </main>
       </div>
     );
   };

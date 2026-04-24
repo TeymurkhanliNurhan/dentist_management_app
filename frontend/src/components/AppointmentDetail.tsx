@@ -365,8 +365,16 @@ const AppointmentDetail = () => {
     typeof fromPatientIdRaw === 'number' && Number.isFinite(fromPatientIdRaw) && fromPatientIdRaw > 0
       ? fromPatientIdRaw
       : undefined;
-  const backPath = fromPatientId != null ? `/patients/${fromPatientId}` : '/appointments';
-  const backButtonLabel = fromPatientId != null ? 'Back to Patient' : 'Back to Appointments';
+  const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
+  const isAdminLike = role === 'director' || role === 'admin';
+  const backPath =
+    fromPatientId != null ? `/patients/${fromPatientId}` : isAdminLike ? '/schedule' : '/appointments';
+  const backButtonLabel =
+    fromPatientId != null
+      ? 'Back to Patient'
+      : isAdminLike
+        ? 'Back to Schedule'
+        : 'Back to Appointments';
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [treatments, setTreatments] = useState<ToothTreatment[]>([]);
   const [teethInfo, setTeethInfo] = useState<Map<number, ToothInfo>>(new Map());
@@ -420,9 +428,6 @@ const AppointmentDetail = () => {
   const [allMedicines, setAllMedicines] = useState<Medicine[]>([]);
   const [selectedMedicineQuantities, setSelectedMedicineQuantities] = useState<Record<number, number>>({});
   const [medicineQuery, setMedicineQuery] = useState('');
-  const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
-  const isAdminLike = role === 'director' || role === 'admin';
-
   const [treatmentPage, setTreatmentPage] = useState(1);
   const [medicinePage, setMedicinePage] = useState(1);
   const ITEMS_PER_PAGE = 10;

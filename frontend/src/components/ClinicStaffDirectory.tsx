@@ -548,7 +548,7 @@ const ClinicStaffDirectory = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-[#f4f6f8] text-slate-700">
+      <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
           brandTitle="Precision Dental"
           portalBadge="Admin Portal"
@@ -561,7 +561,7 @@ const ClinicStaffDirectory = () => {
           navigate={navigate}
           onLogoutClick={() => setShowLogoutConfirm(true)}
         >
-          <main className="h-[calc(100vh-4rem)] flex-1 overflow-auto bg-[#f9fafb] px-6 py-6">
+          <main className="min-h-0 flex-1 bg-[#f9fafb] px-6 py-6">
             <div className="mb-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -908,7 +908,7 @@ const ClinicStaffDirectory = () => {
             </div>
           </main>
           {activeStaffId != null && (
-            <aside className="h-[calc(100vh-4rem)] w-full max-w-md border-l border-slate-200 bg-white p-5 shadow-xl">
+            <aside className="min-h-0 w-full max-w-md shrink-0 overflow-y-auto border-l border-slate-200 bg-white p-5 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-slate-900">Edit salary</h2>
                 <button

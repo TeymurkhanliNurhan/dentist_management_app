@@ -200,10 +200,10 @@ const Appointments = () => {
       : error;
 
   return (
-    <div className="min-h-screen bg-blue-50">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
       <Header />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="min-h-0 flex-1 overflow-y-auto max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">{t('title')}</h1>
 
