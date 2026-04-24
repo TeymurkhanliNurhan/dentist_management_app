@@ -46,6 +46,31 @@ interface DirectorMetrics {
     status: string;
     linkedToAppointment: boolean;
   }>;
+  dailyIncomeBreakdown: Array<{
+    id: number;
+    patientName: string;
+    amount: number;
+  }>;
+  dailyOutcomeBreakdown: Array<{
+    id: number;
+    source: string;
+    amount: number;
+    date: string;
+  }>;
+  dailyAppointmentsBreakdown: Array<{
+    id: number;
+    patientName: string;
+    startDate: string;
+    chargedFee: number | null;
+    calculatedFee: number;
+  }>;
+  awaitingBlockingRequests: Array<{
+    id: number;
+    staffName: string;
+    startTime: string;
+    endTime: string;
+    requestName: string | null;
+  }>;
 }
 
 function toYmd(date: Date): string {
@@ -67,6 +92,19 @@ function secondsOfTime(value: string): number {
   return Number(hh) * 3600 + Number(mm) * 60 + Number(ss);
 }
 
+function getRandevueTimeStatus(
+  startIso: string,
+  endIso: string,
+  now: Date,
+): 'coming up' | 'ongoing' | 'completed' {
+  const start = new Date(startIso).getTime();
+  const end = new Date(endIso).getTime();
+  const nowMs = now.getTime();
+  if (nowMs < start) return 'coming up';
+  if (nowMs >= end) return 'completed';
+  return 'ongoing';
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -78,6 +116,9 @@ const Dashboard = () => {
   const [awaitingBlockingCount, setAwaitingBlockingCount] = useState(0);
   const [metrics, setMetrics] = useState<DirectorMetrics | null>(null);
   const [loadingMetrics, setLoadingMetrics] = useState(false);
+  const [activeDetailsPanel, setActiveDetailsPanel] = useState<
+    'income' | 'outcome' | 'appointments' | 'requests' | null
+  >(null);
 
   useEffect(() => {
     const fetchDirectorStaff = async () => {
@@ -320,6 +361,96 @@ const Dashboard = () => {
           }))
           .slice(0, 6);
 
+        const staffNameById = new Map<number, string>();
+        staffRows.forEach((row: { id: number; name?: string; surname?: string }) => {
+          const fullName = `${row.name ?? ''} ${row.surname ?? ''}`.trim() || '-';
+          staffNameById.set(row.id, fullName);
+        });
+
+        const awaitingBlockingRequests = blockingHours
+          .filter((item: { approvalStatus?: string }) => item.approvalStatus === 'awaiting')
+          .slice()
+          .sort(
+            (
+              a: { startTime?: string },
+              b: { startTime?: string },
+            ) => new Date(a.startTime ?? '').getTime() - new Date(b.startTime ?? '').getTime(),
+          )
+          .map(
+            (item: {
+              id: number;
+              staffId?: number;
+              startTime?: string;
+              endTime?: string;
+              name?: string | null;
+            }) => ({
+              id: item.id,
+              staffName:
+                typeof item.staffId === 'number'
+                  ? (staffNameById.get(item.staffId) ?? `Staff #${item.staffId}`)
+                  : 'Unknown',
+              startTime: item.startTime ?? '',
+              endTime: item.endTime ?? '',
+              requestName: item.name ?? null,
+            }),
+          );
+
+        const dailyIncomeBreakdown = appointments.map(
+          (item: {
+            id: number;
+            patient?: { name?: string; surname?: string };
+            calculatedFee?: number;
+          }) => ({
+            id: item.id,
+            patientName:
+              `${item.patient?.name ?? ''} ${item.patient?.surname ?? ''}`.trim() || '-',
+            amount: Number(item?.calculatedFee ?? 0),
+          }),
+        );
+
+        const dailyOutcomeBreakdown = paymentDetails.map(
+          (item: {
+            id: number;
+            cost?: number;
+            date?: string;
+            expense?: { name?: string } | null;
+            salary?: { staff?: { name?: string; surname?: string } } | null;
+            purchaseMedicineRecords?: unknown[];
+          }) => {
+            const source =
+              item.expense?.name ||
+              (item.salary?.staff
+                ? `Salary: ${item.salary.staff.name ?? ''} ${item.salary.staff.surname ?? ''}`.trim()
+                : Array.isArray(item.purchaseMedicineRecords) &&
+                    item.purchaseMedicineRecords.length > 0
+                  ? 'Medicine purchase'
+                  : 'Other');
+            return {
+              id: item.id,
+              source,
+              amount: Number(item.cost ?? 0),
+              date: item.date ?? todayYmd,
+            };
+          },
+        );
+
+        const dailyAppointmentsBreakdown = appointments.map(
+          (item: {
+            id: number;
+            startDate?: string;
+            chargedFee?: number | null;
+            calculatedFee?: number;
+            patient?: { name?: string; surname?: string };
+          }) => ({
+            id: item.id,
+            patientName:
+              `${item.patient?.name ?? ''} ${item.patient?.surname ?? ''}`.trim() || '-',
+            startDate: item.startDate ?? todayYmd,
+            chargedFee: item.chargedFee ?? null,
+            calculatedFee: Number(item.calculatedFee ?? 0),
+          }),
+        );
+
         const todayRandevues = randevues
           .slice()
           .sort(
@@ -331,6 +462,7 @@ const Dashboard = () => {
             (item: {
               id: number;
               date: string;
+              endTime: string;
               status: string;
               patient?: { name?: string; surname?: string };
               dentist?: { name?: string; surname?: string } | null;
@@ -342,7 +474,7 @@ const Dashboard = () => {
               treatingDentist:
                 `${item.dentist?.name ?? ''} ${item.dentist?.surname ?? ''}`.trim() || '-',
               time: hmFromIso(item.date),
-              status: item.status ?? '-',
+              status: getRandevueTimeStatus(item.date, item.endTime, now),
               linkedToAppointment: !!item.appointment?.id,
             }),
           );
@@ -359,6 +491,10 @@ const Dashboard = () => {
             blockingRequestsCount,
             lowStockMedicines,
             todayRandevues,
+            dailyIncomeBreakdown,
+            dailyOutcomeBreakdown,
+            dailyAppointmentsBreakdown,
+            awaitingBlockingRequests,
           });
         }
       } catch (error) {
@@ -446,7 +582,11 @@ const Dashboard = () => {
               </section>
 
               <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailsPanel('income')}
+                  className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-emerald-300 hover:shadow-sm"
+                >
                   <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <DollarSign className="h-4 w-4 text-emerald-600" />
                     Daily Income
@@ -454,8 +594,12 @@ const Dashboard = () => {
                   <p className="text-2xl font-semibold text-slate-800">
                     ${Number(metrics?.dailyIncome ?? 0).toFixed(2)}
                   </p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailsPanel('outcome')}
+                  className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-rose-300 hover:shadow-sm"
+                >
                   <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <MinusCircle className="h-4 w-4 text-rose-600" />
                     Daily Outcome
@@ -463,14 +607,18 @@ const Dashboard = () => {
                   <p className="text-2xl font-semibold text-slate-800">
                     ${Number(metrics?.dailyOutcome ?? 0).toFixed(2)}
                   </p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailsPanel('appointments')}
+                  className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-blue-300 hover:shadow-sm"
+                >
                   <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <CalendarDays className="h-4 w-4 text-blue-600" />
                     Appointments Today
                   </div>
                   <p className="text-2xl font-semibold text-slate-800">{metrics?.dailyAppointments ?? 0}</p>
-                </div>
+                </button>
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <Users className="h-4 w-4 text-indigo-600" />
@@ -481,6 +629,71 @@ const Dashboard = () => {
                   </p>
                 </div>
               </section>
+
+              {activeDetailsPanel && (
+                <section className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-slate-800">
+                      {activeDetailsPanel === 'income' && 'Daily Income Breakdown'}
+                      {activeDetailsPanel === 'outcome' && 'Daily Outcome Breakdown'}
+                      {activeDetailsPanel === 'appointments' && 'Today Appointments'}
+                      {activeDetailsPanel === 'requests' && 'Awaiting Blocking Requests'}
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setActiveDetailsPanel(null)}
+                      className="text-sm font-medium text-slate-500 hover:text-slate-700"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {activeDetailsPanel === 'income' &&
+                      (metrics?.dailyIncomeBreakdown ?? []).map((row) => (
+                        <div key={row.id} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
+                          <span className="text-slate-700">{row.patientName}</span>
+                          <span className="font-semibold text-emerald-700">${row.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    {activeDetailsPanel === 'outcome' &&
+                      (metrics?.dailyOutcomeBreakdown ?? []).map((row) => (
+                        <div key={row.id} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
+                          <div className="flex flex-col">
+                            <span className="text-slate-700">{row.source}</span>
+                            <span className="text-xs text-slate-500">{row.date}</span>
+                          </div>
+                          <span className="font-semibold text-rose-700">${row.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    {activeDetailsPanel === 'appointments' &&
+                      (metrics?.dailyAppointmentsBreakdown ?? []).map((row) => (
+                        <div key={row.id} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
+                          <div className="flex flex-col">
+                            <span className="text-slate-700">{row.patientName}</span>
+                            <span className="text-xs text-slate-500">{row.startDate}</span>
+                          </div>
+                          <span className="font-semibold text-blue-700">
+                            ${Number(row.chargedFee ?? row.calculatedFee).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    {activeDetailsPanel === 'requests' &&
+                      (metrics?.awaitingBlockingRequests ?? []).map((row) => (
+                        <div key={row.id} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
+                          <div className="flex flex-col">
+                            <span className="text-slate-700">{row.staffName}</span>
+                            <span className="text-xs text-slate-500">
+                              {hmFromIso(row.startTime)} - {hmFromIso(row.endTime)}
+                            </span>
+                          </div>
+                          <span className="text-xs font-semibold uppercase tracking-wide text-rose-700">
+                            {row.requestName || 'request'}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </section>
+              )}
 
               <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                 <div className="rounded-xl border border-slate-200 bg-white p-4 xl:col-span-2">
@@ -526,9 +739,13 @@ const Dashboard = () => {
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <div className="mb-2 flex items-center justify-between">
                       <h2 className="text-lg font-semibold text-slate-800">Staff Status</h2>
-                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700">
+                      <button
+                        type="button"
+                        onClick={() => setActiveDetailsPanel('requests')}
+                        className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                      >
                         {metrics?.blockingRequestsCount ?? 0} requests
-                      </span>
+                      </button>
                     </div>
                     <div className="space-y-2">
                       {(metrics?.staffStatuses ?? []).slice(0, 6).map((staff) => (
