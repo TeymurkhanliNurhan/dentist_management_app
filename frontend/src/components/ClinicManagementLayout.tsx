@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
-import { DIRECTOR_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
+import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
 import { API_BASE_URL } from '../services/api';
 
 export default function ClinicManagementLayout({ children }: { children: ReactNode }) {
@@ -49,13 +49,15 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
   }, [isDirector, pathname]);
 
   const menuItems = useMemo(
-    () =>
-      DIRECTOR_PORTAL_MENU.map((item) =>
+    () => {
+      const baseMenu = isDirector ? DIRECTOR_PORTAL_MENU : DENTIST_PORTAL_MENU;
+      return baseMenu.map((item) =>
         item.path === '/schedule'
           ? { ...item, notificationCount: awaitingBlockingCount }
           : item,
-      ),
-    [awaitingBlockingCount],
+      );
+    },
+    [awaitingBlockingCount, isDirector],
   );
 
   return (
