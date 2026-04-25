@@ -2216,7 +2216,11 @@ const Schedule = () => {
                                   >
                                     {column.label}
                                    </div>
-                                   <div className="relative" style={{ height: DAY_PX }}>
+                                   <div 
+                                     className="relative" 
+                                     style={{ height: DAY_PX }}
+                                     onMouseLeave={() => setHoverTip(null)}
+                                   >
                                      {DISPLAY_HOURS.map((h, slot) => {
                                        if (!useClinicScheduleUi) {
                                         return (
