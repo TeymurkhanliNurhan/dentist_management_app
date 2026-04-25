@@ -11,5 +11,9 @@
   "price": "Price",
   "treatmentDescription": "Treatment Description",
   "notAvailable": "N/A",
-  "notes": "Notes"
+  "notes": "Notes",
+  "performedBy": "Performed by",
+  "roleDirector": "Director",
+  "roleDentist": "Dentist",
+  "roleClinician": "Clinician"
 }

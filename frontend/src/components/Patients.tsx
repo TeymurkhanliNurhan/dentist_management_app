@@ -69,14 +69,14 @@ const Patients = () => {
     ]);
 
     const debtMap: Record<number, number> = {};
-    if (isDirector) {
+    if (isDirector || isDentist) {
       for (const appointment of appointmentsData.appointments) {
         const patientId = appointment.patient?.id;
         if (!patientId) {
           continue;
         }
         const calculatedFee = Number(appointment.calculatedFee || 0);
-        const chargedFee = Number(appointment.chargedFee || 0);
+        const chargedFee = Number(appointment.chargedFee ?? 0);
         const debt = calculatedFee - chargedFee;
         debtMap[patientId] = (debtMap[patientId] || 0) + debt;
       }
@@ -248,7 +248,7 @@ const Patients = () => {
               <h1 className="text-4xl font-bold text-slate-900">Patient Directory</h1>
               <p className="mt-2 text-sm text-slate-500">
                 {patients.length.toLocaleString('en-US')} total registered patients
-                {isDentist ? ' · Treatment counts show your procedures only' : ''}
+                {isDentist ? ' · Treatment counts show your procedures only; debt is the patient’s balance across all appointments' : ''}
               </p>
             </div>
 
@@ -309,19 +309,19 @@ const Patients = () => {
                     <th className="px-4 py-3 text-left">Birthdate</th>
                     <th className="px-4 py-3 text-left">Contact</th>
                     <th className="px-4 py-3 text-left">{isDentist ? 'Your treatments' : 'Treatments'}</th>
-                    {isDirector ? <th className="px-4 py-3 text-left">Debt Status</th> : null}
+                    {isDirector || isDentist ? <th className="px-4 py-3 text-left">Debt Status</th> : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={isDirector ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-500">
+                      <td colSpan={isDirector || isDentist ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-500">
                         Loading patients...
                       </td>
                     </tr>
                   ) : paginatedPortalRows.length === 0 ? (
                     <tr>
-                      <td colSpan={isDirector ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-500">
+                      <td colSpan={isDirector || isDentist ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-500">
                         No patients found.
                       </td>
                     </tr>
@@ -337,7 +337,7 @@ const Patients = () => {
                         <td className="px-4 py-3">{formatBirthDate(patient.birthDate)}</td>
                         <td className="px-4 py-3 text-slate-400">-</td>
                         <td className="px-4 py-3">{patient.treatmentCount}</td>
-                        {isDirector ? (
+                        {isDirector || isDentist ? (
                         <td
                           className={`px-4 py-3 font-semibold ${
                             patient.totalDebt > 0 ? 'text-red-600' : 'text-slate-400'

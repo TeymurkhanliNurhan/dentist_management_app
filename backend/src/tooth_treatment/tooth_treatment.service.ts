@@ -221,6 +221,7 @@ export class ToothTreatmentService {
                 staff: {
                   name: tt.dentist.staff?.name ?? '',
                   surname: tt.dentist.staff?.surname ?? '',
+                  role: tt.dentist.staff?.role ?? null,
                 },
               }
             : null,

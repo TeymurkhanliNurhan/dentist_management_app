@@ -29,29 +29,6 @@ export class ToothTreatmentRepository {
     return dentist.staff.clinicId;
   }
 
-  private async getDentistForAppointmentClinic(
-    appointmentId: number,
-  ): Promise<Dentist> {
-    const appointment = await this.dataSource
-      .getRepository(Appointment)
-      .findOne({
-        where: { id: appointmentId },
-        relations: ['patient', 'patient.clinic'],
-      });
-    if (!appointment?.patient?.clinic?.id) {
-      throw new Error('Clinic not found for appointment');
-    }
-
-    const clinicId = appointment.patient.clinic.id;
-    const mappedDentist = await this.dataSource
-      .getRepository(Dentist)
-      .findOne({ where: { id: clinicId } });
-    if (!mappedDentist) {
-      throw new Error('Dentist not found for clinic mapping');
-    }
-    return mappedDentist;
-  }
-
   private async computeFeeSnapshotForTreatment(
     treatment: Treatment,
     patientId: number,
@@ -139,14 +116,15 @@ export class ToothTreatmentRepository {
       input.patientId,
       input.toothIds,
     );
-    const mappedDentist = await this.getDentistForAppointmentClinic(
-      input.appointmentId,
-    );
+    const performingDentist = await this.dataSource
+      .getRepository(Dentist)
+      .findOne({ where: { id: dentistId } });
+    if (!performingDentist) throw new Error('Dentist not found');
 
     const created = this.repo.create({
       appointment,
       treatment,
-      dentist: mappedDentist,
+      dentist: performingDentist,
       feeSnapshot,
       patientTooth: null,
       patient: input.patientId,
@@ -205,10 +183,6 @@ export class ToothTreatmentRepository {
     }
     if (updates.description !== undefined)
       current.description = updates.description;
-
-    current.dentist = await this.getDentistForAppointmentClinic(
-      current.appointment.id,
-    );
 
     const tttRepo = this.dataSource.getRepository(ToothTreatmentTeeth);
     const ptRepo = this.dataSource.getRepository(PatientTooth);

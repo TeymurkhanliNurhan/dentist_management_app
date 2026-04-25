@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Calendar, FileText, DollarSign, Globe, X } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, DollarSign, Globe, X, User } from 'lucide-react';
 import Header from './Header';
 import { toothTreatmentService, toothService, mediaService, dentistService } from '../services/api';
 import type { ToothTreatment, ToothInfo, Media } from '../services/api';
@@ -218,6 +218,28 @@ const ToothDetail = () => {
                   <p className={`text-lg font-semibold ${textMain}`}>{treatment.treatment.name}</p>
                 </div>
               </div>
+
+              {treatment.dentist?.staff ? (
+                <div className="flex items-start space-x-3">
+                  <User className={`mt-1 h-5 w-5 shrink-0 ${accent}`} />
+                  <div>
+                    <p className={`text-sm font-medium ${muted}`}>{t('performedBy')}</p>
+                    <p className={`text-lg font-semibold ${textMain}`}>
+                      {treatment.dentist.staff.name} {treatment.dentist.staff.surname}
+                      <span className={`ml-2 text-sm font-normal ${muted}`}>
+                        (
+                        {(() => {
+                          const r = treatment.dentist?.staff?.role?.toLowerCase() ?? '';
+                          if (r === 'director' || r.includes('director')) return t('roleDirector');
+                          if (r === 'dentist' || r.includes('dentist')) return t('roleDentist');
+                          return t('roleClinician');
+                        })()}
+                        )
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              ) : null}
 
               {!isDentist ? (
                 <div className="flex items-start space-x-3">

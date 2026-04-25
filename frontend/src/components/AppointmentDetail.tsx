@@ -367,6 +367,14 @@ const AppointmentDetail = () => {
       : undefined;
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isAdminLike = role === 'director' || role === 'admin';
+  const isDentist = role === 'dentist';
+  const loggedInDentistId = useMemo(() => {
+    const raw = localStorage.getItem('dentistId');
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, []);
+  const canSeeTreatmentFees = (t: ToothTreatment) =>
+    !isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId);
   const backPath =
     fromPatientId != null ? `/patients/${fromPatientId}` : isAdminLike ? '/schedule' : '/appointments';
   const backButtonLabel =
@@ -890,7 +898,9 @@ const AppointmentDetail = () => {
       await appointmentService.update(appointment.id, {
         startDate: editedAppointment.startDate,
         endDate: editedAppointment.endDate || null,
-        chargedFee: editedAppointment.chargedFee,
+        chargedFee: isDentist
+          ? (appointment.chargedFee ?? appointment.calculatedFee)
+          : editedAppointment.chargedFee,
       });
       setShowEditAppointment(false);
       const appointmentsData = await appointmentService.getAll();
@@ -1502,6 +1512,7 @@ const AppointmentDetail = () => {
                 <Edit className="w-4 h-4" />
                 <span>Edit</span>
               </button>
+              {isAdminLike ? (
               <button
                 onClick={() => setConfirmDeleteAppointment(true)}
                 className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors min-w-[96px]"
@@ -1509,6 +1520,7 @@ const AppointmentDetail = () => {
                 <Trash className="w-4 h-4" />
                 <span>Delete</span>
               </button>
+              ) : null}
               <button
                 type="button"
                 onClick={openNewRandevuePanel}
@@ -1518,7 +1530,7 @@ const AppointmentDetail = () => {
                 <span>New randevue</span>
               </button>
 
-              {confirmDeleteAppointment && (
+              {isAdminLike && confirmDeleteAppointment && (
                 <div className="mt-1 w-64 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 shadow-sm">
                   <p className="mb-2 font-medium">Delete this appointment?</p>
                   <div className="flex justify-end gap-2">
@@ -1589,51 +1601,57 @@ const AppointmentDetail = () => {
               </div>
             </div>
 
-            <div className="flex items-start space-x-3">
-              <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-gray-500">Calculated Fee</p>
-                <p className="text-lg text-gray-900 font-semibold">
-                  ${appointment.calculatedFee.toFixed(2)}
-                </p>
-              </div>
-            </div>
+            {!isDentist ? (
+              <>
+                <div className="flex items-start space-x-3">
+                  <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Calculated Fee</p>
+                    <p className="text-lg text-gray-900 font-semibold">
+                      ${appointment.calculatedFee.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
 
-            <div className="flex items-start space-x-3">
-              <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-gray-500">Charged Fee</p>
-                <p className="text-lg text-gray-900 font-semibold">
-                  {appointment.chargedFee !== null ? `$${appointment.chargedFee.toFixed(2)}` : 'N/A'}
-                </p>
-              </div>
-            </div>
+                <div className="flex items-start space-x-3">
+                  <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Charged Fee</p>
+                    <p className="text-lg text-gray-900 font-semibold">
+                      {appointment.chargedFee !== null ? `$${appointment.chargedFee.toFixed(2)}` : 'N/A'}
+                    </p>
+                  </div>
+                </div>
 
-            <div className="flex items-start space-x-3">
-              <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-gray-500">Discount Fee</p>
-                <p className="text-lg text-gray-900 font-semibold">
-                  {appointment.discountFee !== null ? `$${appointment.discountFee.toFixed(2)}` : 'N/A'}
-                </p>
-              </div>
-            </div>
+                <div className="flex items-start space-x-3">
+                  <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Discount Fee</p>
+                    <p className="text-lg text-gray-900 font-semibold">
+                      {appointment.discountFee !== null ? `$${appointment.discountFee.toFixed(2)}` : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : null}
           </div>
 
-          <div className="mt-6 pt-6 border-t-2 border-[#0066A6]">
-            <div className="flex items-center justify-between bg-[#f0f7fc] p-4 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <DollarSign className="w-6 h-6 text-[#0066A6]" />
-                <span className="text-lg font-semibold text-gray-900">Total Fee</span>
+          {!isDentist ? (
+            <div className="mt-6 pt-6 border-t-2 border-[#0066A6]">
+              <div className="flex items-center justify-between bg-[#f0f7fc] p-4 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <DollarSign className="w-6 h-6 text-[#0066A6]" />
+                  <span className="text-lg font-semibold text-gray-900">Total Fee</span>
+                </div>
+                <span className="text-2xl font-bold text-[#0066A6]">
+                  ${calculateTotalFee().toFixed(2)}
+                </span>
               </div>
-              <span className="text-2xl font-bold text-[#0066A6]">
-                ${calculateTotalFee().toFixed(2)}
-              </span>
+              <p className="text-xs text-gray-500 mt-2 text-right">
+                (Charged fee if set, otherwise calculated fee)
+              </p>
             </div>
-            <p className="text-xs text-gray-500 mt-2 text-right">
-              (Charged fee if set, otherwise calculated fee)
-            </p>
-          </div>
+          ) : null}
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-8">
@@ -2262,24 +2280,26 @@ const AppointmentDetail = () => {
                             </div>
                           )}
                           
-                          <div className="flex flex-wrap items-center gap-4 text-sm mb-3">
-                            <span className="text-gray-500">
-                              Unit price:{' '}
-                              <span className="font-medium text-gray-900">${treatment.treatment.price.toFixed(2)}</span>
-                              <span className="text-gray-600">
-                                {treatment.treatment.pricePer === 'tooth' && ' (× each selected tooth)'}
-                                {treatment.treatment.pricePer === 'chin' && ' (× each jaw with selected teeth)'}
-                                {treatment.treatment.pricePer === 'mouth' && ' (flat per placement)'}
-                                {treatment.treatment.pricePer == null && ' (single line amount)'}
+                          {canSeeTreatmentFees(treatment) ? (
+                            <div className="flex flex-wrap items-center gap-4 text-sm mb-3">
+                              <span className="text-gray-500">
+                                Unit price:{' '}
+                                <span className="font-medium text-gray-900">${treatment.treatment.price.toFixed(2)}</span>
+                                <span className="text-gray-600">
+                                  {treatment.treatment.pricePer === 'tooth' && ' (× each selected tooth)'}
+                                  {treatment.treatment.pricePer === 'chin' && ' (× each jaw with selected teeth)'}
+                                  {treatment.treatment.pricePer === 'mouth' && ' (flat per placement)'}
+                                  {treatment.treatment.pricePer == null && ' (single line amount)'}
+                                </span>
                               </span>
-                            </span>
-                            <span className="text-gray-500">
-                              Line total:{' '}
-                              <span className="font-semibold text-[#00588f]">
-                                ${(typeof treatment.feeSnapshot === 'number' ? treatment.feeSnapshot : treatment.treatment.price).toFixed(2)}
+                              <span className="text-gray-500">
+                                Line total:{' '}
+                                <span className="font-semibold text-[#00588f]">
+                                  ${(typeof treatment.feeSnapshot === 'number' ? treatment.feeSnapshot : treatment.treatment.price).toFixed(2)}
+                                </span>
                               </span>
-                            </span>
-                          </div>
+                            </div>
+                          ) : null}
 
                           {medicines.length > 0 && (
                             <div className="mb-3 p-3 bg-purple-50 rounded-md border border-purple-200">
@@ -2296,9 +2316,11 @@ const AppointmentDetail = () => {
                                         <span className="text-purple-600"> - {med.medicine.description}</span>
                                       )}
                                     </div>
-                                    <span className="text-sm font-semibold text-purple-900 ml-2">
-                                      ${(med.medicine.price * med.quantity).toFixed(2)}
-                                    </span>
+                                    {canSeeTreatmentFees(treatment) ? (
+                                      <span className="text-sm font-semibold text-purple-900 ml-2">
+                                        ${(med.medicine.price * med.quantity).toFixed(2)}
+                                      </span>
+                                    ) : null}
                                   </div>
                                 ))}
                               </div>
@@ -2570,7 +2592,9 @@ const AppointmentDetail = () => {
                                 >
                                   <div className="flex items-center justify-between">
                                     <span className="font-medium text-gray-900">{t.name}</span>
-                                    <span className="text-sm font-semibold text-gray-700">${t.price.toFixed(2)}</span>
+                                    {canSeeTreatmentFees(treatment) ? (
+                                      <span className="text-sm font-semibold text-gray-700">${t.price.toFixed(2)}</span>
+                                    ) : null}
                                   </div>
                                 </button>
                               ))}
@@ -2639,7 +2663,9 @@ const AppointmentDetail = () => {
                                           +
                                         </button>
                                       </div>
-                                      <span className="text-sm font-semibold text-gray-700">${(m.price * quantity).toFixed(2)}</span>
+                                      {canSeeTreatmentFees(treatment) ? (
+                                        <span className="text-sm font-semibold text-gray-700">${(m.price * quantity).toFixed(2)}</span>
+                                      ) : null}
                                     </div>
                                   </label>
                                 );
@@ -3137,38 +3163,40 @@ const AppointmentDetail = () => {
                   />
                 </div>
 
-                <div>
-                  <label htmlFor="editChargedFee" className="block text-sm font-medium text-gray-700 mb-1">
-                    Charged Fee
-                  </label>
-                  <div className="space-y-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      id="editChargedFee"
-                      value={editedAppointment.chargedFee}
-                      onChange={(e) => setEditedAppointment({ ...editedAppointment, chargedFee: Number(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
-                    />
-                    <div className="bg-[#f0f7fc] border border-[#cce0f0] rounded-lg p-3 space-y-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditedAppointment({ ...editedAppointment, chargedFee: appointment.calculatedFee })}
-                        className="w-full py-1.5 px-3 bg-[#0066A6] text-white text-sm rounded-md font-medium hover:bg-[#00588f] transition-colors"
-                      >
-                        Set as Calculated Fee (${appointment.calculatedFee.toFixed(2)})
-                      </button>
-                      <div className="text-xs text-gray-600 space-y-1">
-                        <p><span className="font-medium">Calculated Fee:</span> ${appointment.calculatedFee.toFixed(2)}</p>
-                        <p><span className="font-medium">Charged Fee:</span> ${editedAppointment.chargedFee.toFixed(2)}</p>
-                        <p className={`font-medium ${editedAppointment.chargedFee > appointment.calculatedFee ? 'text-green-600' : editedAppointment.chargedFee < appointment.calculatedFee ? 'text-red-600' : 'text-gray-600'}`}>
-                          Discount: ${(editedAppointment.chargedFee - appointment.calculatedFee).toFixed(2)}
-                        </p>
+                {!isDentist ? (
+                  <div>
+                    <label htmlFor="editChargedFee" className="block text-sm font-medium text-gray-700 mb-1">
+                      Charged Fee
+                    </label>
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        id="editChargedFee"
+                        value={editedAppointment.chargedFee}
+                        onChange={(e) => setEditedAppointment({ ...editedAppointment, chargedFee: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                      />
+                      <div className="bg-[#f0f7fc] border border-[#cce0f0] rounded-lg p-3 space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditedAppointment({ ...editedAppointment, chargedFee: appointment.calculatedFee })}
+                          className="w-full py-1.5 px-3 bg-[#0066A6] text-white text-sm rounded-md font-medium hover:bg-[#00588f] transition-colors"
+                        >
+                          Set as Calculated Fee (${appointment.calculatedFee.toFixed(2)})
+                        </button>
+                        <div className="text-xs text-gray-600 space-y-1">
+                          <p><span className="font-medium">Calculated Fee:</span> ${appointment.calculatedFee.toFixed(2)}</p>
+                          <p><span className="font-medium">Charged Fee:</span> ${editedAppointment.chargedFee.toFixed(2)}</p>
+                          <p className={`font-medium ${editedAppointment.chargedFee > appointment.calculatedFee ? 'text-green-600' : editedAppointment.chargedFee < appointment.calculatedFee ? 'text-red-600' : 'text-gray-600'}`}>
+                            Discount: ${(editedAppointment.chargedFee - appointment.calculatedFee).toFixed(2)}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                ) : null}
 
                 <div className="flex gap-3 pt-4">
                   <button

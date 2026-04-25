@@ -625,7 +625,7 @@ export interface ToothTreatment {
   feeSnapshot: number;
   dentist?: {
     id: number;
-    staff: { name: string; surname: string };
+    staff: { name: string; surname: string; role?: string | null };
   } | null;
   appointment: {
     id: number;

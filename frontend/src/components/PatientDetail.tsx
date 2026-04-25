@@ -713,16 +713,24 @@ const PatientDetail = () => {
                               </p>
                               <ul className="space-y-2">
                                 {treatments.map((tt) => (
-                                  <li key={tt.id} className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-800">
-                                    <span className="font-medium">{tt.treatment?.name ?? '—'}</span>
-                                    <span className="text-slate-500">
-                                      {t('toothNumbers')}: {formatToothList(tt)}
-                                    </span>
-                                    {tt.dentist && (
+                                  <li key={tt.id} className="flex flex-col gap-1 text-sm text-slate-800">
+                                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                      <span className="font-medium">{tt.treatment?.name ?? '—'}</span>
                                       <span className="text-slate-500">
-                                        {t('dentist')}: {tt.dentist.staff.name} {tt.dentist.staff.surname}
+                                        {t('toothNumbers')}: {formatToothList(tt)}
                                       </span>
-                                    )}
+                                      {tt.dentist && (
+                                        <span className="text-slate-500">
+                                          {t('dentist')}: {tt.dentist.staff.name} {tt.dentist.staff.surname}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {tt.description?.trim() ? (
+                                      <p className="pl-0 text-xs text-slate-600">
+                                        <span className="font-semibold text-slate-500">{t('treatmentNotes')}: </span>
+                                        {tt.description.trim()}
+                                      </p>
+                                    ) : null}
                                   </li>
                                 ))}
                               </ul>
