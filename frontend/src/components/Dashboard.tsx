@@ -761,7 +761,7 @@ const Dashboard = () => {
   const services: { nameKey: DashboardTileKey; image: string; path: string }[] = [
     {
       nameKey: 'appointments',
-      path: '/appointments',
+      path: '/course-of-treatments',
       image: `${DASHBOARD_TILE_IMAGES.appointments}${TILE_IMAGE_QUERY}`,
     },
     {
@@ -964,7 +964,7 @@ const Dashboard = () => {
                     <h2 className="text-lg font-semibold text-slate-800">Today&apos;s Randevues</h2>
                     <button
                       type="button"
-                      onClick={() => navigate('/appointments')}
+                      onClick={() => navigate('/course-of-treatments')}
                       className="text-sm font-medium text-blue-600 hover:text-blue-700"
                     >
                       View all

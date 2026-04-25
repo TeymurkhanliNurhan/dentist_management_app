@@ -378,13 +378,13 @@ const AppointmentDetail = () => {
   const canMutateTreatment = (t: ToothTreatment) =>
     !isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId);
   const backPath =
-    fromPatientId != null ? `/patients/${fromPatientId}` : isAdminLike ? '/schedule' : '/appointments';
+    fromPatientId != null ? `/patients/${fromPatientId}` : isAdminLike ? '/schedule' : '/course-of-treatments';
   const backButtonLabel =
     fromPatientId != null
       ? 'Back to Patient'
       : isAdminLike
         ? 'Back to Schedule'
-        : 'Back to Appointments';
+        : 'Back to Course of Treatments';
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [treatments, setTreatments] = useState<ToothTreatment[]>([]);
   const [teethInfo, setTeethInfo] = useState<Map<number, ToothInfo>>(new Map());

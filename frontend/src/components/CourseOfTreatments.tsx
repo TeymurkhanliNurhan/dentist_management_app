@@ -66,7 +66,7 @@ export default function CourseOfTreatments() {
 
   useEffect(() => {
     if (!isDirector && !isDentist) {
-      navigate('/appointments');
+      navigate('/dashboard');
       return;
     }
     const staffName = localStorage.getItem('name') ?? '';

@@ -242,7 +242,7 @@ const Finance = () => {
 
   useEffect(() => {
     if (!isDirector) {
-      navigate('/appointments');
+      navigate('/course-of-treatments');
       return;
     }
     const staffName = localStorage.getItem('name') ?? '';
