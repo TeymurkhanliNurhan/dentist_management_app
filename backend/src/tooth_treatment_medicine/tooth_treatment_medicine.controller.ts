@@ -55,7 +55,7 @@ export class ToothTreatmentMedicineController {
     @Body() dto: CreateToothTreatmentMedicineDto,
   ) {
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.create(dentistId, dto);
+    return await this.service.create(dentistId, dto, user?.role);
   }
 
   @ApiBearerAuth('bearer')
@@ -76,6 +76,7 @@ export class ToothTreatmentMedicineController {
       toothTreatmentId,
       medicineId,
       dto,
+      user?.role,
     );
   }
 
@@ -91,6 +92,11 @@ export class ToothTreatmentMedicineController {
     @Param('medicine_id', ParseIntPipe) medicineId: number,
   ) {
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.delete(dentistId, toothTreatmentId, medicineId);
+    return await this.service.delete(
+      dentistId,
+      toothTreatmentId,
+      medicineId,
+      user?.role,
+    );
   }
 }

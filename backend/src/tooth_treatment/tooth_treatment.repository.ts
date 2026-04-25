@@ -164,15 +164,22 @@ export class ToothTreatmentRepository {
       toothIds: number[];
       description: string | null;
     }>,
+    restrictToPerformingDentist: boolean,
   ): Promise<ToothTreatment> {
     const current = await this.repo.findOne({
       where: { id },
-      relations: ['appointment', 'treatment'],
+      relations: ['appointment', 'treatment', 'dentist'],
     });
     if (!current) throw new Error('ToothTreatment not found');
     const clinicId = await this.getClinicIdForDentist(dentistId);
     if (current.appointment?.clinicId !== clinicId)
       throw new Error('Forbidden');
+    if (
+      restrictToPerformingDentist &&
+      (current.dentist == null || current.dentist.id !== dentistId)
+    ) {
+      throw new Error('Forbidden');
+    }
 
     if (updates.treatmentId !== undefined) {
       const treatment = await this.dataSource.getRepository(Treatment).findOne({
@@ -247,15 +254,25 @@ export class ToothTreatmentRepository {
     return updated;
   }
 
-  async deleteEnsureOwnership(dentistId: number, id: number): Promise<void> {
+  async deleteEnsureOwnership(
+    dentistId: number,
+    id: number,
+    restrictToPerformingDentist: boolean,
+  ): Promise<void> {
     const current = await this.repo.findOne({
       where: { id },
-      relations: ['appointment'],
+      relations: ['appointment', 'dentist'],
     });
     if (!current) throw new Error('ToothTreatment not found');
     const clinicId = await this.getClinicIdForDentist(dentistId);
     if (current.appointment?.clinicId !== clinicId)
       throw new Error('Forbidden');
+    if (
+      restrictToPerformingDentist &&
+      (current.dentist == null || current.dentist.id !== dentistId)
+    ) {
+      throw new Error('Forbidden');
+    }
     const appointmentId = current.appointment.id;
     await this.repo.remove(current);
     await this.refreshAppointmentFees(appointmentId);

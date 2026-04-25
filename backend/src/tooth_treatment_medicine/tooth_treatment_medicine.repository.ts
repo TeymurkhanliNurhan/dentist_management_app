@@ -54,17 +54,24 @@ export class ToothTreatmentMedicineRepository {
     toothTreatmentId: number,
     medicineId: number,
     quantity = 1,
+    restrictToPerformingDentist = false,
   ): Promise<ToothTreatmentMedicine> {
     const ttRepo = this.dataSource.getRepository(ToothTreatment);
     const medRepo = this.dataSource.getRepository(Medicine);
 
     const toothTreatment = await ttRepo.findOne({
       where: { id: toothTreatmentId },
-      relations: ['appointment'],
+      relations: ['appointment', 'dentist'],
     });
     if (!toothTreatment) throw new Error('ToothTreatment not found');
     const clinicId = await this.getClinicIdForDentist(dentistId);
     if (toothTreatment.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
+    if (
+      restrictToPerformingDentist &&
+      (toothTreatment.dentist == null || toothTreatment.dentist.id !== dentistId)
+    ) {
+      throw new Error('Forbidden');
+    }
 
     const medicine = await medRepo.findOne({
       where: { id: medicineId, clinic: { id: clinicId } },
@@ -99,15 +106,22 @@ export class ToothTreatmentMedicineRepository {
     toothTreatmentId: number,
     medicineId: number,
     quantity: number,
+    restrictToPerformingDentist = false,
   ): Promise<ToothTreatmentMedicine> {
     const ttRepo = this.dataSource.getRepository(ToothTreatment);
     const toothTreatment = await ttRepo.findOne({
       where: { id: toothTreatmentId },
-      relations: ['appointment'],
+      relations: ['appointment', 'dentist'],
     });
     if (!toothTreatment) throw new Error('ToothTreatment not found');
     const clinicId = await this.getClinicIdForDentist(dentistId);
     if (toothTreatment.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
+    if (
+      restrictToPerformingDentist &&
+      (toothTreatment.dentist == null || toothTreatment.dentist.id !== dentistId)
+    ) {
+      throw new Error('Forbidden');
+    }
 
     const existing = await this.repo.findOne({
       where: { medicine: medicineId, toothTreatment: toothTreatmentId },
@@ -124,15 +138,22 @@ export class ToothTreatmentMedicineRepository {
     dentistId: number,
     toothTreatmentId: number,
     medicineId: number,
+    restrictToPerformingDentist = false,
   ): Promise<void> {
     const ttRepo = this.dataSource.getRepository(ToothTreatment);
     const toothTreatment = await ttRepo.findOne({
       where: { id: toothTreatmentId },
-      relations: ['appointment'],
+      relations: ['appointment', 'dentist'],
     });
     if (!toothTreatment) throw new Error('ToothTreatment not found');
     const clinicId = await this.getClinicIdForDentist(dentistId);
     if (toothTreatment.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
+    if (
+      restrictToPerformingDentist &&
+      (toothTreatment.dentist == null || toothTreatment.dentist.id !== dentistId)
+    ) {
+      throw new Error('Forbidden');
+    }
 
     const existing = await this.repo.findOne({
       where: { medicine: medicineId, toothTreatment: toothTreatmentId },

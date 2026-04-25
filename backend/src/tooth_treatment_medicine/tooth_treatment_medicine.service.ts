@@ -16,12 +16,22 @@ export class ToothTreatmentMedicineService {
 
   constructor(private readonly repo: ToothTreatmentMedicineRepository) {}
 
-  async create(dentistId: number, dto: CreateToothTreatmentMedicineDto) {
+  private restrictMutationsToPerformingDentist(role: string | undefined): boolean {
+    return (role ?? '').toLowerCase() === 'dentist';
+  }
+
+  async create(
+    dentistId: number,
+    dto: CreateToothTreatmentMedicineDto,
+    role?: string,
+  ) {
     try {
       const created = await this.repo.createForDentist(
         dentistId,
         dto.tooth_treatment_id,
         dto.medicine_id,
+        dto.quantity ?? 1,
+        this.restrictMutationsToPerformingDentist(role),
       );
       const msg = `Dentist with id ${dentistId} created ToothTreatmentMedicine for ToothTreatment ${dto.tooth_treatment_id} with Medicine ${dto.medicine_id}`;
       this.logger.log(msg);
@@ -55,12 +65,14 @@ export class ToothTreatmentMedicineService {
     dentistId: number,
     toothTreatmentId: number,
     medicineId: number,
+    role?: string,
   ) {
     try {
       await this.repo.deleteEnsureOwnership(
         dentistId,
         toothTreatmentId,
         medicineId,
+        this.restrictMutationsToPerformingDentist(role),
       );
       const msg = `Dentist with id ${dentistId} deleted ToothTreatmentMedicine for ToothTreatment ${toothTreatmentId} with Medicine ${medicineId}`;
       this.logger.log(msg);
@@ -90,6 +102,7 @@ export class ToothTreatmentMedicineService {
     toothTreatmentId: number,
     medicineId: number,
     dto: UpdateToothTreatmentMedicineDto,
+    role?: string,
   ) {
     try {
       const updated = await this.repo.updateQuantityEnsureOwnership(
@@ -97,6 +110,7 @@ export class ToothTreatmentMedicineService {
         toothTreatmentId,
         medicineId,
         dto.quantity,
+        this.restrictMutationsToPerformingDentist(role),
       );
       const msg = `Dentist with id ${dentistId} updated quantity for ToothTreatment ${toothTreatmentId} and Medicine ${medicineId} to ${dto.quantity}`;
       this.logger.log(msg);

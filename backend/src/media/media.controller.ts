@@ -29,6 +29,7 @@ import { CreateMediaDto } from './dto/create-media.dto';
 import { UpdateMediaDto } from './dto/update-media.dto';
 import { GetMediaDto } from './dto/get-media.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
+import { User } from '../auth/decorators/user.decorator';
 
 @ApiTags('media')
 @Controller('media')
@@ -80,10 +81,13 @@ export class MediaController {
   async create(
     @Body() dto: CreateMediaDto,
     @UploadedFile() file: Express.Multer.File,
+    @User() user: any,
   ) {
-    return await this.service.create(dto, file);
+    return await this.service.create(dto, file, user);
   }
 
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update media by id' })
@@ -91,15 +95,18 @@ export class MediaController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMediaDto,
+    @User() user: any,
   ) {
-    return await this.service.update(id, dto);
+    return await this.service.update(id, dto, user);
   }
 
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete media by id' })
   @ApiOkResponse({ description: 'Media deleted' })
-  async delete(@Param('id', ParseIntPipe) id: number) {
-    return await this.service.delete(id);
+  async delete(@Param('id', ParseIntPipe) id: number, @User() user: any) {
+    return await this.service.delete(id, user);
   }
 }

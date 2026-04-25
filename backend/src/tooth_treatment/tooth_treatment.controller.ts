@@ -65,7 +65,7 @@ export class ToothTreatmentController {
     @Body() dto: UpdateToothTreatmentDto,
   ) {
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.patch(dentistId, id, dto);
+    return await this.service.patch(dentistId, id, dto, user?.role);
   }
 
   @ApiBearerAuth('bearer')
@@ -76,6 +76,6 @@ export class ToothTreatmentController {
   @ApiOkResponse({ description: 'Tooth treatment deleted' })
   async delete(@User() user: any, @Param('id', ParseIntPipe) id: number) {
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.delete(dentistId, id);
+    return await this.service.delete(dentistId, id, user?.role);
   }
 }

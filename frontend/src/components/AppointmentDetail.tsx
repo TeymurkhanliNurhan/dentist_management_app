@@ -375,6 +375,8 @@ const AppointmentDetail = () => {
   }, []);
   const canSeeTreatmentFees = (t: ToothTreatment) =>
     !isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId);
+  const canMutateTreatment = (t: ToothTreatment) =>
+    !isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId);
   const backPath =
     fromPatientId != null ? `/patients/${fromPatientId}` : isAdminLike ? '/schedule' : '/appointments';
   const backButtonLabel =
@@ -1246,6 +1248,9 @@ const AppointmentDetail = () => {
   };
 
   const beginEditTreatment = async (tt: ToothTreatment) => {
+    if (isDentist && loggedInDentistId > 0 && tt.dentist?.id !== loggedInDentistId) {
+      return;
+    }
     setError('');
     setLinkTreatmentError('');
     setEditingTreatmentId(tt.id);
@@ -2261,6 +2266,20 @@ const AppointmentDetail = () => {
                           <h3 className="text-lg font-semibold text-gray-900 mb-2">
                             {treatment.treatment.name}
                           </h3>
+                          {treatment.dentist ? (
+                            <p className="text-sm text-slate-600 mb-2">
+                              Performing dentist:{' '}
+                              <span className="font-medium text-slate-900">
+                                {treatment.dentist.staff?.name ?? ''}{' '}
+                                {treatment.dentist.staff?.surname ?? ''}
+                              </span>
+                            </p>
+                          ) : null}
+                          {isDentist && !canMutateTreatment(treatment) ? (
+                            <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                              You can view this treatment. Only the performing dentist can edit it, add media, or delete it.
+                            </p>
+                          ) : null}
                           <p className="text-sm text-gray-600 mb-3">
                             {treatment.treatment.description}
                           </p>
@@ -2365,28 +2384,32 @@ const AppointmentDetail = () => {
                                         }}
                                       />
                                       <div className="absolute inset-0 pointer-events-none bg-black/0 group-hover:bg-black/60 transition-colors flex items-center justify-center gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleEditMedia(media);
-                                          }}
-                                          className="pointer-events-auto opacity-0 group-hover:opacity-100 p-2 bg-white rounded-full hover:bg-gray-100 transition-all"
-                                          title="Edit media"
-                                        >
-                                          <Edit className="w-4 h-4 text-[#0066A6]" />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteMedia(media.id, treatment.id);
-                                          }}
-                                          className="pointer-events-auto opacity-0 group-hover:opacity-100 p-2 bg-red-500 rounded-full hover:bg-red-600 transition-all"
-                                          title="Delete media"
-                                        >
-                                          <Trash className="w-4 h-4 text-white" />
-                                        </button>
+                                        {canMutateTreatment(treatment) ? (
+                                          <>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEditMedia(media);
+                                              }}
+                                              className="pointer-events-auto opacity-0 group-hover:opacity-100 p-2 bg-white rounded-full hover:bg-gray-100 transition-all"
+                                              title="Edit media"
+                                            >
+                                              <Edit className="w-4 h-4 text-[#0066A6]" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteMedia(media.id, treatment.id);
+                                              }}
+                                              className="pointer-events-auto opacity-0 group-hover:opacity-100 p-2 bg-red-500 rounded-full hover:bg-red-600 transition-all"
+                                              title="Delete media"
+                                            >
+                                              <Trash className="w-4 h-4 text-white" />
+                                            </button>
+                                          </>
+                                        ) : null}
                                       </div>
                                       <p className="text-xs text-gray-600 mt-1 px-1 truncate" title={media.name}>
                                         {media.name}
@@ -2398,7 +2421,7 @@ const AppointmentDetail = () => {
                             ) : null;
                           })()}
 
-                          {editingMediaId && (
+                          {canMutateTreatment(treatment) && editingMediaId && (
                             <div className="mt-4 rounded-md border border-[#cce0f0] p-4 bg-[#f0f7fc]/40">
                               <h4 className="text-sm font-semibold text-gray-900 mb-3">Edit Media</h4>
                               <div className="space-y-3">
@@ -2450,7 +2473,9 @@ const AppointmentDetail = () => {
                             </div>
                           )}
 
-                          {confirmDeleteMediaId && confirmDeleteMediaTreatmentId === treatment.id && (
+                          {canMutateTreatment(treatment) &&
+                            confirmDeleteMediaId &&
+                            confirmDeleteMediaTreatmentId === treatment.id && (
                             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 rounded-md">
                               <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Delete Media?</h3>
@@ -2487,56 +2512,60 @@ const AppointmentDetail = () => {
                         </div>
                       </div>
                       <div className="ml-4 flex flex-col gap-2 flex-shrink-0">
-                        {editingTreatmentId === treatment.id ? (
+                        {canMutateTreatment(treatment) ? (
                           <>
+                            {editingTreatmentId === treatment.id ? (
+                              <>
+                                <button
+                                  onClick={() => saveEditTreatment(treatment)}
+                                  className="px-3 py-1.5 bg-[#0066A6] text-white rounded-md hover:bg-[#004a75] transition-colors"
+                                  disabled={isSubmitting}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={cancelEditTreatment}
+                                  className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAddMediaForTreatment(treatment.id)}
+                                  className="flex items-center justify-center space-x-1 px-3 py-1.5 border border-[#0066A6] bg-white text-[#0066A6] rounded-md hover:bg-[#f0f7fc] transition-colors"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                  <span>Add Media</span>
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => beginEditTreatment(treatment)}
+                                  className="flex items-center space-x-1 px-3 py-1.5 bg-[#0066A6] text-white rounded-md hover:bg-[#00588f] transition-colors"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAddMediaForTreatment(treatment.id)}
+                                  className="flex items-center space-x-1 px-3 py-1.5 border border-[#0066A6] bg-white text-[#0066A6] rounded-md hover:bg-[#f0f7fc] transition-colors"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                  <span>Add Media</span>
+                                </button>
+                              </>
+                            )}
                             <button
-                              onClick={() => saveEditTreatment(treatment)}
-                              className="px-3 py-1.5 bg-[#0066A6] text-white rounded-md hover:bg-[#004a75] transition-colors"
-                              disabled={isSubmitting}
+                              onClick={() => setConfirmDeleteTreatmentId(treatment.id)}
+                              className="px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
                             >
-                              Save
-                            </button>
-                            <button
-                              onClick={cancelEditTreatment}
-                              className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setShowAddMediaForTreatment(treatment.id)}
-                              className="flex items-center justify-center space-x-1 px-3 py-1.5 border border-[#0066A6] bg-white text-[#0066A6] rounded-md hover:bg-[#f0f7fc] transition-colors"
-                            >
-                              <Plus className="w-4 h-4" />
-                              <span>Add Media</span>
+                              Delete
                             </button>
                           </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => beginEditTreatment(treatment)}
-                              className="flex items-center space-x-1 px-3 py-1.5 bg-[#0066A6] text-white rounded-md hover:bg-[#00588f] transition-colors"
-                            >
-                              <Edit className="w-4 h-4" />
-                              <span>Edit</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setShowAddMediaForTreatment(treatment.id)}
-                              className="flex items-center space-x-1 px-3 py-1.5 border border-[#0066A6] bg-white text-[#0066A6] rounded-md hover:bg-[#f0f7fc] transition-colors"
-                            >
-                              <Plus className="w-4 h-4" />
-                              <span>Add Media</span>
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={() => setConfirmDeleteTreatmentId(treatment.id)}
-                          className="px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
-                        >
-                          Delete
-                        </button>
-                        {confirmDeleteTreatmentId === treatment.id && (
+                        ) : null}
+                        {canMutateTreatment(treatment) && confirmDeleteTreatmentId === treatment.id && (
                           <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 shadow-sm">
                             <p className="mb-2 font-medium">Delete this treatment?</p>
                             <div className="flex justify-end gap-2">
@@ -2577,7 +2606,7 @@ const AppointmentDetail = () => {
                         )}
                       </div>
                     </div>
-                    {editingTreatmentId === treatment.id && (
+                    {editingTreatmentId === treatment.id && canMutateTreatment(treatment) && (
                       <div className="mt-4 rounded-md border border-[#cce0f0] p-4 bg-[#f0f7fc]/40">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           <div>
@@ -2773,7 +2802,7 @@ const AppointmentDetail = () => {
                         </div>
                       </div>
                     )}
-                    {showAddMediaForTreatment === treatment.id && (
+                    {showAddMediaForTreatment === treatment.id && canMutateTreatment(treatment) && (
                       <div className="mt-4 rounded-md border border-[#cce0f0] p-4 bg-[#f0f7fc]/40">
                         <h4 className="text-sm font-semibold text-gray-900 mb-3">Add Media</h4>
                         <div className="space-y-3">

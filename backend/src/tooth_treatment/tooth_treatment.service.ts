@@ -16,6 +16,10 @@ export class ToothTreatmentService {
 
   constructor(private readonly repo: ToothTreatmentRepository) {}
 
+  private restrictMutationsToPerformingDentist(role: string | undefined): boolean {
+    return (role ?? '').toLowerCase() === 'dentist';
+  }
+
   async create(dentistId: number, dto: CreateToothTreatmentDto) {
     try {
       const created = await this.repo.createForDentist(dentistId, {
@@ -54,13 +58,23 @@ export class ToothTreatmentService {
     }
   }
 
-  async patch(dentistId: number, id: number, dto: UpdateToothTreatmentDto) {
+  async patch(
+    dentistId: number,
+    id: number,
+    dto: UpdateToothTreatmentDto,
+    role?: string,
+  ) {
     try {
-      const updated = await this.repo.updateEnsureOwnership(dentistId, id, {
-        treatmentId: dto.treatment_id,
-        toothIds: dto.tooth_ids,
-        description: dto.description ?? null,
-      });
+      const updated = await this.repo.updateEnsureOwnership(
+        dentistId,
+        id,
+        {
+          treatmentId: dto.treatment_id,
+          toothIds: dto.tooth_ids,
+          description: dto.description ?? null,
+        },
+        this.restrictMutationsToPerformingDentist(role),
+      );
       const msg = `Dentist with id ${dentistId} updated ToothTreatment with id ${updated.id}`;
       this.logger.log(msg);
       LogWriter.append('log', ToothTreatmentService.name, msg);
@@ -86,9 +100,13 @@ export class ToothTreatmentService {
     }
   }
 
-  async delete(dentistId: number, id: number) {
+  async delete(dentistId: number, id: number, role?: string) {
     try {
-      await this.repo.deleteEnsureOwnership(dentistId, id);
+      await this.repo.deleteEnsureOwnership(
+        dentistId,
+        id,
+        this.restrictMutationsToPerformingDentist(role),
+      );
       const msg = `Dentist with id ${dentistId} deleted ToothTreatment with id ${id}`;
       this.logger.log(msg);
       LogWriter.append('log', ToothTreatmentService.name, msg);

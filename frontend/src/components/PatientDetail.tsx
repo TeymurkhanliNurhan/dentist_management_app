@@ -719,11 +719,13 @@ const PatientDetail = () => {
                                       <span className="text-slate-500">
                                         {t('toothNumbers')}: {formatToothList(tt)}
                                       </span>
-                                      {tt.dentist && (
-                                        <span className="text-slate-500">
-                                          {t('dentist')}: {tt.dentist.staff.name} {tt.dentist.staff.surname}
-                                        </span>
-                                      )}
+                                      <span className="text-slate-500">
+                                        {t('dentist')}:{' '}
+                                        {tt.dentist
+                                          ? `${tt.dentist.staff?.name ?? ''} ${tt.dentist.staff?.surname ?? ''}`.trim() ||
+                                            `#${tt.dentist.id}`
+                                          : t('unknownDentist')}
+                                      </span>
                                     </div>
                                     {tt.description?.trim() ? (
                                       <p className="pl-0 text-xs text-slate-600">
