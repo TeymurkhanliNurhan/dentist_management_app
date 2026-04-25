@@ -690,8 +690,19 @@ const Schedule = () => {
   }, [fetchSchedule]);
 
   useEffect(() => {
+    const clearHoverTip = () => setHoverTip(null);
+    window.addEventListener('scroll', clearHoverTip, true);
+    return () => window.removeEventListener('scroll', clearHoverTip, true);
+  }, []);
+
+  useEffect(() => {
+    if (loading) setHoverTip(null);
+  }, [loading]);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      setHoverTip(null);
       if (modalOpen) setModalOpen(false);
       else if (blockingDetailId != null) setBlockingDetailId(null);
       else if (detailId != null) {
@@ -2322,9 +2333,7 @@ const Schedule = () => {
                                         : prev,
                                     )
                                   }
-                                  onMouseLeave={() =>
-                                    setHoverTip((prev) => (prev?.kind === 'randevue' && prev.r.id === r.id ? null : prev))
-                                  }
+                                  onPointerLeave={() => setHoverTip(null)}
                                 >
                                   <p className="leading-tight truncate">
                                     {roomTitleById.get(r.room?.id ?? 0) || t('roomUnknown')}
@@ -2431,11 +2440,7 @@ const Schedule = () => {
                                         : prev,
                                     );
                                   }}
-                                  onMouseLeave={() =>
-                                    setHoverTip((prev) =>
-                                      prev?.kind === 'blocking' && prev.bh.id === bh.id ? null : prev,
-                                    )
-                                  }
+                                  onPointerLeave={() => setHoverTip(null)}
                                 >
                                   {isDirectorOrReception && bhDentistLine ? (
                                     <span className="block truncate text-[9px] font-medium leading-tight opacity-95">
@@ -2497,11 +2502,7 @@ const Schedule = () => {
                                       : prev,
                                   )
                                 }
-                                onMouseLeave={() =>
-                                  setHoverTip((prev) =>
-                                    prev?.kind === 'randevue' && prev.r.id === r.id ? null : prev,
-                                  )
-                                }
+                                  onPointerLeave={() => setHoverTip(null)}
                               >
                                 <span className="font-semibold leading-tight block truncate pointer-events-none">
                                   {r.patient.name} {r.patient.surname}
