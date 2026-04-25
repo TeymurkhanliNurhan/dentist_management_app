@@ -28,14 +28,24 @@ export class DentistTreatmentRepository {
     if (!dentistExists) throw new Error('Dentist not found');
 
     const existing = await this.repo.findOne({ where: { treatment, dentist } });
-    if (existing) throw new Error('Already exists');
+    if (existing) {
+      if (existing.active) {
+        throw new Error('Already exists');
+      }
+      // If inactive, reactivate it
+      existing.active = true;
+      return await this.repo.save(existing);
+    }
 
-    const created = this.repo.create({ treatment, dentist });
+    const created = this.repo.create({ treatment, dentist, active: true });
     return await this.repo.save(created);
   }
 
   async deleteLink(treatment: number, dentist: number): Promise<void> {
-    const result = await this.repo.delete({ treatment, dentist });
+    const result = await this.repo.update(
+      { treatment, dentist },
+      { active: false }
+    );
     if (!result.affected) throw new Error('Not found');
   }
 
@@ -46,7 +56,8 @@ export class DentistTreatmentRepository {
     const queryBuilder = this.repo
       .createQueryBuilder('dt')
       .leftJoinAndSelect('dt.treatmentEntity', 'treatmentEntity')
-      .leftJoinAndSelect('dt.dentistEntity', 'dentistEntity');
+      .leftJoinAndSelect('dt.dentistEntity', 'dentistEntity')
+      .where('dt.active = :active', { active: true });
 
     if (filters.treatment !== undefined) {
       queryBuilder.andWhere('dt.treatment = :treatment', {
