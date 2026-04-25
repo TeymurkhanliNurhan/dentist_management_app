@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { CalendarRange, Search, Settings } from 'lucide-react';
 import { appointmentService, type Appointment, type AppointmentFilters } from '../services/api';
 import { ClinicPortalShell } from './ClinicPortalShell';
-import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
+import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 
 const PAGE_SIZE = 12;
@@ -14,6 +14,7 @@ function localDateString(): string {
 }
 
 type AppointmentListMode = 'open' | 'past' | 'all';
+type DentistFilterMode = 'mine' | 'all';
 
 function filterAppointmentsByEnd(appointments: Appointment[], mode: AppointmentListMode): Appointment[] {
   const today = localDateString();
@@ -30,13 +31,16 @@ export default function CourseOfTreatments() {
   const navigate = useNavigate();
   const location = useLocation();
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
+  const dentistId = useMemo(() => Number(localStorage.getItem('dentistId') ?? 0), []);
   const isDirector = role === 'director';
+  const isDentist = role === 'dentist';
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [directorDisplayName, setDirectorDisplayName] = useState('');
   const [rawAppointments, setRawAppointments] = useState<Appointment[]>([]);
   const [listMode, setListMode] = useState<AppointmentListMode>('open');
+  const [dentistFilterMode, setDentistFilterMode] = useState<DentistFilterMode>('mine');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,7 +65,7 @@ export default function CourseOfTreatments() {
   };
 
   useEffect(() => {
-    if (!isDirector) {
+    if (!isDirector && !isDentist) {
       navigate('/appointments');
       return;
     }
@@ -70,11 +74,18 @@ export default function CourseOfTreatments() {
     setDirectorDisplayName(`${staffName} ${staffSurname}`.trim());
     void fetchAppointments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDirector, navigate]);
+  }, [isDirector, isDentist, navigate]);
 
   const filteredAppointments = useMemo(
-    () => filterAppointmentsByEnd(rawAppointments, listMode),
-    [rawAppointments, listMode],
+    () => {
+      let result = filterAppointmentsByEnd(rawAppointments, listMode);
+      // For dentist view, filter by "mine" if selected
+      if (isDentist && dentistFilterMode === 'mine') {
+        result = result.filter((a) => a.dentist?.id === dentistId);
+      }
+      return result;
+    },
+    [rawAppointments, listMode, isDentist, dentistFilterMode, dentistId],
   );
 
   const totalFiltered = filteredAppointments.length;
@@ -82,29 +93,41 @@ export default function CourseOfTreatments() {
   const page = Math.min(currentPage, totalPages);
   const pagedAppointments = filteredAppointments.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const calculateBenefit = (appointment: Appointment) => {
+    if (appointment.treatmentPercentage === null || appointment.treatmentPercentage === undefined) {
+      return null;
+    }
+    return appointment.calculatedFee * (appointment.treatmentPercentage / 100);
+  };
+
+  const menuItems = isDirector ? DIRECTOR_PORTAL_MENU : DENTIST_PORTAL_MENU;
+  const portalBadge = isDirector ? 'Admin Portal' : 'Dentist Portal';
+
   return (
     <>
       <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
           brandTitle="Precision Dental"
-          portalBadge="Admin Portal"
+          portalBadge={portalBadge}
           userDisplayName={directorDisplayName || '-'}
-          userSubtitle="Clinic Director"
-          menuItems={DIRECTOR_PORTAL_MENU}
+          userSubtitle={isDirector ? 'Clinic Director' : 'Dentist'}
+          menuItems={menuItems}
           pathname={location.pathname}
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
           navigate={navigate}
           onLogoutClick={() => setShowLogoutConfirm(true)}
           headerActions={
-            <button
-              type="button"
-              onClick={() => navigate('/staff')}
-              className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100"
-              aria-label="Staff and doctors"
-            >
-              <Settings size={16} />
-            </button>
+            isDirector ? (
+              <button
+                type="button"
+                onClick={() => navigate('/staff')}
+                className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100"
+                aria-label="Staff and doctors"
+              >
+                <Settings size={16} />
+              </button>
+            ) : undefined
           }
         >
           <main className="min-h-0 flex-1 bg-[#f9fafb] px-6 py-6">
@@ -113,7 +136,9 @@ export default function CourseOfTreatments() {
                 <div>
                   <h1 className="text-2xl font-bold text-slate-900">Course of Treatments</h1>
                   <p className="text-sm text-slate-500">
-                    Appointments across all dentists in your clinic
+                    {isDirector
+                      ? 'Appointments across all dentists in your clinic'
+                      : 'Your treatment appointments'}
                   </p>
                 </div>
                 <button
@@ -223,6 +248,28 @@ export default function CourseOfTreatments() {
                     {mode === 'open' ? 'Current' : mode === 'past' ? 'Past' : 'All'}
                   </button>
                 ))}
+
+                {isDentist && (
+                  <>
+                    {(['mine', 'all'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => {
+                          setDentistFilterMode(mode);
+                          setCurrentPage(1);
+                        }}
+                        className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
+                          dentistFilterMode === mode
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {mode === 'mine' ? 'Mine' : 'All'}
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
 
               {error ? (
@@ -239,21 +286,36 @@ export default function CourseOfTreatments() {
                         <th className="px-4 py-3 text-left">Start date</th>
                         <th className="px-4 py-3 text-left">End date</th>
                         <th className="px-4 py-3 text-left">Patient</th>
-                        <th className="px-4 py-3 text-right">Calculated</th>
-                        <th className="px-4 py-3 text-right">Charged</th>
-                        <th className="px-4 py-3 text-right">Discount</th>
+                        {isDentist ? (
+                          <>
+                            <th className="px-4 py-3 text-right">Calculated Fee</th>
+                            <th className="px-4 py-3 text-right">Benefit</th>
+                          </>
+                        ) : (
+                          <>
+                            <th className="px-4 py-3 text-right">Calculated</th>
+                            <th className="px-4 py-3 text-right">Charged</th>
+                            <th className="px-4 py-3 text-right">Discount</th>
+                          </>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                          <td
+                            colSpan={isDentist ? 5 : 6}
+                            className="px-4 py-8 text-center text-slate-500"
+                          >
                             Loading appointments...
                           </td>
                         </tr>
                       ) : pagedAppointments.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                          <td
+                            colSpan={isDentist ? 5 : 6}
+                            className="px-4 py-8 text-center text-slate-500"
+                          >
                             No appointments found.
                           </td>
                         </tr>
@@ -269,15 +331,30 @@ export default function CourseOfTreatments() {
                             <td className="px-4 py-3 text-slate-700">
                               {appointment.patient.name} {appointment.patient.surname}
                             </td>
-                            <td className="px-4 py-3 text-right text-slate-900">
-                              ${appointment.calculatedFee.toFixed(2)}
-                            </td>
-                            <td className="px-4 py-3 text-right text-slate-900">
-                              {appointment.chargedFee != null ? `$${appointment.chargedFee.toFixed(2)}` : '-'}
-                            </td>
-                            <td className="px-4 py-3 text-right text-slate-900">
-                              {appointment.discountFee != null ? `$${appointment.discountFee.toFixed(2)}` : '-'}
-                            </td>
+                            {isDentist ? (
+                              <>
+                                <td className="px-4 py-3 text-right text-slate-900">
+                                  ${appointment.calculatedFee.toFixed(2)}
+                                </td>
+                                <td className="px-4 py-3 text-right text-slate-900">
+                                  {calculateBenefit(appointment) !== null
+                                    ? `$${calculateBenefit(appointment)!.toFixed(2)}`
+                                    : '-'}
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="px-4 py-3 text-right text-slate-900">
+                                  ${appointment.calculatedFee.toFixed(2)}
+                                </td>
+                                <td className="px-4 py-3 text-right text-slate-900">
+                                  {appointment.chargedFee != null ? `$${appointment.chargedFee.toFixed(2)}` : '-'}
+                                </td>
+                                <td className="px-4 py-3 text-right text-slate-900">
+                                  {appointment.discountFee != null ? `$${appointment.discountFee.toFixed(2)}` : '-'}
+                                </td>
+                              </>
+                            )}
                           </tr>
                         ))
                       )}

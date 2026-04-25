@@ -852,6 +852,12 @@ export interface Appointment {
     name: string;
     surname: string;
   };
+  dentist?: {
+    id: number;
+    name: string;
+    surname: string;
+  } | null;
+  treatmentPercentage?: number | null;
 }
 
 export interface AppointmentFilters {

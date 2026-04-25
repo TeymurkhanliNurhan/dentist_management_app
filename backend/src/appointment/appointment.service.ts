@@ -120,7 +120,7 @@ export class AppointmentService {
 
   async findAll(dentistId: number, dto: GetAppointmentDto) {
     try {
-      const { appointments, total } =
+      const { appointments, total, appointmentsDentistMap } =
         await this.repo.findAppointmentsForDentist(dentistId, {
           id: dto.id,
           startDate: dto.startDate,
@@ -143,10 +143,12 @@ export class AppointmentService {
               ? appointment.startDate
               : new Date(appointment.startDate);
           const endDate = appointment.endDate
-            ? appointment.endDate instanceof Date
+            ? (appointment.endDate instanceof Date
               ? appointment.endDate
-              : new Date(appointment.endDate)
+              : new Date(appointment.endDate))
             : null;
+
+          const dentistInfo = appointmentsDentistMap?.get(appointment.id);
 
           return {
             id: appointment.id,
@@ -172,6 +174,8 @@ export class AppointmentService {
                   ? appointment.patient.surname
                   : null,
             },
+            dentist: dentistInfo?.dentist || null,
+            treatmentPercentage: dentistInfo?.treatmentPercentage || null,
           };
         }),
         total,

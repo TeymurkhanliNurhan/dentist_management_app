@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Appointment } from './entities/appointment.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
 import { Patient } from '../patient/entities/patient.entity';
+import { Salary } from '../salary/entities/salary.entity';
 import {
   calculateAppointmentCalculatedFee,
   calculateAppointmentDiscountFee,
@@ -130,7 +131,7 @@ export class AppointmentRepository {
       page?: number;
       limit?: number;
     },
-  ): Promise<{ appointments: Appointment[]; total: number }> {
+  ): Promise<{ appointments: Appointment[]; total: number; appointmentsDentistMap: Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null }> }> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const queryBuilder = this.repo
       .createQueryBuilder('appointment')
@@ -195,6 +196,43 @@ export class AppointmentRepository {
 
     const appointments = await queryBuilder.getMany();
 
-    return { appointments, total };
+    // Fetch dentist and salary information for each appointment
+    const appointmentsDentistMap = await this.fetchAppointmentsDentistAndSalary(appointments, dentistId);
+
+    return { appointments, total, appointmentsDentistMap };
+  }
+
+  private async fetchAppointmentsDentistAndSalary(
+    appointments: Appointment[],
+    dentistId: number,
+  ): Promise<Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null }>> {
+    const resultMap = new Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null }>();
+    
+    const dentistRepo = this.dataSource.getRepository(Dentist);
+    const salaryRepo = this.dataSource.getRepository(Salary);
+
+    const dentist = await dentistRepo.findOne({
+      where: { id: dentistId },
+      relations: ['staff'],
+    });
+
+    const salary = dentist?.staff ? await salaryRepo.findOne({
+      where: { staffId: dentist.staff.id },
+    }) : null;
+
+    const dentistInfo = dentist && dentist.staff ? {
+      id: dentist.id,
+      name: dentist.staff.name,
+      surname: dentist.staff.surname,
+    } : null;
+
+    for (const appointment of appointments) {
+      resultMap.set(appointment.id, {
+        dentist: dentistInfo,
+        treatmentPercentage: salary?.treatmentPercentage ?? null,
+      });
+    }
+
+    return resultMap;
   }
 }
