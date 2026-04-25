@@ -2215,10 +2215,14 @@ const Schedule = () => {
                                       }`}
                                   >
                                     {column.label}
-                                  </div>
-                                  <div className="relative" style={{ height: DAY_PX }}>
-                                    {DISPLAY_HOURS.map((h, slot) => {
-                                      if (!useClinicScheduleUi) {
+                                   </div>
+                                   <div 
+                                     className="relative" 
+                                     style={{ height: DAY_PX }}
+                                     onMouseLeave={() => setHoverTip(null)}
+                                   >
+                                     {DISPLAY_HOURS.map((h, slot) => {
+                                       if (!useClinicScheduleUi) {
                                         return (
                                             <button
                                                 key={`${column.key}-${slot}-${h}`}
