@@ -210,7 +210,6 @@ export class AppointmentRepository {
     
     const dentistRepo = this.dataSource.getRepository(Dentist);
     const salaryRepo = this.dataSource.getRepository(Salary);
-    const toothTreatmentRepo = this.dataSource.getRepository(Appointment); // We'll use the appointment repo to fetch related tooth treatments
 
     const dentist = await dentistRepo.findOne({
       where: { id: dentistId },
@@ -227,28 +226,39 @@ export class AppointmentRepository {
       surname: dentist.staff.surname,
     } : null;
 
-    for (const appointment of appointments) {
-      // Fetch all tooth treatments for this appointment that belong to this dentist
-      const appointmentRepo = this.dataSource.getRepository(Appointment);
-      const appointmentWithTreatments = await appointmentRepo.findOne({
-        where: { id: appointment.id },
-        relations: [
-          'toothTreatments',
-          'toothTreatments.treatment',
-          'toothTreatments.toothTreatmentMedicines',
-          'toothTreatments.toothTreatmentMedicines.medicineEntity',
-        ],
-      });
+    // Fetch all appointments with their tooth treatments in one query
+    const appointmentIds = appointments.map(a => a.id);
+    if (appointmentIds.length === 0) {
+      return resultMap;
+    }
 
-      // Calculate the fee for only this dentist's treatments
+    const appointmentsWithTreatments = await this.repo.find({
+      where: { id: appointmentIds as any },
+      relations: [
+        'toothTreatments',
+        'toothTreatments.dentist',
+        'toothTreatments.treatment',
+        'toothTreatments.toothTreatmentMedicines',
+        'toothTreatments.toothTreatmentMedicines.medicineEntity',
+      ],
+    });
+
+    // Build a map for quick lookup
+    const appointmentMap = new Map<number, Appointment>();
+    appointmentsWithTreatments.forEach(apt => appointmentMap.set(apt.id, apt));
+
+    // Calculate fees for each appointment
+    for (const appointment of appointments) {
+      const appointmentWithTreatments = appointmentMap.get(appointment.id);
       let dentistCalculatedFee = 0;
+
       if (appointmentWithTreatments?.toothTreatments) {
         dentistCalculatedFee = appointmentWithTreatments.toothTreatments
           .filter(tt => tt.dentist.id === dentistId)
           .reduce((total, toothTreatment) => {
-            const treatmentFee = toothTreatment.feeSnapshot ?? toothTreatment.treatment?.price ?? 0;
+            const treatmentFee = toothTreatment.feeSnapshot ?? (toothTreatment.treatment?.price || 0);
             const medicineFee = (toothTreatment.toothTreatmentMedicines ?? []).reduce((medicineTotal, medicine) => {
-              const unitPrice = medicine.medicinePriceSnapshot ?? medicine.medicineEntity?.price ?? 0;
+              const unitPrice = medicine.medicinePriceSnapshot ?? (medicine.medicineEntity?.price || 0);
               const quantity = Math.max(1, medicine.quantity || 1);
               return medicineTotal + (unitPrice * quantity);
             }, 0);
