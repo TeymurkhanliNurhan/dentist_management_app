@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, In } from 'typeorm';
 import { Appointment } from './entities/appointment.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
 import { Patient } from '../patient/entities/patient.entity';
@@ -226,22 +226,21 @@ export class AppointmentRepository {
       surname: dentist.staff.surname,
     } : null;
 
-    // Fetch all appointments with their tooth treatments in one query
+    // Fetch all appointments with their tooth treatments in one query using QueryBuilder
     const appointmentIds = appointments.map(a => a.id);
     if (appointmentIds.length === 0) {
       return resultMap;
     }
 
-    const appointmentsWithTreatments = await this.repo.find({
-      where: { id: appointmentIds as any },
-      relations: [
-        'toothTreatments',
-        'toothTreatments.dentist',
-        'toothTreatments.treatment',
-        'toothTreatments.toothTreatmentMedicines',
-        'toothTreatments.toothTreatmentMedicines.medicineEntity',
-      ],
-    });
+    const appointmentsWithTreatments = await this.repo
+      .createQueryBuilder('appointment')
+      .leftJoinAndSelect('appointment.toothTreatments', 'toothTreatments')
+      .leftJoinAndSelect('toothTreatments.dentist', 'dentist')
+      .leftJoinAndSelect('toothTreatments.treatment', 'treatment')
+      .leftJoinAndSelect('toothTreatments.toothTreatmentMedicines', 'medicines')
+      .leftJoinAndSelect('medicines.medicineEntity', 'medicineEntity')
+      .where('appointment.id IN (:...appointmentIds)', { appointmentIds })
+      .getMany();
 
     // Build a map for quick lookup
     const appointmentMap = new Map<number, Appointment>();
