@@ -1,20 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CalendarRange, Search, Settings } from 'lucide-react';
-import { appointmentService, type Appointment, type AppointmentFilters } from '../services/api';
+import { CalendarRange, Search, Settings, Plus, X } from 'lucide-react';
+import { appointmentService, type Appointment, type AppointmentFilters, patientService, type Patient, type CreatePatientDto } from '../services/api';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 
 const PAGE_SIZE = 12;
 
+type AppointmentListMode = 'open' | 'past' | 'all';
+type DentistFilterMode = 'mine' | 'all';
+
 function localDateString(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
-
-type AppointmentListMode = 'open' | 'past' | 'all';
-type DentistFilterMode = 'mine' | 'all';
 
 function filterAppointmentsByEnd(appointments: Appointment[], mode: AppointmentListMode): Appointment[] {
   const today = localDateString();
@@ -50,6 +50,25 @@ export default function CourseOfTreatments() {
     patientSurname: '',
   });
 
+  // Create course modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAddPatientForm, setShowAddPatientForm] = useState(false);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<number | ''>('');
+  const [courseForm, setCourseForm] = useState({
+    startDate: '',
+    endDate: '',
+    chargedFee: '',
+  });
+  const [newPatient, setNewPatient] = useState<CreatePatientDto>({
+    name: '',
+    surname: '',
+    birthDate: '',
+  });
+  const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
+  const [isSubmittingPatient, setIsSubmittingPatient] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
   const fetchAppointments = async (nextFilters?: AppointmentFilters) => {
     setIsLoading(true);
     setError(null);
@@ -64,6 +83,15 @@ export default function CourseOfTreatments() {
     }
   };
 
+  const fetchPatients = async () => {
+    try {
+      const data = await patientService.getAll();
+      setPatients(data);
+    } catch (err: any) {
+      setCreateError('Failed to load patients');
+    }
+  };
+
   useEffect(() => {
     if (!isDirector && !isDentist) {
       navigate('/dashboard');
@@ -75,6 +103,12 @@ export default function CourseOfTreatments() {
     void fetchAppointments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDirector, isDentist, navigate]);
+
+  useEffect(() => {
+    if (showCreateModal) {
+      void fetchPatients();
+    }
+  }, [showCreateModal]);
 
   const filteredAppointments = useMemo(
     () => {
@@ -98,6 +132,54 @@ export default function CourseOfTreatments() {
       return null;
     }
     return appointment.calculatedFee * (appointment.treatmentPercentage / 100);
+  };
+
+  const handleAddPatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingPatient(true);
+    setCreateError('');
+    try {
+      const created = await patientService.create(newPatient);
+      setNewPatient({ name: '', surname: '', birthDate: '' });
+      setShowAddPatientForm(false);
+      setSelectedPatientId(created.id);
+      setPatients([...patients, created]);
+    } catch (err: any) {
+      setCreateError(err?.response?.data?.message ?? 'Failed to create patient');
+    } finally {
+      setIsSubmittingPatient(false);
+    }
+  };
+
+  const handleCreateCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingCourse(true);
+    setCreateError('');
+    try {
+      if (!courseForm.startDate || selectedPatientId === '') {
+        setCreateError('Start date and patient are required');
+        setIsSubmittingCourse(false);
+        return;
+      }
+
+      await appointmentService.create({
+        startDate: courseForm.startDate,
+        endDate: courseForm.endDate || undefined,
+        chargedFee: courseForm.chargedFee ? parseFloat(courseForm.chargedFee) : undefined,
+        patient_id: Number(selectedPatientId),
+      });
+
+      setShowCreateModal(false);
+      setCourseForm({ startDate: '', endDate: '', chargedFee: '' });
+      setSelectedPatientId('');
+      setNewPatient({ name: '', surname: '', birthDate: '' });
+      setShowAddPatientForm(false);
+      void fetchAppointments();
+    } catch (err: any) {
+      setCreateError(err?.response?.data?.message ?? 'Failed to create course of treatment');
+    } finally {
+      setIsSubmittingCourse(false);
+    }
   };
 
   const menuItems = isDirector ? DIRECTOR_PORTAL_MENU : DENTIST_PORTAL_MENU;
@@ -141,14 +223,27 @@ export default function CourseOfTreatments() {
                       : 'Your treatment appointments'}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void fetchAppointments()}
-                  className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-                >
-                  <CalendarRange size={14} />
-                  Refresh
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateModal(true);
+                      setCreateError(null);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                  >
+                    <Plus size={14} />
+                    Create Course
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void fetchAppointments()}
+                    className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                  >
+                    <CalendarRange size={14} />
+                    Refresh
+                  </button>
+                </div>
               </div>
 
               <form
@@ -398,6 +493,205 @@ export default function CourseOfTreatments() {
           </main>
         </ClinicPortalShell>
       </div>
+
+      {/* Create Course Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Create Course of Treatment</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setCreateError(null);
+                  setCourseForm({ startDate: '', endDate: '', chargedFee: '' });
+                  setSelectedPatientId('');
+                  setShowAddPatientForm(false);
+                  setNewPatient({ name: '', surname: '', birthDate: '' });
+                }}
+                className="text-gray-400 transition-colors hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {createError && (
+              <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {createError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateCourse} className="space-y-4">
+              {/* Patient Selection */}
+              <div>
+                <label htmlFor="patient" className="mb-1 block text-sm font-medium text-gray-700">
+                  Patient *
+                </label>
+                {!showAddPatientForm ? (
+                  <>
+                    <div className="space-y-2">
+                      <select
+                        id="patient"
+                        value={selectedPatientId}
+                        onChange={(e) => setSelectedPatientId(e.target.value ? Number(e.target.value) : '')}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="">Select a patient...</option>
+                        {patients.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} {p.surname}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddPatientForm(true)}
+                        className="w-full rounded-lg border border-green-300 px-3 py-2 text-sm font-medium text-green-600 transition hover:bg-green-50"
+                      >
+                        + Add New Patient
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-3 rounded-lg border border-green-200 bg-green-50 p-3">
+                    <div>
+                      <label htmlFor="newName" className="mb-1 block text-xs font-medium text-gray-700">
+                        First Name
+                      </label>
+                      <input
+                        type="text"
+                        id="newName"
+                        required
+                        value={newPatient.name}
+                        onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="First name"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="newSurname" className="mb-1 block text-xs font-medium text-gray-700">
+                        Surname
+                      </label>
+                      <input
+                        type="text"
+                        id="newSurname"
+                        required
+                        value={newPatient.surname}
+                        onChange={(e) => setNewPatient({ ...newPatient, surname: e.target.value })}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="Surname"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="newBirthDate" className="mb-1 block text-xs font-medium text-gray-700">
+                        Birth Date
+                      </label>
+                      <input
+                        type="date"
+                        id="newBirthDate"
+                        required
+                        value={newPatient.birthDate}
+                        onChange={(e) => setNewPatient({ ...newPatient, birthDate: e.target.value })}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAddPatient}
+                        disabled={isSubmittingPatient}
+                        className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {isSubmittingPatient ? 'Adding...' : 'Add Patient'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddPatientForm(false);
+                          setNewPatient({ name: '', surname: '', birthDate: '' });
+                        }}
+                        className="flex-1 rounded-lg bg-gray-200 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-300"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Course Details */}
+              <div>
+                <label htmlFor="startDate" className="mb-1 block text-sm font-medium text-gray-700">
+                  Start Date *
+                </label>
+                <input
+                  type="date"
+                  id="startDate"
+                  required
+                  value={courseForm.startDate}
+                  onChange={(e) => setCourseForm({ ...courseForm, startDate: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="endDate" className="mb-1 block text-sm font-medium text-gray-700">
+                  End Date (Optional)
+                </label>
+                <input
+                  type="date"
+                  id="endDate"
+                  value={courseForm.endDate}
+                  onChange={(e) => setCourseForm({ ...courseForm, endDate: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="chargedFee" className="mb-1 block text-sm font-medium text-gray-700">
+                  Charged Fee (Optional)
+                </label>
+                <input
+                  type="number"
+                  id="chargedFee"
+                  step="0.01"
+                  min="0"
+                  value={courseForm.chargedFee}
+                  onChange={(e) => setCourseForm({ ...courseForm, chargedFee: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={isSubmittingCourse}
+                  className="flex-1 rounded-lg bg-green-600 py-2 font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
+                >
+                  {isSubmittingCourse ? 'Creating...' : 'Create Course'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setCreateError(null);
+                    setCourseForm({ startDate: '', endDate: '', chargedFee: '' });
+                    setSelectedPatientId('');
+                    setShowAddPatientForm(false);
+                    setNewPatient({ name: '', surname: '', birthDate: '' });
+                  }}
+                  className="flex-1 rounded-lg bg-gray-200 py-2 font-medium text-gray-700 transition hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <LogoutConfirmModal
         open={showLogoutConfirm}
         onCancel={() => setShowLogoutConfirm(false)}
