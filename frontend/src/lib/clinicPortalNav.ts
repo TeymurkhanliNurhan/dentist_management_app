@@ -36,6 +36,7 @@ export const DENTIST_PORTAL_MENU: ClinicPortalMenuItem[] = [
   { label: 'Treatments', icon: Activity, path: '/treatments' },
   { label: 'Course of Treatments', icon: ClipboardList, path: '/course-of-treatments' },
   { label: 'Inventory', icon: Package, path: '/medicines' },
+  { label: 'Finance', icon: Wallet, path: '/finance' },
 ];
 
 export function isDirectorPortalNavActive(itemPath: string, pathname: string): boolean {
