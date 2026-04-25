@@ -25,6 +25,8 @@ export type ClinicPortalShellProps = {
   collapseToggleVariant?: CollapseToggleVariant;
   asideHeightClassName?: string;
   scheduleNotificationCount?: number;
+  /** When true, fill a flex parent instead of locking to the viewport height. */
+  embeddedLayout?: boolean;
 };
 
 export function ClinicPortalShell({
@@ -45,6 +47,7 @@ export function ClinicPortalShell({
   collapseToggleVariant = 'chevron',
   asideHeightClassName = 'h-full',
   scheduleNotificationCount,
+  embeddedLayout = false,
 }: ClinicPortalShellProps) {
   const collapseLabel = isSidebarOpen ? 'Collapse menu' : 'Expand menu';
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
@@ -86,7 +89,13 @@ export function ClinicPortalShell({
   }, [isDirector, pathname]);
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
+    <div
+      className={
+        embeddedLayout
+          ? 'flex h-full min-h-0 flex-col overflow-hidden'
+          : 'flex h-dvh min-h-0 flex-col overflow-hidden'
+      }
+    >
       <header className="h-16 shrink-0 border-b border-slate-200 bg-white px-6">
         <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">

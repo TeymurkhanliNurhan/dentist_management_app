@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Header from './Header';
+import { ClinicPortalShell } from './ClinicPortalShell';
 import { useLocation, useNavigate } from 'react-router-dom';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import {
@@ -18,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import {
   API_BASE_URL,
   appointmentService,
+  dentistService,
   patientService,
   randevueService,
   type Appointment,
@@ -27,7 +29,7 @@ import {
   type Randevue,
   type UpdateRandevueDto,
 } from '../services/api';
-import { DIRECTOR_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
+import { DENTIST_PORTAL_MENU, DIRECTOR_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
 
 /** Visible schedule window (top->bottom): 08:00 ... 21:00 (end boundary 22:00). */
 const SCHEDULE_START_HOUR = 8;
@@ -383,6 +385,7 @@ const Schedule = () => {
   const useClinicScheduleUi = isDirectorOrReception || isDentistUser;
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [dentistPortalDisplayName, setDentistPortalDisplayName] = useState('');
   const [directorStaff, setDirectorStaff] = useState<StaffSummary | null>(null);
   const [weekAnchor, setWeekAnchor] = useState(() => startOfWeekMonday(new Date()));
   const [dayAnchor, setDayAnchor] = useState(() => {
@@ -500,6 +503,30 @@ const Schedule = () => {
 
     void fetchDirectorStaff();
   }, [isDirectorOrReception]);
+
+  useEffect(() => {
+    if (!isDentistUser) {
+      setDentistPortalDisplayName('');
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      const raw = localStorage.getItem('dentistId');
+      const id = raw ? parseInt(raw, 10) : NaN;
+      if (!Number.isFinite(id) || id <= 0) return;
+      try {
+        const profile = await dentistService.getById(id);
+        const label = `${profile?.staff?.name ?? ''} ${profile?.staff?.surname ?? ''}`.trim();
+        if (!cancelled) setDentistPortalDisplayName(label || `Dentist #${id}`);
+      } catch {
+        if (!cancelled) setDentistPortalDisplayName('');
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isDentistUser]);
 
   useEffect(() => {
     const fetchDirectorAvailabilityData = async () => {
@@ -1684,64 +1711,32 @@ const Schedule = () => {
       setRequestActionBusyId(null);
     }
   };
-  return (
-    <>
-    <div
-      className={
-        isDirector
-          ? 'flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f4f6f8] text-slate-700'
-          : 'flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-50'
-      }
-    >
-      {!isDirector && <Header />}
 
-      {isDirector && (
-        <header className="h-16 shrink-0 border-b border-slate-200 bg-white px-6">
-          <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setIsSidebarOpen((prev) => !prev)}
-                className="rounded-md border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100"
-                aria-label={isSidebarOpen ? 'Collapse menu' : 'Expand menu'}
-              >
-                <Menu size={16} />
-              </button>
-              <span className="text-sm font-semibold text-slate-900">Precision Dental</span>
-              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Admin Portal
-              </span>
-            </div>
-
-            <div className="hidden lg:flex flex-1 max-w-md">
-              <input
-                type="text"
-                readOnly
-                value=""
-                placeholder="Search appointments..."
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button type="button" className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Notifications">
-                <Bell size={16} />
-              </button>
-              <button type="button" onClick={() => navigate('/staff')} className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Staff and doctors">
-                <Settings size={16} />
-              </button>
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5">
-                <div className="h-7 w-7 rounded-full bg-slate-200" />
-                <div className="leading-tight">
-                  <p className="text-xs font-semibold text-slate-700">{directorDisplayName || '-'}</p>
-                  <p className="text-[10px] text-slate-400">Clinic Director</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </header>
-      )}
-
+  function ScheduleRowChrome({ children }: { children: ReactNode }) {
+    if (isDentistUser) {
+      return (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <ClinicPortalShell
+            brandTitle="Clinic Management"
+            portalBadge="Dentist Portal"
+            userDisplayName={dentistPortalDisplayName}
+            userSubtitle="Dentist"
+            menuItems={DENTIST_PORTAL_MENU}
+            pathname={pathname}
+            isSidebarOpen={isSidebarOpen}
+            setIsSidebarOpen={setIsSidebarOpen}
+            navigate={navigate}
+            onLogoutClick={() => setShowLogoutConfirm(true)}
+            showProfileStrip
+            collapseToggleVariant="menu"
+            embeddedLayout
+          >
+            {children}
+          </ClinicPortalShell>
+        </div>
+      );
+    }
+    return (
       <div
         className={
           isDirector
@@ -1794,11 +1789,74 @@ const Schedule = () => {
             </div>
           </aside>
         )}
+        {children}
+      </div>
+    );
+  }
 
+  return (
+    <>
+    <div
+      className={
+        isDirector || isDentistUser
+          ? 'flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f4f6f8] text-slate-700'
+          : 'flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-50'
+      }
+    >
+      {!isDirector && !isDentistUser && <Header />}
+
+      {isDirector && (
+        <header className="h-16 shrink-0 border-b border-slate-200 bg-white px-6">
+          <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen((prev) => !prev)}
+                className="rounded-md border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100"
+                aria-label={isSidebarOpen ? 'Collapse menu' : 'Expand menu'}
+              >
+                <Menu size={16} />
+              </button>
+              <span className="text-sm font-semibold text-slate-900">Precision Dental</span>
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Admin Portal
+              </span>
+            </div>
+
+            <div className="hidden lg:flex flex-1 max-w-md">
+              <input
+                type="text"
+                readOnly
+                value=""
+                placeholder="Search appointments..."
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button type="button" className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Notifications">
+                <Bell size={16} />
+              </button>
+              <button type="button" onClick={() => navigate('/staff')} className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Staff and doctors">
+                <Settings size={16} />
+              </button>
+              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5">
+                <div className="h-7 w-7 rounded-full bg-slate-200" />
+                <div className="leading-tight">
+                  <p className="text-xs font-semibold text-slate-700">{directorDisplayName || '-'}</p>
+                  <p className="text-[10px] text-slate-400">Clinic Director</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+      )}
+
+      <ScheduleRowChrome>
       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <main
         className={
-          isDirector
+          isDirector || isDentistUser
             ? 'min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto px-6 py-6'
             : 'mx-auto min-h-0 flex-1 min-w-0 max-w-[1600px] overflow-x-auto overflow-y-auto px-4 py-6 sm:px-6 lg:px-8'
         }
@@ -2928,7 +2986,8 @@ const Schedule = () => {
         </aside>
       )}
       </div>
-      </div>
+      </ScheduleRowChrome>
+    </div>
 
       {hoverTip && hoverTip.kind === 'randevue' && (
         <div
@@ -3427,7 +3486,6 @@ const Schedule = () => {
           </div>
         </div>
       )}
-    </div>
     <LogoutConfirmModal
       open={showLogoutConfirm}
       onCancel={() => setShowLogoutConfirm(false)}
