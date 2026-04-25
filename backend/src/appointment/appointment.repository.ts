@@ -136,9 +136,12 @@ export class AppointmentRepository {
     const queryBuilder = this.repo
       .createQueryBuilder('appointment')
       .leftJoinAndSelect('appointment.patient', 'patient')
-      .innerJoin('appointment.toothTreatments', 'toothTreatment')
+      .leftJoin('appointment.toothTreatments', 'toothTreatment')
       .where('appointment.clinicId = :clinicId', { clinicId })
-      .andWhere('toothTreatment.dentist = :dentistId', { dentistId })
+      .andWhere(
+        '(toothTreatment.id IS NULL OR toothTreatment.dentist = :dentistId)',
+        { dentistId },
+      )
       .distinct(true);
 
     if (filters.id !== undefined) {
