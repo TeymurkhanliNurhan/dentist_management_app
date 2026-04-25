@@ -131,7 +131,7 @@ export class AppointmentRepository {
       page?: number;
       limit?: number;
     },
-  ): Promise<{ appointments: Appointment[]; total: number; appointmentsDentistMap: Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null }> }> {
+  ): Promise<{ appointments: Appointment[]; total: number; appointmentsDentistMap: Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null; dentistCalculatedFee: number }> }> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const queryBuilder = this.repo
       .createQueryBuilder('appointment')
@@ -205,11 +205,12 @@ export class AppointmentRepository {
   private async fetchAppointmentsDentistAndSalary(
     appointments: Appointment[],
     dentistId: number,
-  ): Promise<Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null }>> {
-    const resultMap = new Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null }>();
+  ): Promise<Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null; dentistCalculatedFee: number }>> {
+    const resultMap = new Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null; dentistCalculatedFee: number }>();
     
     const dentistRepo = this.dataSource.getRepository(Dentist);
     const salaryRepo = this.dataSource.getRepository(Salary);
+    const toothTreatmentRepo = this.dataSource.getRepository(Appointment); // We'll use the appointment repo to fetch related tooth treatments
 
     const dentist = await dentistRepo.findOne({
       where: { id: dentistId },
@@ -227,9 +228,38 @@ export class AppointmentRepository {
     } : null;
 
     for (const appointment of appointments) {
+      // Fetch all tooth treatments for this appointment that belong to this dentist
+      const appointmentRepo = this.dataSource.getRepository(Appointment);
+      const appointmentWithTreatments = await appointmentRepo.findOne({
+        where: { id: appointment.id },
+        relations: [
+          'toothTreatments',
+          'toothTreatments.treatment',
+          'toothTreatments.toothTreatmentMedicines',
+          'toothTreatments.toothTreatmentMedicines.medicineEntity',
+        ],
+      });
+
+      // Calculate the fee for only this dentist's treatments
+      let dentistCalculatedFee = 0;
+      if (appointmentWithTreatments?.toothTreatments) {
+        dentistCalculatedFee = appointmentWithTreatments.toothTreatments
+          .filter(tt => tt.dentist.id === dentistId)
+          .reduce((total, toothTreatment) => {
+            const treatmentFee = toothTreatment.feeSnapshot ?? toothTreatment.treatment?.price ?? 0;
+            const medicineFee = (toothTreatment.toothTreatmentMedicines ?? []).reduce((medicineTotal, medicine) => {
+              const unitPrice = medicine.medicinePriceSnapshot ?? medicine.medicineEntity?.price ?? 0;
+              const quantity = Math.max(1, medicine.quantity || 1);
+              return medicineTotal + (unitPrice * quantity);
+            }, 0);
+            return total + treatmentFee + medicineFee;
+          }, 0);
+      }
+
       resultMap.set(appointment.id, {
         dentist: dentistInfo,
         treatmentPercentage: salary?.treatmentPercentage ?? null,
+        dentistCalculatedFee,
       });
     }
 

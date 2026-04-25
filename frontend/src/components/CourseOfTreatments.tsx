@@ -334,10 +334,12 @@ export default function CourseOfTreatments() {
                             {isDentist ? (
                               <>
                                 <td className="px-4 py-3 text-right text-slate-900">
-                                  ${appointment.calculatedFee.toFixed(2)}
+                                  {appointment.calculatedFee > 0
+                                    ? `$${appointment.calculatedFee.toFixed(2)}`
+                                    : '-'}
                                 </td>
                                 <td className="px-4 py-3 text-right text-slate-900">
-                                  {calculateBenefit(appointment) !== null
+                                  {appointment.calculatedFee > 0 && calculateBenefit(appointment) !== null
                                     ? `$${calculateBenefit(appointment)!.toFixed(2)}`
                                     : '-'}
                                 </td>

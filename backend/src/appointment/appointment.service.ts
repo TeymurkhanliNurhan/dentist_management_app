@@ -154,7 +154,7 @@ export class AppointmentService {
             id: appointment.id,
             startDate: startDate.toISOString().slice(0, 10),
             endDate: endDate ? endDate.toISOString().slice(0, 10) : null,
-            calculatedFee: appointment.calculatedFee,
+            calculatedFee: dentistInfo?.dentistCalculatedFee ?? appointment.calculatedFee,
             chargedFee: appointment.chargedFee,
             discountFee: appointment.discountFee,
             patient: {
