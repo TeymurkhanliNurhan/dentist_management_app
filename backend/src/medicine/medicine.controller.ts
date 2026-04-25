@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -24,6 +25,7 @@ import { UpdateMedicineDto } from './dto/update-medicine.dto';
 import { GetMedicineDto } from './dto/get-medicine.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
+import { isDirectorRole } from '../auth/role-guards';
 
 @ApiTags('medicine')
 @Controller('medicine')
@@ -47,6 +49,11 @@ export class MedicineController {
   @ApiOperation({ summary: 'Create medicine' })
   @ApiResponse({ status: 201, description: 'Medicine created' })
   async create(@User() user: any, @Body() dto: CreateMedicineDto) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for medicines',
+      );
+    }
     return await this.service.create(user.userId, dto);
   }
 
@@ -61,6 +68,11 @@ export class MedicineController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMedicineDto,
   ) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for medicines',
+      );
+    }
     return await this.service.patch(user.userId, id, dto);
   }
 }

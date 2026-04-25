@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
@@ -9,6 +10,7 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { GetAppointmentDto } from './dto/get-appointment.dto';
 import { LogWriter } from '../log-writer';
+import { isDirectorRole } from '../auth/role-guards';
 
 @Injectable()
 export class AppointmentService {
@@ -55,8 +57,23 @@ export class AppointmentService {
     }
   }
 
-  async patch(dentistId: number, id: number, dto: UpdateAppointmentDto) {
+  async patch(
+    dentistId: number,
+    id: number,
+    dto: UpdateAppointmentDto,
+    role?: string,
+  ) {
     try {
+      if (isDirectorRole(role)) {
+        const hasRestrictedFields =
+          dto.startDate !== undefined || dto.endDate !== undefined;
+        if (hasRestrictedFields) {
+          throw new ForbiddenException(
+            'Directors can only update charged fee for appointments',
+          );
+        }
+      }
+
       const updated = await this.repo.updateAppointmentEnsureOwnership(
         dentistId,
         id,
@@ -94,6 +111,9 @@ export class AppointmentService {
       }
       if (e?.message?.includes('Appointment not found'))
         throw new NotFoundException('Appointment not found');
+      if (e instanceof ForbiddenException) {
+        throw e;
+      }
       throw new BadRequestException('Failed to update appointment');
     }
   }

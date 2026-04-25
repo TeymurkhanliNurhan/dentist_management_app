@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -25,6 +26,7 @@ import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { GetAppointmentDto } from './dto/get-appointment.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
+import { isDirectorRole } from '../auth/role-guards';
 
 @ApiTags('appointment')
 @Controller('appointment')
@@ -49,6 +51,11 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Create appointment' })
   @ApiResponse({ status: 201, description: 'Appointment created' })
   async create(@User() user: any, @Body() dto: CreateAppointmentDto) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for appointment creation',
+      );
+    }
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
     return await this.service.create(dentistId, dto);
   }
@@ -65,7 +72,7 @@ export class AppointmentController {
     @Body() dto: UpdateAppointmentDto,
   ) {
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.patch(dentistId, id, dto);
+    return await this.service.patch(dentistId, id, dto, user?.role);
   }
 
   @ApiBearerAuth('bearer')
@@ -75,6 +82,11 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Delete appointment by id' })
   @ApiOkResponse({ description: 'Appointment deleted' })
   async delete(@User() user: any, @Param('id', ParseIntPipe) id: number) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for appointment deletion',
+      );
+    }
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
     return await this.service.delete(dentistId, id);
   }

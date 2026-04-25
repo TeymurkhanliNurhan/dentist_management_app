@@ -224,17 +224,19 @@ export default function CourseOfTreatments() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCreateModal(true);
-                      setCreateError(null);
-                    }}
-                    className="inline-flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-                  >
-                    <Plus size={14} />
-                    Create Course
-                  </button>
+                  {isDentist ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateModal(true);
+                        setCreateError(null);
+                      }}
+                      className="inline-flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                    >
+                      <Plus size={14} />
+                      Create Course
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => void fetchAppointments()}

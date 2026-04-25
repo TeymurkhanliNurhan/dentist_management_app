@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -21,6 +22,8 @@ import { DentistTreatmentService } from './dentist_treatment.service';
 import { CreateDentistTreatmentDto } from './dto/create-dentist_treatment.dto';
 import { DeleteDentistTreatmentDto } from './dto/delete-dentist_treatment.dto';
 import { GetDentistTreatmentDto } from './dto/get-dentist_treatment.dto';
+import { User } from '../auth/decorators/user.decorator';
+import { isDirectorRole } from '../auth/role-guards';
 
 @ApiTags('dentist_treatment')
 @Controller('dentist-treatment')
@@ -33,7 +36,12 @@ export class DentistTreatmentController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a dentist-treatment link' })
   @ApiResponse({ status: 201, description: 'Link created successfully' })
-  async create(@Body() dto: CreateDentistTreatmentDto) {
+  async create(@User() user: any, @Body() dto: CreateDentistTreatmentDto) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for treatment assignments',
+      );
+    }
     return await this.service.create(dto);
   }
 
@@ -43,7 +51,12 @@ export class DentistTreatmentController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a dentist-treatment link' })
   @ApiOkResponse({ description: 'Link deleted successfully' })
-  async remove(@Query() dto: DeleteDentistTreatmentDto) {
+  async remove(@User() user: any, @Query() dto: DeleteDentistTreatmentDto) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for treatment assignments',
+      );
+    }
     return await this.service.remove(dto);
   }
 

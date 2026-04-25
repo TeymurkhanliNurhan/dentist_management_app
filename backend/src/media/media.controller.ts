@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -30,6 +31,7 @@ import { UpdateMediaDto } from './dto/update-media.dto';
 import { GetMediaDto } from './dto/get-media.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
+import { isDirectorRole } from '../auth/role-guards';
 
 @ApiTags('media')
 @Controller('media')
@@ -83,6 +85,11 @@ export class MediaController {
     @UploadedFile() file: Express.Multer.File,
     @User() user: any,
   ) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for media',
+      );
+    }
     return await this.service.create(dto, file, user);
   }
 
@@ -97,6 +104,11 @@ export class MediaController {
     @Body() dto: UpdateMediaDto,
     @User() user: any,
   ) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for media',
+      );
+    }
     return await this.service.update(id, dto, user);
   }
 
@@ -107,6 +119,11 @@ export class MediaController {
   @ApiOperation({ summary: 'Delete media by id' })
   @ApiOkResponse({ description: 'Media deleted' })
   async delete(@Param('id', ParseIntPipe) id: number, @User() user: any) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for media',
+      );
+    }
     return await this.service.delete(id, user);
   }
 }
