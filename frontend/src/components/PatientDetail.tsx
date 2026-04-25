@@ -663,7 +663,11 @@ const PatientDetail = () => {
                                   <li key={tt.id}>
                                     <Link
                                       to={`/appointments/${tt.appointment!.id}`}
-                                      state={{ fromPatientId: patient.id }}
+                                      state={{
+                                        fromPatientId: patient.id,
+                                        returnTo: `${location.pathname}${location.search}${location.hash}`,
+                                        returnLabel: 'Back to Patient',
+                                      }}
                                       className="text-sm text-slate-800 underline-offset-2 hover:text-[#0066A6] hover:underline"
                                     >
                                       {formatToothTreatmentLine(tt)}
@@ -691,7 +695,11 @@ const PatientDetail = () => {
                       <li key={appt.id}>
                         <Link
                           to={`/appointments/${appt.id}`}
-                          state={{ fromPatientId: patient.id }}
+                          state={{
+                            fromPatientId: patient.id,
+                            returnTo: `${location.pathname}${location.search}${location.hash}`,
+                            returnLabel: 'Back to Patient',
+                          }}
                           className="block rounded-lg border border-slate-200 bg-slate-50/80 p-4 transition-colors hover:border-[#0066A6] hover:bg-[#f0f7fc]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0066A6] focus-visible:ring-offset-2"
                         >
                           <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">

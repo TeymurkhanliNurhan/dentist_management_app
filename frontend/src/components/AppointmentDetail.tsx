@@ -354,16 +354,34 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
   );
 };
 
-type AppointmentLocationState = { fromPatientId?: number };
+type AppointmentLocationState = {
+  fromPatientId?: number;
+  returnTo?: string;
+  returnLabel?: string;
+};
+
+const resolveInternalReturnPath = (candidate: unknown): string | undefined => {
+  if (typeof candidate !== 'string') return undefined;
+  const trimmed = candidate.trim();
+  if (!trimmed.startsWith('/')) return undefined;
+  return trimmed;
+};
 
 const AppointmentDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const fromPatientIdRaw = (location.state as AppointmentLocationState | null)?.fromPatientId;
+  const locationState = location.state as AppointmentLocationState | null;
+  const fromPatientIdRaw = locationState?.fromPatientId;
   const fromPatientId =
     typeof fromPatientIdRaw === 'number' && Number.isFinite(fromPatientIdRaw) && fromPatientIdRaw > 0
       ? fromPatientIdRaw
+      : undefined;
+  const returnTo = resolveInternalReturnPath(locationState?.returnTo);
+  const returnLabelRaw = locationState?.returnLabel;
+  const returnLabel =
+    typeof returnLabelRaw === 'string' && returnLabelRaw.trim().length > 0
+      ? returnLabelRaw.trim()
       : undefined;
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isAdminLike = role === 'director' || role === 'admin';
@@ -378,13 +396,15 @@ const AppointmentDetail = () => {
   const canMutateTreatment = (t: ToothTreatment) =>
     !isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId);
   const backPath =
-    fromPatientId != null ? `/patients/${fromPatientId}` : isAdminLike ? '/schedule' : '/course-of-treatments';
+    returnTo ??
+    (fromPatientId != null ? `/patients/${fromPatientId}` : isAdminLike ? '/schedule' : '/course-of-treatments');
   const backButtonLabel =
-    fromPatientId != null
+    returnLabel ??
+    (fromPatientId != null
       ? 'Back to Patient'
       : isAdminLike
         ? 'Back to Schedule'
-        : 'Back to Course of Treatments';
+        : 'Back to Course of Treatments');
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [treatments, setTreatments] = useState<ToothTreatment[]>([]);
   const [teethInfo, setTeethInfo] = useState<Map<number, ToothInfo>>(new Map());
@@ -1424,13 +1444,17 @@ const AppointmentDetail = () => {
     }
   };
 
+  const handleBack = useCallback(() => {
+    navigate(backPath);
+  }, [backPath, navigate]);
+
   if (isLoading) {
     return (
       <ClinicManagementLayout>
         <div className="mx-auto max-w-7xl">
           <button
             type="button"
-            onClick={() => navigate(backPath)}
+            onClick={handleBack}
             className="mb-6 flex items-center space-x-2 text-[#0066A6] transition-colors hover:text-[#00588f]"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -1450,7 +1474,7 @@ const AppointmentDetail = () => {
         <div className="mx-auto max-w-7xl">
           <button
             type="button"
-            onClick={() => navigate(backPath)}
+            onClick={handleBack}
             className="mb-6 flex items-center space-x-2 text-[#0066A6] transition-colors hover:text-[#00588f]"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -1468,7 +1492,7 @@ const AppointmentDetail = () => {
         <div className="mx-auto max-w-7xl">
           <button
             type="button"
-            onClick={() => navigate(backPath)}
+            onClick={handleBack}
             className="mb-6 flex items-center space-x-2 text-[#0066A6] transition-colors hover:text-[#00588f]"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -1497,7 +1521,7 @@ const AppointmentDetail = () => {
       <div className="mx-auto max-w-7xl">
         <button
           type="button"
-          onClick={() => navigate(backPath)}
+          onClick={handleBack}
           className="flex items-center space-x-2 text-[#0066A6] hover:text-[#00588f] transition-colors mb-6"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -1550,7 +1574,7 @@ const AppointmentDetail = () => {
                         if (!appointment) return;
                         try {
                           await appointmentService.delete(appointment.id);
-                          navigate(backPath);
+                          handleBack();
                         } catch (err: any) {
                           setError(err.response?.data?.message || 'Failed to delete appointment');
                         }

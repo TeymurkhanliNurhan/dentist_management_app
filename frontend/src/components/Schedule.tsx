@@ -375,7 +375,8 @@ function timeStringToMinutes(value: string): number {
 
 const Schedule = () => {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   const { t, i18n } = useTranslation('schedule');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
@@ -2232,7 +2233,7 @@ const Schedule = () => {
                                                 onClick={() => openNewModal(cellDay, h)}
                                                 aria-label={`${t('newRandevue')} ${formatYmd(cellDay)} ${formatHourLabel24(h)}`}
                                             />
-                                        );
+                                      );
                                       }
                                       return (
                                           <button
@@ -2762,7 +2763,14 @@ const Schedule = () => {
                               {detailRandevue.appointment?.id != null && (
                                   <button
                                       type="button"
-                                      onClick={() => navigate(`/appointments/${detailRandevue.appointment!.id}`)}
+                                      onClick={() =>
+                                        navigate(`/appointments/${detailRandevue.appointment!.id}`, {
+                                          state: {
+                                            returnTo: `${location.pathname}${location.search}${location.hash}`,
+                                            returnLabel: 'Back to Schedule',
+                                          },
+                                        })
+                                      }
                                       className="rounded-lg border border-violet-300 bg-white px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-50"
                                   >
                                     {t('goToAppointment')}
@@ -2913,7 +2921,7 @@ const Schedule = () => {
                                       <p className="text-sm text-gray-500">…</p>
                                   ) : (
                                       <>
-                                        {detailOpenAppointments.length === 0 && (
+                                        {openAppointments.length === 0 && (
                                             <p className="text-sm text-gray-500 mb-2">{t('noOpenAppointments')}</p>
                                         )}
                                         <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
@@ -2978,7 +2986,8 @@ const Schedule = () => {
                               </button>
                               <button
                                   type="button"
-                                  onClick={() => void handleSaveDetail()}
+                                  onClick={() => void handleSaveDetail()
+}
                                   disabled={detailBusy}
                                   className="px-4 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-50"
                               >
@@ -3177,7 +3186,7 @@ const Schedule = () => {
                               className="w-full border border-gray-300 rounded-lg px-3 py-2"
                           >
                             {TIME_OPTIONS.map((hm) => (
-                                <option key={`block-create-start-${hm}`} value={hm}>
+                                <option key={`block-edit-start-${hm}`} value={hm}>
                                   {hm}
                                 </option>
                             ))}
@@ -3191,7 +3200,7 @@ const Schedule = () => {
                               className="w-full border border-gray-300 rounded-lg px-3 py-2"
                           >
                             {TIME_OPTIONS.map((hm) => (
-                                <option key={`block-create-end-${hm}`} value={hm}>
+                                <option key={`block-edit-end-${hm}`} value={hm}>
                                   {hm}
                                 </option>
                             ))}
