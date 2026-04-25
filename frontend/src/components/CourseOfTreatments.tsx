@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CalendarRange, Search, Settings, Plus, X } from 'lucide-react';
 import { appointmentService, type Appointment, type AppointmentFilters, patientService, type Patient, type CreatePatientDto } from '../services/api';
