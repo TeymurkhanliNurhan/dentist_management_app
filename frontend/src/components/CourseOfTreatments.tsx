@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CalendarRange, Search, Settings, Plus, X } from 'lucide-react';
+import { CalendarRange, Search, Settings, Plus, X, ChevronDown } from 'lucide-react';
 import { appointmentService, type Appointment, type AppointmentFilters, patientService, type Patient, type CreatePatientDto, toothTreatmentService } from '../services/api';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
@@ -253,7 +253,7 @@ export default function CourseOfTreatments() {
                         setShowCreateModal(true);
                         setCreateError(null);
                       }}
-                      className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                      className="inline-flex items-center gap-2 rounded-md bg-[#0066A6] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00588f]"
                     >
                       <Plus size={14} />
                       Create Course
@@ -262,7 +262,7 @@ export default function CourseOfTreatments() {
                   <button
                     type="button"
                     onClick={() => void fetchAppointments()}
-                    className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                    className="inline-flex items-center gap-2 rounded-md bg-[#0066A6] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00588f]"
                   >
                     <CalendarRange size={14} />
                     Refresh
@@ -325,7 +325,7 @@ export default function CourseOfTreatments() {
                   <div className="flex items-end gap-2">
                     <button
                       type="submit"
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0066A6] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00588f]"
                     >
                       <Search size={14} />
                       Search
@@ -350,45 +350,38 @@ export default function CourseOfTreatments() {
               </form>
 
               <div className="flex flex-wrap gap-2">
-                {(['open', 'past', 'all'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => {
-                      setListMode(mode);
+                <div className="relative">
+                  <select
+                    value={listMode}
+                    onChange={(e) => {
+                      setListMode(e.target.value as AppointmentListMode);
                       setCurrentPage(1);
                     }}
-                    className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
-                      listMode === mode
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
+                    className="appearance-none rounded-md border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-800 hover:border-slate-400 focus:border-[#0066A6] focus:outline-none focus:ring-2 focus:ring-[#cce0f0]"
                   >
-                    {mode === 'open' ? 'Current' : mode === 'past' ? 'Past' : 'All'}
-                  </button>
-                ))}
+                    <option value="open">Current</option>
+                    <option value="past">Past</option>
+                    <option value="all">All</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-slate-500" />
+                </div>
 
-                {isDentist && (
-                  <>
-                    {(['mine', 'all'] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => {
-                          setDentistFilterMode(mode);
-                          setCurrentPage(1);
-                        }}
-                        className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
-                          dentistFilterMode === mode
-                            ? 'border-slate-900 bg-slate-900 text-white'
-                            : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        {mode === 'mine' ? 'Mine' : 'All'}
-                      </button>
-                    ))}
-                  </>
-                )}
+                {isDentist ? (
+                  <div className="relative">
+                    <select
+                      value={dentistFilterMode}
+                      onChange={(e) => {
+                        setDentistFilterMode(e.target.value as DentistFilterMode);
+                        setCurrentPage(1);
+                      }}
+                      className="appearance-none rounded-md border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-800 hover:border-slate-400 focus:border-[#0066A6] focus:outline-none focus:ring-2 focus:ring-[#cce0f0]"
+                    >
+                      <option value="mine">Mine</option>
+                      <option value="all">All</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-slate-500" />
+                  </div>
+                ) : null}
               </div>
 
               {error ? (
@@ -632,7 +625,7 @@ export default function CourseOfTreatments() {
                         type="button"
                         onClick={handleAddPatient}
                         disabled={isSubmittingPatient}
-                        className="flex-1 rounded-lg bg-slate-900 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+                        className="flex-1 rounded-lg bg-[#0066A6] py-2 text-sm font-medium text-white transition-colors hover:bg-[#00588f] disabled:opacity-50"
                       >
                         {isSubmittingPatient ? 'Adding...' : 'Add Patient'}
                       </button>
@@ -699,7 +692,7 @@ export default function CourseOfTreatments() {
                 <button
                   type="submit"
                   disabled={isSubmittingCourse}
-                  className="flex-1 rounded-lg bg-slate-900 py-2 font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+                  className="flex-1 rounded-lg bg-[#0066A6] py-2 font-medium text-white transition-colors hover:bg-[#00588f] disabled:opacity-50"
                 >
                   {isSubmittingCourse ? 'Creating...' : 'Create Course'}
                 </button>
