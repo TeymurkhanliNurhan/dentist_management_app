@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CalendarRange, Search, Settings, Plus, X } from 'lucide-react';
-import { appointmentService, type Appointment, type AppointmentFilters, patientService, type Patient, type CreatePatientDto } from '../services/api';
+import { appointmentService, type Appointment, type AppointmentFilters, patientService, type Patient, type CreatePatientDto, toothTreatmentService } from '../services/api';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
@@ -39,6 +39,7 @@ export default function CourseOfTreatments() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [directorDisplayName, setDirectorDisplayName] = useState('');
   const [rawAppointments, setRawAppointments] = useState<Appointment[]>([]);
+  const [dentistTreatmentAppointmentIds, setDentistTreatmentAppointmentIds] = useState<Set<number>>(new Set());
   const [listMode, setListMode] = useState<AppointmentListMode>('open');
   const [dentistFilterMode, setDentistFilterMode] = useState<DentistFilterMode>('mine');
   const [isLoading, setIsLoading] = useState(false);
@@ -83,6 +84,25 @@ export default function CourseOfTreatments() {
     }
   };
 
+  const fetchDentistTreatmentAppointmentIds = async () => {
+    if (!isDentist || !Number.isFinite(dentistId) || dentistId <= 0) {
+      setDentistTreatmentAppointmentIds(new Set());
+      return;
+    }
+    try {
+      const dentistTreatments = await toothTreatmentService.getAll({ dentist: dentistId });
+      const appointmentIds = new Set<number>();
+      dentistTreatments.forEach((treatment) => {
+        if (treatment.appointment?.id) {
+          appointmentIds.add(treatment.appointment.id);
+        }
+      });
+      setDentistTreatmentAppointmentIds(appointmentIds);
+    } catch {
+      setDentistTreatmentAppointmentIds(new Set());
+    }
+  };
+
   const fetchPatients = async () => {
     try {
       const data = await patientService.getAll();
@@ -101,6 +121,7 @@ export default function CourseOfTreatments() {
     const staffSurname = localStorage.getItem('surname') ?? '';
     setDirectorDisplayName(`${staffName} ${staffSurname}`.trim());
     void fetchAppointments();
+    void fetchDentistTreatmentAppointmentIds();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDirector, isDentist, navigate]);
 
@@ -115,11 +136,11 @@ export default function CourseOfTreatments() {
       let result = filterAppointmentsByEnd(rawAppointments, listMode);
       // For dentist view, filter by "mine" if selected
       if (isDentist && dentistFilterMode === 'mine') {
-        result = result.filter((a) => a.dentist?.id === dentistId);
+        result = result.filter((a) => dentistTreatmentAppointmentIds.has(a.id));
       }
       return result;
     },
-    [rawAppointments, listMode, isDentist, dentistFilterMode, dentistId],
+    [rawAppointments, listMode, isDentist, dentistFilterMode, dentistTreatmentAppointmentIds],
   );
 
   const totalFiltered = filteredAppointments.length;
@@ -175,6 +196,7 @@ export default function CourseOfTreatments() {
       setNewPatient({ name: '', surname: '', birthDate: '' });
       setShowAddPatientForm(false);
       void fetchAppointments();
+      void fetchDentistTreatmentAppointmentIds();
     } catch (err: any) {
       setCreateError(err?.response?.data?.message ?? 'Failed to create course of treatment');
     } finally {
@@ -231,7 +253,7 @@ export default function CourseOfTreatments() {
                         setShowCreateModal(true);
                         setCreateError(null);
                       }}
-                      className="inline-flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                      className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
                     >
                       <Plus size={14} />
                       Create Course
@@ -544,7 +566,7 @@ export default function CourseOfTreatments() {
                         id="patient"
                         value={selectedPatientId}
                         onChange={(e) => setSelectedPatientId(e.target.value ? Number(e.target.value) : '')}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                       >
                         <option value="">Select a patient...</option>
                         {patients.map((p) => (
@@ -556,14 +578,14 @@ export default function CourseOfTreatments() {
                       <button
                         type="button"
                         onClick={() => setShowAddPatientForm(true)}
-                        className="w-full rounded-lg border border-green-300 px-3 py-2 text-sm font-medium text-green-600 transition hover:bg-green-50"
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                       >
                         + Add New Patient
                       </button>
                     </div>
                   </>
                 ) : (
-                  <div className="space-y-3 rounded-lg border border-green-200 bg-green-50 p-3">
+                  <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                     <div>
                       <label htmlFor="newName" className="mb-1 block text-xs font-medium text-gray-700">
                         First Name
@@ -574,7 +596,7 @@ export default function CourseOfTreatments() {
                         required
                         value={newPatient.name}
                         onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                         placeholder="First name"
                       />
                     </div>
@@ -588,7 +610,7 @@ export default function CourseOfTreatments() {
                         required
                         value={newPatient.surname}
                         onChange={(e) => setNewPatient({ ...newPatient, surname: e.target.value })}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                         placeholder="Surname"
                       />
                     </div>
@@ -602,7 +624,7 @@ export default function CourseOfTreatments() {
                         required
                         value={newPatient.birthDate}
                         onChange={(e) => setNewPatient({ ...newPatient, birthDate: e.target.value })}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                       />
                     </div>
                     <div className="flex gap-2">
@@ -610,7 +632,7 @@ export default function CourseOfTreatments() {
                         type="button"
                         onClick={handleAddPatient}
                         disabled={isSubmittingPatient}
-                        className="flex-1 rounded-lg bg-green-600 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
+                        className="flex-1 rounded-lg bg-slate-900 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
                       >
                         {isSubmittingPatient ? 'Adding...' : 'Add Patient'}
                       </button>
@@ -640,7 +662,7 @@ export default function CourseOfTreatments() {
                   required
                   value={courseForm.startDate}
                   onChange={(e) => setCourseForm({ ...courseForm, startDate: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                 />
               </div>
 
@@ -653,7 +675,7 @@ export default function CourseOfTreatments() {
                   id="endDate"
                   value={courseForm.endDate}
                   onChange={(e) => setCourseForm({ ...courseForm, endDate: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                 />
               </div>
 
@@ -668,7 +690,7 @@ export default function CourseOfTreatments() {
                   min="0"
                   value={courseForm.chargedFee}
                   onChange={(e) => setCourseForm({ ...courseForm, chargedFee: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                   placeholder="0.00"
                 />
               </div>
@@ -677,7 +699,7 @@ export default function CourseOfTreatments() {
                 <button
                   type="submit"
                   disabled={isSubmittingCourse}
-                  className="flex-1 rounded-lg bg-green-600 py-2 font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
+                  className="flex-1 rounded-lg bg-slate-900 py-2 font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
                 >
                   {isSubmittingCourse ? 'Creating...' : 'Create Course'}
                 </button>
