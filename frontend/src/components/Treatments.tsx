@@ -18,8 +18,6 @@ const Treatments = () => {
   const navigate = useNavigate();
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isDentistUser = role === 'dentist';
-  const isDirectorUser = role === 'director';
-  const canManageTreatments = !isDentistUser && !isDirectorUser;
   const dentistId = useMemo(() => Number(localStorage.getItem('dentistId') ?? 0), []);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [assignedTreatmentIds, setAssignedTreatmentIds] = useState<number[]>([]);
@@ -279,7 +277,7 @@ const Treatments = () => {
                 {showRestTreatments ? 'My Treatments' : 'Rest Treatments'}
               </button>
             )}
-            {canManageTreatments && (
+            {!isDentistUser && (
               <button
                 onClick={() => setShowAddModal(true)}
                 className="ml-2 flex items-center space-x-2 rounded-md bg-[#0066A6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#00588f]"
@@ -350,7 +348,7 @@ const Treatments = () => {
                   <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
                     {t('table.price')}
                   </th>
-                  {canManageTreatments && (
+                  {!isDentistUser && (
                     <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
                       {t('table.dentists')}
                     </th>
@@ -381,7 +379,7 @@ const Treatments = () => {
                         <p className="font-medium text-slate-900">{treatment.price.toFixed(2)} USD</p>
                         <p className="text-xs text-slate-500">{pricePerLabel(treatment.pricePer)}</p>
                       </td>
-                      {canManageTreatments && (
+                      {!isDentistUser && (
                         <td className="px-6 py-4 text-sm text-slate-700">
                           <div className="flex items-center gap-3">
                             <span>{treatment.dentistCount}</span>
@@ -419,7 +417,7 @@ const Treatments = () => {
                               Remove
                             </button>
                           )
-                        ) : canManageTreatments ? (
+                        ) : (
                           <button
                             onClick={() => handleEditClick(treatment)}
                             className="flex items-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition hover:bg-[#00588f]"
@@ -427,10 +425,7 @@ const Treatments = () => {
                             <Edit className="w-4 h-4" />
                             <span>{t('edit')}</span>
                           </button>
-                        ) : null}
-                        {!isDentistUser && !canManageTreatments ? (
-                          <span className="text-xs font-medium text-slate-500">Read only</span>
-                        ) : null}
+                        )}
                       </td>
                     </tr>
                   ))
@@ -443,7 +438,7 @@ const Treatments = () => {
       </ClinicManagementLayout>
 
       {/* Add Treatment Modal */}
-      {canManageTreatments && showAddModal && (
+      {!isDentistUser && showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
@@ -551,7 +546,7 @@ const Treatments = () => {
       )}
 
       {/* Edit Treatment Modal */}
-      {canManageTreatments && showEditModal && editingTreatment && (
+      {!isDentistUser && showEditModal && editingTreatment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
@@ -656,7 +651,7 @@ const Treatments = () => {
           </div>
         </div>
       )}
-      {canManageTreatments && showDentistsModal && selectedTreatment && (
+      {!isDentistUser && showDentistsModal && selectedTreatment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
