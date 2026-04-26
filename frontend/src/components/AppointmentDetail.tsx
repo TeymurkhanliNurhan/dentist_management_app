@@ -362,6 +362,7 @@ type AppointmentLocationState = {
 
 type TreatmentTimeFilter = 'current' | 'past' | 'all';
 type TreatmentOwnershipFilter = 'mine' | 'all';
+type MedicineUsageInput = { quantity: number; stockUsedQuantity: number };
 
 const resolveInternalReturnPath = (candidate: unknown): string | undefined => {
   if (typeof candidate !== 'string') return undefined;
@@ -461,7 +462,7 @@ const AppointmentDetail = () => {
   const [isAddingTreatment, setIsAddingTreatment] = useState(false);
   const [availableMedicines, setAvailableMedicines] = useState<Medicine[]>([]);
   const [allMedicines, setAllMedicines] = useState<Medicine[]>([]);
-  const [selectedMedicineQuantities, setSelectedMedicineQuantities] = useState<Record<number, number>>({});
+  const [selectedMedicineQuantities, setSelectedMedicineQuantities] = useState<Record<number, MedicineUsageInput>>({});
   const [medicineQuery, setMedicineQuery] = useState('');
   const [treatmentPage, setTreatmentPage] = useState(1);
   const [medicinePage, setMedicinePage] = useState(1);
@@ -473,7 +474,7 @@ const AppointmentDetail = () => {
     tooth_ids: [],
     description: '',
   });
-  const [editingMedicineQuantities, setEditingMedicineQuantities] = useState<Record<number, number>>({});
+  const [editingMedicineQuantities, setEditingMedicineQuantities] = useState<Record<number, MedicineUsageInput>>({});
   const [confirmDeleteTreatmentId, setConfirmDeleteTreatmentId] = useState<number | null>(null);
   const [toothSelectionMode, setToothSelectionMode] = useState<TeethSelectionMode>('multiple');
   const [selectedTreatmentIds, setSelectedTreatmentIds] = useState<number[]>([]);
@@ -1123,15 +1124,24 @@ const AppointmentDetail = () => {
     setError('');
     try {
       const selectedMedicines = Object.entries(selectedMedicineQuantities)
-        .map(([medicineId, quantity]) => ({ medicineId: Number(medicineId), quantity }))
+        .map(([medicineId, usage]) => ({
+          medicineId: Number(medicineId),
+          quantity: usage.quantity,
+          stockUsedQuantity: usage.stockUsedQuantity,
+        }))
         .filter(({ quantity }) => quantity > 0);
 
       const attachMedicinesAndMedia = async (createdId: number | undefined) => {
         if (!createdId) return;
         if (selectedMedicines.length > 0) {
           await Promise.all(
-            selectedMedicines.map(({ medicineId, quantity }) =>
-              toothTreatmentMedicineService.create({ tooth_treatment_id: createdId, medicine_id: medicineId, quantity })
+            selectedMedicines.map(({ medicineId, quantity, stockUsedQuantity }) =>
+              toothTreatmentMedicineService.create({
+                tooth_treatment_id: createdId,
+                medicine_id: medicineId,
+                quantity,
+                stock_used_quantity: stockUsedQuantity,
+              })
             )
           );
         }
@@ -1264,7 +1274,10 @@ const AppointmentDetail = () => {
         setAvailableMedicines(updatedMedicines.filter((m) => m.name.toLowerCase().includes(normalizedQuery)));
       }
 
-      setSelectedMedicineQuantities((prev) => ({ ...prev, [createdMedicine.id]: prev[createdMedicine.id] ?? 1 }));
+      setSelectedMedicineQuantities((prev) => ({
+        ...prev,
+        [createdMedicine.id]: prev[createdMedicine.id] ?? { quantity: 1, stockUsedQuantity: 1 },
+      }));
       setMedicinePage(1);
     } catch (err: any) {
       console.error('Failed to create medicine:', err);
@@ -1303,8 +1316,11 @@ const AppointmentDetail = () => {
     try {
       const meds = await toothTreatmentMedicineService.getAll({ tooth_treatment: tt.id });
       setEditingMedicineQuantities(
-        meds.reduce<Record<number, number>>((acc, med) => {
-          acc[med.medicine.id] = med.quantity;
+        meds.reduce<Record<number, MedicineUsageInput>>((acc, med) => {
+          acc[med.medicine.id] = {
+            quantity: med.quantity,
+            stockUsedQuantity: med.stock_used_quantity ?? med.quantity,
+          };
           return acc;
         }, {})
       );
@@ -1330,17 +1346,45 @@ const AppointmentDetail = () => {
         description: editingFields.description || null,
       });
       const currentMeds = await toothTreatmentMedicineService.getAll({ tooth_treatment: tt.id });
-      const currentMap = new Map(currentMeds.map((m) => [m.medicine.id, m.quantity]));
+      const currentMap = new Map(
+        currentMeds.map((m) => [
+          m.medicine.id,
+          { quantity: m.quantity, stockUsedQuantity: m.stock_used_quantity ?? m.quantity },
+        ]),
+      );
       const desiredEntries = Object.entries(editingMedicineQuantities)
-        .map(([medicineId, quantity]) => ({ medicineId: Number(medicineId), quantity }))
+        .map(([medicineId, usage]) => ({
+          medicineId: Number(medicineId),
+          quantity: usage.quantity,
+          stockUsedQuantity: usage.stockUsedQuantity,
+        }))
         .filter(({ quantity }) => quantity > 0);
       const desiredIds = new Set(desiredEntries.map(({ medicineId }) => medicineId));
       const toAdd = desiredEntries.filter(({ medicineId }) => !currentMap.has(medicineId));
-      const toUpdate = desiredEntries.filter(({ medicineId, quantity }) => currentMap.has(medicineId) && currentMap.get(medicineId) !== quantity);
+      const toUpdate = desiredEntries.filter(({ medicineId, quantity, stockUsedQuantity }) => {
+        const current = currentMap.get(medicineId);
+        if (!current) return false;
+        return (
+          current.quantity !== quantity ||
+          current.stockUsedQuantity !== stockUsedQuantity
+        );
+      });
       const toRemove = currentMeds.filter((med) => !desiredIds.has(med.medicine.id));
       await Promise.all([
-        ...toAdd.map(({ medicineId, quantity }) => toothTreatmentMedicineService.create({ tooth_treatment_id: tt.id, medicine_id: medicineId, quantity })),
-        ...toUpdate.map(({ medicineId, quantity }) => toothTreatmentMedicineService.updateQuantity(tt.id, medicineId, quantity)),
+        ...toAdd.map(({ medicineId, quantity, stockUsedQuantity }) =>
+          toothTreatmentMedicineService.create({
+            tooth_treatment_id: tt.id,
+            medicine_id: medicineId,
+            quantity,
+            stock_used_quantity: stockUsedQuantity,
+          }),
+        ),
+        ...toUpdate.map(({ medicineId, quantity, stockUsedQuantity }) =>
+          toothTreatmentMedicineService.updateQuantity(tt.id, medicineId, {
+            quantity,
+            stock_used_quantity: stockUsedQuantity,
+          }),
+        ),
         ...toRemove.map((med) => toothTreatmentMedicineService.delete(tt.id, med.medicine.id)),
       ]);
 
@@ -1929,7 +1973,9 @@ const AppointmentDetail = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-1">Select Medicines (optional)</h3>
-                  <p className="mb-3 text-xs text-gray-600">Enter the amount used from stock for each selected medicine.</p>
+                  <p className="mb-3 text-xs text-gray-600">
+                    Use the first number for treatment details/calculation, and the Stock field for inventory deduction.
+                  </p>
                   <p className="text-xs text-gray-600 mb-2">
                     Description, medicines, and media are applied to each new tooth–treatment row created in this step.
                   </p>
@@ -2048,7 +2094,9 @@ const AppointmentDetail = () => {
                       <div className="p-4 text-sm text-gray-500">No medicines found</div>
                     ) : (
                       paginatedMedicines.map((m) => {
-                        const quantity = selectedMedicineQuantities[m.id] ?? 0;
+                        const usage = selectedMedicineQuantities[m.id] ?? { quantity: 0, stockUsedQuantity: 0 };
+                        const quantity = usage.quantity;
+                        const stockUsedQuantity = usage.stockUsedQuantity;
                         const checked = quantity > 0;
                         return (
                           <label key={m.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 cursor-pointer hover:bg-purple-50">
@@ -2058,9 +2106,18 @@ const AppointmentDetail = () => {
                                 checked={checked}
                                 onChange={(e) => {
                                   if (e.target.checked) {
-                                    setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: Math.max(1, quantity || 1) });
+                                    setSelectedMedicineQuantities({
+                                      ...selectedMedicineQuantities,
+                                      [m.id]: {
+                                        quantity: Math.max(1, quantity || 1),
+                                        stockUsedQuantity: Math.max(1, stockUsedQuantity || 1),
+                                      },
+                                    });
                                   } else {
-                                    setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: 0 });
+                                    setSelectedMedicineQuantities({
+                                      ...selectedMedicineQuantities,
+                                      [m.id]: { quantity: 0, stockUsedQuantity: 0 },
+                                    });
                                   }
                                 }}
                                 className="h-4 w-4 text-purple-600 border-gray-300 rounded"
@@ -2074,7 +2131,15 @@ const AppointmentDetail = () => {
                               <div className="flex items-center rounded-md border border-gray-300 bg-white">
                                 <button
                                   type="button"
-                                  onClick={() => setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: Math.max(0, quantity - 1) })}
+                                  onClick={() =>
+                                    setSelectedMedicineQuantities({
+                                      ...selectedMedicineQuantities,
+                                      [m.id]: {
+                                        quantity: Math.max(0, quantity - 1),
+                                        stockUsedQuantity,
+                                      },
+                                    })
+                                  }
                                   className="px-2 py-1 text-gray-700 hover:bg-gray-100"
                                 >
                                   −
@@ -2086,17 +2151,48 @@ const AppointmentDetail = () => {
                                   value={quantity}
                                   onChange={(e) => {
                                     const next = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
-                                    setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: next });
+                                    setSelectedMedicineQuantities({
+                                      ...selectedMedicineQuantities,
+                                      [m.id]: { quantity: next, stockUsedQuantity },
+                                    });
                                   }}
                                   className="w-16 border-x border-gray-300 px-2 py-1 text-center text-sm"
                                 />
                                 <button
                                   type="button"
-                                  onClick={() => setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: Math.max(1, quantity + 1) })}
+                                  onClick={() =>
+                                    setSelectedMedicineQuantities({
+                                      ...selectedMedicineQuantities,
+                                      [m.id]: {
+                                        quantity: Math.max(1, quantity + 1),
+                                        stockUsedQuantity,
+                                      },
+                                    })
+                                  }
                                   className="px-2 py-1 text-gray-700 hover:bg-gray-100"
                                 >
                                   +
                                 </button>
+                              </div>
+                              <div className="flex items-center rounded-md border border-amber-300 bg-amber-50">
+                                <span className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                                  Stock
+                                </span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  value={stockUsedQuantity}
+                                  onChange={(e) => {
+                                    const next =
+                                      e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                                    setSelectedMedicineQuantities({
+                                      ...selectedMedicineQuantities,
+                                      [m.id]: { quantity, stockUsedQuantity: next },
+                                    });
+                                  }}
+                                  className="w-16 border-l border-amber-300 bg-white px-2 py-1 text-center text-sm"
+                                />
                               </div>
                               <span className="text-sm font-semibold text-gray-700">${(m.price * quantity).toFixed(2)}</span>
                             </div>
@@ -2421,6 +2517,9 @@ const AppointmentDetail = () => {
                                   <div key={med.medicine.id} className="flex items-start justify-between gap-3">
                                     <div className="text-sm text-purple-700">
                                       <span className="font-semibold">{med.medicine.name} x {med.quantity}</span>
+                                      <span className="ml-2 text-xs text-purple-600">
+                                        (Stock used: {med.stock_used_quantity ?? med.quantity})
+                                      </span>
                                       {med.medicine.description && (
                                         <span className="text-purple-600"> - {med.medicine.description}</span>
                                       )}
@@ -2733,10 +2832,14 @@ const AppointmentDetail = () => {
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
                           <div>
                             <h4 className="text-sm font-semibold text-gray-900 mb-1">Medicines</h4>
-                            <p className="mb-2 text-xs text-gray-600">Enter amount used from stock.</p>
+                            <p className="mb-2 text-xs text-gray-600">
+                              Keep treatment quantity and stock-used quantity separate.
+                            </p>
                             <div className="max-h-56 overflow-auto rounded-md border border-gray-200 bg-white">
                               {allMedicines.map((m) => {
-                                const quantity = editingMedicineQuantities[m.id] ?? 0;
+                                const usage = editingMedicineQuantities[m.id] ?? { quantity: 0, stockUsedQuantity: 0 };
+                                const quantity = usage.quantity;
+                                const stockUsedQuantity = usage.stockUsedQuantity;
                                 const checked = quantity > 0;
                                 return (
                                   <label key={m.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 cursor-pointer hover:bg-purple-50">
@@ -2745,8 +2848,20 @@ const AppointmentDetail = () => {
                                         type="checkbox"
                                         checked={checked}
                                         onChange={(e) => {
-                                          if (e.target.checked) setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: Math.max(1, quantity || 1) });
-                                          else setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: 0 });
+                                          if (e.target.checked) {
+                                            setEditingMedicineQuantities({
+                                              ...editingMedicineQuantities,
+                                              [m.id]: {
+                                                quantity: Math.max(1, quantity || 1),
+                                                stockUsedQuantity: Math.max(1, stockUsedQuantity || 1),
+                                              },
+                                            });
+                                          } else {
+                                            setEditingMedicineQuantities({
+                                              ...editingMedicineQuantities,
+                                              [m.id]: { quantity: 0, stockUsedQuantity: 0 },
+                                            });
+                                          }
                                         }}
                                         className="h-4 w-4 text-purple-600 border-gray-300 rounded"
                                       />
@@ -2759,7 +2874,15 @@ const AppointmentDetail = () => {
                                       <div className="flex items-center rounded-md border border-gray-300 bg-white">
                                         <button
                                           type="button"
-                                          onClick={() => setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: Math.max(0, quantity - 1) })}
+                                          onClick={() =>
+                                            setEditingMedicineQuantities({
+                                              ...editingMedicineQuantities,
+                                              [m.id]: {
+                                                quantity: Math.max(0, quantity - 1),
+                                                stockUsedQuantity,
+                                              },
+                                            })
+                                          }
                                           className="px-2 py-1 text-gray-700 hover:bg-gray-100"
                                         >
                                           −
@@ -2771,17 +2894,48 @@ const AppointmentDetail = () => {
                                           value={quantity}
                                           onChange={(e) => {
                                             const next = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
-                                            setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: next });
+                                            setEditingMedicineQuantities({
+                                              ...editingMedicineQuantities,
+                                              [m.id]: { quantity: next, stockUsedQuantity },
+                                            });
                                           }}
                                           className="w-16 border-x border-gray-300 px-2 py-1 text-center text-sm"
                                         />
                                         <button
                                           type="button"
-                                          onClick={() => setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: Math.max(1, quantity + 1) })}
+                                          onClick={() =>
+                                            setEditingMedicineQuantities({
+                                              ...editingMedicineQuantities,
+                                              [m.id]: {
+                                                quantity: Math.max(1, quantity + 1),
+                                                stockUsedQuantity,
+                                              },
+                                            })
+                                          }
                                           className="px-2 py-1 text-gray-700 hover:bg-gray-100"
                                         >
                                           +
                                         </button>
+                                      </div>
+                                      <div className="flex items-center rounded-md border border-amber-300 bg-amber-50">
+                                        <span className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                                          Stock
+                                        </span>
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          step={1}
+                                          value={stockUsedQuantity}
+                                          onChange={(e) => {
+                                            const next =
+                                              e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                                            setEditingMedicineQuantities({
+                                              ...editingMedicineQuantities,
+                                              [m.id]: { quantity, stockUsedQuantity: next },
+                                            });
+                                          }}
+                                          className="w-16 border-l border-amber-300 bg-white px-2 py-1 text-center text-sm"
+                                        />
                                       </div>
                                       {canSeeTreatmentFees(treatment) ? (
                                         <span className="text-sm font-semibold text-gray-700">${(m.price * quantity).toFixed(2)}</span>
