@@ -45,6 +45,8 @@ export class ToothTreatmentMedicineService {
         throw new NotFoundException('ToothTreatment not found');
       if (e?.message?.includes('Medicine not found'))
         throw new NotFoundException('Medicine not found');
+      if (e?.message?.includes('Insufficient medicine stock'))
+        throw new BadRequestException('Not enough medicine stock');
       if (e?.message?.includes('Already exists'))
         throw new BadRequestException(
           'This medicine is already assigned to this tooth treatment',
@@ -83,6 +85,8 @@ export class ToothTreatmentMedicineService {
         throw new NotFoundException('ToothTreatment not found');
       if (e?.message?.includes('ToothTreatmentMedicine not found'))
         throw new NotFoundException('ToothTreatmentMedicine not found');
+      if (e?.message?.includes('Insufficient medicine stock'))
+        throw new BadRequestException('Not enough medicine stock');
       if (e?.message?.includes('Forbidden')) {
         const warn = `Dentist with id ${dentistId} attempted to delete ToothTreatmentMedicine for ToothTreatment ${toothTreatmentId} without ownership`;
         this.logger.warn(warn);
@@ -157,6 +161,7 @@ export class ToothTreatmentMedicineService {
           price: ttm.medicineEntity?.price || null,
         },
         tooth_treatment: ttm.toothTreatment,
+        quantity: ttm.quantity,
       }));
     } catch (e: any) {
       throw e;

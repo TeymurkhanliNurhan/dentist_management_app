@@ -56,49 +56,58 @@ export class ToothTreatmentMedicineRepository {
     quantity = 1,
     restrictToPerformingDentist = false,
   ): Promise<ToothTreatmentMedicine> {
-    const ttRepo = this.dataSource.getRepository(ToothTreatment);
-    const medRepo = this.dataSource.getRepository(Medicine);
+    return this.dataSource.transaction(async (manager) => {
+      const ttRepo = manager.getRepository(ToothTreatment);
+      const medRepo = manager.getRepository(Medicine);
+      const ttmRepo = manager.getRepository(ToothTreatmentMedicine);
 
-    const toothTreatment = await ttRepo.findOne({
-      where: { id: toothTreatmentId },
-      relations: ['appointment', 'dentist'],
-    });
-    if (!toothTreatment) throw new Error('ToothTreatment not found');
-    const clinicId = await this.getClinicIdForDentist(dentistId);
-    if (toothTreatment.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
-    if (
-      restrictToPerformingDentist &&
-      (toothTreatment.dentist == null || toothTreatment.dentist.id !== dentistId)
-    ) {
-      throw new Error('Forbidden');
-    }
+      const toothTreatment = await ttRepo.findOne({
+        where: { id: toothTreatmentId },
+        relations: ['appointment', 'dentist'],
+      });
+      if (!toothTreatment) throw new Error('ToothTreatment not found');
+      const clinicId = await this.getClinicIdForDentist(dentistId);
+      if (toothTreatment.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
+      if (
+        restrictToPerformingDentist &&
+        (toothTreatment.dentist == null || toothTreatment.dentist.id !== dentistId)
+      ) {
+        throw new Error('Forbidden');
+      }
 
-    const medicine = await medRepo.findOne({
-      where: { id: medicineId, clinic: { id: clinicId } },
-    });
-    if (!medicine) throw new Error('Medicine not found or not owned');
+      const medicine = await medRepo.findOne({
+        where: { id: medicineId, clinic: { id: clinicId } },
+      });
+      if (!medicine) throw new Error('Medicine not found or not owned');
+      if (medicine.stock < quantity) {
+        throw new Error('Insufficient medicine stock');
+      }
 
-    const existing = await this.repo.findOne({
-      where: { medicine: medicineId, toothTreatment: toothTreatmentId },
-    });
-    if (existing) {
-      existing.quantity += quantity;
-      const updated = await this.repo.save(existing);
+      medicine.stock -= quantity;
+      await medRepo.save(medicine);
+
+      const existing = await ttmRepo.findOne({
+        where: { medicine: medicineId, toothTreatment: toothTreatmentId },
+      });
+      if (existing) {
+        existing.quantity += quantity;
+        const updated = await ttmRepo.save(existing);
+        await this.refreshAppointmentFees(toothTreatment.appointment.id);
+        return updated;
+      }
+
+      const created = ttmRepo.create({
+        medicine: medicineId,
+        toothTreatment: toothTreatmentId,
+        medicinePriceSnapshot: medicine.price,
+        quantity,
+        medicineEntity: medicine,
+        toothTreatmentEntity: toothTreatment,
+      });
+      const saved = await ttmRepo.save(created);
       await this.refreshAppointmentFees(toothTreatment.appointment.id);
-      return updated;
-    }
-
-    const created = this.repo.create({
-      medicine: medicineId,
-      toothTreatment: toothTreatmentId,
-      medicinePriceSnapshot: medicine.price,
-      quantity,
-      medicineEntity: medicine,
-      toothTreatmentEntity: toothTreatment,
+      return saved;
     });
-    const saved = await this.repo.save(created);
-    await this.refreshAppointmentFees(toothTreatment.appointment.id);
-    return saved;
   }
 
   async updateQuantityEnsureOwnership(
@@ -108,30 +117,48 @@ export class ToothTreatmentMedicineRepository {
     quantity: number,
     restrictToPerformingDentist = false,
   ): Promise<ToothTreatmentMedicine> {
-    const ttRepo = this.dataSource.getRepository(ToothTreatment);
-    const toothTreatment = await ttRepo.findOne({
-      where: { id: toothTreatmentId },
-      relations: ['appointment', 'dentist'],
-    });
-    if (!toothTreatment) throw new Error('ToothTreatment not found');
-    const clinicId = await this.getClinicIdForDentist(dentistId);
-    if (toothTreatment.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
-    if (
-      restrictToPerformingDentist &&
-      (toothTreatment.dentist == null || toothTreatment.dentist.id !== dentistId)
-    ) {
-      throw new Error('Forbidden');
-    }
+    return this.dataSource.transaction(async (manager) => {
+      const ttRepo = manager.getRepository(ToothTreatment);
+      const medRepo = manager.getRepository(Medicine);
+      const ttmRepo = manager.getRepository(ToothTreatmentMedicine);
+      const toothTreatment = await ttRepo.findOne({
+        where: { id: toothTreatmentId },
+        relations: ['appointment', 'dentist'],
+      });
+      if (!toothTreatment) throw new Error('ToothTreatment not found');
+      const clinicId = await this.getClinicIdForDentist(dentistId);
+      if (toothTreatment.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
+      if (
+        restrictToPerformingDentist &&
+        (toothTreatment.dentist == null || toothTreatment.dentist.id !== dentistId)
+      ) {
+        throw new Error('Forbidden');
+      }
 
-    const existing = await this.repo.findOne({
-      where: { medicine: medicineId, toothTreatment: toothTreatmentId },
-    });
-    if (!existing) throw new Error('ToothTreatmentMedicine not found');
+      const existing = await ttmRepo.findOne({
+        where: { medicine: medicineId, toothTreatment: toothTreatmentId },
+      });
+      if (!existing) throw new Error('ToothTreatmentMedicine not found');
+      const medicine = await medRepo.findOne({
+        where: { id: medicineId, clinic: { id: clinicId } },
+      });
+      if (!medicine) throw new Error('Medicine not found or not owned');
 
-    existing.quantity = quantity;
-    const updated = await this.repo.save(existing);
-    await this.refreshAppointmentFees(toothTreatment.appointment.id);
-    return updated;
+      const delta = quantity - existing.quantity;
+      if (delta > 0 && medicine.stock < delta) {
+        throw new Error('Insufficient medicine stock');
+      }
+      medicine.stock -= delta;
+      if (medicine.stock < 0) {
+        throw new Error('Insufficient medicine stock');
+      }
+      await medRepo.save(medicine);
+
+      existing.quantity = quantity;
+      const updated = await ttmRepo.save(existing);
+      await this.refreshAppointmentFees(toothTreatment.appointment.id);
+      return updated;
+    });
   }
 
   async deleteEnsureOwnership(
@@ -140,28 +167,38 @@ export class ToothTreatmentMedicineRepository {
     medicineId: number,
     restrictToPerformingDentist = false,
   ): Promise<void> {
-    const ttRepo = this.dataSource.getRepository(ToothTreatment);
-    const toothTreatment = await ttRepo.findOne({
-      where: { id: toothTreatmentId },
-      relations: ['appointment', 'dentist'],
-    });
-    if (!toothTreatment) throw new Error('ToothTreatment not found');
-    const clinicId = await this.getClinicIdForDentist(dentistId);
-    if (toothTreatment.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
-    if (
-      restrictToPerformingDentist &&
-      (toothTreatment.dentist == null || toothTreatment.dentist.id !== dentistId)
-    ) {
-      throw new Error('Forbidden');
-    }
+    await this.dataSource.transaction(async (manager) => {
+      const ttRepo = manager.getRepository(ToothTreatment);
+      const medRepo = manager.getRepository(Medicine);
+      const ttmRepo = manager.getRepository(ToothTreatmentMedicine);
+      const toothTreatment = await ttRepo.findOne({
+        where: { id: toothTreatmentId },
+        relations: ['appointment', 'dentist'],
+      });
+      if (!toothTreatment) throw new Error('ToothTreatment not found');
+      const clinicId = await this.getClinicIdForDentist(dentistId);
+      if (toothTreatment.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
+      if (
+        restrictToPerformingDentist &&
+        (toothTreatment.dentist == null || toothTreatment.dentist.id !== dentistId)
+      ) {
+        throw new Error('Forbidden');
+      }
 
-    const existing = await this.repo.findOne({
-      where: { medicine: medicineId, toothTreatment: toothTreatmentId },
-    });
-    if (!existing) throw new Error('ToothTreatmentMedicine not found');
+      const existing = await ttmRepo.findOne({
+        where: { medicine: medicineId, toothTreatment: toothTreatmentId },
+      });
+      if (!existing) throw new Error('ToothTreatmentMedicine not found');
+      const medicine = await medRepo.findOne({
+        where: { id: medicineId, clinic: { id: clinicId } },
+      });
+      if (!medicine) throw new Error('Medicine not found or not owned');
+      medicine.stock += existing.quantity;
+      await medRepo.save(medicine);
 
-    await this.repo.remove(existing);
-    await this.refreshAppointmentFees(toothTreatment.appointment.id);
+      await ttmRepo.remove(existing);
+      await this.refreshAppointmentFees(toothTreatment.appointment.id);
+    });
   }
 
   async findToothTreatmentMedicinesForDentist(

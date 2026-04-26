@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash } from 'lucide-react';
+import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash, ChevronDown } from 'lucide-react';
 import ClinicManagementLayout from './ClinicManagementLayout';
 import { API_BASE_URL, appointmentService, dentistService, randevueService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
 import type { Appointment, Randevue, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, CreateMedicineDto, Media, TreatmentPricePer, DentistProfile } from '../services/api';
@@ -360,6 +360,9 @@ type AppointmentLocationState = {
   returnLabel?: string;
 };
 
+type TreatmentTimeFilter = 'current' | 'past' | 'all';
+type TreatmentOwnershipFilter = 'mine' | 'all';
+
 const resolveInternalReturnPath = (candidate: unknown): string | undefined => {
   if (typeof candidate !== 'string') return undefined;
   const trimmed = candidate.trim();
@@ -512,6 +515,8 @@ const AppointmentDetail = () => {
   const [editingMediaData, setEditingMediaData] = useState<{ name: string; description: string }>({ name: '', description: '' });
   const [isEditingMedia, setIsEditingMedia] = useState(false);
   const [previewMedia, setPreviewMedia] = useState<Media | null>(null);
+  const [treatmentTimeFilter, setTreatmentTimeFilter] = useState<TreatmentTimeFilter>('current');
+  const [treatmentOwnershipFilter, setTreatmentOwnershipFilter] = useState<TreatmentOwnershipFilter>('mine');
 
   useEffect(() => {
     if (!previewMedia) return;
@@ -1517,6 +1522,33 @@ const AppointmentDetail = () => {
 
   const totalMedicinePages = Math.max(1, Math.ceil(availableMedicines.length / ITEMS_PER_PAGE));
   const paginatedMedicines = availableMedicines.slice((medicinePage - 1) * ITEMS_PER_PAGE, medicinePage * ITEMS_PER_PAGE);
+  const nowMs = Date.now();
+  const isTreatmentCurrent = (treatment: ToothTreatment) => {
+    const linked = treatment.linkedRandevues ?? [];
+    if (linked.length > 0) {
+      const latestRvEndMs = linked.reduce((latest, rv) => {
+        const rvEndMs = new Date(rv.endTime).getTime();
+        return Number.isFinite(rvEndMs) ? Math.max(latest, rvEndMs) : latest;
+      }, Number.NEGATIVE_INFINITY);
+      return latestRvEndMs >= nowMs;
+    }
+    const appointmentEndMs = appointment?.endDate ? new Date(appointment.endDate).getTime() : Number.NaN;
+    if (!Number.isFinite(appointmentEndMs)) return true;
+    return appointmentEndMs >= nowMs;
+  };
+  const visibleTreatments = treatments.filter((treatment) => {
+    const passesTime =
+      treatmentTimeFilter === 'all'
+        ? true
+        : treatmentTimeFilter === 'current'
+          ? isTreatmentCurrent(treatment)
+          : !isTreatmentCurrent(treatment);
+    const passesOwnership =
+      treatmentOwnershipFilter === 'all' ||
+      loggedInDentistId <= 0 ||
+      treatment.dentist?.id === loggedInDentistId;
+    return passesTime && passesOwnership;
+  });
 
   return (
     <ClinicManagementLayout>
@@ -1695,10 +1727,10 @@ const AppointmentDetail = () => {
             {!isDirector ? (
               <button
                 onClick={handleOpenAddTreatment}
-                className="flex items-center space-x-2 px-4 py-2 bg-[#0066A6] text-white rounded-md hover:bg-[#00588f] transition-colors"
+                className="flex items-center space-x-2 rounded-md bg-[#0f766e] px-4 py-2 text-white transition-colors hover:bg-[#0d5f59]"
               >
                 <Plus className="w-4 h-4" />
-                <span>Add Treatment</span>
+                <span>Create Course</span>
               </button>
             ) : null}
           </div>
@@ -1731,10 +1763,10 @@ const AppointmentDetail = () => {
                   <button
                     type="button"
                     onClick={() => setShowAddTreatmentInModal(true)}
-                    className="w-full mb-3 flex items-center justify-center space-x-1 px-4 py-2 bg-[#f0f7fc] text-[#0066A6] text-sm rounded-md font-medium border border-[#cce0f0] hover:bg-[#e8f2fa] transition-colors"
+                    className="mb-3 flex w-full items-center justify-center space-x-1 rounded-md border border-[#99f6e4] bg-[#ccfbf1] px-4 py-2 text-sm font-medium text-[#115e59] transition-colors hover:bg-[#99f6e4]"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>New Treatment</span>
+                    <span>Create Course</span>
                   </button>
                   <div className="max-h-64 overflow-auto rounded-md border border-gray-200 bg-white">
                     {availableTreatments.length === 0 ? (
@@ -1793,7 +1825,7 @@ const AppointmentDetail = () => {
 
                 {showAddTreatmentInModal && (
                   <div className="border-t pt-4 mt-4">
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">New Treatment</h3>
+                    <h3 className="text-sm font-medium text-gray-900 mb-3">Create Course</h3>
                     <div className="space-y-3">
                       <div>
                         <label htmlFor="modalNewTreatmentName" className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
@@ -1896,7 +1928,8 @@ const AppointmentDetail = () => {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Select Medicines (optional)</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Select Medicines (optional)</h3>
+                  <p className="mb-3 text-xs text-gray-600">Enter the amount used from stock for each selected medicine.</p>
                   <p className="text-xs text-gray-600 mb-2">
                     Description, medicines, and media are applied to each new tooth–treatment row created in this step.
                   </p>
@@ -2243,7 +2276,7 @@ const AppointmentDetail = () => {
                   disabled={
                     isAddingTreatment || selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0
                   }
-                  className="px-5 py-2 bg-[#0066A6] text-white rounded-lg font-semibold hover:bg-[#004a75] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-lg bg-[#0f766e] px-5 py-2 font-semibold text-white transition-colors hover:bg-[#0d5f59] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isAddingTreatment
                     ? 'Adding...'
@@ -2272,9 +2305,34 @@ const AppointmentDetail = () => {
             </div>
           )}
           
-          {treatments.length === 0 ? (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <select
+                value={treatmentTimeFilter}
+                onChange={(e) => setTreatmentTimeFilter(e.target.value as TreatmentTimeFilter)}
+                className="appearance-none rounded-md border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-gray-800 hover:border-gray-400 focus:border-[#0f766e] focus:outline-none focus:ring-2 focus:ring-[#99f6e4]"
+              >
+                <option value="current">Current</option>
+                <option value="past">Past</option>
+                <option value="all">All</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
+            </div>
+            <div className="relative">
+              <select
+                value={treatmentOwnershipFilter}
+                onChange={(e) => setTreatmentOwnershipFilter(e.target.value as TreatmentOwnershipFilter)}
+                className="appearance-none rounded-md border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-gray-800 hover:border-gray-400 focus:border-[#0f766e] focus:outline-none focus:ring-2 focus:ring-[#99f6e4]"
+              >
+                <option value="mine">Mine</option>
+                <option value="all">All</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
+            </div>
+          </div>
+          {visibleTreatments.length === 0 ? (
             <p className="text-center text-gray-500 py-8">
-              No treatments found for this appointment.
+              No treatments found for this filter.
             </p>
           ) : (
             <div className="space-y-4">
@@ -2283,7 +2341,7 @@ const AppointmentDetail = () => {
                   {linkTreatmentError}
                 </div>
               )}
-              {treatments.map((treatment) => {
+              {visibleTreatments.map((treatment) => {
                 const toothInfos = treatment.toothTreatmentTeeth.map(ttt => teethInfo.get(ttt.toothId)).filter(Boolean);
                 const medicines = treatmentMedicines.get(treatment.id) || [];
                 return (
@@ -2674,7 +2732,8 @@ const AppointmentDetail = () => {
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
                           <div>
-                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Medicines</h4>
+                            <h4 className="text-sm font-semibold text-gray-900 mb-1">Medicines</h4>
+                            <p className="mb-2 text-xs text-gray-600">Enter amount used from stock.</p>
                             <div className="max-h-56 overflow-auto rounded-md border border-gray-200 bg-white">
                               {allMedicines.map((m) => {
                                 const quantity = editingMedicineQuantities[m.id] ?? 0;
