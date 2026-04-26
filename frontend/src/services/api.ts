@@ -804,7 +804,6 @@ export interface ToothTreatmentMedicine {
   };
   tooth_treatment: number;
   quantity: number;
-  stock_used_quantity?: number;
 }
 
 export interface ToothTreatmentMedicineFilters {
@@ -816,12 +815,6 @@ export interface CreateToothTreatmentMedicineDto {
   tooth_treatment_id: number;
   medicine_id: number;
   quantity?: number;
-  stock_used_quantity?: number;
-}
-
-export interface UpdateToothTreatmentMedicineDto {
-  quantity?: number;
-  stock_used_quantity?: number;
 }
 
 export const toothTreatmentMedicineService = {
@@ -837,15 +830,8 @@ export const toothTreatmentMedicineService = {
     const response = await api.post('/tooth-treatment-medicine', dto);
     return response.data;
   },
-  updateQuantity: async (
-    toothTreatmentId: number,
-    medicineId: number,
-    payload: UpdateToothTreatmentMedicineDto,
-  ) => {
-    const response = await api.patch(
-      `/tooth-treatment-medicine/${toothTreatmentId}/${medicineId}/quantity`,
-      payload,
-    );
+  updateQuantity: async (toothTreatmentId: number, medicineId: number, quantity: number) => {
+    const response = await api.patch(`/tooth-treatment-medicine/${toothTreatmentId}/${medicineId}/quantity`, { quantity });
     return response.data;
   },
   delete: async (toothTreatmentId: number, medicineId: number) => {

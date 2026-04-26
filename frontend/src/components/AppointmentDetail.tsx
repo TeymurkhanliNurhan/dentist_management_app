@@ -1131,18 +1131,31 @@ const AppointmentDetail = () => {
         }))
         .filter(({ quantity }) => quantity > 0);
 
+      const stockByMedicineId = new Map(
+        allMedicines.map((medicine) => [medicine.id, medicine.stock]),
+      );
+
+      const applyStockDelta = async (medicineId: number, delta: number) => {
+        if (!Number.isFinite(delta) || delta === 0) return;
+        const currentStock = stockByMedicineId.get(medicineId);
+        if (typeof currentStock !== 'number') return;
+        const nextStock = Math.max(0, currentStock + delta);
+        await medicineService.update(medicineId, { stock: nextStock });
+        stockByMedicineId.set(medicineId, nextStock);
+      };
+
       const attachMedicinesAndMedia = async (createdId: number | undefined) => {
         if (!createdId) return;
         if (selectedMedicines.length > 0) {
           await Promise.all(
-            selectedMedicines.map(({ medicineId, quantity, stockUsedQuantity }) =>
-              toothTreatmentMedicineService.create({
+            selectedMedicines.map(async ({ medicineId, quantity, stockUsedQuantity }) => {
+              await applyStockDelta(medicineId, -stockUsedQuantity);
+              return toothTreatmentMedicineService.create({
                 tooth_treatment_id: createdId,
                 medicine_id: medicineId,
                 quantity,
-                stock_used_quantity: stockUsedQuantity,
-              })
-            )
+              });
+            })
           );
         }
         if (pendingMediaForNewTreatment.length > 0) {
@@ -1319,7 +1332,7 @@ const AppointmentDetail = () => {
         meds.reduce<Record<number, MedicineUsageInput>>((acc, med) => {
           acc[med.medicine.id] = {
             quantity: med.quantity,
-            stockUsedQuantity: med.stock_used_quantity ?? med.quantity,
+            stockUsedQuantity: med.quantity,
           };
           return acc;
         }, {})
@@ -1349,7 +1362,7 @@ const AppointmentDetail = () => {
       const currentMap = new Map(
         currentMeds.map((m) => [
           m.medicine.id,
-          { quantity: m.quantity, stockUsedQuantity: m.stock_used_quantity ?? m.quantity },
+          { quantity: m.quantity, stockUsedQuantity: m.quantity },
         ]),
       );
       const desiredEntries = Object.entries(editingMedicineQuantities)
@@ -1370,22 +1383,45 @@ const AppointmentDetail = () => {
         );
       });
       const toRemove = currentMeds.filter((med) => !desiredIds.has(med.medicine.id));
+
+      const stockByMedicineId = new Map(
+        allMedicines.map((medicine) => [medicine.id, medicine.stock]),
+      );
+      const applyStockDelta = async (medicineId: number, delta: number) => {
+        if (!Number.isFinite(delta) || delta === 0) return;
+        const currentStock = stockByMedicineId.get(medicineId);
+        if (typeof currentStock !== 'number') return;
+        const nextStock = Math.max(0, currentStock + delta);
+        await medicineService.update(medicineId, { stock: nextStock });
+        stockByMedicineId.set(medicineId, nextStock);
+      };
+
       await Promise.all([
-        ...toAdd.map(({ medicineId, quantity, stockUsedQuantity }) =>
-          toothTreatmentMedicineService.create({
+        ...toAdd.map(async ({ medicineId, quantity, stockUsedQuantity }) => {
+          await applyStockDelta(medicineId, -stockUsedQuantity);
+          return toothTreatmentMedicineService.create({
             tooth_treatment_id: tt.id,
             medicine_id: medicineId,
             quantity,
-            stock_used_quantity: stockUsedQuantity,
-          }),
-        ),
-        ...toUpdate.map(({ medicineId, quantity, stockUsedQuantity }) =>
-          toothTreatmentMedicineService.updateQuantity(tt.id, medicineId, {
-            quantity,
-            stock_used_quantity: stockUsedQuantity,
-          }),
-        ),
-        ...toRemove.map((med) => toothTreatmentMedicineService.delete(tt.id, med.medicine.id)),
+          });
+        }),
+        ...toUpdate.map(async ({ medicineId, quantity, stockUsedQuantity }) => {
+          const current = currentMap.get(medicineId);
+          if (current) {
+            await applyStockDelta(
+              medicineId,
+              -(stockUsedQuantity - current.stockUsedQuantity),
+            );
+          }
+          return toothTreatmentMedicineService.updateQuantity(tt.id, medicineId, quantity);
+        }),
+        ...toRemove.map(async (med) => {
+          const current = currentMap.get(med.medicine.id);
+          if (current) {
+            await applyStockDelta(med.medicine.id, current.stockUsedQuantity);
+          }
+          return toothTreatmentMedicineService.delete(tt.id, med.medicine.id);
+        }),
       ]);
 
       const treatmentsData = await toothTreatmentService.getAll({ appointment: appointment.id });
@@ -2517,9 +2553,6 @@ const AppointmentDetail = () => {
                                   <div key={med.medicine.id} className="flex items-start justify-between gap-3">
                                     <div className="text-sm text-purple-700">
                                       <span className="font-semibold">{med.medicine.name} x {med.quantity}</span>
-                                      <span className="ml-2 text-xs text-purple-600">
-                                        (Stock used: {med.stock_used_quantity ?? med.quantity})
-                                      </span>
                                       {med.medicine.description && (
                                         <span className="text-purple-600"> - {med.medicine.description}</span>
                                       )}
