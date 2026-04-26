@@ -41,7 +41,9 @@ export class AppointmentController {
   @ApiOkResponse({ description: 'Appointments retrieved' })
   async findAll(@User() user: any, @Query() dto: GetAppointmentDto) {
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.findAll(dentistId, dto);
+    const role =
+      typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
+    return await this.service.findAll(dentistId, dto, role);
   }
 
   @ApiBearerAuth('bearer')

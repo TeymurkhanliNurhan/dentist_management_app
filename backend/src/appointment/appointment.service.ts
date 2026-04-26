@@ -138,7 +138,7 @@ export class AppointmentService {
     }
   }
 
-  async findAll(dentistId: number, dto: GetAppointmentDto) {
+  async findAll(dentistId: number, dto: GetAppointmentDto, role?: string) {
     try {
       const { appointments, total, appointmentsDentistMap } =
         await this.repo.findAppointmentsForDentist(dentistId, {
@@ -156,6 +156,7 @@ export class AppointmentService {
       const msg = `Dentist with id ${dentistId} retrieved ${appointments.length} appointment(s) out of ${total}`;
       this.logger.log(msg);
       LogWriter.append('log', AppointmentService.name, msg);
+      const dentistScopedView = (role ?? '').toLowerCase() === 'dentist';
       return {
         appointments: appointments.map((appointment) => {
           const startDate =
@@ -174,7 +175,9 @@ export class AppointmentService {
             id: appointment.id,
             startDate: startDate.toISOString().slice(0, 10),
             endDate: endDate ? endDate.toISOString().slice(0, 10) : null,
-            calculatedFee: dentistInfo?.dentistCalculatedFee ?? appointment.calculatedFee,
+            calculatedFee: dentistScopedView
+              ? (dentistInfo?.dentistCalculatedFee ?? appointment.calculatedFee)
+              : appointment.calculatedFee,
             chargedFee: appointment.chargedFee,
             discountFee: appointment.discountFee,
             patient: {

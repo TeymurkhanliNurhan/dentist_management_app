@@ -385,6 +385,7 @@ const AppointmentDetail = () => {
       : undefined;
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isAdminLike = role === 'director' || role === 'admin';
+  const isDirector = role === 'director';
   const isDentist = role === 'dentist';
   const loggedInDentistId = useMemo(() => {
     const raw = localStorage.getItem('dentistId');
@@ -394,7 +395,8 @@ const AppointmentDetail = () => {
   const canSeeTreatmentFees = (t: ToothTreatment) =>
     !isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId);
   const canMutateTreatment = (t: ToothTreatment) =>
-    !isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId);
+    !isDirector &&
+    (!isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId));
   const backPath =
     returnTo ??
     (fromPatientId != null ? `/patients/${fromPatientId}` : isAdminLike ? '/schedule' : '/course-of-treatments');
@@ -1534,14 +1536,16 @@ const AppointmentDetail = () => {
               Appointment Details
             </h1>
             <div className="flex flex-col items-end gap-2">
-              <button
-                onClick={() => setShowEditAppointment(true)}
-                className="flex min-w-[96px] items-center justify-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition-colors hover:bg-[#00588f]"
-              >
-                <Edit className="w-4 h-4" />
-                <span>Edit</span>
-              </button>
-              {isAdminLike ? (
+              {!isDirector ? (
+                <button
+                  onClick={() => setShowEditAppointment(true)}
+                  className="flex min-w-[96px] items-center justify-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition-colors hover:bg-[#00588f]"
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>Edit</span>
+                </button>
+              ) : null}
+              {isAdminLike && !isDirector ? (
               <button
                 onClick={() => setConfirmDeleteAppointment(true)}
                 className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors min-w-[96px]"
@@ -1550,14 +1554,16 @@ const AppointmentDetail = () => {
                 <span>Delete</span>
               </button>
               ) : null}
-              <button
-                type="button"
-                onClick={openNewRandevuePanel}
-                className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-[#0066A6] text-white rounded-md hover:bg-[#00588f] transition-colors min-w-[96px]"
-              >
-                <Calendar className="w-4 h-4" />
-                <span>New randevue</span>
-              </button>
+              {!isDirector ? (
+                <button
+                  type="button"
+                  onClick={openNewRandevuePanel}
+                  className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-[#0066A6] text-white rounded-md hover:bg-[#00588f] transition-colors min-w-[96px]"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>New randevue</span>
+                </button>
+              ) : null}
 
               {isAdminLike && confirmDeleteAppointment && (
                 <div className="mt-1 w-64 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 shadow-sm">
@@ -1686,16 +1692,18 @@ const AppointmentDetail = () => {
         <div className="bg-white rounded-lg shadow-md p-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Treatments</h2>
-            <button
-              onClick={handleOpenAddTreatment}
-              className="flex items-center space-x-2 px-4 py-2 bg-[#0066A6] text-white rounded-md hover:bg-[#00588f] transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Treatment</span>
-            </button>
+            {!isDirector ? (
+              <button
+                onClick={handleOpenAddTreatment}
+                className="flex items-center space-x-2 px-4 py-2 bg-[#0066A6] text-white rounded-md hover:bg-[#00588f] transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Treatment</span>
+              </button>
+            ) : null}
           </div>
 
-          {showAddTreatment && appointment && (
+          {!isDirector && showAddTreatment && appointment && (
             <div className="mb-8 border border-[#cce0f0] rounded-lg p-6 bg-[#f0f7fc]/40">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
