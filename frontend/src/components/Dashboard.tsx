@@ -4,7 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { DASHBOARD_TILE_IMAGES, type DashboardTileKey } from '../lib/dashboardTileImages';
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, DollarSign, MinusCircle, Settings, UserRound, Users } from 'lucide-react';
-import api, { API_BASE_URL, dentistService, type DentistDashboardOverview } from '../services/api';
+import api, {
+  API_BASE_URL,
+  dentistService,
+  randevueService,
+  type DentistDashboardOverview,
+} from '../services/api';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
@@ -92,6 +97,13 @@ function toYmd(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+function localDayRangeIso(day: Date): { from: string; to: string } {
+  const from = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0);
+  const to = new Date(from);
+  to.setDate(to.getDate() + 1);
+  return { from: from.toISOString(), to: to.toISOString() };
 }
 
 function startOfWeekMondayFromDate(d: Date): Date {
@@ -411,15 +423,29 @@ const Dashboard = () => {
 
       setLoadingDentistMetrics(true);
       try {
-        const overview = await dentistService.getDashboardOverview();
+        const todayRange = localDayRangeIso(new Date());
+        const [overview, todayRandevues] = await Promise.all([
+          dentistService.getDashboardOverview(),
+          randevueService.getForRange(todayRange.from, todayRange.to),
+        ]);
+        const normalizedTodayRandevues = todayRandevues
+          .map((item) => ({
+            id: Number(item.id),
+            startTime: item.date,
+            endTime: item.endTime,
+            patientName: `${item.patient?.name ?? ''} ${item.patient?.surname ?? ''}`.trim() || 'Unknown patient',
+          }))
+          .sort(
+            (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+          );
+
         if (!disposed) {
           setDentistMetrics({
             todayTreatmentCount: Number(overview.todayTreatmentCount ?? 0),
             todayRevenue: Number(overview.todayRevenue ?? 0),
             monthRevenue: Number(overview.monthRevenue ?? 0),
-            todayRandevues: Array.isArray(overview.todayRandevues)
-              ? overview.todayRandevues
-              : [],
+            // Keep timeline source aligned with Schedule's local-day range query.
+            todayRandevues: normalizedTodayRandevues,
             todayBlockingHours: Array.isArray(overview.todayBlockingHours)
               ? overview.todayBlockingHours
               : [],
