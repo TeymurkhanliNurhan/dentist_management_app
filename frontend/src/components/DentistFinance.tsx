@@ -29,6 +29,7 @@ const DentistFinance = () => {
   const [financeData, setFinanceData] = useState<DentistFinanceOverview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hoveredNode, setHoveredNode] = useState<number | null>(null);
 
   const fetchFinanceOverview = async (year = selectedYear, month = selectedMonth) => {
     setLoading(true);
@@ -53,7 +54,7 @@ const DentistFinance = () => {
 
   const chartWidth = 760;
   const chartHeight = 300;
-  const chartPadding = { top: 24, right: 24, bottom: 42, left: 56 };
+  const chartPadding = { top: 40, right: 24, bottom: 42, left: 56 };
   const plotWidth = chartWidth - chartPadding.left - chartPadding.right;
   const plotHeight = chartHeight - chartPadding.top - chartPadding.bottom;
 
@@ -302,17 +303,47 @@ const DentistFinance = () => {
 
                         <path d={seriesPath} fill="none" stroke="#0ea5e9" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
                         
-                        {graphData.map((point, index) => (
-                          <circle
-                            key={`dot-${index}`}
-                            cx={chartXForIndex(index)}
-                            cy={chartYForValue(point.value)}
-                            r={4}
-                            fill="white"
-                            stroke="#0ea5e9"
-                            strokeWidth={2}
-                          />
-                        ))}
+                        {graphData.map((point, index) => {
+                          const cx = chartXForIndex(index);
+                          const cy = chartYForValue(point.value);
+                          const isHovered = hoveredNode === index;
+                          return (
+                            <g key={`dot-group-${index}`}>
+                              <circle
+                                cx={cx}
+                                cy={cy}
+                                r={isHovered ? 6 : 4}
+                                fill="white"
+                                stroke="#0ea5e9"
+                                strokeWidth={isHovered ? 3 : 2}
+                                className="cursor-pointer transition-all duration-200"
+                                onMouseEnter={() => setHoveredNode(index)}
+                                onMouseLeave={() => setHoveredNode(null)}
+                              />
+                              {isHovered && (
+                                <g>
+                                  <rect
+                                    x={cx - 35}
+                                    y={cy - 34}
+                                    width={70}
+                                    height={24}
+                                    rx={4}
+                                    fill="#1e293b"
+                                    className="pointer-events-none"
+                                  />
+                                  <text
+                                    x={cx}
+                                    y={cy - 17}
+                                    textAnchor="middle"
+                                    className="pointer-events-none fill-white text-[11px] font-medium"
+                                  >
+                                    {formatCurrency(point.value)}
+                                  </text>
+                                </g>
+                              )}
+                            </g>
+                          );
+                        })}
                       </svg>
                     </div>
                   </div>
