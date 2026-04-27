@@ -148,7 +148,22 @@ export const dentistService = {
     );
     return response.data;
   },
+  getDashboardOverview: async (): Promise<DentistDashboardOverview> => {
+    const response = await api.get<DentistDashboardOverview>('/dentist/dashboard/overview');
+    return response.data;
+  },
 };
+
+export interface DentistDashboardOverview {
+  todayTreatmentCount: number;
+  todayRevenue: number;
+  monthRevenue: number;
+  todayScheduleChart: Array<{
+    hour: number;
+    timeLabel: string;
+    count: number;
+  }>;
+}
 
 export interface DentistFinanceOverview {
   period: { year: number; month: number };

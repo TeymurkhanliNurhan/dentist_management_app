@@ -4,6 +4,14 @@
   "patients": "Patients",
   "treatments": "Treatments",
   "medicines": "Medicines",
-  "schedule": "Schedule"
+  "schedule": "Schedule",
+  "dentistDashboardTitle": "Today's Overview",
+  "dentistDashboardSubtitle": "Quick summary of your treatments, revenue, and schedule.",
+  "dentistTodayTreatments": "Treatments Today",
+  "dentistTodayRevenue": "Revenue Today",
+  "dentistMonthRevenue": "Revenue This Month",
+  "dentistTodayScheduleChart": "Today's Schedule",
+  "dentistScheduleChartHint": "Bars show number of planned randevues by hour (08:00-20:00).",
+  "dentistDashboardRefreshing": "Refreshing dashboard data..."
 }
 

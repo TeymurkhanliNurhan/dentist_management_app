@@ -249,6 +249,85 @@ export class DentistService {
     return { message: 'Dentist deleted successfully' };
   }
 
+  async getDashboardOverview(dentistId: number) {
+    const dentist = await this.dentistRepository.findById(dentistId);
+    if (!dentist) throw new NotFoundException('Dentist not found');
+
+    const baseCte = `
+      WITH TreatmentEffectiveDates AS (
+        SELECT
+          tt.id,
+          tt."feeSnapshot",
+          COALESCE(MAX(r.date), a."startDate"::timestamp) AS "effectiveDate"
+        FROM "Tooth_Treatment" tt
+        JOIN "Appointment" a ON a.id = tt.appointment
+        LEFT JOIN "ToothTreatmentTeeth" ttt ON ttt.tooth_treatment_id = tt.id
+        LEFT JOIN "Treatment_Randevue" tr ON tr.tooth_treatment_teeth_id = ttt.id
+        LEFT JOIN "Randevue" r ON r.id = tr.randevue_id
+        WHERE tt.dentist = $1
+        GROUP BY tt.id, tt."feeSnapshot", a."startDate"
+      )
+    `;
+
+    const [totalsRows, scheduleRows] = await Promise.all([
+      this.dataSource.query(
+        `
+          ${baseCte}
+          SELECT
+            COUNT(*) FILTER (
+              WHERE DATE("effectiveDate" AT TIME ZONE 'UTC') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+            ) AS "todayTreatmentCount",
+            COALESCE(
+              SUM("feeSnapshot") FILTER (
+                WHERE DATE("effectiveDate" AT TIME ZONE 'UTC') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+              ),
+              0
+            ) AS "todayRevenue",
+            COALESCE(
+              SUM("feeSnapshot") FILTER (
+                WHERE DATE_TRUNC('month', "effectiveDate" AT TIME ZONE 'UTC') = DATE_TRUNC('month', CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+              ),
+              0
+            ) AS "monthRevenue"
+          FROM TreatmentEffectiveDates
+        `,
+        [dentistId],
+      ),
+      this.dataSource.query(
+        `
+          SELECT
+            EXTRACT(HOUR FROM r.date AT TIME ZONE 'UTC') AS hour,
+            COUNT(*) AS count
+          FROM "Randevue" r
+          WHERE r.dentist = $1
+            AND DATE(r.date AT TIME ZONE 'UTC') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+          GROUP BY EXTRACT(HOUR FROM r.date AT TIME ZONE 'UTC')
+          ORDER BY hour ASC
+        `,
+        [dentistId],
+      ),
+    ]);
+
+    const totals = totalsRows[0] ?? {};
+    const scheduleByHour = new Map<number, number>();
+    scheduleRows.forEach((row: { hour: string | number; count: string | number }) => {
+      scheduleByHour.set(Number(row.hour), Number(row.count));
+    });
+
+    const hours = Array.from({ length: 13 }, (_, index) => 8 + index);
+
+    return {
+      todayTreatmentCount: Number(totals.todayTreatmentCount ?? 0),
+      todayRevenue: Number(totals.todayRevenue ?? 0),
+      monthRevenue: Number(totals.monthRevenue ?? 0),
+      todayScheduleChart: hours.map((hour) => ({
+        hour,
+        timeLabel: `${String(hour).padStart(2, '0')}:00`,
+        count: scheduleByHour.get(hour) ?? 0,
+      })),
+    };
+  }
+
   async getFinanceOverview(dentistId: number, dto: GetDentistFinanceDto) {
     const dentist = await this.dentistRepository.findById(dentistId);
     if (!dentist) throw new NotFoundException('Dentist not found');

@@ -4,6 +4,14 @@
   "patients": "Пациенты",
   "treatments": "Лечения",
   "medicines": "Лекарства",
-  "schedule": "Расписание"
+  "schedule": "Расписание",
+  "dentistDashboardTitle": "Обзор на сегодня",
+  "dentistDashboardSubtitle": "Краткая сводка по вашим лечениям, выручке и расписанию.",
+  "dentistTodayTreatments": "Лечений сегодня",
+  "dentistTodayRevenue": "Выручка сегодня",
+  "dentistMonthRevenue": "Выручка за месяц",
+  "dentistTodayScheduleChart": "Расписание на сегодня",
+  "dentistScheduleChartHint": "Столбцы показывают число запланированных рандеву по часам (08:00-20:00).",
+  "dentistDashboardRefreshing": "Обновление данных дашборда..."
 }
 

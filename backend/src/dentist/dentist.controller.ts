@@ -59,6 +59,16 @@ export class DentistController {
     return this.dentistService.findAll(requesterDentistId, dto);
   }
 
+  @Get('dashboard/overview')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get dashboard overview for current dentist' })
+  @ApiBearerAuth('bearer')
+  getDashboardOverview(@User() user: unknown) {
+    const dentistId = this.getDentistId(user);
+    return this.dentistService.getDashboardOverview(dentistId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get dentist by ID' })
   @ApiBearerAuth('bearer')

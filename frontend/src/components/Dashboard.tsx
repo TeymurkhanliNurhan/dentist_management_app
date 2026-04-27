@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { DASHBOARD_TILE_IMAGES, type DashboardTileKey } from '../lib/dashboardTileImages';
 import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, DollarSign, MinusCircle, Settings, UserRound, Users } from 'lucide-react';
-import api, { API_BASE_URL, dentistService } from '../services/api';
+import api, { API_BASE_URL, dentistService, type DentistDashboardOverview } from '../services/api';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
@@ -77,6 +77,13 @@ interface DirectorMetrics {
     income: number;
     outcome: number;
   }>;
+}
+
+interface DentistMetrics {
+  todayTreatmentCount: number;
+  todayRevenue: number;
+  monthRevenue: number;
+  todayScheduleChart: DentistDashboardOverview['todayScheduleChart'];
 }
 
 function toYmd(date: Date): string {
@@ -241,6 +248,36 @@ function DirectorWeekIncomeOutcomeChart({
   );
 }
 
+function DentistTodayScheduleChart({
+  data,
+  hint,
+}: {
+  data: DentistDashboardOverview['todayScheduleChart'];
+  hint: string;
+}) {
+  const maxCount = Math.max(1, ...data.map((slot) => slot.count));
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-4 gap-2 sm:grid-cols-7" style={{ gridTemplateColumns: 'repeat(13, minmax(0, 1fr))' }}>
+        {data.map((slot) => (
+          <div key={slot.hour} className="flex flex-col items-center gap-1">
+            <div className="flex h-24 w-full items-end rounded-md bg-slate-100 px-1 py-1">
+              <div
+                className="w-full rounded-sm bg-blue-500"
+                style={{ height: `${(slot.count / maxCount) * 100}%`, minHeight: slot.count > 0 ? 6 : 0 }}
+                title={`${slot.timeLabel}: ${slot.count}`}
+              />
+            </div>
+            <span className="text-[11px] text-slate-500">{slot.timeLabel}</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-slate-500">{hint}</p>
+    </div>
+  );
+}
+
 function hmFromIso(isoString: string): string {
   const d = new Date(isoString);
   const hh = String(d.getHours()).padStart(2, '0');
@@ -281,6 +318,8 @@ const Dashboard = () => {
     'income' | 'outcome' | 'appointments' | 'requests' | null
   >(null);
   const [dentistPortalDisplayName, setDentistPortalDisplayName] = useState('');
+  const [dentistMetrics, setDentistMetrics] = useState<DentistMetrics | null>(null);
+  const [loadingDentistMetrics, setLoadingDentistMetrics] = useState(false);
 
   useEffect(() => {
     const fetchDirectorStaff = async () => {
@@ -338,6 +377,47 @@ const Dashboard = () => {
     void load();
     return () => {
       cancelled = true;
+    };
+  }, [role]);
+
+  useEffect(() => {
+    let disposed = false;
+
+    const loadDentistDashboard = async () => {
+      if (role !== 'dentist') {
+        setDentistMetrics(null);
+        return;
+      }
+
+      setLoadingDentistMetrics(true);
+      try {
+        const overview = await dentistService.getDashboardOverview();
+        if (!disposed) {
+          setDentistMetrics({
+            todayTreatmentCount: Number(overview.todayTreatmentCount ?? 0),
+            todayRevenue: Number(overview.todayRevenue ?? 0),
+            monthRevenue: Number(overview.monthRevenue ?? 0),
+            todayScheduleChart: Array.isArray(overview.todayScheduleChart)
+              ? overview.todayScheduleChart
+              : [],
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load dentist dashboard metrics', error);
+        if (!disposed) setDentistMetrics(null);
+      } finally {
+        if (!disposed) setLoadingDentistMetrics(false);
+      }
+    };
+
+    void loadDentistDashboard();
+    const timer = window.setInterval(() => {
+      void loadDentistDashboard();
+    }, 30_000);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
     };
   }, [role]);
 
@@ -1086,8 +1166,44 @@ const Dashboard = () => {
             <main className="min-h-0 flex-1 overflow-y-auto bg-[#f9fafb] p-6">
               <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
                 <section>
-                  <h1 className="text-3xl font-semibold text-slate-800">{t('ourServices')}</h1>
-                  <p className="mt-1 text-sm text-slate-500">Open any section from the sidebar or the shortcuts below.</p>
+                  <h1 className="text-3xl font-semibold text-slate-800">{t('dentistDashboardTitle')}</h1>
+                  <p className="mt-1 text-sm text-slate-500">{t('dentistDashboardSubtitle')}</p>
+                </section>
+                <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <CalendarDays className="h-4 w-4 text-blue-600" />
+                      {t('dentistTodayTreatments')}
+                    </div>
+                    <p className="text-2xl font-semibold text-slate-800">
+                      {dentistMetrics?.todayTreatmentCount ?? 0}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <DollarSign className="h-4 w-4 text-emerald-600" />
+                      {t('dentistTodayRevenue')}
+                    </div>
+                    <p className="text-2xl font-semibold text-slate-800">
+                      ${Number(dentistMetrics?.todayRevenue ?? 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <MinusCircle className="h-4 w-4 text-indigo-600" />
+                      {t('dentistMonthRevenue')}
+                    </div>
+                    <p className="text-2xl font-semibold text-slate-800">
+                      ${Number(dentistMetrics?.monthRevenue ?? 0).toFixed(2)}
+                    </p>
+                  </div>
+                </section>
+                <section className="rounded-xl border border-slate-200 bg-white p-4">
+                  <h2 className="mb-3 text-lg font-semibold text-slate-800">{t('dentistTodayScheduleChart')}</h2>
+                  <DentistTodayScheduleChart
+                    data={dentistMetrics?.todayScheduleChart ?? []}
+                    hint={t('dentistScheduleChartHint')}
+                  />
                 </section>
                 <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {DENTIST_PORTAL_MENU.filter((item) => item.path !== '/dashboard').map((item) => (
@@ -1102,6 +1218,9 @@ const Dashboard = () => {
                     </button>
                   ))}
                 </section>
+                {loadingDentistMetrics && (
+                  <p className="text-sm text-slate-500">{t('dentistDashboardRefreshing')}</p>
+                )}
               </div>
             </main>
           </ClinicPortalShell>
