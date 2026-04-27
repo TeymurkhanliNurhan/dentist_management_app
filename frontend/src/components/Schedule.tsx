@@ -22,6 +22,8 @@ import {
   dentistService,
   patientService,
   randevueService,
+  toothTreatmentService,
+  type ToothTreatment,
   type Appointment,
   type CreatePatientDto,
   type CreateRandevueDto,
@@ -433,6 +435,9 @@ const Schedule = () => {
   const [openAppointments, setOpenAppointments] = useState<Appointment[]>([]);
   const [appointmentChoice, setAppointmentChoice] = useState<AppointmentChoice>('none');
   const [apptsLoading, setApptsLoading] = useState(false);
+  const [appointmentTreatments, setAppointmentTreatments] = useState<ToothTreatment[]>([]);
+  const [selectedTreatmentIds, setSelectedTreatmentIds] = useState<number[]>([]);
+  const [loadingTreatments, setLoadingTreatments] = useState(false);
 
   const [showNewPatient, setShowNewPatient] = useState(false);
   const [newPatient, setNewPatient] = useState<CreatePatientDto>({ name: '', surname: '', birthDate: '' });
@@ -456,6 +461,9 @@ const Schedule = () => {
   const [detailAppointmentChoice, setDetailAppointmentChoice] = useState<AppointmentChoice>('none');
   const [detailOpenAppointments, setDetailOpenAppointments] = useState<Appointment[]>([]);
   const [detailApptsLoading, setDetailApptsLoading] = useState(false);
+  const [detailAppointmentTreatments, setDetailAppointmentTreatments] = useState<ToothTreatment[]>([]);
+  const [detailSelectedTreatmentIds, setDetailSelectedTreatmentIds] = useState<number[]>([]);
+  const [detailLoadingTreatments, setDetailLoadingTreatments] = useState(false);
   const [randevueDetailEditMode, setRandevueDetailEditMode] = useState(false);
 
   type ScheduleHoverTip =
@@ -814,6 +822,36 @@ const Schedule = () => {
     };
   }, [detailId, editPatientId, randevues]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (typeof detailAppointmentChoice !== 'number') {
+        setDetailAppointmentTreatments([]);
+        setDetailSelectedTreatmentIds([]);
+        return;
+      }
+      setDetailLoadingTreatments(true);
+      try {
+        const treatments = await toothTreatmentService.getAll({ appointment: detailAppointmentChoice });
+        if (!cancelled) {
+          setDetailAppointmentTreatments(treatments);
+          // Auto-select treatments that are already linked to this randevue
+          const initiallySelected = treatments
+            .filter((t) => t.linkedRandevues?.some((r) => r.id === detailId))
+            .map((t) => t.id);
+          setDetailSelectedTreatmentIds(initiallySelected);
+        }
+      } catch {
+        if (!cancelled) setDetailAppointmentTreatments([]);
+      } finally {
+        if (!cancelled) setDetailLoadingTreatments(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [detailAppointmentChoice, detailId]);
+
   const openNewModal = (day?: Date, hour?: number, initialTab: 'randevue' | 'blocking' = 'randevue') => {
     setDetailId(null);
     setRandevueDetailEditMode(false);
@@ -826,6 +864,8 @@ const Schedule = () => {
     setNote('');
     setPatientId(0);
     setAppointmentChoice('none');
+    setAppointmentTreatments([]);
+    setSelectedTreatmentIds([]);
     setFormRoomId(0);
     setFormDentistId(0);
     const myDid = Number(localStorage.getItem('dentistId'));
@@ -900,6 +940,10 @@ const Schedule = () => {
       body.appointment_start_date = formDate;
     } else if (typeof appointmentChoice === 'number') {
       body.appointment_id = appointmentChoice;
+    }
+
+    if (selectedTreatmentIds.length > 0) {
+      body.tooth_treatment_ids = selectedTreatmentIds;
     }
 
     setSubmitBusy(true);
@@ -1117,6 +1161,16 @@ const Schedule = () => {
     } else if (hadLink && !linkWasClosed) {
       body.clear_appointment = true;
     }
+
+    const initiallySelected = detailAppointmentTreatments
+      .filter((t) => t.linkedRandevues?.some((r) => r.id === detailId))
+      .map((t) => t.id);
+    
+    const appendIds = detailSelectedTreatmentIds.filter((id) => !initiallySelected.includes(id));
+    const removeIds = initiallySelected.filter((id) => !detailSelectedTreatmentIds.includes(id));
+
+    if (appendIds.length > 0) body.append_tooth_treatment_ids = appendIds;
+    if (removeIds.length > 0) body.remove_tooth_treatment_ids = removeIds;
 
     setDetailBusy(true);
     try {
@@ -1658,20 +1712,9 @@ const Schedule = () => {
     useClinicScheduleUi,
   ]);
 
-  useEffect(() => {
-    if (!useClinicScheduleUi) return;
-    if (!availableStartTimes.includes(formStart)) {
-      setFormStart(availableStartTimes[0] ?? '09:00');
-      return;
-    }
-    if (!availableEndTimes.includes(formEnd)) {
-      const fallback =
-          availableEndTimes.find((x) => hmToMinutes(x) > hmToMinutes(formStart)) ??
-          availableEndTimes[0] ??
-          '10:00';
-      setFormEnd(fallback);
-    }
-  }, [availableEndTimes, availableStartTimes, formEnd, formStart, useClinicScheduleUi]);
+  // Removed the aggressive useEffect that auto-resets formStart/formEnd
+  // to allow the clicked cell time to persist even if the staff availability
+  // hasn't fully computed or if the time is technically outside strict hours.
 
   useEffect(() => {
     if (!useClinicScheduleUi || detailId == null) return;
@@ -2968,6 +3011,40 @@ const Schedule = () => {
                                           </label>
                                         </div>
                                         <p className="text-xs text-gray-500 mt-2">{t('newAppointmentHint')}</p>
+
+                                        {typeof detailAppointmentChoice === 'number' && (
+                                            <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                                              <p className="text-sm font-medium text-gray-700 mb-2">{t('treatments')}</p>
+                                              {detailLoadingTreatments ? (
+                                                  <p className="text-sm text-gray-500">{t('loadingDots')}</p>
+                                              ) : detailAppointmentTreatments.length === 0 ? (
+                                                  <p className="text-sm text-gray-500">{t('noTreatmentsFound')}</p>
+                                              ) : (
+                                                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                                                    {detailAppointmentTreatments.map((tt) => (
+                                                        <label key={tt.id} className="flex items-start space-x-2 text-sm text-gray-700">
+                                                          <input
+                                                              type="checkbox"
+                                                              checked={detailSelectedTreatmentIds.includes(tt.id)}
+                                                              onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                  setDetailSelectedTreatmentIds((prev) => [...prev, tt.id]);
+                                                                } else {
+                                                                  setDetailSelectedTreatmentIds((prev) => prev.filter((id) => id !== tt.id));
+                                                                }
+                                                              }}
+                                                              className="mt-1 text-violet-600 focus:ring-violet-500"
+                                                          />
+                                                          <span>
+                                                            {tt.treatment.name}
+                                                            {tt.toothTreatmentTeeth?.length > 0 && ` (T: ${tt.toothTreatmentTeeth.map(t => t.toothId).join(', ')})`}
+                                                          </span>
+                                                        </label>
+                                                    ))}
+                                                  </div>
+                                              )}
+                                            </div>
+                                        )}
                                       </>
                                   )}
                                 </div>
@@ -3258,7 +3335,9 @@ const Schedule = () => {
                                   onChange={(e) => setFormStart(e.target.value)}
                                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                               >
-                                {availableStartTimes.map((hm) => (
+                                {Array.from(new Set([...availableStartTimes, formStart]))
+                                    .sort((a, b) => hmToMinutes(a) - hmToMinutes(b))
+                                    .map((hm) => (
                                     <option key={hm} value={hm}>
                                       {hm}
                                     </option>
@@ -3281,7 +3360,9 @@ const Schedule = () => {
                                   onChange={(e) => setFormEnd(e.target.value)}
                                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                               >
-                                {availableEndTimes.map((hm) => (
+                                {Array.from(new Set([...availableEndTimes, formEnd]))
+                                    .sort((a, b) => hmToMinutes(a) - hmToMinutes(b))
+                                    .map((hm) => (
                                     <option key={hm} value={hm}>
                                       {hm}
                                     </option>
