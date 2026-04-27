@@ -1274,8 +1274,11 @@ const Dashboard = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {(dentistMetrics?.todayTreatments ?? []).map((row) => (
-                          <tr key={row.id} className="border-b border-slate-100">
+                        {(dentistMetrics?.todayTreatments ?? []).map((row, idx) => (
+                          <tr
+                            key={`${row.appointmentId}-${row.treatmentName}-${idx}`}
+                            className="border-b border-slate-100"
+                          >
                             <td className="py-2 pr-3 font-medium text-slate-700">{row.patientName}</td>
                             <td className="py-2 pr-3 text-slate-600">{row.treatmentName}</td>
                             <td className="py-2 pr-3 text-slate-600">${row.benefit.toFixed(2)}</td>
