@@ -3557,6 +3557,40 @@ const Schedule = () => {
                                     </label>
                                   </div>
                                   <p className="text-xs text-gray-500 mt-2">{t('newAppointmentHint')}</p>
+
+                                  {typeof appointmentChoice === 'number' && (
+                                      <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                                        <p className="text-sm font-medium text-gray-700 mb-2">{t('treatments')}</p>
+                                        {loadingTreatments ? (
+                                            <p className="text-sm text-gray-500">{t('loadingDots')}</p>
+                                        ) : appointmentTreatments.length === 0 ? (
+                                            <p className="text-sm text-gray-500">{t('noTreatmentsFound')}</p>
+                                        ) : (
+                                            <div className="space-y-2 max-h-32 overflow-y-auto">
+                                              {appointmentTreatments.map((tt) => (
+                                                  <label key={tt.id} className="flex items-start space-x-2 text-sm text-gray-700">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedTreatmentIds.includes(tt.id)}
+                                                        onChange={(e) => {
+                                                          if (e.target.checked) {
+                                                            setSelectedTreatmentIds((prev) => [...prev, tt.id]);
+                                                          } else {
+                                                            setSelectedTreatmentIds((prev) => prev.filter((id) => id !== tt.id));
+                                                          }
+                                                        }}
+                                                        className="mt-1 text-violet-600 focus:ring-violet-500"
+                                                    />
+                                                    <span>
+                                                      {tt.treatment.name}
+                                                      {tt.toothTreatmentTeeth?.length > 0 && ` (T: ${tt.toothTreatmentTeeth.map(t => t.toothId).join(', ')})`}
+                                                    </span>
+                                                  </label>
+                                              ))}
+                                            </div>
+                                        )}
+                                      </div>
+                                  )}
                                 </>
                             )}
                           </div>
