@@ -825,6 +825,32 @@ const Schedule = () => {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (typeof appointmentChoice !== 'number') {
+        setAppointmentTreatments([]);
+        setSelectedTreatmentIds([]);
+        return;
+      }
+      setLoadingTreatments(true);
+      try {
+        const treatments = await toothTreatmentService.getAll({ appointment: appointmentChoice });
+        if (!cancelled) {
+          setAppointmentTreatments(treatments);
+          setSelectedTreatmentIds([]);
+        }
+      } catch {
+        if (!cancelled) setAppointmentTreatments([]);
+      } finally {
+        if (!cancelled) setLoadingTreatments(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [appointmentChoice]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
       if (typeof detailAppointmentChoice !== 'number') {
         setDetailAppointmentTreatments([]);
         setDetailSelectedTreatmentIds([]);
