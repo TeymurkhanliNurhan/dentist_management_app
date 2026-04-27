@@ -8,6 +8,7 @@ import api, {
   API_BASE_URL,
   dentistService,
   randevueService,
+  toothTreatmentService,
   type DentistDashboardOverview,
 } from '../services/api';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
@@ -90,6 +91,13 @@ interface DentistMetrics {
   monthRevenue: number;
   todayRandevues: DentistDashboardOverview['todayRandevues'];
   todayBlockingHours: DentistDashboardOverview['todayBlockingHours'];
+  todayTreatments: Array<{
+    id: number;
+    patientName: string;
+    treatmentName: string;
+    benefit: number;
+    date: string;
+  }>;
 }
 
 function toYmd(date: Date): string {
@@ -423,11 +431,45 @@ const Dashboard = () => {
 
       setLoadingDentistMetrics(true);
       try {
-        const todayRange = localDayRangeIso(new Date());
-        const [overview, todayRandevues] = await Promise.all([
+        const today = new Date();
+        const todayRange = localDayRangeIso(today);
+        const year = today.getFullYear();
+        const month = today.getMonth() + 1;
+        const [overview, todayRandevues, finance, allTreatments] = await Promise.all([
           dentistService.getDashboardOverview(),
           randevueService.getForRange(todayRange.from, todayRange.to),
+          dentistService.getFinanceOverview({ year, month }),
+          toothTreatmentService.getAll({ dentist: Number(localStorage.getItem('dentistId')) }),
         ]);
+
+        // Calculate today's treatments and benefits
+        const todayYmd = toYmd(today);
+        const todayTreatments = (Array.isArray(allTreatments) ? allTreatments : []).filter((tt) => {
+          // Find the date for the treatment
+          let treatmentDate = null;
+          if (tt.linkedRandevues && tt.linkedRandevues.length > 0) {
+            // Use the first randevue's date
+            treatmentDate = toYmd(new Date(tt.linkedRandevues[0].date));
+          } else if (tt.appointment && tt.appointment.startDate) {
+            treatmentDate = toYmd(new Date(tt.appointment.startDate));
+          }
+          return treatmentDate === todayYmd;
+        }).map((tt) => {
+          let treatmentDate = '';
+          if (tt.linkedRandevues && tt.linkedRandevues.length > 0) {
+            treatmentDate = toYmd(new Date(tt.linkedRandevues[0].date));
+          } else if (tt.appointment && tt.appointment.startDate) {
+            treatmentDate = toYmd(new Date(tt.appointment.startDate));
+          }
+          return {
+            id: tt.id,
+            patientName: tt.patientName || '-',
+            treatmentName: tt.treatment?.name || '-',
+            benefit: Number(tt.feeSnapshot ?? 0),
+            date: treatmentDate,
+          };
+        });
+
         const normalizedTodayRandevues = todayRandevues
           .map((item) => ({
             id: Number(item.id),
@@ -441,14 +483,14 @@ const Dashboard = () => {
 
         if (!disposed) {
           setDentistMetrics({
-            todayTreatmentCount: Number(overview.todayTreatmentCount ?? 0),
+            todayTreatmentCount: todayTreatments.length,
             todayRevenue: Number(overview.todayRevenue ?? 0),
-            monthRevenue: Number(overview.monthRevenue ?? 0),
-            // Keep timeline source aligned with Schedule's local-day range query.
+            monthRevenue: Number(finance?.monthlyCommission ?? 0),
             todayRandevues: normalizedTodayRandevues,
             todayBlockingHours: Array.isArray(overview.todayBlockingHours)
               ? overview.todayBlockingHours
               : [],
+            todayTreatments,
           });
         }
       } catch (error) {
@@ -1245,6 +1287,37 @@ const Dashboard = () => {
                     <p className="text-2xl font-semibold text-slate-800">
                       ${Number(dentistMetrics?.monthRevenue ?? 0).toFixed(2)}
                     </p>
+                  </div>
+                </section>
+                {/* Today's Treatments and Benefits */}
+                <section className="rounded-xl border border-slate-200 bg-white p-4">
+                  <h2 className="mb-3 text-lg font-semibold text-slate-800">Today's Treatments & Benefits</h2>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                          <th className="py-2 pr-3">Patient</th>
+                          <th className="py-2 pr-3">Treatment</th>
+                          <th className="py-2 pr-3">Benefit</th>
+                          <th className="py-2 pr-3">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(dentistMetrics?.todayTreatments ?? []).map((row) => (
+                          <tr key={row.id} className="border-b border-slate-100">
+                            <td className="py-2 pr-3 font-medium text-slate-700">{row.patientName}</td>
+                            <td className="py-2 pr-3 text-slate-600">{row.treatmentName}</td>
+                            <td className="py-2 pr-3 text-slate-600">${row.benefit.toFixed(2)}</td>
+                            <td className="py-2 pr-3 text-slate-600">{row.date}</td>
+                          </tr>
+                        ))}
+                        {(dentistMetrics?.todayTreatments?.length ?? 0) === 0 && (
+                          <tr>
+                            <td colSpan={4} className="py-4 text-center text-slate-500">No treatments today.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </section>
                 <section className="rounded-xl border border-slate-200 bg-white p-4">
