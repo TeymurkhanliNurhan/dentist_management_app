@@ -887,7 +887,12 @@ const Schedule = () => {
     };
     if (note.trim()) body.note = note.trim();
     if (useClinicScheduleUi && formRoomId > 0) body.room_id = formRoomId;
-    if (useClinicScheduleUi && formDentistId > 0) body.dentist_id = formDentistId;
+    if (isDentistUser) {
+      const myDid = Number(localStorage.getItem('dentistId'));
+      if (myDid > 0) body.dentist_id = myDid;
+    } else if (useClinicScheduleUi && formDentistId > 0) {
+      body.dentist_id = formDentistId;
+    }
     if ((isDirector || isDentistUser) && formNurseId > 0) body.nurse_id = formNurseId;
 
     if (appointmentChoice === 'new') {
@@ -1091,7 +1096,12 @@ const Schedule = () => {
       note: editNote,
     };
     if (useClinicScheduleUi && detailRoomId > 0) body.room_id = detailRoomId;
-    if (useClinicScheduleUi && detailDentistId > 0) body.dentist_id = detailDentistId;
+    if (isDentistUser) {
+      const myDid = Number(localStorage.getItem('dentistId'));
+      if (myDid > 0) body.dentist_id = myDid;
+    } else if (useClinicScheduleUi && detailDentistId > 0) {
+      body.dentist_id = detailDentistId;
+    }
     if (isDirector || isDentistUser) {
       if (detailNurseId > 0) body.nurse_id = detailNurseId;
       else if (detailRandevue?.nurse?.id) body.clear_nurse = true;
