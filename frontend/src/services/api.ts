@@ -138,7 +138,37 @@ export const dentistService = {
     const response = await api.patch(`/dentist/password`, data);
     return response.data;
   },
+  getFinanceOverview: async (filters?: { year?: number; month?: number }): Promise<DentistFinanceOverview> => {
+    const params = new URLSearchParams();
+    if (filters?.year != null) params.append('year', String(filters.year));
+    if (filters?.month != null) params.append('month', String(filters.month));
+    const query = params.toString();
+    const response = await api.get<DentistFinanceOverview>(
+      `/dentist/finance/overview${query ? `?${query}` : ''}`,
+    );
+    return response.data;
+  },
 };
+
+export interface DentistFinanceOverview {
+  period: { year: number; month: number };
+  commissionRate: number;
+  monthlyCommission: number;
+  treatmentsOperated: {
+    total: number;
+    breakdown: Array<{ name: string; count: number }>;
+  };
+  treatmentMix: Array<{
+    name: string;
+    commission: number;
+    percentage: number;
+  }>;
+  graphs: {
+    daily: Array<{ day: number; commission: number }>;
+    weekly: Array<{ week: number; commission: number }>;
+    monthly: Array<{ month: number; commission: number }>;
+  };
+}
 
 export interface DentistProfile {
   id: number;
