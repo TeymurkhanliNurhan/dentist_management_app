@@ -374,6 +374,64 @@ const DentistFinance = () => {
                     </div>
                   </div>
                 </div>
+
+                <div className="mt-6 rounded-xl border border-slate-200 bg-white">
+                  <div className="border-b border-slate-200 px-5 py-4">
+                    <h2 className="text-lg font-semibold text-slate-900">Recent Operated Treatments</h2>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-slate-600">
+                      <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                        <tr>
+                          <th className="px-5 py-3 font-medium">Patient</th>
+                          <th className="px-5 py-3 font-medium">Treatment</th>
+                          <th className="px-5 py-3 font-medium">Date</th>
+                          <th className="px-5 py-3 font-medium">Total Cost</th>
+                          <th className="px-5 py-3 font-medium">Your Comm. ({financeData?.commissionRate ?? 0}%)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {(financeData?.recentOperatedTreatments ?? []).map((t, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50">
+                            <td className="px-5 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-xs font-semibold text-sky-700">
+                                  {t.patientInitials}
+                                </div>
+                                <span className="font-medium text-slate-900">{t.patientName}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
+                                {t.treatmentList}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4">
+                              {new Date(t.date).toLocaleDateString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </td>
+                            <td className="px-5 py-4 font-medium text-slate-900">
+                              {formatCurrency(t.totalCost)}
+                            </td>
+                            <td className="px-5 py-4 font-bold text-sky-700">
+                              {formatCurrency(t.commission)}
+                            </td>
+                          </tr>
+                        ))}
+                        {(financeData?.recentOperatedTreatments ?? []).length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="px-5 py-8 text-center text-slate-500">
+                              No recent treatments found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </>
             )}
           </div>

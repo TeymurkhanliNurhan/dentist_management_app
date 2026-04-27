@@ -168,6 +168,15 @@ export interface DentistFinanceOverview {
     weekly: Array<{ week: number; commission: number }>;
     monthly: Array<{ month: number; commission: number }>;
   };
+  recentOperatedTreatments: Array<{
+    appointmentId: number;
+    patientInitials: string;
+    patientName: string;
+    treatmentList: string;
+    date: string;
+    totalCost: number;
+    commission: number;
+  }>;
 }
 
 export interface DentistProfile {

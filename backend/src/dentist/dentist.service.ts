@@ -267,19 +267,24 @@ export class DentistService {
           tt.id,
           tt."feeSnapshot",
           t.name AS "treatmentName",
+          a.id AS appointment_id,
+          a."startDate" AS "appointmentDate",
+          p.name AS patient_name,
+          p.surname AS patient_surname,
           COALESCE(MAX(r.date), a."startDate") AS "effectiveDate"
         FROM "Tooth_Treatment" tt
         JOIN "Treatment" t ON t.id = tt.treatment
         JOIN "Appointment" a ON a.id = tt.appointment
+        JOIN "Patient" p ON p.id = a.patient
         LEFT JOIN "ToothTreatmentTeeth" ttt ON ttt.tooth_treatment_id = tt.id
         LEFT JOIN "Treatment_Randevue" tr ON tr.tooth_treatment_teeth_id = ttt.id
         LEFT JOIN "Randevue" r ON r.id = tr.randevue_id
         WHERE tt.dentist = $1
-        GROUP BY tt.id, tt."feeSnapshot", t.name, a."startDate"
+        GROUP BY tt.id, tt."feeSnapshot", t.name, a.id, a."startDate", p.name, p.surname
       )
     `;
 
-    const [monthStats, dailyGraph, weeklyGraph, monthlyGraph] = await Promise.all([
+    const [monthStats, dailyGraph, weeklyGraph, monthlyGraph, recentTreatments] = await Promise.all([
       this.dataSource.query(`
         ${baseCte}
         SELECT 
@@ -326,7 +331,22 @@ export class DentistService {
         WHERE EXTRACT(YEAR FROM "effectiveDate" AT TIME ZONE 'UTC') = $2
         GROUP BY EXTRACT(MONTH FROM "effectiveDate" AT TIME ZONE 'UTC')
         ORDER BY month ASC
-      `, [dentistId, year])
+      `, [dentistId, year]),
+
+      this.dataSource.query(`
+        ${baseCte}
+        SELECT 
+          appointment_id,
+          patient_name,
+          patient_surname,
+          "appointmentDate" AS date,
+          json_agg(json_build_object('name', "treatmentName", 'fee', "feeSnapshot")) AS treatments
+        FROM TreatmentEffectiveDates
+        WHERE EXTRACT(YEAR FROM "effectiveDate" AT TIME ZONE 'UTC') = $2
+          AND EXTRACT(MONTH FROM "effectiveDate" AT TIME ZONE 'UTC') = $3
+        GROUP BY appointment_id, patient_name, patient_surname, "appointmentDate"
+        ORDER BY date DESC
+      `, [dentistId, year, month])
     ]);
 
     let monthlyCommission = 0;
@@ -384,7 +404,28 @@ export class DentistService {
           month: Number(m.month),
           commission: Number(m.total_fee) * (commissionRate / 100)
         }))
-      }
+      },
+      recentOperatedTreatments: recentTreatments.map((r: any) => {
+        const trs = r.treatments as Array<{name: string, fee: number}>;
+        const totalFee = trs.reduce((acc, curr) => acc + curr.fee, 0);
+        const commission = totalFee * (commissionRate / 100);
+        
+        const counts: Record<string, number> = {};
+        trs.forEach(t => { counts[t.name] = (counts[t.name] || 0) + 1; });
+        const treatmentNames = Object.entries(counts).map(([name, count]) => 
+          count > 1 ? `${name} x${count}` : name
+        ).join(', ');
+
+        return {
+          appointmentId: r.appointment_id,
+          patientInitials: `${r.patient_name[0] ?? ''}${r.patient_surname[0] ?? ''}`.toUpperCase(),
+          patientName: `${r.patient_name} ${r.patient_surname}`,
+          treatmentList: treatmentNames,
+          date: r.date,
+          totalCost: totalFee,
+          commission
+        };
+      })
     };
   }
 }
