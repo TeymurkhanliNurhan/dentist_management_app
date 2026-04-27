@@ -387,7 +387,7 @@ const DentistFinance = () => {
                           <th className="px-5 py-3 font-medium">Patient</th>
                           <th className="px-5 py-3 font-medium">Treatment</th>
                           <th className="px-5 py-3 font-medium">Date</th>
-                          <th className="px-5 py-3 font-medium">Revenue</th>
+                          <th className="px-5 py-3 font-medium">Commission ({financeData?.commissionRate ?? 0}%)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">

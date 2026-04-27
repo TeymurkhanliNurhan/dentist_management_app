@@ -155,9 +155,17 @@ export const dentistService = {
 };
 
 export interface DentistDashboardOverview {
+  commissionRate: number;
   todayTreatmentCount: number;
   todayRevenue: number;
   monthRevenue: number;
+  todayTreatments: Array<{
+    appointmentId: number;
+    patientName: string;
+    treatmentName: string;
+    benefit: number;
+    date: string;
+  }>;
   todayRandevues: Array<{
     id: number;
     startTime: string;

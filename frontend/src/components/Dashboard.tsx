@@ -3,13 +3,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DASHBOARD_TILE_IMAGES, type DashboardTileKey } from '../lib/dashboardTileImages';
 import { useEffect, useMemo, useState } from 'react';
-import { patientService } from '../services/api';
 import { CalendarDays, DollarSign, MinusCircle, Settings, UserRound, Users } from 'lucide-react';
 import api, {
   API_BASE_URL,
   dentistService,
   randevueService,
-  toothTreatmentService,
   type DentistDashboardOverview,
 } from '../services/api';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
@@ -87,18 +85,13 @@ interface DirectorMetrics {
 }
 
 interface DentistMetrics {
+  commissionRate: number;
   todayTreatmentCount: number;
   todayRevenue: number;
   monthRevenue: number;
+  todayTreatments: DentistDashboardOverview['todayTreatments'];
   todayRandevues: DentistDashboardOverview['todayRandevues'];
   todayBlockingHours: DentistDashboardOverview['todayBlockingHours'];
-  todayTreatments: Array<{
-    id: number;
-    patientName: string;
-    treatmentName: string;
-    benefit: number;
-    date: string;
-  }>;
 }
 
 function toYmd(date: Date): string {
@@ -434,56 +427,10 @@ const Dashboard = () => {
       try {
         const today = new Date();
         const todayRange = localDayRangeIso(today);
-        const year = today.getFullYear();
-        const month = today.getMonth() + 1;
-        const [overview, todayRandevues, finance, allTreatments] = await Promise.all([
+        const [overview, todayRandevues] = await Promise.all([
           dentistService.getDashboardOverview(),
           randevueService.getForRange(todayRange.from, todayRange.to),
-          dentistService.getFinanceOverview({ year, month }),
-          toothTreatmentService.getAll({ dentist: Number(localStorage.getItem('dentistId')) }),
         ]);
-
-        // Calculate today's treatments and benefits, and resolve patient names
-        const todayYmd = toYmd(today);
-        const filteredTreatments = (Array.isArray(allTreatments) ? allTreatments : []).filter((tt) => {
-          let treatmentDate = null;
-          if (tt.linkedRandevues && tt.linkedRandevues.length > 0) {
-            treatmentDate = toYmd(new Date(tt.linkedRandevues[0].date));
-          } else if (tt.appointment && tt.appointment.startDate) {
-            treatmentDate = toYmd(new Date(tt.appointment.startDate));
-          }
-          return treatmentDate === todayYmd;
-        });
-
-        // Collect unique patient ids
-        const uniquePatientIds = Array.from(new Set(filteredTreatments.map(tt => tt.patient).filter((id): id is number => typeof id === 'number')));
-        let patientMap: Record<number, any> = {};
-        if (uniquePatientIds.length > 0) {
-          const patients = await Promise.all(uniquePatientIds.map(id => patientService.getById(id).catch(() => null)));
-          patientMap = Object.fromEntries(patients.filter(Boolean).map((p) => [p!.id, p]));
-        }
-
-        const todayTreatments = filteredTreatments.map((tt: any) => {
-          let treatmentDate = '';
-          if (tt.linkedRandevues && tt.linkedRandevues.length > 0) {
-            treatmentDate = toYmd(new Date(tt.linkedRandevues[0].date));
-          } else if (tt.appointment && tt.appointment.startDate) {
-            treatmentDate = toYmd(new Date(tt.appointment.startDate));
-          }
-          // Resolve patient name
-          let patientName = '-';
-          const patient = patientMap[tt.patient];
-          if (patient) {
-            patientName = `${patient.name ?? ''} ${patient.surname ?? ''}`.trim();
-          }
-          return {
-            id: tt.id,
-            patientName,
-            treatmentName: tt.treatment?.name || '-',
-            benefit: Number(tt.feeSnapshot ?? 0),
-            date: treatmentDate,
-          };
-        });
 
         const normalizedTodayRandevues = todayRandevues
           .map((item) => ({
@@ -498,14 +445,15 @@ const Dashboard = () => {
 
         if (!disposed) {
           setDentistMetrics({
-            todayTreatmentCount: todayTreatments.length,
+            commissionRate: Number(overview.commissionRate ?? 0),
+            todayTreatmentCount: Number(overview.todayTreatmentCount ?? 0),
             todayRevenue: Number(overview.todayRevenue ?? 0),
-            monthRevenue: Number(finance?.monthlyCommission ?? 0),
+            monthRevenue: Number(overview.monthRevenue ?? 0),
+            todayTreatments: Array.isArray(overview.todayTreatments) ? overview.todayTreatments : [],
             todayRandevues: normalizedTodayRandevues,
             todayBlockingHours: Array.isArray(overview.todayBlockingHours)
               ? overview.todayBlockingHours
               : [],
-            todayTreatments,
           });
         }
       } catch (error) {
@@ -1289,6 +1237,9 @@ const Dashboard = () => {
                     <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       <DollarSign className="h-4 w-4 text-emerald-600" />
                       {t('dentistTodayRevenue')}
+                      <span className="font-normal normal-case text-slate-400">
+                        ({dentistMetrics?.commissionRate ?? 0}%)
+                      </span>
                     </div>
                     <p className="text-2xl font-semibold text-slate-800">
                       ${Number(dentistMetrics?.todayRevenue ?? 0).toFixed(2)}
@@ -1298,6 +1249,9 @@ const Dashboard = () => {
                     <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       <MinusCircle className="h-4 w-4 text-indigo-600" />
                       {t('dentistMonthRevenue')}
+                      <span className="font-normal normal-case text-slate-400">
+                        ({dentistMetrics?.commissionRate ?? 0}%)
+                      </span>
                     </div>
                     <p className="text-2xl font-semibold text-slate-800">
                       ${Number(dentistMetrics?.monthRevenue ?? 0).toFixed(2)}
@@ -1306,14 +1260,16 @@ const Dashboard = () => {
                 </section>
                 {/* Today's Treatments and Benefits */}
                 <section className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h2 className="mb-3 text-lg font-semibold text-slate-800">Today's Treatments & Benefits</h2>
+                  <h2 className="mb-3 text-lg font-semibold text-slate-800">
+                    Today&apos;s Treatments & Your Share ({dentistMetrics?.commissionRate ?? 0}% of fee)
+                  </h2>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead>
                         <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
                           <th className="py-2 pr-3">Patient</th>
                           <th className="py-2 pr-3">Treatment</th>
-                          <th className="py-2 pr-3">Benefit</th>
+                          <th className="py-2 pr-3">Your share</th>
                           <th className="py-2 pr-3">Date</th>
                         </tr>
                       </thead>
