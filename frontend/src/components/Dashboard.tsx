@@ -442,28 +442,63 @@ const Dashboard = () => {
           toothTreatmentService.getAll({ dentist: Number(localStorage.getItem('dentistId')) }),
         ]);
 
-        // Calculate today's treatments and benefits
+        // Calculate today's treatments and benefits, and resolve patient names
         const todayYmd = toYmd(today);
-        const todayTreatments = (Array.isArray(allTreatments) ? allTreatments : []).filter((tt) => {
-          // Find the date for the treatment
+        const filteredTreatments = (Array.isArray(allTreatments) ? allTreatments : []).filter((tt) => {
           let treatmentDate = null;
           if (tt.linkedRandevues && tt.linkedRandevues.length > 0) {
-            // Use the first randevue's date
             treatmentDate = toYmd(new Date(tt.linkedRandevues[0].date));
           } else if (tt.appointment && tt.appointment.startDate) {
             treatmentDate = toYmd(new Date(tt.appointment.startDate));
           }
           return treatmentDate === todayYmd;
-        }).map((tt) => {
+        });
+
+        // Collect unique patient ids from appointments
+        const patientIds = Array.from(new Set(filteredTreatments.map(tt => tt.appointment?.id).filter(Boolean)));
+        let appointmentMap = {};
+        let patientMap = {};
+        let staffMap = {};
+        if (patientIds.length > 0) {
+          // Fetch appointments
+          const appointments = await appointmentService.getAll({ id: patientIds });
+          appointmentMap = Object.fromEntries(appointments.map(a => [a.id, a]));
+          // Collect patient ids
+          const uniquePatientIds = Array.from(new Set(appointments.map(a => a.patient).filter(Boolean)));
+          if (uniquePatientIds.length > 0) {
+            const patients = await patientService.getAll({ id: uniquePatientIds });
+            patientMap = Object.fromEntries(patients.map(p => [p.id, p]));
+            // Collect staff ids
+            const uniqueStaffIds = Array.from(new Set(patients.map(p => p.staffId).filter(Boolean)));
+            if (uniqueStaffIds.length > 0) {
+              const staffList = await staffService.getAll({ id: uniqueStaffIds });
+              staffMap = Object.fromEntries(staffList.map(s => [s.id, s]));
+            }
+          }
+        }
+
+        const todayTreatments = filteredTreatments.map((tt) => {
           let treatmentDate = '';
           if (tt.linkedRandevues && tt.linkedRandevues.length > 0) {
             treatmentDate = toYmd(new Date(tt.linkedRandevues[0].date));
           } else if (tt.appointment && tt.appointment.startDate) {
             treatmentDate = toYmd(new Date(tt.appointment.startDate));
           }
+          // Resolve patient name
+          let patientName = '-';
+          const appointment = appointmentMap[tt.appointment?.id];
+          if (appointment) {
+            const patient = patientMap[appointment.patient];
+            if (patient) {
+              const staff = staffMap[patient.staffId];
+              if (staff) {
+                patientName = `${staff.name} ${staff.surname}`.trim();
+              }
+            }
+          }
           return {
             id: tt.id,
-            patientName: tt.patientName || '-',
+            patientName,
             treatmentName: tt.treatment?.name || '-',
             benefit: Number(tt.feeSnapshot ?? 0),
             date: treatmentDate,
