@@ -10,8 +10,10 @@
   "dentistTodayTreatments": "Лечений сегодня",
   "dentistTodayRevenue": "Выручка сегодня",
   "dentistMonthRevenue": "Выручка за месяц",
-  "dentistTodayScheduleChart": "Расписание на сегодня",
-  "dentistScheduleChartHint": "Столбцы показывают число запланированных рандеву по часам (08:00-20:00).",
+  "dentistTodayScheduleTimeline": "Расписание на сегодня",
+  "dentistTodayRandevues": "Рандеву",
+  "dentistTodayBlockingHours": "Блокирующие часы",
+  "dentistScheduleEmpty": "На сегодня записей нет.",
   "dentistDashboardRefreshing": "Обновление данных дашборда..."
 }
 

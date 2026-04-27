@@ -158,10 +158,18 @@ export interface DentistDashboardOverview {
   todayTreatmentCount: number;
   todayRevenue: number;
   monthRevenue: number;
-  todayScheduleChart: Array<{
-    hour: number;
-    timeLabel: string;
-    count: number;
+  todayRandevues: Array<{
+    id: number;
+    startTime: string;
+    endTime: string;
+    patientName: string;
+  }>;
+  todayBlockingHours: Array<{
+    id: number;
+    startTime: string;
+    endTime: string;
+    name: string;
+    approvalStatus: string;
   }>;
 }
 

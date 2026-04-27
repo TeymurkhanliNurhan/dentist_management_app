@@ -17,6 +17,7 @@ import { CreateDentistDto } from './dto/create-dentist.dto';
 import { GetDentistDto } from './dto/get-dentist.dto';
 import { GetDentistFinanceDto } from './dto/get-dentist-finance.dto';
 import { Salary } from '../salary/entities/salary.entity';
+import { BlockingHoursApprovalStatus } from '../blocking_hours/entities/blocking_hours.entity';
 
 @Injectable()
 export class DentistService {
@@ -253,78 +254,114 @@ export class DentistService {
     const dentist = await this.dentistRepository.findById(dentistId);
     if (!dentist) throw new NotFoundException('Dentist not found');
 
-    const baseCte = `
-      WITH TreatmentEffectiveDates AS (
-        SELECT
-          tt.id,
-          tt."feeSnapshot",
-          COALESCE(MAX(r.date), a."startDate"::timestamp) AS "effectiveDate"
-        FROM "Tooth_Treatment" tt
-        JOIN "Appointment" a ON a.id = tt.appointment
-        LEFT JOIN "ToothTreatmentTeeth" ttt ON ttt.tooth_treatment_id = tt.id
-        LEFT JOIN "Treatment_Randevue" tr ON tr.tooth_treatment_teeth_id = ttt.id
-        LEFT JOIN "Randevue" r ON r.id = tr.randevue_id
-        WHERE tt.dentist = $1
-        GROUP BY tt.id, tt."feeSnapshot", a."startDate"
-      )
-    `;
-
-    const [totalsRows, scheduleRows] = await Promise.all([
+    const [totalsRows, randevuesRows, blockingRows] = await Promise.all([
       this.dataSource.query(
         `
-          ${baseCte}
+          WITH CompletedTreatments AS (
+            SELECT
+              tt.id,
+              tt."feeSnapshot",
+              MAX(r."endTime") AS "completedAt"
+            FROM "Tooth_Treatment" tt
+            JOIN "ToothTreatmentTeeth" ttt ON ttt.tooth_treatment_id = tt.id
+            JOIN "Treatment_Randevue" tr ON tr.tooth_treatment_teeth_id = ttt.id
+            JOIN "Randevue" r ON r.id = tr.randevue_id
+            WHERE tt.dentist = $1
+            GROUP BY tt.id, tt."feeSnapshot"
+          )
           SELECT
             COUNT(*) FILTER (
-              WHERE DATE("effectiveDate" AT TIME ZONE 'UTC') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+              WHERE DATE("completedAt") = CURRENT_DATE
+                AND "completedAt" <= CURRENT_TIMESTAMP
             ) AS "todayTreatmentCount",
             COALESCE(
               SUM("feeSnapshot") FILTER (
-                WHERE DATE("effectiveDate" AT TIME ZONE 'UTC') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                WHERE DATE("completedAt") = CURRENT_DATE
+                  AND "completedAt" <= CURRENT_TIMESTAMP
               ),
               0
             ) AS "todayRevenue",
             COALESCE(
               SUM("feeSnapshot") FILTER (
-                WHERE DATE_TRUNC('month', "effectiveDate" AT TIME ZONE 'UTC') = DATE_TRUNC('month', CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                WHERE DATE_TRUNC('month', "completedAt") = DATE_TRUNC('month', CURRENT_TIMESTAMP)
+                  AND "completedAt" <= CURRENT_TIMESTAMP
               ),
               0
             ) AS "monthRevenue"
-          FROM TreatmentEffectiveDates
+          FROM CompletedTreatments
         `,
         [dentistId],
       ),
       this.dataSource.query(
         `
           SELECT
-            EXTRACT(HOUR FROM r.date AT TIME ZONE 'UTC') AS hour,
-            COUNT(*) AS count
+            r.id,
+            r.date AS "startTime",
+            r."endTime",
+            p.name AS "patientName",
+            p.surname AS "patientSurname"
           FROM "Randevue" r
+          LEFT JOIN "Patient" p ON p.id = r.patient
           WHERE r.dentist = $1
-            AND DATE(r.date AT TIME ZONE 'UTC') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
-          GROUP BY EXTRACT(HOUR FROM r.date AT TIME ZONE 'UTC')
-          ORDER BY hour ASC
+            AND DATE(r.date) = CURRENT_DATE
+          ORDER BY r.date ASC
         `,
         [dentistId],
+      ),
+      this.dataSource.query(
+        `
+          SELECT
+            bh.id,
+            bh."startTime",
+            bh."endTime",
+            bh.name,
+            bh."approvalStatus"
+          FROM "Blocking_hours" bh
+          WHERE bh.staff = $1
+            AND bh."approvalStatus" IN ($2, $3)
+            AND bh."startTime" < (CURRENT_DATE + INTERVAL '1 day')
+            AND bh."endTime" > CURRENT_DATE
+          ORDER BY bh."startTime" ASC
+        `,
+        [dentist.staffId, BlockingHoursApprovalStatus.AWAITING, BlockingHoursApprovalStatus.APPROVED],
       ),
     ]);
 
     const totals = totalsRows[0] ?? {};
-    const scheduleByHour = new Map<number, number>();
-    scheduleRows.forEach((row: { hour: string | number; count: string | number }) => {
-      scheduleByHour.set(Number(row.hour), Number(row.count));
-    });
-
-    const hours = Array.from({ length: 13 }, (_, index) => 8 + index);
 
     return {
       todayTreatmentCount: Number(totals.todayTreatmentCount ?? 0),
       todayRevenue: Number(totals.todayRevenue ?? 0),
       monthRevenue: Number(totals.monthRevenue ?? 0),
-      todayScheduleChart: hours.map((hour) => ({
-        hour,
-        timeLabel: `${String(hour).padStart(2, '0')}:00`,
-        count: scheduleByHour.get(hour) ?? 0,
-      })),
+      todayRandevues: randevuesRows.map(
+        (row: {
+          id: number;
+          startTime: string;
+          endTime: string;
+          patientName: string | null;
+          patientSurname: string | null;
+        }) => ({
+          id: Number(row.id),
+          startTime: row.startTime,
+          endTime: row.endTime,
+          patientName: `${row.patientName ?? ''} ${row.patientSurname ?? ''}`.trim() || 'Unknown patient',
+        }),
+      ),
+      todayBlockingHours: blockingRows.map(
+        (row: {
+          id: number;
+          startTime: string;
+          endTime: string;
+          name: string | null;
+          approvalStatus: string;
+        }) => ({
+          id: Number(row.id),
+          startTime: row.startTime,
+          endTime: row.endTime,
+          name: row.name ?? 'Blocking hour',
+          approvalStatus: row.approvalStatus,
+        }),
+      ),
     };
   }
 

@@ -83,7 +83,8 @@ interface DentistMetrics {
   todayTreatmentCount: number;
   todayRevenue: number;
   monthRevenue: number;
-  todayScheduleChart: DentistDashboardOverview['todayScheduleChart'];
+  todayRandevues: DentistDashboardOverview['todayRandevues'];
+  todayBlockingHours: DentistDashboardOverview['todayBlockingHours'];
 }
 
 function toYmd(date: Date): string {
@@ -248,32 +249,51 @@ function DirectorWeekIncomeOutcomeChart({
   );
 }
 
-function DentistTodayScheduleChart({
-  data,
-  hint,
+function DentistTodayTimeline({
+  randevues,
+  blockingHours,
+  empty,
+  randevuesTitle,
+  blockingTitle,
 }: {
-  data: DentistDashboardOverview['todayScheduleChart'];
-  hint: string;
+  randevues: DentistDashboardOverview['todayRandevues'];
+  blockingHours: DentistDashboardOverview['todayBlockingHours'];
+  empty: string;
+  randevuesTitle: string;
+  blockingTitle: string;
 }) {
-  const maxCount = Math.max(1, ...data.map((slot) => slot.count));
-
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-4 gap-2 sm:grid-cols-7" style={{ gridTemplateColumns: 'repeat(13, minmax(0, 1fr))' }}>
-        {data.map((slot) => (
-          <div key={slot.hour} className="flex flex-col items-center gap-1">
-            <div className="flex h-24 w-full items-end rounded-md bg-slate-100 px-1 py-1">
-              <div
-                className="w-full rounded-sm bg-blue-500"
-                style={{ height: `${(slot.count / maxCount) * 100}%`, minHeight: slot.count > 0 ? 6 : 0 }}
-                title={`${slot.timeLabel}: ${slot.count}`}
-              />
-            </div>
-            <span className="text-[11px] text-slate-500">{slot.timeLabel}</span>
-          </div>
-        ))}
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-600">{randevuesTitle}</h3>
+        <div className="space-y-2">
+          {randevues.length === 0 ? (
+            <p className="text-sm text-slate-500">{empty}</p>
+          ) : (
+            randevues.map((item) => (
+              <div key={item.id} className="rounded-md bg-white px-3 py-2 text-sm text-slate-700">
+                <span className="font-semibold">{hmFromIso(item.startTime)} - {hmFromIso(item.endTime)}</span>{' '}
+                <span>{item.patientName}</span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
-      <p className="text-xs text-slate-500">{hint}</p>
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-600">{blockingTitle}</h3>
+        <div className="space-y-2">
+          {blockingHours.length === 0 ? (
+            <p className="text-sm text-slate-500">{empty}</p>
+          ) : (
+            blockingHours.map((item) => (
+              <div key={item.id} className="rounded-md bg-white px-3 py-2 text-sm text-slate-700">
+                <span className="font-semibold">{hmFromIso(item.startTime)} - {hmFromIso(item.endTime)}</span>{' '}
+                <span>{item.name}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -397,8 +417,11 @@ const Dashboard = () => {
             todayTreatmentCount: Number(overview.todayTreatmentCount ?? 0),
             todayRevenue: Number(overview.todayRevenue ?? 0),
             monthRevenue: Number(overview.monthRevenue ?? 0),
-            todayScheduleChart: Array.isArray(overview.todayScheduleChart)
-              ? overview.todayScheduleChart
+            todayRandevues: Array.isArray(overview.todayRandevues)
+              ? overview.todayRandevues
+              : [],
+            todayBlockingHours: Array.isArray(overview.todayBlockingHours)
+              ? overview.todayBlockingHours
               : [],
           });
         }
@@ -1199,24 +1222,14 @@ const Dashboard = () => {
                   </div>
                 </section>
                 <section className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h2 className="mb-3 text-lg font-semibold text-slate-800">{t('dentistTodayScheduleChart')}</h2>
-                  <DentistTodayScheduleChart
-                    data={dentistMetrics?.todayScheduleChart ?? []}
-                    hint={t('dentistScheduleChartHint')}
+                  <h2 className="mb-3 text-lg font-semibold text-slate-800">{t('dentistTodayScheduleTimeline')}</h2>
+                  <DentistTodayTimeline
+                    randevues={dentistMetrics?.todayRandevues ?? []}
+                    blockingHours={dentistMetrics?.todayBlockingHours ?? []}
+                    empty={t('dentistScheduleEmpty')}
+                    randevuesTitle={t('dentistTodayRandevues')}
+                    blockingTitle={t('dentistTodayBlockingHours')}
                   />
-                </section>
-                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {DENTIST_PORTAL_MENU.filter((item) => item.path !== '/dashboard').map((item) => (
-                    <button
-                      key={item.path}
-                      type="button"
-                      onClick={() => navigate(item.path)}
-                      className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm ring-1 ring-slate-100 transition hover:border-[#0066A6]/30 hover:shadow-md"
-                    >
-                      <item.icon className="h-8 w-8 shrink-0 text-[#0066A6]" />
-                      <span className="text-lg font-semibold text-slate-800">{item.label}</span>
-                    </button>
-                  ))}
                 </section>
                 {loadingDentistMetrics && (
                   <p className="text-sm text-slate-500">{t('dentistDashboardRefreshing')}</p>

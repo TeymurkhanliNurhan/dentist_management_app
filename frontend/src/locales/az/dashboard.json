@@ -10,8 +10,10 @@
   "dentistTodayTreatments": "Bu gun mualiceler",
   "dentistTodayRevenue": "Bu gun gelir",
   "dentistMonthRevenue": "Bu ay gelir",
-  "dentistTodayScheduleChart": "Bu gunun cedveli",
-  "dentistScheduleChartHint": "Sutunlar saat uzre planlasdirilan randevu sayini gosterir (08:00-20:00).",
+  "dentistTodayScheduleTimeline": "Bu gunun cedveli",
+  "dentistTodayRandevues": "Randevular",
+  "dentistTodayBlockingHours": "Blok saatlar",
+  "dentistScheduleEmpty": "Bu gun ucun qeyd yoxdur.",
   "dentistDashboardRefreshing": "Dashboard melumatlari yenilenir..."
 }
 

@@ -10,8 +10,10 @@
   "dentistTodayTreatments": "Treatments Today",
   "dentistTodayRevenue": "Revenue Today",
   "dentistMonthRevenue": "Revenue This Month",
-  "dentistTodayScheduleChart": "Today's Schedule",
-  "dentistScheduleChartHint": "Bars show number of planned randevues by hour (08:00-20:00).",
+  "dentistTodayScheduleTimeline": "Today's Schedule",
+  "dentistTodayRandevues": "Randevues",
+  "dentistTodayBlockingHours": "Blocking Hours",
+  "dentistScheduleEmpty": "No records for today.",
   "dentistDashboardRefreshing": "Refreshing dashboard data..."
 }
 
