@@ -250,47 +250,58 @@ export class DentistService {
     return { message: 'Dentist deleted successfully' };
   }
 
+  /** Same CTE as dentist finance overview (effectiveDate + joins). */
+  private dentistTreatmentFinanceBaseCte(): string {
+    return `
+      WITH TreatmentEffectiveDates AS (
+        SELECT
+          tt.id,
+          tt."feeSnapshot",
+          t.name AS "treatmentName",
+          a.id AS appointment_id,
+          a."startDate" AS "appointmentDate",
+          p.name AS patient_name,
+          p.surname AS patient_surname,
+          COALESCE(MAX(r.date), a."startDate") AS "effectiveDate"
+        FROM "Tooth_Treatment" tt
+        JOIN "Treatment" t ON t.id = tt.treatment
+        JOIN "Appointment" a ON a.id = tt.appointment
+        JOIN "Patient" p ON p.id = a.patient
+        LEFT JOIN "ToothTreatmentTeeth" ttt ON ttt.tooth_treatment_id = tt.id
+        LEFT JOIN "Treatment_Randevue" tr ON tr.tooth_treatment_teeth_id = ttt.id
+        LEFT JOIN "Randevue" r ON r.id = tr.randevue_id
+        WHERE tt.dentist = $1
+        GROUP BY tt.id, tt."feeSnapshot", t.name, a.id, a."startDate", p.name, p.surname
+      )`;
+  }
+
   async getDashboardOverview(dentistId: number) {
     const dentist = await this.dentistRepository.findById(dentistId);
     if (!dentist) throw new NotFoundException('Dentist not found');
 
-    const [totalsRows, randevuesRows, blockingRows] = await Promise.all([
+    const now = new Date();
+    const financeOverview = await this.getFinanceOverview(dentistId, {
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
+    });
+
+    const [todayTreatmentsRows, randevuesRows, blockingRows] = await Promise.all([
       this.dataSource.query(
         `
-          WITH CompletedTreatments AS (
-            SELECT
-              tt.id,
-              tt."feeSnapshot",
-              MAX(r."endTime") AS "completedAt"
-            FROM "Tooth_Treatment" tt
-            JOIN "ToothTreatmentTeeth" ttt ON ttt.tooth_treatment_id = tt.id
-            JOIN "Treatment_Randevue" tr ON tr.tooth_treatment_teeth_id = ttt.id
-            JOIN "Randevue" r ON r.id = tr.randevue_id
-            WHERE tt.dentist = $1
-            GROUP BY tt.id, tt."feeSnapshot"
-          )
+          ${this.dentistTreatmentFinanceBaseCte()}
           SELECT
-            COUNT(*) FILTER (
-              WHERE DATE("completedAt") = CURRENT_DATE
-                AND "completedAt" <= CURRENT_TIMESTAMP
-            ) AS "todayTreatmentCount",
-            COALESCE(
-              SUM("feeSnapshot") FILTER (
-                WHERE DATE("completedAt") = CURRENT_DATE
-                  AND "completedAt" <= CURRENT_TIMESTAMP
-              ),
-              0
-            ) AS "todayRevenue",
-            COALESCE(
-              SUM("feeSnapshot") FILTER (
-                WHERE DATE_TRUNC('month', "completedAt") = DATE_TRUNC('month', CURRENT_TIMESTAMP)
-                  AND "completedAt" <= CURRENT_TIMESTAMP
-              ),
-              0
-            ) AS "monthRevenue"
-          FROM CompletedTreatments
+            appointment_id,
+            patient_name,
+            patient_surname,
+            "treatmentName",
+            "appointmentDate" AS date,
+            ("feeSnapshot" * $2 / 100) AS benefit
+          FROM TreatmentEffectiveDates
+          WHERE DATE("appointmentDate" AT TIME ZONE 'UTC')
+            = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+          ORDER BY "effectiveDate" DESC
         `,
-        [dentistId],
+        [dentistId, financeOverview.commissionRate],
       ),
       this.dataSource.query(
         `
@@ -327,12 +338,34 @@ export class DentistService {
       ),
     ]);
 
-    const totals = totalsRows[0] ?? {};
+    const todayTreatmentCount = todayTreatmentsRows.length;
+    const todayRevenue = todayTreatmentsRows.reduce(
+      (sum, row: { benefit: string | number | null }) =>
+        sum + Number(row.benefit ?? 0),
+      0,
+    );
 
     return {
-      todayTreatmentCount: Number(totals.todayTreatmentCount ?? 0),
-      todayRevenue: Number(totals.todayRevenue ?? 0),
-      monthRevenue: Number(totals.monthRevenue ?? 0),
+      commissionRate: financeOverview.commissionRate,
+      todayTreatmentCount,
+      todayRevenue,
+      monthRevenue: financeOverview.monthlyCommission,
+      todayTreatments: todayTreatmentsRows.map(
+        (row: {
+          appointment_id: number;
+          patient_name: string | null;
+          patient_surname: string | null;
+          treatmentName: string;
+          date: string;
+          benefit: number;
+        }) => ({
+          appointmentId: Number(row.appointment_id),
+          patientName: `${row.patient_name ?? ''} ${row.patient_surname ?? ''}`.trim() || 'Unknown patient',
+          treatmentName: row.treatmentName,
+          benefit: Number(row.benefit ?? 0),
+          date: row.date,
+        }),
+      ),
       todayRandevues: randevuesRows.map(
         (row: {
           id: number;
@@ -377,28 +410,7 @@ export class DentistService {
     });
     const commissionRate = salary?.treatmentPercentage ?? 0;
 
-    const baseCte = `
-      WITH TreatmentEffectiveDates AS (
-        SELECT 
-          tt.id,
-          tt."feeSnapshot",
-          t.name AS "treatmentName",
-          a.id AS appointment_id,
-          a."startDate" AS "appointmentDate",
-          p.name AS patient_name,
-          p.surname AS patient_surname,
-          COALESCE(MAX(r.date), a."startDate") AS "effectiveDate"
-        FROM "Tooth_Treatment" tt
-        JOIN "Treatment" t ON t.id = tt.treatment
-        JOIN "Appointment" a ON a.id = tt.appointment
-        JOIN "Patient" p ON p.id = a.patient
-        LEFT JOIN "ToothTreatmentTeeth" ttt ON ttt.tooth_treatment_id = tt.id
-        LEFT JOIN "Treatment_Randevue" tr ON tr.tooth_treatment_teeth_id = ttt.id
-        LEFT JOIN "Randevue" r ON r.id = tr.randevue_id
-        WHERE tt.dentist = $1
-        GROUP BY tt.id, tt."feeSnapshot", t.name, a.id, a."startDate", p.name, p.surname
-      )
-    `;
+    const baseCte = this.dentistTreatmentFinanceBaseCte();
 
     const [monthStats, dailyGraph, weeklyGraph, monthlyGraph, recentTreatments] = await Promise.all([
       this.dataSource.query(`
