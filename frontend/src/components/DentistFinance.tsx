@@ -30,6 +30,7 @@ const DentistFinance = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<number | null>(null);
+  const [visibleRecentCount, setVisibleRecentCount] = useState(7);
 
   const fetchFinanceOverview = async (year = selectedYear, month = selectedMonth) => {
     setLoading(true);
@@ -386,12 +387,11 @@ const DentistFinance = () => {
                           <th className="px-5 py-3 font-medium">Patient</th>
                           <th className="px-5 py-3 font-medium">Treatment</th>
                           <th className="px-5 py-3 font-medium">Date</th>
-                          <th className="px-5 py-3 font-medium">Total Cost</th>
-                          <th className="px-5 py-3 font-medium">Your Comm. ({financeData?.commissionRate ?? 0}%)</th>
+                          <th className="px-5 py-3 font-medium">Revenue</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {(financeData?.recentOperatedTreatments ?? []).map((t, idx) => (
+                        {(financeData?.recentOperatedTreatments ?? []).slice(0, visibleRecentCount).map((t, idx) => (
                           <tr key={idx} className="hover:bg-slate-50/50">
                             <td className="px-5 py-4">
                               <div className="flex items-center gap-3">
@@ -413,9 +413,6 @@ const DentistFinance = () => {
                                 day: 'numeric',
                               })}
                             </td>
-                            <td className="px-5 py-4 font-medium text-slate-900">
-                              {formatCurrency(t.totalCost)}
-                            </td>
                             <td className="px-5 py-4 font-bold text-sky-700">
                               {formatCurrency(t.commission)}
                             </td>
@@ -423,7 +420,7 @@ const DentistFinance = () => {
                         ))}
                         {(financeData?.recentOperatedTreatments ?? []).length === 0 && (
                           <tr>
-                            <td colSpan={5} className="px-5 py-8 text-center text-slate-500">
+                            <td colSpan={4} className="px-5 py-8 text-center text-slate-500">
                               No recent treatments found.
                             </td>
                           </tr>
@@ -431,6 +428,24 @@ const DentistFinance = () => {
                       </tbody>
                     </table>
                   </div>
+                  
+                  {financeData && financeData.recentOperatedTreatments.length > 0 && (
+                    <div className="border-t border-slate-200 bg-slate-50 px-5 py-4 flex items-center justify-between">
+                      {visibleRecentCount < financeData.recentOperatedTreatments.length ? (
+                        <button
+                          onClick={() => setVisibleRecentCount(prev => prev + 10)}
+                          className="text-sm font-medium text-sky-700 hover:text-sky-800"
+                        >
+                          View More
+                        </button>
+                      ) : (
+                        <div />
+                      )}
+                      <button className="text-sm font-medium text-slate-500 hover:text-slate-700">
+                        View all transactions
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             )}
