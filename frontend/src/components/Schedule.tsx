@@ -888,7 +888,7 @@ const Schedule = () => {
     if (note.trim()) body.note = note.trim();
     if (useClinicScheduleUi && formRoomId > 0) body.room_id = formRoomId;
     if (useClinicScheduleUi && formDentistId > 0) body.dentist_id = formDentistId;
-    if (isDirector && formNurseId > 0) body.nurse_id = formNurseId;
+    if ((isDirector || isDentistUser) && formNurseId > 0) body.nurse_id = formNurseId;
 
     if (appointmentChoice === 'new') {
       body.create_new_appointment = true;
@@ -1092,7 +1092,7 @@ const Schedule = () => {
     };
     if (useClinicScheduleUi && detailRoomId > 0) body.room_id = detailRoomId;
     if (useClinicScheduleUi && detailDentistId > 0) body.dentist_id = detailDentistId;
-    if (isDirector) {
+    if (isDirector || isDentistUser) {
       if (detailNurseId > 0) body.nurse_id = detailNurseId;
       else if (detailRandevue?.nurse?.id) body.clear_nurse = true;
     }
@@ -2877,22 +2877,24 @@ const Schedule = () => {
                                       ))}
                                     </select>
                                   </div>
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('doctor')}</label>
-                                    <select
-                                        value={detailDentistId || ''}
-                                        onChange={(e) => setDetailDentistId(Number(e.target.value) || 0)}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                                    >
-                                      <option value="">{t('selectDoctor')}</option>
-                                      {detailDentistOptions.map((dentist) => (
-                                          <option key={dentist.id} value={dentist.id}>
-                                            {`Dr. ${dentist.staff?.surname || `#${dentist.id}`}`}
-                                          </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  {isDirector && (
+                                  {!isDentistUser && (
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('doctor')}</label>
+                                      <select
+                                          value={detailDentistId || ''}
+                                          onChange={(e) => setDetailDentistId(Number(e.target.value) || 0)}
+                                          className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                                      >
+                                        <option value="">{t('selectDoctor')}</option>
+                                        {detailDentistOptions.map((dentist) => (
+                                            <option key={dentist.id} value={dentist.id}>
+                                              {`Dr. ${dentist.staff?.surname || `#${dentist.id}`}`}
+                                            </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  )}
+                                  {(isDirector || isDentistUser) && (
                                       <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">{t('nurse')}</label>
                                         <select
@@ -3331,22 +3333,24 @@ const Schedule = () => {
                                 ))}
                               </select>
                             </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">{t('doctor')}</label>
-                              <select
-                                  value={formDentistId || ''}
-                                  onChange={(e) => setFormDentistId(Number(e.target.value) || 0)}
-                                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                              >
-                                <option value="">{t('selectDoctor')}</option>
-                                {availableDentists.map((dentist) => (
-                                    <option key={dentist.id} value={dentist.id}>
-                                      {`Dr. ${dentist.staff?.surname || `#${dentist.id}`}`}
-                                    </option>
-                                ))}
-                              </select>
-                            </div>
-                            {isDirector && (
+                            {!isDentistUser && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('doctor')}</label>
+                                <select
+                                    value={formDentistId || ''}
+                                    onChange={(e) => setFormDentistId(Number(e.target.value) || 0)}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                                >
+                                  <option value="">{t('selectDoctor')}</option>
+                                  {availableDentists.map((dentist) => (
+                                      <option key={dentist.id} value={dentist.id}>
+                                        {`Dr. ${dentist.staff?.surname || `#${dentist.id}`}`}
+                                      </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                            {(isDirector || isDentistUser) && (
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('nurse')}</label>
                                   <select
