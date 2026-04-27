@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Settings } from 'lucide-react';
+import { Settings, Wallet, Activity } from 'lucide-react';
 import { dentistService, type DentistFinanceOverview } from '../services/api';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
@@ -256,6 +256,13 @@ const DentistFinance = () => {
                         role="img"
                         aria-label="Income trends graph"
                       >
+                        <line
+                          x1={chartPadding.left}
+                          y1={xAxisY}
+                          x2={chartWidth - chartPadding.right}
+                          y2={xAxisY}
+                          stroke="#94a3b8"
+                        />
                         {chartTicks.map((tick, index) => (
                           <g key={`tick-${index}`}>
                             <line
