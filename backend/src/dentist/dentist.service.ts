@@ -15,6 +15,8 @@ import { DataSource } from 'typeorm';
 import { Staff } from '../staff/entities/staff.entity';
 import { CreateDentistDto } from './dto/create-dentist.dto';
 import { GetDentistDto } from './dto/get-dentist.dto';
+import { GetDentistFinanceDto } from './dto/get-dentist-finance.dto';
+import { Salary } from '../salary/entities/salary.entity';
 
 @Injectable()
 export class DentistService {
@@ -245,5 +247,144 @@ export class DentistService {
     this.logger.log(msg);
     LogWriter.append('log', DentistService.name, msg);
     return { message: 'Dentist deleted successfully' };
+  }
+
+  async getFinanceOverview(dentistId: number, dto: GetDentistFinanceDto) {
+    const dentist = await this.dentistRepository.findById(dentistId);
+    if (!dentist) throw new NotFoundException('Dentist not found');
+
+    const year = dto.year ?? new Date().getFullYear();
+    const month = dto.month ?? new Date().getMonth() + 1;
+
+    const salary = await this.dataSource.getRepository(Salary).findOne({
+      where: { staffId: dentist.staffId },
+    });
+    const commissionRate = salary?.treatmentPercentage ?? 0;
+
+    const baseCte = `
+      WITH TreatmentEffectiveDates AS (
+        SELECT 
+          tt.id,
+          tt."feeSnapshot",
+          t.name AS "treatmentName",
+          COALESCE(MAX(r.date), a."startDate") AS "effectiveDate"
+        FROM "Tooth_Treatment" tt
+        JOIN "Treatment" t ON t.id = tt.treatment
+        JOIN "Appointment" a ON a.id = tt.appointment
+        LEFT JOIN "ToothTreatmentTeeth" ttt ON ttt.tooth_treatment_id = tt.id
+        LEFT JOIN "Treatment_Randevue" tr ON tr.tooth_treatment_teeth_id = ttt.id
+        LEFT JOIN "Randevue" r ON r.id = tr.randevue_id
+        WHERE tt.dentist = $1
+        GROUP BY tt.id, tt."feeSnapshot", t.name, a."startDate"
+      )
+    `;
+
+    const [monthStats, dailyGraph, weeklyGraph, monthlyGraph] = await Promise.all([
+      this.dataSource.query(`
+        ${baseCte}
+        SELECT 
+          "treatmentName",
+          COUNT(*) AS count,
+          SUM("feeSnapshot") AS total_fee
+        FROM TreatmentEffectiveDates
+        WHERE EXTRACT(YEAR FROM "effectiveDate" AT TIME ZONE 'UTC') = $2
+          AND EXTRACT(MONTH FROM "effectiveDate" AT TIME ZONE 'UTC') = $3
+        GROUP BY "treatmentName"
+        ORDER BY count DESC
+      `, [dentistId, year, month]),
+      
+      this.dataSource.query(`
+        ${baseCte}
+        SELECT 
+          EXTRACT(DAY FROM "effectiveDate" AT TIME ZONE 'UTC') AS day,
+          SUM("feeSnapshot") AS total_fee
+        FROM TreatmentEffectiveDates
+        WHERE EXTRACT(YEAR FROM "effectiveDate" AT TIME ZONE 'UTC') = $2
+          AND EXTRACT(MONTH FROM "effectiveDate" AT TIME ZONE 'UTC') = $3
+        GROUP BY EXTRACT(DAY FROM "effectiveDate" AT TIME ZONE 'UTC')
+        ORDER BY day ASC
+      `, [dentistId, year, month]),
+
+      this.dataSource.query(`
+        ${baseCte}
+        SELECT 
+          EXTRACT(WEEK FROM "effectiveDate" AT TIME ZONE 'UTC') AS week,
+          SUM("feeSnapshot") AS total_fee
+        FROM TreatmentEffectiveDates
+        WHERE EXTRACT(YEAR FROM "effectiveDate" AT TIME ZONE 'UTC') = $2
+          AND EXTRACT(MONTH FROM "effectiveDate" AT TIME ZONE 'UTC') = $3
+        GROUP BY EXTRACT(WEEK FROM "effectiveDate" AT TIME ZONE 'UTC')
+        ORDER BY week ASC
+      `, [dentistId, year, month]),
+
+      this.dataSource.query(`
+        ${baseCte}
+        SELECT 
+          EXTRACT(MONTH FROM "effectiveDate" AT TIME ZONE 'UTC') AS month,
+          SUM("feeSnapshot") AS total_fee
+        FROM TreatmentEffectiveDates
+        WHERE EXTRACT(YEAR FROM "effectiveDate" AT TIME ZONE 'UTC') = $2
+        GROUP BY EXTRACT(MONTH FROM "effectiveDate" AT TIME ZONE 'UTC')
+        ORDER BY month ASC
+      `, [dentistId, year])
+    ]);
+
+    let monthlyCommission = 0;
+    let totalTreatments = 0;
+    const treatmentMix: any[] = [];
+    
+    monthStats.forEach((stat: any) => {
+      const fee = Number(stat.total_fee);
+      const count = Number(stat.count);
+      const comm = fee * (commissionRate / 100);
+      
+      monthlyCommission += comm;
+      totalTreatments += count;
+      
+      treatmentMix.push({
+        name: stat.treatmentName,
+        count,
+        commission: comm,
+      });
+    });
+
+    const topTwo = treatmentMix.slice(0, 2);
+    const otherTreatments = treatmentMix.slice(2);
+    const otherCount = otherTreatments.reduce((acc, curr) => acc + curr.count, 0);
+    const otherCommission = otherTreatments.reduce((acc, curr) => acc + curr.commission, 0);
+
+    const treatmentsOperated = {
+      total: totalTreatments,
+      breakdown: [
+        ...topTwo.map(t => ({ name: t.name, count: t.count })),
+        ...(otherCount > 0 ? [{ name: 'Other', count: otherCount }] : [])
+      ]
+    };
+
+    return {
+      period: { year, month },
+      commissionRate,
+      monthlyCommission,
+      treatmentsOperated,
+      treatmentMix: treatmentMix.map(t => ({
+        name: t.name,
+        commission: t.commission,
+        percentage: monthlyCommission > 0 ? (t.commission / monthlyCommission) * 100 : 0
+      })),
+      graphs: {
+        daily: dailyGraph.map((d: any) => ({
+          day: Number(d.day),
+          commission: Number(d.total_fee) * (commissionRate / 100)
+        })),
+        weekly: weeklyGraph.map((w: any) => ({
+          week: Number(w.week),
+          commission: Number(w.total_fee) * (commissionRate / 100)
+        })),
+        monthly: monthlyGraph.map((m: any) => ({
+          month: Number(m.month),
+          commission: Number(m.total_fee) * (commissionRate / 100)
+        }))
+      }
+    };
   }
 }
