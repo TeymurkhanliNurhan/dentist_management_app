@@ -13,6 +13,7 @@ function formatCurrency(value: number): string {
 }
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 type GraphMode = 'daily' | 'weekly' | 'monthly';
 
@@ -59,17 +60,18 @@ const DentistFinance = () => {
   let graphData: Array<{ label: string; value: number }> = [];
   if (financeData) {
     if (graphMode === 'daily') {
-      const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-      graphData = Array.from({ length: daysInMonth }, (_, i) => {
+      graphData = Array.from({ length: 7 }, (_, i) => {
         const day = i + 1;
         const record = financeData.graphs.daily.find(d => d.day === day);
-        return { label: String(day), value: record?.commission ?? 0 };
+        return { label: DAY_LABELS[i], value: record?.commission ?? 0 };
       });
     } else if (graphMode === 'weekly') {
-      graphData = financeData.graphs.weekly.map(w => ({
-        label: `Week ${w.week}`,
-        value: w.commission,
-      }));
+      // Typically up to 5 weeks in a month
+      graphData = Array.from({ length: 5 }, (_, i) => {
+        const week = i + 1;
+        const record = financeData.graphs.weekly.find(w => w.week === week);
+        return { label: `Week ${week}`, value: record?.commission ?? 0 };
+      });
     } else if (graphMode === 'monthly') {
       graphData = Array.from({ length: 12 }, (_, i) => {
         const month = i + 1;
@@ -249,10 +251,10 @@ const DentistFinance = () => {
                       </div>
                     </div>
 
-                    <div className="mt-6 overflow-x-auto">
+                    <div className="mt-6 w-full">
                       <svg
                         viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                        className="h-[320px] min-w-[760px] w-full"
+                        className="h-auto w-full"
                         role="img"
                         aria-label="Income trends graph"
                       >
@@ -285,7 +287,6 @@ const DentistFinance = () => {
                         ))}
 
                         {graphData.map((point, index) => {
-                          if (graphData.length > 15 && index % Math.ceil(graphData.length / 10) !== 0 && index !== graphData.length - 1) return null;
                           return (
                             <text
                               key={index}

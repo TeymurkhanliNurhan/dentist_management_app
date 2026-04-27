@@ -296,24 +296,24 @@ export class DentistService {
       this.dataSource.query(`
         ${baseCte}
         SELECT 
-          EXTRACT(DAY FROM "effectiveDate" AT TIME ZONE 'UTC') AS day,
+          EXTRACT(ISODOW FROM "effectiveDate" AT TIME ZONE 'UTC') AS day,
           SUM("feeSnapshot") AS total_fee
         FROM TreatmentEffectiveDates
         WHERE EXTRACT(YEAR FROM "effectiveDate" AT TIME ZONE 'UTC') = $2
           AND EXTRACT(MONTH FROM "effectiveDate" AT TIME ZONE 'UTC') = $3
-        GROUP BY EXTRACT(DAY FROM "effectiveDate" AT TIME ZONE 'UTC')
+        GROUP BY EXTRACT(ISODOW FROM "effectiveDate" AT TIME ZONE 'UTC')
         ORDER BY day ASC
       `, [dentistId, year, month]),
 
       this.dataSource.query(`
         ${baseCte}
         SELECT 
-          EXTRACT(WEEK FROM "effectiveDate" AT TIME ZONE 'UTC') AS week,
+          CEIL(EXTRACT(DAY FROM "effectiveDate" AT TIME ZONE 'UTC') / 7.0) AS week,
           SUM("feeSnapshot") AS total_fee
         FROM TreatmentEffectiveDates
         WHERE EXTRACT(YEAR FROM "effectiveDate" AT TIME ZONE 'UTC') = $2
           AND EXTRACT(MONTH FROM "effectiveDate" AT TIME ZONE 'UTC') = $3
-        GROUP BY EXTRACT(WEEK FROM "effectiveDate" AT TIME ZONE 'UTC')
+        GROUP BY CEIL(EXTRACT(DAY FROM "effectiveDate" AT TIME ZONE 'UTC') / 7.0)
         ORDER BY week ASC
       `, [dentistId, year, month]),
 
