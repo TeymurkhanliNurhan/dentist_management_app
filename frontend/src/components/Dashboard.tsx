@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DASHBOARD_TILE_IMAGES, type DashboardTileKey } from '../lib/dashboardTileImages';
 import { useEffect, useMemo, useState } from 'react';
+import { appointmentService, patientService, staffService } from '../services/api';
 import { CalendarDays, DollarSign, MinusCircle, Settings, UserRound, Users } from 'lucide-react';
 import api, {
   API_BASE_URL,
@@ -455,29 +456,29 @@ const Dashboard = () => {
         });
 
         // Collect unique patient ids from appointments
-        const patientIds = Array.from(new Set(filteredTreatments.map(tt => tt.appointment?.id).filter(Boolean)));
-        let appointmentMap = {};
-        let patientMap = {};
-        let staffMap = {};
-        if (patientIds.length > 0) {
+        const appointmentIds = Array.from(new Set(filteredTreatments.map(tt => tt.appointment?.id).filter((id): id is number => typeof id === 'number')));
+        let appointmentMap: Record<number, any> = {};
+        let patientMap: Record<number, any> = {};
+        let staffMap: Record<number, any> = {};
+        if (appointmentIds.length > 0) {
           // Fetch appointments
-          const appointments = await appointmentService.getAll({ id: patientIds });
-          appointmentMap = Object.fromEntries(appointments.map(a => [a.id, a]));
+          const appointments = await appointmentService.getAll({ id: appointmentIds });
+          appointmentMap = Object.fromEntries((appointments as any[]).map((a) => [a.id, a]));
           // Collect patient ids
-          const uniquePatientIds = Array.from(new Set(appointments.map(a => a.patient).filter(Boolean)));
+          const uniquePatientIds = Array.from(new Set((appointments as any[]).map((a) => a.patient).filter((id: any): id is number => typeof id === 'number')));
           if (uniquePatientIds.length > 0) {
             const patients = await patientService.getAll({ id: uniquePatientIds });
-            patientMap = Object.fromEntries(patients.map(p => [p.id, p]));
+            patientMap = Object.fromEntries((patients as any[]).map((p) => [p.id, p]));
             // Collect staff ids
-            const uniqueStaffIds = Array.from(new Set(patients.map(p => p.staffId).filter(Boolean)));
+            const uniqueStaffIds = Array.from(new Set((patients as any[]).map((p) => p.staffId).filter((id: any): id is number => typeof id === 'number')));
             if (uniqueStaffIds.length > 0) {
               const staffList = await staffService.getAll({ id: uniqueStaffIds });
-              staffMap = Object.fromEntries(staffList.map(s => [s.id, s]));
+              staffMap = Object.fromEntries((staffList as any[]).map((s) => [s.id, s]));
             }
           }
         }
 
-        const todayTreatments = filteredTreatments.map((tt) => {
+        const todayTreatments = filteredTreatments.map((tt: any) => {
           let treatmentDate = '';
           if (tt.linkedRandevues && tt.linkedRandevues.length > 0) {
             treatmentDate = toYmd(new Date(tt.linkedRandevues[0].date));
