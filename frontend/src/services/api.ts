@@ -155,7 +155,6 @@ export const dentistService = {
 };
 
 export interface DentistDashboardOverview {
-  commissionRate: number;
   todayTreatmentCount: number;
   todayRevenue: number;
   monthRevenue: number;

@@ -1220,7 +1220,7 @@ const Dashboard = () => {
             <main className="min-h-0 flex-1 overflow-y-auto bg-[#f9fafb] p-6">
               <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
                 <section>
-                  <h1 className="text-3xl font-semibold text-slate-800">{t('dentistDashboardTitle')}</h1>
+                  <h1 className="text-3xl font-semibold text-slate-800">Today's Treatments</h1>
                   <p className="mt-1 text-sm text-slate-500">{t('dentistDashboardSubtitle')}</p>
                 </section>
                 <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -1282,7 +1282,7 @@ const Dashboard = () => {
                             <td className="py-2 pr-3 font-medium text-slate-700">{row.patientName}</td>
                             <td className="py-2 pr-3 text-slate-600">{row.treatmentName}</td>
                             <td className="py-2 pr-3 text-slate-600">${row.benefit.toFixed(2)}</td>
-                            <td className="py-2 pr-3 text-slate-600">{row.date}</td>
+                            <td className="py-2 pr-3 text-slate-600">{ymdFromApiDate(row.date, 'N/A')}</td>
                           </tr>
                         ))}
                         {(dentistMetrics?.todayTreatments?.length ?? 0) === 0 && (
