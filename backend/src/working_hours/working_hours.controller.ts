@@ -38,7 +38,7 @@ export class WorkingHoursController {
   @ApiOperation({ summary: 'Get working hours with optional filters' })
   @ApiOkResponse({ description: 'Working hours retrieved' })
   async findAll(@User() user: any, @Query() dto: GetWorkingHoursDto) {
-    return await this.service.findAll(user.userId, user.role, dto);
+    return await this.service.findAll(user, dto);
   }
 
   @ApiBearerAuth('bearer')

@@ -23,6 +23,23 @@ export class WorkingHoursService {
     }
   }
 
+  private parseNumericId(value: unknown): number {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : NaN;
+    }
+    return NaN;
+  }
+
+  private resolveStaffIdFromUser(user: any): number {
+    const staffId = this.parseNumericId(user?.staffId ?? user?.staff_id);
+    if (!Number.isFinite(staffId) || staffId <= 0) {
+      throw new ForbiddenException('Staff context missing');
+    }
+    return staffId;
+  }
+
   async create(dentistId: number, role: string | undefined, dto: CreateWorkingHoursDto) {
     this.ensureDirectorRole(role);
     try {
@@ -38,9 +55,19 @@ export class WorkingHoursService {
     }
   }
 
-  async findAll(dentistId: number, role: string | undefined, dto: GetWorkingHoursDto) {
-    this.ensureDirectorRole(role);
-    return await this.repo.findForDentist(dentistId, dto);
+  async findAll(user: any, dto: GetWorkingHoursDto) {
+    const role = (user?.role ?? '').toLowerCase();
+
+    if (role === 'director') {
+      const dentistId = this.parseNumericId(user?.userId ?? user?.sub ?? user?.dentistId);
+      if (!Number.isFinite(dentistId) || dentistId <= 0) {
+        throw new ForbiddenException('Director context missing');
+      }
+      return await this.repo.findForDentist(dentistId, dto);
+    }
+
+    const staffId = this.resolveStaffIdFromUser(user);
+    return await this.repo.findForStaff(staffId, dto);
   }
 
   async patch(
