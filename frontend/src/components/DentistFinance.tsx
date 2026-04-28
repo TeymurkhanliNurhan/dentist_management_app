@@ -59,13 +59,16 @@ const DentistFinance = () => {
   const plotWidth = chartWidth - chartPadding.left - chartPadding.right;
   const plotHeight = chartHeight - chartPadding.top - chartPadding.bottom;
 
+  const todayIsoDay = ((new Date().getDay() + 6) % 7) + 1;
+
   let graphData: Array<{ label: string; value: number }> = [];
   if (financeData) {
     if (graphMode === 'daily') {
       graphData = Array.from({ length: 7 }, (_, i) => {
-        const day = i + 1;
+        // Use a rolling 7-day window ending today (ISO day: 1=Mon..7=Sun).
+        const day = ((todayIsoDay + i) % 7) + 1;
         const record = financeData.graphs.daily.find(d => d.day === day);
-        return { label: DAY_LABELS[i], value: record?.commission ?? 0 };
+        return { label: DAY_LABELS[day - 1], value: record?.commission ?? 0 };
       });
     } else if (graphMode === 'weekly') {
       // Typically up to 5 weeks in a month
