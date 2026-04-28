@@ -38,7 +38,7 @@ export class WorkingHoursController {
   @ApiOperation({ summary: 'Get working hours with optional filters' })
   @ApiOkResponse({ description: 'Working hours retrieved' })
   async findAll(@User() user: any, @Query() dto: GetWorkingHoursDto) {
-    return await this.service.findAll(user.userId, dto);
+    return await this.service.findAll(user.userId, user.role, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -48,7 +48,7 @@ export class WorkingHoursController {
   @ApiOperation({ summary: 'Create working hours' })
   @ApiResponse({ status: 201, description: 'Working hours created' })
   async create(@User() user: any, @Body() dto: CreateWorkingHoursDto) {
-    return await this.service.create(user.userId, dto);
+    return await this.service.create(user.userId, user.role, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -62,7 +62,7 @@ export class WorkingHoursController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateWorkingHoursDto,
   ) {
-    return await this.service.patch(user.userId, id, dto);
+    return await this.service.patch(user.userId, user.role, id, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -72,6 +72,6 @@ export class WorkingHoursController {
   @ApiOperation({ summary: 'Delete working hours by id' })
   @ApiOkResponse({ description: 'Working hours deleted' })
   async delete(@User() user: any, @Param('id', ParseIntPipe) id: number) {
-    return await this.service.delete(user.userId, id);
+    return await this.service.delete(user.userId, user.role, id);
   }
 }

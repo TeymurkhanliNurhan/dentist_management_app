@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -16,7 +17,14 @@ export class WorkingHoursService {
 
   constructor(private readonly repo: WorkingHoursRepository) {}
 
-  async create(dentistId: number, dto: CreateWorkingHoursDto) {
+  private ensureDirectorRole(role?: string) {
+    if ((role ?? '').toLowerCase() !== 'director') {
+      throw new ForbiddenException('Only director can access working hours endpoints');
+    }
+  }
+
+  async create(dentistId: number, role: string | undefined, dto: CreateWorkingHoursDto) {
+    this.ensureDirectorRole(role);
     try {
       const created = await this.repo.createForDentist(dentistId, dto);
       const msg = `Dentist with id ${dentistId} created WorkingHours with id ${created.id}`;
@@ -30,11 +38,18 @@ export class WorkingHoursService {
     }
   }
 
-  async findAll(dentistId: number, dto: GetWorkingHoursDto) {
+  async findAll(dentistId: number, role: string | undefined, dto: GetWorkingHoursDto) {
+    this.ensureDirectorRole(role);
     return await this.repo.findForDentist(dentistId, dto);
   }
 
-  async patch(dentistId: number, id: number, dto: UpdateWorkingHoursDto) {
+  async patch(
+    dentistId: number,
+    role: string | undefined,
+    id: number,
+    dto: UpdateWorkingHoursDto,
+  ) {
+    this.ensureDirectorRole(role);
     try {
       const updated = await this.repo.updateForDentist(dentistId, id, dto);
       const msg = `Dentist with id ${dentistId} updated WorkingHours with id ${updated.id}`;
@@ -50,7 +65,8 @@ export class WorkingHoursService {
     }
   }
 
-  async delete(dentistId: number, id: number) {
+  async delete(dentistId: number, role: string | undefined, id: number) {
+    this.ensureDirectorRole(role);
     try {
       await this.repo.deleteForDentist(dentistId, id);
       const msg = `Dentist with id ${dentistId} deleted WorkingHours with id ${id}`;
