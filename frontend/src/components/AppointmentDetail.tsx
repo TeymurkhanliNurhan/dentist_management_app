@@ -797,7 +797,10 @@ const AppointmentDetail = () => {
       newRandevueDentistId > 0 &&
       !availableRandevueDentists.some((dentist) => dentist.id === newRandevueDentistId)
     ) {
-      setNewRandevueDentistId(0);
+      // Dentists always book as themselves; do not clear when availability filter omits them.
+      if (!(isDentist && newRandevueDentistId === loggedInDentistId)) {
+        setNewRandevueDentistId(0);
+      }
     }
     if (
       newRandevueNurseId > 0 &&
@@ -809,6 +812,8 @@ const AppointmentDetail = () => {
     availableRandevueDentists,
     availableRandevueNurses,
     availableRandevueRooms,
+    isDentist,
+    loggedInDentistId,
     newRandevueDentistId,
     newRandevueNurseId,
     newRandevueRoomId,
@@ -1023,7 +1028,7 @@ const AppointmentDetail = () => {
     setNewRandevueStart('09:00');
     setNewRandevueEnd('10:00');
     setNewRandevueRoomId(0);
-    setNewRandevueDentistId(0);
+    setNewRandevueDentistId(isDentist && loggedInDentistId > 0 ? loggedInDentistId : 0);
     setNewRandevueNurseId(0);
     setNewRandevueNote('');
     setNewRandevueTreatmentIds([]);
@@ -1045,7 +1050,9 @@ const AppointmentDetail = () => {
       setNewRandevueError('Please select a room.');
       return;
     }
-    if (newRandevueDentistId <= 0) {
+    const effectiveDentistId =
+      isDentist && loggedInDentistId > 0 ? loggedInDentistId : newRandevueDentistId;
+    if (effectiveDentistId <= 0) {
       setNewRandevueError('Please select a dentist.');
       return;
     }
@@ -1061,7 +1068,7 @@ const AppointmentDetail = () => {
         patient_id: appointment.patient.id,
         appointment_id: appointment.id,
         room_id: newRandevueRoomId,
-        dentist_id: newRandevueDentistId,
+        dentist_id: effectiveDentistId,
         ...(newRandevueNurseId > 0 ? { nurse_id: newRandevueNurseId } : {}),
         ...(newRandevueNote.trim() ? { note: newRandevueNote.trim() } : {}),
         ...(newRandevueTreatmentIds.length > 0
@@ -3295,24 +3302,26 @@ const AppointmentDetail = () => {
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label htmlFor="newRandevueDentist" className="block text-sm font-medium text-gray-700 mb-1">
-                        Dentist *
-                      </label>
-                      <select
-                        id="newRandevueDentist"
-                        value={newRandevueDentistId || ''}
-                        onChange={(e) => setNewRandevueDentistId(Number(e.target.value) || 0)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
-                      >
-                        <option value="">Select dentist</option>
-                        {availableRandevueDentists.map((dentist) => (
-                          <option key={dentist.id} value={dentist.id}>
-                            Dr. {dentist.staff?.surname || `#${dentist.id}`}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {!isDentist && (
+                      <div>
+                        <label htmlFor="newRandevueDentist" className="block text-sm font-medium text-gray-700 mb-1">
+                          Dentist *
+                        </label>
+                        <select
+                          id="newRandevueDentist"
+                          value={newRandevueDentistId || ''}
+                          onChange={(e) => setNewRandevueDentistId(Number(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                        >
+                          <option value="">Select dentist</option>
+                          {availableRandevueDentists.map((dentist) => (
+                            <option key={dentist.id} value={dentist.id}>
+                              Dr. {dentist.staff?.surname || `#${dentist.id}`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div>
                       <label htmlFor="newRandevueNurse" className="block text-sm font-medium text-gray-700 mb-1">
                         Nurse {isAdminLike ? '*' : '(optional)'}

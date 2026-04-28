@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, Plus, X, Edit, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ClinicManagementLayout from './ClinicManagementLayout';
@@ -66,6 +66,10 @@ type EditMedicineForm = {
 const Medicines = () => {
   const { t } = useTranslation('medicines');
   const navigate = useNavigate();
+  const isDentist = useMemo(
+    () => (localStorage.getItem('role')?.toLowerCase() ?? '') === 'dentist',
+    [],
+  );
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [filters, setFilters] = useState<MedicineFilters>({
     name: '',
@@ -379,21 +383,25 @@ const Medicines = () => {
             >
               Medicines
             </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="ml-2 flex items-center space-x-2 rounded-md bg-[#0066A6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#00588f]"
-            >
-              <Plus className="h-4 w-4" />
-              <span>{t('addNew')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={openPurchaseModal}
-              className="ml-2 flex items-center space-x-2 rounded-md border border-[#0066A6] bg-white px-5 py-2.5 text-sm font-semibold text-[#0066A6] transition hover:bg-slate-50"
-            >
-              <Plus className="h-4 w-4" />
-              <span>{t('newPurchase')}</span>
-            </button>
+            {!isDentist && (
+              <>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="ml-2 flex items-center space-x-2 rounded-md bg-[#0066A6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#00588f]"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>{t('addNew')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={openPurchaseModal}
+                  className="ml-2 flex items-center space-x-2 rounded-md border border-[#0066A6] bg-white px-5 py-2.5 text-sm font-semibold text-[#0066A6] transition hover:bg-slate-50"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>{t('newPurchase')}</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
