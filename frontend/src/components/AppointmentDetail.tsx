@@ -449,6 +449,7 @@ const AppointmentDetail = () => {
   const [unlinkingRandevueKey, setUnlinkingRandevueKey] = useState<string | null>(null);
   const [linkTreatmentError, setLinkTreatmentError] = useState('');
   const [showAddTreatment, setShowAddTreatment] = useState(false);
+  const [newTreatmentRandevueId, setNewTreatmentRandevueId] = useState<number | ''>('');
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>([]);
   const [allTreatments, setAllTreatments] = useState<Treatment[]>([]);
   const [patientTeeth, setPatientTeeth] = useState<PatientTooth[]>([]);
@@ -1117,6 +1118,7 @@ const AppointmentDetail = () => {
       setNewTreatmentMediaFileKey((k) => k + 1);
       setPendingMediaForNewTreatment([]);
       setNewTreatmentMediaError('');
+      setNewTreatmentRandevueId('');
     } catch (err: any) {
       console.error('Failed to fetch treatments/teeth:', err);
       setError(err.response?.data?.message || 'Failed to load data');
@@ -1181,6 +1183,7 @@ const AppointmentDetail = () => {
         setError('Select at least one treatment and at least one tooth.');
         return;
       }
+      const createdTreatmentIds: number[] = [];
       for (const tid of selectedTreatmentIds) {
         for (const toothId of newTreatment.tooth_ids) {
           const created = await toothTreatmentService.create({
@@ -1188,12 +1191,21 @@ const AppointmentDetail = () => {
             treatment_id: tid,
             tooth_ids: [toothId],
           });
+          if (created?.id) {
+            createdTreatmentIds.push(created.id);
+          }
           await attachMedicinesAndMedia(created?.id);
         }
+      }
+      if (newTreatmentRandevueId !== '' && createdTreatmentIds.length > 0) {
+        await randevueService.update(Number(newTreatmentRandevueId), {
+          append_tooth_treatment_ids: createdTreatmentIds,
+        });
       }
 
       setShowAddTreatment(false);
       setNewTreatment({ appointment_id: 0, treatment_id: 0, patient_id: 0, tooth_ids: [], description: '' });
+      setNewTreatmentRandevueId('');
       setSelectedTreatmentIds([]);
       setToothSelectionMode('multiple');
 
@@ -1817,7 +1829,7 @@ const AppointmentDetail = () => {
                 className="flex items-center space-x-2 rounded-md bg-[#0f766e] px-4 py-2 text-white transition-colors hover:bg-[#0d5f59]"
               >
                 <Plus className="w-4 h-4" />
-                <span>Create Course</span>
+                <span>Create Treatment</span>
               </button>
             ) : null}
           </div>
@@ -1853,7 +1865,7 @@ const AppointmentDetail = () => {
                     className="mb-3 flex w-full items-center justify-center space-x-1 rounded-md border border-[#99f6e4] bg-[#ccfbf1] px-4 py-2 text-sm font-medium text-[#115e59] transition-colors hover:bg-[#99f6e4]"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Create Course</span>
+                    <span>Create Treatment</span>
                   </button>
                   <div className="max-h-64 overflow-auto rounded-md border border-gray-200 bg-white">
                     {availableTreatments.length === 0 ? (
@@ -1912,7 +1924,7 @@ const AppointmentDetail = () => {
 
                 {showAddTreatmentInModal && (
                   <div className="border-t pt-4 mt-4">
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">Create Course</h3>
+                    <h3 className="text-sm font-medium text-gray-900 mb-3">Create Treatment</h3>
                     <div className="space-y-3">
                       <div>
                         <label htmlFor="modalNewTreatmentName" className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
@@ -2034,6 +2046,24 @@ const AppointmentDetail = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                       placeholder="Enter treatment description/notes"
                     />
+                  </div>
+                  <div className="mb-3">
+                    <label htmlFor="newTreatmentRandevue" className="mb-1 block text-sm font-medium text-gray-700">
+                      Randevue (Optional)
+                    </label>
+                    <select
+                      id="newTreatmentRandevue"
+                      value={newTreatmentRandevueId}
+                      onChange={(e) => setNewTreatmentRandevueId(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                    >
+                      <option value="">No randevue selected</option>
+                      {appointmentRandevues.map((rv) => (
+                        <option key={rv.id} value={rv.id}>
+                          {formatRandevueDateTimeRange(rv)}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="mb-3">
@@ -2428,6 +2458,7 @@ const AppointmentDetail = () => {
                 <button
                   onClick={() => {
                     setShowAddTreatment(false);
+                    setNewTreatmentRandevueId('');
                     setShowAddMediaForNewTreatment(false);
                     setNewTreatmentMediaDraft({ name: '', description: '', file: null });
                     setNewTreatmentMediaFileKey((k) => k + 1);
