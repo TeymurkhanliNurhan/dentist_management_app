@@ -250,58 +250,86 @@ export class DentistService {
     return { message: 'Dentist deleted successfully' };
   }
 
-  /** Same CTE as dentist finance overview (effectiveDate + joins). */
-  private dentistTreatmentFinanceBaseCte(): string {
-    return `
-      WITH TreatmentEffectiveDates AS (
-        SELECT
-          tt.id,
-          tt."feeSnapshot",
-          t.name AS "treatmentName",
-          a.id AS appointment_id,
-          a."startDate" AS "appointmentDate",
-          p.name AS patient_name,
-          p.surname AS patient_surname,
-          COALESCE(MAX(r.date), a."startDate") AS "effectiveDate"
-        FROM "Tooth_Treatment" tt
-        JOIN "Treatment" t ON t.id = tt.treatment
-        JOIN "Appointment" a ON a.id = tt.appointment
-        JOIN "Patient" p ON p.id = a.patient
-        LEFT JOIN "ToothTreatmentTeeth" ttt ON ttt.tooth_treatment_id = tt.id
-        LEFT JOIN "Treatment_Randevue" tr ON tr.tooth_treatment_teeth_id = ttt.id
-        LEFT JOIN "Randevue" r ON r.id = tr.randevue_id
-        WHERE tt.dentist = $1
-        GROUP BY tt.id, tt."feeSnapshot", t.name, a.id, a."startDate", p.name, p.surname
-      )`;
-  }
-
   async getDashboardOverview(dentistId: number) {
     const dentist = await this.dentistRepository.findById(dentistId);
     if (!dentist) throw new NotFoundException('Dentist not found');
-
-    const now = new Date();
-    const financeOverview = await this.getFinanceOverview(dentistId, {
-      year: now.getFullYear(),
-      month: now.getMonth() + 1,
+    const salary = await this.dataSource.getRepository(Salary).findOne({
+      where: { staffId: dentist.staffId },
     });
+    const commissionRate = salary?.treatmentPercentage ?? 0;
 
-    const [todayTreatmentsRows, randevuesRows, blockingRows] = await Promise.all([
+    const [totalsRows, todayTreatmentsRows, randevuesRows, blockingRows] = await Promise.all([
       this.dataSource.query(
         `
-          ${this.dentistTreatmentFinanceBaseCte()}
+          WITH CompletedTreatments AS (
+            SELECT
+              tt.id,
+              tt."feeSnapshot",
+              MAX(r."endTime") AS "completedAt"
+            FROM "Tooth_Treatment" tt
+            JOIN "ToothTreatmentTeeth" ttt ON ttt.tooth_treatment_id = tt.id
+            JOIN "Treatment_Randevue" tr ON tr.tooth_treatment_teeth_id = ttt.id
+            JOIN "Randevue" r ON r.id = tr.randevue_id
+            WHERE tt.dentist = $1
+            GROUP BY tt.id, tt."feeSnapshot"
+          )
+          SELECT
+            COUNT(*) FILTER (
+              WHERE DATE("completedAt" AT TIME ZONE 'UTC') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                AND "completedAt" <= CURRENT_TIMESTAMP
+            ) AS "todayTreatmentCount",
+            COALESCE(
+              SUM("feeSnapshot") FILTER (
+                WHERE DATE("completedAt" AT TIME ZONE 'UTC') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                  AND "completedAt" <= CURRENT_TIMESTAMP
+              ),
+              0
+            ) AS "todayRevenueBase",
+            COALESCE(
+              SUM("feeSnapshot") FILTER (
+                WHERE DATE_TRUNC('month', "completedAt" AT TIME ZONE 'UTC') = DATE_TRUNC('month', CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                  AND "completedAt" <= CURRENT_TIMESTAMP
+              ),
+              0
+            ) AS "monthRevenueBase"
+          FROM CompletedTreatments
+        `,
+        [dentistId],
+      ),
+      this.dataSource.query(
+        `
+          WITH CompletedTreatments AS (
+            SELECT
+              tt.id,
+              tt."feeSnapshot",
+              MAX(r."endTime") AS "completedAt",
+              a.id AS appointment_id,
+              p.name AS patient_name,
+              p.surname AS patient_surname,
+              t.name AS "treatmentName"
+            FROM "Tooth_Treatment" tt
+            JOIN "Appointment" a ON a.id = tt.appointment
+            JOIN "Patient" p ON p.id = a.patient
+            JOIN "Treatment" t ON t.id = tt.treatment
+            JOIN "ToothTreatmentTeeth" ttt ON ttt.tooth_treatment_id = tt.id
+            JOIN "Treatment_Randevue" tr ON tr.tooth_treatment_teeth_id = ttt.id
+            JOIN "Randevue" r ON r.id = tr.randevue_id
+            WHERE tt.dentist = $1
+            GROUP BY tt.id, tt."feeSnapshot", a.id, p.name, p.surname, t.name
+          )
           SELECT
             appointment_id,
             patient_name,
             patient_surname,
             "treatmentName",
-            "appointmentDate" AS date,
+            "completedAt" AS date,
+            "feeSnapshot" AS "totalCost",
             ("feeSnapshot" * $2 / 100) AS benefit
-          FROM TreatmentEffectiveDates
-          WHERE DATE("appointmentDate" AT TIME ZONE 'UTC')
-            = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
-          ORDER BY "effectiveDate" DESC
+          FROM CompletedTreatments
+          WHERE DATE("completedAt" AT TIME ZONE 'UTC') = DATE(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+          ORDER BY "completedAt" DESC
         `,
-        [dentistId, financeOverview.commissionRate],
+        [dentistId, commissionRate],
       ),
       this.dataSource.query(
         `
@@ -338,18 +366,12 @@ export class DentistService {
       ),
     ]);
 
-    const todayTreatmentCount = todayTreatmentsRows.length;
-    const todayRevenue = todayTreatmentsRows.reduce(
-      (sum, row: { benefit: string | number | null }) =>
-        sum + Number(row.benefit ?? 0),
-      0,
-    );
+    const totals = totalsRows[0] ?? {};
 
     return {
-      commissionRate: financeOverview.commissionRate,
-      todayTreatmentCount,
-      todayRevenue,
-      monthRevenue: financeOverview.monthlyCommission,
+      todayTreatmentCount: Number(totals.todayTreatmentCount ?? 0),
+      todayRevenue: Number(totals.todayRevenueBase ?? 0) * (commissionRate / 100),
+      monthRevenue: Number(totals.monthRevenueBase ?? 0) * (commissionRate / 100),
       todayTreatments: todayTreatmentsRows.map(
         (row: {
           appointment_id: number;
@@ -357,6 +379,7 @@ export class DentistService {
           patient_surname: string | null;
           treatmentName: string;
           date: string;
+          totalCost: number;
           benefit: number;
         }) => ({
           appointmentId: Number(row.appointment_id),
@@ -410,7 +433,28 @@ export class DentistService {
     });
     const commissionRate = salary?.treatmentPercentage ?? 0;
 
-    const baseCte = this.dentistTreatmentFinanceBaseCte();
+    const baseCte = `
+      WITH TreatmentEffectiveDates AS (
+        SELECT 
+          tt.id,
+          tt."feeSnapshot",
+          t.name AS "treatmentName",
+          a.id AS appointment_id,
+          a."startDate" AS "appointmentDate",
+          p.name AS patient_name,
+          p.surname AS patient_surname,
+          COALESCE(MAX(r.date), a."startDate") AS "effectiveDate"
+        FROM "Tooth_Treatment" tt
+        JOIN "Treatment" t ON t.id = tt.treatment
+        JOIN "Appointment" a ON a.id = tt.appointment
+        JOIN "Patient" p ON p.id = a.patient
+        LEFT JOIN "ToothTreatmentTeeth" ttt ON ttt.tooth_treatment_id = tt.id
+        LEFT JOIN "Treatment_Randevue" tr ON tr.tooth_treatment_teeth_id = ttt.id
+        LEFT JOIN "Randevue" r ON r.id = tr.randevue_id
+        WHERE tt.dentist = $1
+        GROUP BY tt.id, tt."feeSnapshot", t.name, a.id, a."startDate", p.name, p.surname
+      )
+    `;
 
     const [monthStats, dailyGraph, weeklyGraph, monthlyGraph, recentTreatments] = await Promise.all([
       this.dataSource.query(`
