@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api, {
   directorService,
@@ -8,12 +8,14 @@ import api, {
   salaryService,
   staffService,
   toothTreatmentService,
+  workingHoursService,
   type DentistProfile,
   type SalaryRecord,
   type StaffListRecord,
   type ToothTreatment,
+  type WorkingHoursRecord,
 } from '../services/api';
-import { ChevronDown, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
@@ -79,6 +81,21 @@ type DirectoryTableRow = {
 };
 
 type NewStaffType = 'staff' | 'dentist' | 'nurse' | 'frontdesk' | 'director';
+type WorkingHoursFormState = {
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+};
+
+const DAY_OF_WEEK_OPTIONS = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+];
 
 const startOfDay = (date: Date) => {
   const next = new Date(date);
@@ -100,7 +117,16 @@ const ClinicStaffDirectory = () => {
     () => readVisibleRoleBucketsFromStorage(),
   );
   const [salariesByStaffId, setSalariesByStaffId] = useState<Record<number, SalaryRecord>>({});
+  const [workingHoursByStaffId, setWorkingHoursByStaffId] = useState<Record<number, WorkingHoursRecord[]>>({});
   const [treatmentsByDentistId, setTreatmentsByDentistId] = useState<Record<number, ToothTreatment[]>>({});
+  const [expandedStaffRows, setExpandedStaffRows] = useState<Set<number>>(new Set());
+  const [workingHoursDraftByStaffId, setWorkingHoursDraftByStaffId] = useState<
+    Record<number, WorkingHoursFormState>
+  >({});
+  const [editingWorkingHoursByStaffId, setEditingWorkingHoursByStaffId] = useState<
+    Record<number, WorkingHoursRecord | null>
+  >({});
+  const [savingWorkingHoursForStaffId, setSavingWorkingHoursForStaffId] = useState<number | null>(null);
   const [selectedStaffIds, setSelectedStaffIds] = useState<Set<number>>(new Set());
   const [treatmentPeriod, setTreatmentPeriod] = useState<TreatmentPeriod>('today');
   const [periodAnchorDate, setPeriodAnchorDate] = useState<Date>(() => startOfDay(new Date()));
@@ -161,16 +187,23 @@ const ClinicStaffDirectory = () => {
     }
   }, [visibleRoleBuckets]);
 
+  const sortWorkingHours = (rows: WorkingHoursRecord[]) =>
+    [...rows].sort((a, b) => {
+      if (a.dayOfWeek !== b.dayOfWeek) return a.dayOfWeek - b.dayOfWeek;
+      return a.startTime.localeCompare(b.startTime);
+    });
+
   const loadDirectoryData = useCallback(async () => {
     if (role !== 'director') return;
     setLoading(true);
     setError('');
     setSuccessMessage('');
     try {
-      const [dentistRows, salaryRows, staffRows] = await Promise.all([
+      const [dentistRows, salaryRows, staffRows, workingHoursRows] = await Promise.all([
         dentistService.getAll(),
         salaryService.getAll(),
         staffService.getAll({ active: true }),
+        workingHoursService.getAll(),
       ]);
 
       const sortedDentists = [...dentistRows].sort((a, b) =>
@@ -186,6 +219,16 @@ const ClinicStaffDirectory = () => {
         nextSalaryMap[salary.staffId] = salary;
       }
       setSalariesByStaffId(nextSalaryMap);
+      const groupedWorkingHours: Record<number, WorkingHoursRecord[]> = {};
+      for (const row of workingHoursRows) {
+        if (!groupedWorkingHours[row.staffId]) groupedWorkingHours[row.staffId] = [];
+        groupedWorkingHours[row.staffId].push(row);
+      }
+      const sortedWorkingHours: Record<number, WorkingHoursRecord[]> = {};
+      for (const [staffId, rows] of Object.entries(groupedWorkingHours)) {
+        sortedWorkingHours[Number(staffId)] = sortWorkingHours(rows);
+      }
+      setWorkingHoursByStaffId(sortedWorkingHours);
 
       const treatmentRows = await toothTreatmentService.getAll();
       const groupedTreatments: Record<number, ToothTreatment[]> = {};
@@ -197,6 +240,9 @@ const ClinicStaffDirectory = () => {
       }
       setTreatmentsByDentistId(groupedTreatments);
       setSelectedStaffIds(new Set());
+      setExpandedStaffRows(new Set());
+      setWorkingHoursDraftByStaffId({});
+      setEditingWorkingHoursByStaffId({});
     } catch (err: unknown) {
       console.error('Failed to load dentist salary data:', err);
       const message =
@@ -207,6 +253,7 @@ const ClinicStaffDirectory = () => {
       setDentists([]);
       setStaffMembers([]);
       setSalariesByStaffId({});
+      setWorkingHoursByStaffId({});
       setTreatmentsByDentistId({});
     } finally {
       setLoading(false);
@@ -457,6 +504,135 @@ const ClinicStaffDirectory = () => {
     }
   };
 
+  const toTimeInputValue = (value: string) => value.slice(0, 5);
+
+  const getWorkingHoursDraft = (staffId: number): WorkingHoursFormState =>
+    workingHoursDraftByStaffId[staffId] ?? { dayOfWeek: '1', startTime: '09:00', endTime: '17:00' };
+
+  const getEditingWorkingHours = (staffId: number): WorkingHoursRecord | null =>
+    editingWorkingHoursByStaffId[staffId] ?? null;
+
+  const toggleExpandedRow = (staffId: number) => {
+    setExpandedStaffRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(staffId)) next.delete(staffId);
+      else next.add(staffId);
+      return next;
+    });
+    setWorkingHoursDraftByStaffId((prev) => {
+      if (prev[staffId]) return prev;
+      return { ...prev, [staffId]: { dayOfWeek: '1', startTime: '09:00', endTime: '17:00' } };
+    });
+  };
+
+  const updateWorkingHoursDraft = (
+    staffId: number,
+    key: keyof WorkingHoursFormState,
+    value: string,
+  ) => {
+    setWorkingHoursDraftByStaffId((prev) => ({
+      ...prev,
+      [staffId]: {
+        ...(prev[staffId] ?? { dayOfWeek: '1', startTime: '09:00', endTime: '17:00' }),
+        [key]: value,
+      },
+    }));
+  };
+
+  const startEditingWorkingHours = (staffId: number, row: WorkingHoursRecord) => {
+    setEditingWorkingHoursByStaffId((prev) => ({ ...prev, [staffId]: row }));
+    setWorkingHoursDraftByStaffId((prev) => ({
+      ...prev,
+      [staffId]: {
+        dayOfWeek: String(row.dayOfWeek),
+        startTime: toTimeInputValue(row.startTime),
+        endTime: toTimeInputValue(row.endTime),
+      },
+    }));
+  };
+
+  const resetWorkingHoursForm = (staffId: number) => {
+    setEditingWorkingHoursByStaffId((prev) => ({ ...prev, [staffId]: null }));
+    setWorkingHoursDraftByStaffId((prev) => ({
+      ...prev,
+      [staffId]: { dayOfWeek: '1', startTime: '09:00', endTime: '17:00' },
+    }));
+  };
+
+  const saveWorkingHours = async (staffId: number) => {
+    const draft = getWorkingHoursDraft(staffId);
+    const editing = getEditingWorkingHours(staffId);
+    const dayOfWeek = Number(draft.dayOfWeek);
+    if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
+      setError('Day of week must be between Sunday and Saturday.');
+      return;
+    }
+    if (!draft.startTime || !draft.endTime || draft.startTime >= draft.endTime) {
+      setError('Start time must be before end time.');
+      return;
+    }
+    setError('');
+    setSuccessMessage('');
+    setSavingWorkingHoursForStaffId(staffId);
+    try {
+      const payload = {
+        staffId,
+        dayOfWeek,
+        startTime: `${draft.startTime}:00`,
+        endTime: `${draft.endTime}:00`,
+      };
+      const saved = editing
+        ? await workingHoursService.update(editing.id, payload)
+        : await workingHoursService.create(payload);
+      setWorkingHoursByStaffId((prev) => {
+        const current = prev[staffId] ?? [];
+        const next = editing
+          ? current.map((row) => (row.id === editing.id ? saved : row))
+          : [...current, saved];
+        return { ...prev, [staffId]: sortWorkingHours(next) };
+      });
+      resetWorkingHoursForm(staffId);
+      setSuccessMessage(editing ? 'Working hours updated.' : 'Working hours added.');
+    } catch (err: unknown) {
+      console.error('Failed to save working hours:', err);
+      const message =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      setError(message || 'Failed to save working hours.');
+    } finally {
+      setSavingWorkingHoursForStaffId(null);
+    }
+  };
+
+  const deleteWorkingHours = async (staffId: number, workingHoursId: number) => {
+    setError('');
+    setSuccessMessage('');
+    setSavingWorkingHoursForStaffId(staffId);
+    try {
+      await workingHoursService.delete(workingHoursId);
+      setWorkingHoursByStaffId((prev) => ({
+        ...prev,
+        [staffId]: (prev[staffId] ?? []).filter((row) => row.id !== workingHoursId),
+      }));
+      setEditingWorkingHoursByStaffId((prev) => {
+        const editing = prev[staffId];
+        if (editing?.id !== workingHoursId) return prev;
+        return { ...prev, [staffId]: null };
+      });
+      setSuccessMessage('Working hours deleted.');
+    } catch (err: unknown) {
+      console.error('Failed to delete working hours:', err);
+      const message =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      setError(message || 'Failed to delete working hours.');
+    } finally {
+      setSavingWorkingHoursForStaffId(null);
+    }
+  };
+
   const resetCreateStaffForm = () => {
     setNewStaffForm({
       name: '',
@@ -568,8 +744,9 @@ const ClinicStaffDirectory = () => {
                   <h1 className="text-3xl font-bold text-slate-900">Staff</h1>
                   <p className="mt-2 text-sm text-slate-500">
                     Dentists are listed first with treatment counts and totals for the selected period. Other staff
-                    appear below; treatment and total are not applicable for those roles. Click a salary cell to edit.
-                    Use the role checkboxes to choose who appears in the table.
+                    appear below; treatment and total are not applicable for those roles. Click a salary cell to edit,
+                    or click a staff row to manage working hours. Use the role checkboxes to choose who appears in the
+                    table.
                   </p>
                 </div>
                 <button
@@ -852,53 +1029,180 @@ const ClinicStaffDirectory = () => {
                       visibleDirectoryRows.map((row) => {
                         const salaryDisp = formatSalaryDisplay(row.staffId);
                         const isDentistRow = row.dentistId != null;
+                        const isExpanded = expandedStaffRows.has(row.staffId);
+                        const workingHoursRows = workingHoursByStaffId[row.staffId] ?? [];
+                        const workingHoursDraft = getWorkingHoursDraft(row.staffId);
+                        const editingWorkingHours = getEditingWorkingHours(row.staffId);
+                        const isSavingWorkingHours = savingWorkingHoursForStaffId === row.staffId;
                         const { count, total } =
                           isDentistRow && row.dentistId != null
                             ? getPeriodTreatmentStats(row.dentistId)
                             : { count: 0, total: 0 };
                         return (
-                          <tr key={row.key} className="bg-white">
-                            <td className="whitespace-nowrap px-6 py-4 text-slate-600">
-                              {ROLE_BUCKET_LABEL[row.roleBucket]}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 font-bold text-slate-900">
-                              {row.name} {row.surname}
-                            </td>
-                            <td className="max-w-[280px] truncate px-6 py-4 font-normal text-slate-500">
-                              {row.gmail?.trim() ? row.gmail : '—'}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4">
-                              <button
-                                type="button"
-                                onClick={() => openSalaryEditor(row.staffId)}
-                                className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-left transition hover:opacity-80"
-                              >
-                                {salaryDisp.kind === 'percentage' ? (
-                                  <span className="font-semibold text-[#0b7dd5]">{salaryDisp.label}</span>
-                                ) : salaryDisp.kind === 'fixed' ? (
-                                  <span className="font-medium text-slate-800">{salaryDisp.label}</span>
-                                ) : (
-                                  <span className="font-medium text-slate-500">{salaryDisp.label}</span>
-                                )}
-                              </button>
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-center">
-                              {isDentistRow ? (
-                                <span
-                                  className={`inline-block text-base font-medium tabular-nums ${
-                                    count > 0 ? 'cursor-pointer text-[#0b7dd5]' : 'text-slate-600'
-                                  }`}
+                          <Fragment key={row.key}>
+                            <tr
+                              className={`cursor-pointer bg-white transition hover:bg-slate-50 ${
+                                isExpanded ? 'bg-slate-50' : ''
+                              }`}
+                              onClick={() => toggleExpandedRow(row.staffId)}
+                            >
+                              <td className="whitespace-nowrap px-6 py-4 text-slate-600">
+                                {ROLE_BUCKET_LABEL[row.roleBucket]}
+                              </td>
+                              <td className="whitespace-nowrap px-6 py-4 font-bold text-slate-900">
+                                {row.name} {row.surname}
+                              </td>
+                              <td className="max-w-[280px] truncate px-6 py-4 font-normal text-slate-500">
+                                {row.gmail?.trim() ? row.gmail : '—'}
+                              </td>
+                              <td className="whitespace-nowrap px-6 py-4">
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openSalaryEditor(row.staffId);
+                                  }}
+                                  className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-left transition hover:opacity-80"
                                 >
-                                  {count}
-                                </span>
-                              ) : (
-                                <span className="text-slate-400">—</span>
-                              )}
-                            </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-right font-normal tabular-nums text-slate-500">
-                              {isDentistRow ? `$${total.toFixed(2)}` : <span className="text-slate-400">—</span>}
-                            </td>
-                          </tr>
+                                  {salaryDisp.kind === 'percentage' ? (
+                                    <span className="font-semibold text-[#0b7dd5]">{salaryDisp.label}</span>
+                                  ) : salaryDisp.kind === 'fixed' ? (
+                                    <span className="font-medium text-slate-800">{salaryDisp.label}</span>
+                                  ) : (
+                                    <span className="font-medium text-slate-500">{salaryDisp.label}</span>
+                                  )}
+                                </button>
+                              </td>
+                              <td className="whitespace-nowrap px-6 py-4 text-center">
+                                {isDentistRow ? (
+                                  <span
+                                    className={`inline-block text-base font-medium tabular-nums ${
+                                      count > 0 ? 'cursor-pointer text-[#0b7dd5]' : 'text-slate-600'
+                                    }`}
+                                  >
+                                    {count}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </td>
+                              <td className="whitespace-nowrap px-6 py-4 text-right font-normal tabular-nums text-slate-500">
+                                {isDentistRow ? `$${total.toFixed(2)}` : <span className="text-slate-400">—</span>}
+                              </td>
+                            </tr>
+                            {isExpanded ? (
+                              <tr className="bg-slate-50/70">
+                                <td colSpan={6} className="px-6 py-4">
+                                  <div className="rounded-lg border border-slate-200 bg-white p-4">
+                                    <div className="mb-3 flex items-center justify-between">
+                                      <h3 className="text-sm font-semibold text-slate-900">Working hours</h3>
+                                      {editingWorkingHours ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => resetWorkingHoursForm(row.staffId)}
+                                          className="text-xs font-medium text-slate-500 hover:text-slate-700"
+                                        >
+                                          Cancel edit
+                                        </button>
+                                      ) : null}
+                                    </div>
+                                    <div className="mb-4 overflow-x-auto">
+                                      <table className="min-w-full text-left text-xs">
+                                        <thead>
+                                          <tr className="border-b border-slate-200 text-slate-500">
+                                            <th className="py-2 pr-3 font-semibold">Day</th>
+                                            <th className="py-2 pr-3 font-semibold">Start</th>
+                                            <th className="py-2 pr-3 font-semibold">End</th>
+                                            <th className="py-2 text-right font-semibold">Actions</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                          {workingHoursRows.length === 0 ? (
+                                            <tr>
+                                              <td colSpan={4} className="py-3 text-slate-400">
+                                                No working hours yet.
+                                              </td>
+                                            </tr>
+                                          ) : (
+                                            workingHoursRows.map((wh) => (
+                                              <tr key={wh.id}>
+                                                <td className="py-2 pr-3 text-slate-700">
+                                                  {DAY_OF_WEEK_OPTIONS.find((d) => d.value === wh.dayOfWeek)?.label ?? '—'}
+                                                </td>
+                                                <td className="py-2 pr-3 text-slate-700">{toTimeInputValue(wh.startTime)}</td>
+                                                <td className="py-2 pr-3 text-slate-700">{toTimeInputValue(wh.endTime)}</td>
+                                                <td className="py-2 text-right">
+                                                  <div className="inline-flex items-center gap-2">
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => startEditingWorkingHours(row.staffId, wh)}
+                                                      className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-slate-600 hover:bg-slate-50"
+                                                    >
+                                                      <Pencil size={12} />
+                                                      Edit
+                                                    </button>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => void deleteWorkingHours(row.staffId, wh.id)}
+                                                      disabled={isSavingWorkingHours}
+                                                      className="inline-flex items-center gap-1 rounded border border-red-200 px-2 py-1 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                                    >
+                                                      <Trash2 size={12} />
+                                                      Delete
+                                                    </button>
+                                                  </div>
+                                                </td>
+                                              </tr>
+                                            ))
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                    <div className="grid gap-3 md:grid-cols-4">
+                                      <select
+                                        value={workingHoursDraft.dayOfWeek}
+                                        onChange={(event) =>
+                                          updateWorkingHoursDraft(row.staffId, 'dayOfWeek', event.target.value)
+                                        }
+                                        className="rounded border border-slate-300 px-2 py-2 text-xs"
+                                      >
+                                        {DAY_OF_WEEK_OPTIONS.map((day) => (
+                                          <option key={day.value} value={day.value}>
+                                            {day.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <input
+                                        type="time"
+                                        value={workingHoursDraft.startTime}
+                                        onChange={(event) =>
+                                          updateWorkingHoursDraft(row.staffId, 'startTime', event.target.value)
+                                        }
+                                        className="rounded border border-slate-300 px-2 py-2 text-xs"
+                                      />
+                                      <input
+                                        type="time"
+                                        value={workingHoursDraft.endTime}
+                                        onChange={(event) =>
+                                          updateWorkingHoursDraft(row.staffId, 'endTime', event.target.value)
+                                        }
+                                        className="rounded border border-slate-300 px-2 py-2 text-xs"
+                                      />
+                                      <button
+                                        type="button"
+                                        disabled={isSavingWorkingHours}
+                                        onClick={() => void saveWorkingHours(row.staffId)}
+                                        className="inline-flex items-center justify-center rounded bg-[#0066A6] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#00588f] disabled:opacity-50"
+                                      >
+                                        <Plus size={12} className="mr-1" />
+                                        {editingWorkingHours ? 'Save edit' : 'Add'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : null}
+                          </Fragment>
                         );
                       })
                     )}

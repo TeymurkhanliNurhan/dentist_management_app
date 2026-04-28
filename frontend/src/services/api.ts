@@ -303,6 +303,28 @@ export interface UpdateSalaryDto {
   treatmentPercentage?: number | null;
 }
 
+export interface WorkingHoursRecord {
+  id: number;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  staffId: number;
+}
+
+export interface CreateWorkingHoursDto {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  staffId: number;
+}
+
+export interface UpdateWorkingHoursDto {
+  dayOfWeek?: number;
+  startTime?: string;
+  endTime?: string;
+  staffId?: number;
+}
+
 export interface FinanceOverviewSalaryRow {
   staffId: number;
   name: string;
@@ -411,6 +433,30 @@ export const salaryService = {
   },
   update: async (staffId: number, data: UpdateSalaryDto): Promise<SalaryRecord> => {
     const response = await api.patch<SalaryRecord>(`/salary/${staffId}`, data);
+    return response.data;
+  },
+};
+
+export const workingHoursService = {
+  getAll: async (filters?: { id?: number; dayOfWeek?: number; staffId?: number }): Promise<WorkingHoursRecord[]> => {
+    const params = new URLSearchParams();
+    if (filters?.id != null) params.append('id', String(filters.id));
+    if (filters?.dayOfWeek != null) params.append('dayOfWeek', String(filters.dayOfWeek));
+    if (filters?.staffId != null) params.append('staffId', String(filters.staffId));
+    const query = params.toString();
+    const response = await api.get<WorkingHoursRecord[]>(`/working-hours${query ? `?${query}` : ''}`);
+    return response.data;
+  },
+  create: async (payload: CreateWorkingHoursDto): Promise<WorkingHoursRecord> => {
+    const response = await api.post<WorkingHoursRecord>('/working-hours', payload);
+    return response.data;
+  },
+  update: async (id: number, payload: UpdateWorkingHoursDto): Promise<WorkingHoursRecord> => {
+    const response = await api.patch<WorkingHoursRecord>(`/working-hours/${id}`, payload);
+    return response.data;
+  },
+  delete: async (id: number): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/working-hours/${id}`);
     return response.data;
   },
 };
