@@ -150,6 +150,18 @@ function formatHourLabel24(hour: number): string {
   return `${String(hour).padStart(2, '0')}:00`;
 }
 
+function formatWorkingHourDay(dayOfWeek: number, locale: string): string {
+  if (!Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) return String(dayOfWeek);
+  const mondayUtc = new Date(Date.UTC(2024, 0, 1));
+  mondayUtc.setUTCDate(mondayUtc.getUTCDate() + (dayOfWeek - 1));
+  return mondayUtc.toLocaleDateString(locale, { weekday: 'long', timeZone: 'UTC' });
+}
+
+function toHourMinute(value: string): string {
+  const match = /^(\d{2}:\d{2})/.exec(value);
+  return match?.[1] ?? value;
+}
+
 const BACK_TO_BACK_MAX_GAP_MS = 60_000;
 
 function isBackToBack(prevEnd: Date, nextStart: Date): boolean {
@@ -333,6 +345,11 @@ interface WorkingHourRow {
   startTime: string;
   endTime: string;
   staffId: number;
+  staff?: {
+    id?: number;
+    name?: string;
+    surname?: string;
+  } | null;
 }
 
 interface BlockingHourRow {
@@ -482,6 +499,10 @@ const Schedule = () => {
   const directorWeeklyAllTypesCheckboxRef = useRef<HTMLInputElement>(null);
   const [showDirectorRequests, setShowDirectorRequests] = useState(false);
   const [requestActionBusyId, setRequestActionBusyId] = useState<number | null>(null);
+  const [workingHoursModalOpen, setWorkingHoursModalOpen] = useState(false);
+  const [workingHoursRows, setWorkingHoursRows] = useState<WorkingHourRow[]>([]);
+  const [workingHoursLoading, setWorkingHoursLoading] = useState(false);
+  const [workingHoursError, setWorkingHoursError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchDirectorStaff = async () => {
@@ -1803,6 +1824,37 @@ const Schedule = () => {
     }
   };
 
+  const openWorkingHoursModal = useCallback(async () => {
+    if (!isDirector) return;
+    setWorkingHoursModalOpen(true);
+    setWorkingHoursLoading(true);
+    setWorkingHoursError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/working-hours`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+      });
+      if (!res.ok) throw new Error('Failed to load working hours');
+      const data = (await res.json()) as WorkingHourRow[];
+      setWorkingHoursRows(Array.isArray(data) ? data : []);
+    } catch {
+      setWorkingHoursRows([]);
+      setWorkingHoursError(t('workingHoursLoadError'));
+    } finally {
+      setWorkingHoursLoading(false);
+    }
+  }, [isDirector, t]);
+
+  const workingHoursRowsSorted = useMemo(
+      () =>
+          [...workingHoursRows].sort((a, b) => {
+            if (a.dayOfWeek !== b.dayOfWeek) return a.dayOfWeek - b.dayOfWeek;
+            const startCmp = a.startTime.localeCompare(b.startTime);
+            if (startCmp !== 0) return startCmp;
+            return a.staffId - b.staffId;
+          }),
+      [workingHoursRows],
+  );
+
   function ScheduleRowChrome({ children }: { children: ReactNode }) {
     if (isDentistUser) {
       return (
@@ -2052,6 +2104,15 @@ const Schedule = () => {
                             className="px-4 py-2.5 rounded-lg border border-amber-400 bg-amber-50 text-amber-900 text-sm font-semibold shadow-sm hover:bg-amber-100"
                         >
                           {t('newBlocking')}
+                        </button>
+                    )}
+                    {isDirector && (
+                        <button
+                            type="button"
+                            onClick={() => void openWorkingHoursModal()}
+                            className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-800 text-sm font-semibold shadow-sm hover:bg-slate-50"
+                        >
+                          {t('workingHoursButton')}
                         </button>
                     )}
                     {isDirector && (
@@ -3195,6 +3256,75 @@ const Schedule = () => {
               <p className="text-gray-200">
                 {t('endTime')}: {localTimeHm(new Date(hoverTip.bh.endTime))}
               </p>
+            </div>
+        )}
+
+        {workingHoursModalOpen && (
+            <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+                onClick={() => setWorkingHoursModalOpen(false)}
+                role="presentation"
+            >
+              <div
+                  className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6"
+                  onClick={(e) => e.stopPropagation()}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="working-hours-modal-title"
+              >
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <h2 id="working-hours-modal-title" className="text-xl font-bold text-gray-900">
+                    {t('workingHoursTitle')}
+                  </h2>
+                  <button
+                      type="button"
+                      onClick={() => setWorkingHoursModalOpen(false)}
+                      className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    {t('closeDetail')}
+                  </button>
+                </div>
+                {workingHoursLoading ? (
+                    <p className="text-sm text-gray-500">{t('loading')}</p>
+                ) : workingHoursError ? (
+                    <p className="text-sm text-red-600">{workingHoursError}</p>
+                ) : workingHoursRowsSorted.length === 0 ? (
+                    <p className="text-sm text-gray-500">{t('workingHoursEmpty')}</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-200 text-left text-slate-600">
+                            <th className="py-2 pr-3 font-semibold">{t('workingHoursStaff')}</th>
+                            <th className="py-2 pr-3 font-semibold">{t('date')}</th>
+                            <th className="py-2 pr-3 font-semibold">{t('startTime')}</th>
+                            <th className="py-2 pr-3 font-semibold">{t('endTime')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {workingHoursRowsSorted.map((wh) => {
+                            const apiLabel = `${wh.staff?.name ?? ''} ${wh.staff?.surname ?? ''}`.trim();
+                            const scheduleDentist = dentistByStaffIdForSchedule.get(wh.staffId);
+                            const fallbackDentistLabel = scheduleDentist?.staff
+                              ? `${scheduleDentist.staff.name ?? ''} ${scheduleDentist.staff.surname ?? ''}`.trim()
+                              : '';
+                            const staffLabel = apiLabel || fallbackDentistLabel || `#${wh.staffId}`;
+                            return (
+                                <tr key={wh.id} className="border-b border-slate-100 last:border-b-0">
+                                  <td className="py-2 pr-3 text-slate-800">{staffLabel}</td>
+                                  <td className="py-2 pr-3 text-slate-700">
+                                    {formatWorkingHourDay(wh.dayOfWeek, i18n.language)}
+                                  </td>
+                                  <td className="py-2 pr-3 text-slate-700">{toHourMinute(wh.startTime)}</td>
+                                  <td className="py-2 pr-3 text-slate-700">{toHourMinute(wh.endTime)}</td>
+                                </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                )}
+              </div>
             </div>
         )}
 
