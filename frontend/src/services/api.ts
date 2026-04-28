@@ -158,6 +158,7 @@ export interface DentistDashboardOverview {
   todayTreatmentCount: number;
   todayRevenue: number;
   monthRevenue: number;
+  commissionRate: number;
   todayTreatments: Array<{
     appointmentId: number;
     patientName: string;
