@@ -1261,7 +1261,7 @@ const Dashboard = () => {
                 {/* Today's Treatments and Benefits */}
                 <section className="rounded-xl border border-slate-200 bg-white p-4">
                   <h2 className="mb-3 text-lg font-semibold text-slate-800">
-                    Today&apos;s Treatments & Your Share ({dentistMetrics?.commissionRate ?? 0}% of fee)
+                    Today's treatments
                   </h2>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
