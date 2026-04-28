@@ -1625,7 +1625,7 @@ const AppointmentDetail = () => {
   };
   const visibleTreatments = treatments.filter((treatment) => {
     const passesTime =
-      treatmentTimeFilter === 'all'
+      isDentist || treatmentTimeFilter === 'all'
         ? true
         : treatmentTimeFilter === 'current'
           ? isTreatmentCurrent(treatment)
@@ -2445,18 +2445,20 @@ const AppointmentDetail = () => {
           )}
           
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <select
-                value={treatmentTimeFilter}
-                onChange={(e) => setTreatmentTimeFilter(e.target.value as TreatmentTimeFilter)}
-                className="appearance-none rounded-md border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-gray-800 hover:border-gray-400 focus:border-[#0f766e] focus:outline-none focus:ring-2 focus:ring-[#99f6e4]"
-              >
-                <option value="current">Current</option>
-                <option value="past">Past</option>
-                <option value="all">All</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
-            </div>
+            {!isDentist ? (
+              <div className="relative">
+                <select
+                  value={treatmentTimeFilter}
+                  onChange={(e) => setTreatmentTimeFilter(e.target.value as TreatmentTimeFilter)}
+                  className="appearance-none rounded-md border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-gray-800 hover:border-gray-400 focus:border-[#0f766e] focus:outline-none focus:ring-2 focus:ring-[#99f6e4]"
+                >
+                  <option value="current">Current</option>
+                  <option value="past">Past</option>
+                  <option value="all">All</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
+              </div>
+            ) : null}
             <div className="relative">
               <select
                 value={treatmentOwnershipFilter}

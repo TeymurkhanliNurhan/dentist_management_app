@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CalendarRange, Search, Settings, Plus, X, ChevronDown } from 'lucide-react';
-import { appointmentService, type Appointment, type AppointmentFilters, patientService, type Patient, type CreatePatientDto, toothTreatmentService } from '../services/api';
+import { appointmentService, type Appointment, type AppointmentFilters, patientService, type Patient, type CreatePatientDto, randevueService, toothTreatmentService, type Randevue } from '../services/api';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
@@ -66,6 +66,9 @@ export default function CourseOfTreatments() {
     surname: '',
     birthDate: '',
   });
+  const [availableRandevues, setAvailableRandevues] = useState<Randevue[]>([]);
+  const [selectedRandevueId, setSelectedRandevueId] = useState<number | ''>('');
+  const [isLoadingRandevues, setIsLoadingRandevues] = useState(false);
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
   const [isSubmittingPatient, setIsSubmittingPatient] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -112,6 +115,26 @@ export default function CourseOfTreatments() {
     }
   };
 
+  const fetchPatientRandevues = async (patientId: number) => {
+    setIsLoadingRandevues(true);
+    try {
+      const today = new Date();
+      const from = new Date(today);
+      from.setFullYear(today.getFullYear() - 1);
+      const to = new Date(today);
+      to.setFullYear(today.getFullYear() + 1);
+      const rangeList = await randevueService.getForRange(from.toISOString(), to.toISOString());
+      const filtered = rangeList
+        .filter((rv) => rv.patient.id === patientId && rv.appointment?.id == null)
+        .sort((a, b) => a.date.localeCompare(b.date));
+      setAvailableRandevues(filtered);
+    } catch {
+      setAvailableRandevues([]);
+    } finally {
+      setIsLoadingRandevues(false);
+    }
+  };
+
   useEffect(() => {
     if (!isDirector && !isDentist) {
       navigate('/dashboard');
@@ -130,6 +153,15 @@ export default function CourseOfTreatments() {
       void fetchPatients();
     }
   }, [showCreateModal]);
+
+  useEffect(() => {
+    if (!showCreateModal || selectedPatientId === '') {
+      setAvailableRandevues([]);
+      setSelectedRandevueId('');
+      return;
+    }
+    void fetchPatientRandevues(Number(selectedPatientId));
+  }, [showCreateModal, selectedPatientId]);
 
   const filteredAppointments = useMemo(
     () => {
@@ -183,22 +215,30 @@ export default function CourseOfTreatments() {
         return;
       }
 
-      await appointmentService.create({
+      const createdAppointment = await appointmentService.create({
         startDate: courseForm.startDate,
         endDate: courseForm.endDate || undefined,
         chargedFee: courseForm.chargedFee ? parseFloat(courseForm.chargedFee) : undefined,
         patient_id: Number(selectedPatientId),
       });
 
+      if (selectedRandevueId !== '') {
+        await randevueService.update(Number(selectedRandevueId), {
+          appointment_id: createdAppointment.id,
+        });
+      }
+
       setShowCreateModal(false);
       setCourseForm({ startDate: '', endDate: '', chargedFee: '' });
       setSelectedPatientId('');
+      setSelectedRandevueId('');
+      setAvailableRandevues([]);
       setNewPatient({ name: '', surname: '', birthDate: '' });
       setShowAddPatientForm(false);
       void fetchAppointments();
       void fetchDentistTreatmentAppointmentIds();
     } catch (err: any) {
-      setCreateError(err?.response?.data?.message ?? 'Failed to create course of treatment');
+      setCreateError(err?.response?.data?.message ?? 'Failed to create treatment');
     } finally {
       setIsSubmittingCourse(false);
     }
@@ -256,7 +296,7 @@ export default function CourseOfTreatments() {
                       className="inline-flex items-center gap-2 rounded-md bg-[#0066A6] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00588f]"
                     >
                       <Plus size={14} />
-                      Create Course
+                      Create Treatment
                     </button>
                   ) : null}
                   <button
@@ -518,12 +558,12 @@ export default function CourseOfTreatments() {
         </ClinicPortalShell>
       </div>
 
-      {/* Create Course Modal */}
+      {/* Create Treatment Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Create Course of Treatment</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Create Treatment</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -531,6 +571,8 @@ export default function CourseOfTreatments() {
                   setCreateError(null);
                   setCourseForm({ startDate: '', endDate: '', chargedFee: '' });
                   setSelectedPatientId('');
+                  setSelectedRandevueId('');
+                  setAvailableRandevues([]);
                   setShowAddPatientForm(false);
                   setNewPatient({ name: '', surname: '', birthDate: '' });
                 }}
@@ -644,6 +686,35 @@ export default function CourseOfTreatments() {
                 )}
               </div>
 
+              <div>
+                <label htmlFor="randevue" className="mb-1 block text-sm font-medium text-gray-700">
+                  Randevue (Optional)
+                </label>
+                <select
+                  id="randevue"
+                  value={selectedRandevueId}
+                  onChange={(e) => setSelectedRandevueId(e.target.value ? Number(e.target.value) : '')}
+                  disabled={selectedPatientId === '' || isLoadingRandevues}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20 disabled:bg-slate-100"
+                >
+                  <option value="">
+                    {selectedPatientId === ''
+                      ? 'Select a patient first...'
+                      : isLoadingRandevues
+                        ? 'Loading randevues...'
+                        : 'No randevue selected'}
+                  </option>
+                  {availableRandevues.map((rv) => (
+                    <option key={rv.id} value={rv.id}>
+                      {`${rv.date} - ${new Date(rv.endTime).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Course Details */}
               <div>
                 <label htmlFor="startDate" className="mb-1 block text-sm font-medium text-gray-700">
@@ -694,7 +765,7 @@ export default function CourseOfTreatments() {
                   disabled={isSubmittingCourse}
                   className="flex-1 rounded-lg bg-[#0066A6] py-2 font-medium text-white transition-colors hover:bg-[#00588f] disabled:opacity-50"
                 >
-                  {isSubmittingCourse ? 'Creating...' : 'Create Course'}
+                  {isSubmittingCourse ? 'Creating...' : 'Create Treatment'}
                 </button>
                 <button
                   type="button"
@@ -703,6 +774,8 @@ export default function CourseOfTreatments() {
                     setCreateError(null);
                     setCourseForm({ startDate: '', endDate: '', chargedFee: '' });
                     setSelectedPatientId('');
+                    setSelectedRandevueId('');
+                    setAvailableRandevues([]);
                     setShowAddPatientForm(false);
                     setNewPatient({ name: '', surname: '', birthDate: '' });
                   }}
