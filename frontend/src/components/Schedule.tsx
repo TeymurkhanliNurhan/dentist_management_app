@@ -1825,12 +1825,13 @@ const Schedule = () => {
   };
 
   const openWorkingHoursModal = useCallback(async () => {
-    if (!isDirector) return;
+    if (!isDentistUser) return;
     setWorkingHoursModalOpen(true);
     setWorkingHoursLoading(true);
     setWorkingHoursError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/working-hours`, {
+      if (!myStaffIdForSchedule) throw new Error('Staff id is missing');
+      const res = await fetch(`${API_BASE_URL}/working-hours?staffId=${myStaffIdForSchedule}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
       });
       if (!res.ok) throw new Error('Failed to load working hours');
@@ -1842,7 +1843,7 @@ const Schedule = () => {
     } finally {
       setWorkingHoursLoading(false);
     }
-  }, [isDirector, t]);
+  }, [isDentistUser, myStaffIdForSchedule, t]);
 
   const workingHoursRowsSorted = useMemo(
       () =>
@@ -2106,7 +2107,7 @@ const Schedule = () => {
                           {t('newBlocking')}
                         </button>
                     )}
-                    {isDirector && (
+                    {isDentistUser && (
                         <button
                             type="button"
                             onClick={() => void openWorkingHoursModal()}
@@ -3295,23 +3296,15 @@ const Schedule = () => {
                       <table className="min-w-full text-sm">
                         <thead>
                           <tr className="border-b border-slate-200 text-left text-slate-600">
-                            <th className="py-2 pr-3 font-semibold">{t('workingHoursStaff')}</th>
-                            <th className="py-2 pr-3 font-semibold">{t('date')}</th>
-                            <th className="py-2 pr-3 font-semibold">{t('startTime')}</th>
-                            <th className="py-2 pr-3 font-semibold">{t('endTime')}</th>
+                            <th className="py-2 pr-3 font-semibold">dayOfWeek</th>
+                            <th className="py-2 pr-3 font-semibold">startTime</th>
+                            <th className="py-2 pr-3 font-semibold">endTime</th>
                           </tr>
                         </thead>
                         <tbody>
                           {workingHoursRowsSorted.map((wh) => {
-                            const apiLabel = `${wh.staff?.name ?? ''} ${wh.staff?.surname ?? ''}`.trim();
-                            const scheduleDentist = dentistByStaffIdForSchedule.get(wh.staffId);
-                            const fallbackDentistLabel = scheduleDentist?.staff
-                              ? `${scheduleDentist.staff.name ?? ''} ${scheduleDentist.staff.surname ?? ''}`.trim()
-                              : '';
-                            const staffLabel = apiLabel || fallbackDentistLabel || `#${wh.staffId}`;
                             return (
                                 <tr key={wh.id} className="border-b border-slate-100 last:border-b-0">
-                                  <td className="py-2 pr-3 text-slate-800">{staffLabel}</td>
                                   <td className="py-2 pr-3 text-slate-700">
                                     {formatWorkingHourDay(wh.dayOfWeek, i18n.language)}
                                   </td>
