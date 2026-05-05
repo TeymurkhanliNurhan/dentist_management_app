@@ -410,6 +410,17 @@ function isStaffHourSlotWithinWorkingHours(
   });
 }
 
+/** API may omit top-level staffId when staff relation is joined; normalize so grid checks match modal logic. */
+function normalizeWorkingHourRows(rows: WorkingHourRow[]): WorkingHourRow[] {
+  return rows.map((wh) => {
+    const nestedId = wh.staff?.id;
+    const resolved =
+        typeof wh.staffId === 'number' && Number.isFinite(wh.staffId) ? wh.staffId : nestedId;
+    if (resolved == null || !Number.isFinite(resolved)) return wh;
+    return { ...wh, staffId: resolved };
+  });
+}
+
 const Schedule = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -525,24 +536,46 @@ const Schedule = () => {
   const [workingHoursError, setWorkingHoursError] = useState<string | null>(null);
   const [dailyScheduleWorkingHours, setDailyScheduleWorkingHours] = useState<WorkingHourRow[]>([]);
 
-  /** Load all staff rows for weekday of `dayAnchor` for dentist Daily (Mine) / director Daily (Dentists) grid shading. */
+  /**
+   * Working-hour rows for schedule grid shading.
+   * - Dentist weekly: all weekdays for JWT staff (`GET /working-hours` — each column uses its own weekday).
+   * - Dentist dailyMine / director dailyDentists: filter by weekday of `dayAnchor`.
+   */
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
-      const needsDailyGridWorkingHours =
-          useClinicScheduleUi &&
-          ((isDentistUser && viewMode === 'dailyMine') || (isDirector && viewMode === 'dailyDentists'));
-      if (!needsDailyGridWorkingHours) {
+      const dentistWeekly = useClinicScheduleUi && isDentistUser && viewMode === 'weekly';
+      const dentistDailyMine = useClinicScheduleUi && isDentistUser && viewMode === 'dailyMine';
+      const directorDailyDentists = useClinicScheduleUi && isDirector && viewMode === 'dailyDentists';
+
+      if (!dentistWeekly && !dentistDailyMine && !directorDailyDentists) {
         setDailyScheduleWorkingHours([]);
         return;
       }
-      const dow = apiDayOfWeekFromDate(dayAnchor);
+
       try {
-        const res = await fetch(`${API_BASE_URL}/working-hours?dayOfWeek=${dow}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
-        });
-        const raw = res.ok ? ((await res.json()) as WorkingHourRow[]) : [];
-        if (!cancelled) setDailyScheduleWorkingHours(Array.isArray(raw) ? raw : []);
+        const token = localStorage.getItem('access_token') || '';
+        const dow = apiDayOfWeekFromDate(dayAnchor);
+        let url =
+            dentistWeekly
+                ? `${API_BASE_URL}/working-hours`
+                : `${API_BASE_URL}/working-hours?dayOfWeek=${dow}`;
+
+        // Sunday is weekday 7 in DB; Nest query DTO rejects 7 (max 6). Omit filter so callers get rows for visible day via client dow match.
+        if (!dentistWeekly && dow === 7) {
+          url = `${API_BASE_URL}/working-hours`;
+        }
+
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        const parsed = res.ok ? ((await res.json()) as WorkingHourRow[]) : [];
+        let list = normalizeWorkingHourRows(Array.isArray(parsed) ? parsed : []);
+
+        // Unfiltered fetch: keep only rows for the visible weekday (director+daily has many staffs).
+        if (!dentistWeekly && dow === 7) {
+          list = list.filter((wh) => wh.dayOfWeek === 7);
+        }
+
+        if (!cancelled) setDailyScheduleWorkingHours(list);
       } catch {
         if (!cancelled) setDailyScheduleWorkingHours([]);
       }
@@ -651,9 +684,16 @@ const Schedule = () => {
     return Number.isFinite(n) && n > 0 ? n : 0;
   }, []);
 
+  /** Prefer dentist list (after schedule load); fall back to staffId saved at login for grid shading before dentists resolve. */
   const myStaffIdForSchedule = useMemo(() => {
-    if (!loggedInDentistId) return null;
-    return dentists.find((d) => d.id === loggedInDentistId)?.staff?.id ?? null;
+    const fromApi =
+        loggedInDentistId > 0
+            ? dentists.find((d) => d.id === loggedInDentistId)?.staff?.id ?? null
+            : null;
+    if (fromApi != null && Number.isFinite(fromApi)) return fromApi;
+    const raw = localStorage.getItem('staffId');
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
   }, [dentists, loggedInDentistId]);
 
   useEffect(() => {
@@ -2424,7 +2464,7 @@ const Schedule = () => {
                             const isToday = isWeekly ? weeklyColumn.isToday : formatYmd(dayAnchor) === formatYmd(new Date());
 
                             let dailyGridStaffIdForWorkingHours: number | null = null;
-                            if (useClinicScheduleUi && isDentistUser && viewMode === 'dailyMine') {
+                            if (useClinicScheduleUi && isDentistUser && (viewMode === 'weekly' || viewMode === 'dailyMine')) {
                               dailyGridStaffIdForWorkingHours = myStaffIdForSchedule ?? null;
                             } else if (useClinicScheduleUi && isDirector && viewMode === 'dailyDentists') {
                               dailyGridStaffIdForWorkingHours =
