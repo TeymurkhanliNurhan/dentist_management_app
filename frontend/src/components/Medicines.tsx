@@ -161,6 +161,7 @@ const Medicines = () => {
   };
 
   const handleEditClick = (medicine: Medicine) => {
+    if (isDentist) return;
     setEditingMedicine(medicine);
     setUpdatedMedicine({
       name: medicine.name,
@@ -211,6 +212,7 @@ const Medicines = () => {
   };
 
   const updateStock = async (medicine: Medicine, stock: number) => {
+    if (isDentist) return;
     if (stock < 0) return;
     setError('');
     try {
@@ -223,6 +225,7 @@ const Medicines = () => {
   };
 
   const startStockEditing = (medicine: Medicine) => {
+    if (isDentist) return;
     setEditingStockMedicineId(medicine.id);
     setDraftStock(medicine.stock ?? 0);
   };
@@ -467,27 +470,33 @@ const Medicines = () => {
                   <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
                     {t('table.name')}
                   </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
-                    {t('table.description')}
-                  </th>
+                  {!isDentist && (
+                    <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
+                      {t('table.description')}
+                    </th>
+                  )}
                   <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
                     {t('table.price')}
                   </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
-                    {t('table.purchasePrice')}
-                  </th>
+                  {!isDentist && (
+                    <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
+                      {t('table.purchasePrice')}
+                    </th>
+                  )}
                   <th className="w-32 min-w-[8rem] px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
                     {t('table.stock')}
                   </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
-                  </th>
+                  {!isDentist && (
+                    <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={isDentist ? 3 : 6}
                       className="px-6 py-8 text-center text-sm text-slate-500"
                     >
                       {t('loading')}
@@ -496,7 +505,7 @@ const Medicines = () => {
                 ) : medicines.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={isDentist ? 3 : 6}
                       className="px-6 py-8 text-center text-sm text-slate-500"
                     >
                       {t('empty')}
@@ -519,17 +528,21 @@ const Medicines = () => {
                       >
                         {medicine.name}
                       </td>
-                      <td className="px-6 py-4 text-center text-sm text-slate-600">
-                        {medicine.description}
-                      </td>
+                      {!isDentist && (
+                        <td className="px-6 py-4 text-center text-sm text-slate-600">
+                          {medicine.description}
+                        </td>
+                      )}
                       <td className="px-6 py-4 text-center text-sm font-medium text-slate-900">
                         {medicine.price.toFixed(2)} USD
                       </td>
-                      <td className="px-6 py-4 text-center text-sm font-medium text-slate-900">
-                        {(medicine.purchasePrice ?? 0).toFixed(2)} USD
-                      </td>
+                      {!isDentist && (
+                        <td className="px-6 py-4 text-center text-sm font-medium text-slate-900">
+                          {(medicine.purchasePrice ?? 0).toFixed(2)} USD
+                        </td>
+                      )}
                       <td className="w-32 min-w-[8rem] px-6 py-4 text-center text-sm align-middle">
-                        {editingStockMedicineId === medicine.id ? (
+                        {!isDentist && editingStockMedicineId === medicine.id ? (
                           <div className="mx-auto flex w-min min-w-[6.5rem] flex-col items-center gap-2">
                             <div className="inline-flex items-center gap-2 rounded border border-slate-200 px-2 py-1">
                               <button
@@ -569,7 +582,7 @@ const Medicines = () => {
                               </button>
                             </div>
                           </div>
-                        ) : (
+                        ) : !isDentist ? (
                           <div className="mx-auto flex w-min min-w-[6.5rem] justify-center">
                             <button
                               type="button"
@@ -579,17 +592,25 @@ const Medicines = () => {
                               {medicine.stock ?? 0}
                             </button>
                           </div>
+                        ) : (
+                          <span
+                            className={`font-semibold ${isBelowStockLimit ? 'text-red-700' : 'text-slate-900'}`}
+                          >
+                            {medicine.stock ?? 0}
+                          </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-center text-sm">
-                        <button
-                          onClick={() => handleEditClick(medicine)}
-                          className="inline-flex items-center justify-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition hover:bg-[#00588f]"
-                        >
-                          <Edit className="w-4 h-4" />
-                          <span>{t('edit')}</span>
-                        </button>
-                      </td>
+                      {!isDentist && (
+                        <td className="px-6 py-4 text-center text-sm">
+                          <button
+                            onClick={() => handleEditClick(medicine)}
+                            className="inline-flex items-center justify-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition hover:bg-[#00588f]"
+                          >
+                            <Edit className="w-4 h-4" />
+                            <span>{t('edit')}</span>
+                          </button>
+                        </td>
+                      )}
                     </tr>
                     );
                   })
