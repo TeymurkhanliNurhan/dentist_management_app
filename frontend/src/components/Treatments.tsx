@@ -250,11 +250,11 @@ const Treatments = () => {
       <ClinicManagementLayout>
       <main className="mx-auto w-full max-w-[1400px] py-2">
         <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
+          <div className="min-w-0 flex-1 pr-4">
             <h1 className="text-3xl font-bold text-slate-900">{t('title')}</h1>
             <p className="mt-1 text-sm text-slate-500">{t('searchPlaceholder')}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {!isDentistUser && (
               <button
                 type="button"
@@ -273,14 +273,14 @@ const Treatments = () => {
               </button>
             )}
             {isDentistUser && (
-              <>
+              <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowRestTreatments(false)}
-                  className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
+                  className={`rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
                     !showRestTreatments
-                      ? 'bg-[#0066A6] text-white'
-                      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      ? 'border-[#0066A6] bg-[#0066A6] text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   My Treatments
@@ -288,15 +288,15 @@ const Treatments = () => {
                 <button
                   type="button"
                   onClick={() => setShowRestTreatments(true)}
-                  className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
+                  className={`rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
                     showRestTreatments
-                      ? 'bg-[#0066A6] text-white'
-                      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      ? 'border-[#0066A6] bg-[#0066A6] text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   Rest Treatments
                 </button>
-              </>
+              </div>
             )}
             {!isDentistUser && (
               <button
@@ -357,16 +357,30 @@ const Treatments = () => {
 
         <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table
+              className={`w-full ${isDentistUser ? 'table-fixed' : ''}`}
+            >
               <thead className="border-b border-slate-100 bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDentistUser ? 'w-[24%]' : ''
+                    }`}
+                  >
                     {t('table.name')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDentistUser ? 'w-[40%]' : ''
+                    }`}
+                  >
                     {t('table.description')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDentistUser ? 'w-[18%]' : ''
+                    }`}
+                  >
                     {t('table.price')}
                   </th>
                   {!isDentistUser && (
@@ -374,7 +388,11 @@ const Treatments = () => {
                       {t('table.dentists')}
                     </th>
                   )}
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDentistUser ? 'w-[18%]' : ''
+                    }`}
+                  >
                   </th>
                 </tr>
               </thead>
@@ -394,10 +412,20 @@ const Treatments = () => {
                 ) : (
                   visibleTreatments.map((treatment) => (
                     <tr key={treatment.id} className="transition-colors hover:bg-slate-50">
-                      <td className="px-6 py-4 text-sm font-semibold text-[#0066A6]">{treatment.name}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{treatment.description}</td>
-                      <td className="px-6 py-4 text-sm">
-                        <p className="font-medium text-slate-900">{treatment.price.toFixed(2)} USD</p>
+                      <td className="px-6 py-4 text-sm font-semibold text-[#0066A6]">
+                        <span className={`line-clamp-2 ${isDentistUser ? 'block min-w-0' : ''}`}>
+                          {treatment.name}
+                        </span>
+                      </td>
+                      <td className={`px-6 py-4 text-sm text-slate-600 ${isDentistUser ? 'min-w-0' : ''}`}>
+                        <span className={`${isDentistUser ? 'line-clamp-3 break-words' : ''}`}>
+                          {treatment.description}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm align-top">
+                        <p className="font-medium text-slate-900 whitespace-nowrap">
+                          {treatment.price.toFixed(2)} USD
+                        </p>
                         <p className="text-xs text-slate-500">{pricePerLabel(treatment.pricePer)}</p>
                       </td>
                       {!isDentistUser && (
@@ -415,16 +443,16 @@ const Treatments = () => {
                           </div>
                         </td>
                       )}
-                      <td className="px-6 py-4 text-sm">
+                      <td className={`px-6 py-4 text-sm ${isDentistUser ? 'align-top' : ''}`}>
                         {isDentistUser ? (
                           showRestTreatments ? (
                             <button
                               type="button"
                               disabled={isUpdatingDentistTreatments}
                               onClick={() => handleAddTreatmentForCurrentDentist(treatment.id)}
-                              className="flex items-center gap-1 rounded-md border border-green-200 px-3 py-1.5 text-sm text-green-700 transition hover:bg-green-50 disabled:opacity-50"
+                              className="inline-flex min-w-[6.5rem] items-center justify-center gap-1 rounded-md border border-green-200 px-3 py-1.5 text-sm text-green-700 transition hover:bg-green-50 disabled:opacity-50"
                             >
-                              <Plus className="h-4 w-4" />
+                              <Plus className="h-4 w-4 shrink-0" />
                               Add
                             </button>
                           ) : (
@@ -432,9 +460,9 @@ const Treatments = () => {
                               type="button"
                               disabled={isUpdatingDentistTreatments}
                               onClick={() => handleRemoveTreatmentForCurrentDentist(treatment.id)}
-                              className="flex items-center gap-1 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                              className="inline-flex min-w-[6.5rem] items-center justify-center gap-1 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                             >
-                              <UserMinus className="h-4 w-4" />
+                              <UserMinus className="h-4 w-4 shrink-0" />
                               Remove
                             </button>
                           )

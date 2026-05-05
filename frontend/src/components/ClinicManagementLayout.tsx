@@ -120,7 +120,9 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
             </div>
           </div>
         </aside>
-        <div className="relative min-h-0 min-w-0 flex-1 overflow-y-auto bg-[#f9fafb] px-6 py-6">{children}</div>
+        <div className="relative min-h-0 min-w-0 flex-1 overflow-y-auto bg-[#f9fafb] px-6 py-6 [scrollbar-gutter:stable]">
+          {children}
+        </div>
       </div>
       <LogoutConfirmModal
         open={showLogoutConfirm}
