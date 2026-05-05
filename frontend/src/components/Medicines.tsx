@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Search, Plus, X, Edit, Minus, Trash2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import ClinicManagementLayout from './ClinicManagementLayout';
 import { medicineService, purchaseMedicineService } from '../services/api';
 import type { Medicine, MedicineFilters } from '../services/api';
@@ -65,7 +64,6 @@ type EditMedicineForm = {
 
 const Medicines = () => {
   const { t } = useTranslation('medicines');
-  const navigate = useNavigate();
   const isDentist = useMemo(
     () => (localStorage.getItem('role')?.toLowerCase() ?? '') === 'dentist',
     [],
@@ -412,13 +410,6 @@ const Medicines = () => {
             <p className="mt-1 text-sm text-slate-500">{t('searchPlaceholder')}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => navigate('/treatments')}
-              className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              Treatments
-            </button>
             <button
               type="button"
               className="rounded-md bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white"

@@ -11,11 +11,9 @@ import type {
   DentistProfile,
 } from '../services/api';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 
 const Treatments = () => {
   const { t } = useTranslation('treatments');
-  const navigate = useNavigate();
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isDentistUser = role === 'dentist';
   const dentistId = useMemo(() => Number(localStorage.getItem('dentistId') ?? 0), []);
@@ -277,15 +275,6 @@ const Treatments = () => {
                 className="rounded-md bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white"
               >
                 Treatments
-              </button>
-            )}
-            {!isDentistUser && (
-              <button
-                type="button"
-                onClick={() => navigate('/medicines')}
-                className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Medicines
               </button>
             )}
             {isDentistUser && (
