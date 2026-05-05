@@ -106,6 +106,8 @@ const Medicines = () => {
     price: 0,
     purchasePrice: 0,
   });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchMedicines = async (searchFilters?: MedicineFilters) => {
     setIsLoading(true);
@@ -173,28 +175,52 @@ const Medicines = () => {
           ? ''
           : medicine.stockLimit,
     });
+    setShowDeleteConfirm(false);
     setShowEditModal(true);
   };
 
-  const handleDeleteMedicine = async (medicine: Medicine) => {
-    if (isDentist) return;
-    if (!window.confirm(t('deleteConfirm', { name: medicine.name }))) return;
+  const confirmDeleteMedicine = async () => {
+    const med = editingMedicine;
+    if (isDentist || !med) return;
+    setIsDeleting(true);
     setError('');
     try {
-      await medicineService.delete(medicine.id);
-      if (editingStockMedicineId === medicine.id) {
+      await medicineService.delete(med.id);
+      setShowDeleteConfirm(false);
+      setShowEditModal(false);
+      setEditingMedicine(null);
+      setUpdatedMedicine({
+        name: '',
+        description: '',
+        price: 0,
+        purchasePrice: 0,
+        stockLimit: '',
+      });
+      if (editingStockMedicineId === med.id) {
         setEditingStockMedicineId(null);
         setDraftStock(0);
-      }
-      if (editingMedicine?.id === medicine.id) {
-        setShowEditModal(false);
-        setEditingMedicine(null);
       }
       await fetchMedicines(filters);
     } catch (err: any) {
       console.error('Failed to delete medicine:', err);
       setError(err.response?.data?.message || 'Failed to delete medicine');
+      setShowDeleteConfirm(false);
+    } finally {
+      setIsDeleting(false);
     }
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setShowDeleteConfirm(false);
+    setEditingMedicine(null);
+    setUpdatedMedicine({
+      name: '',
+      description: '',
+      price: 0,
+      purchasePrice: 0,
+      stockLimit: '',
+    });
   };
 
   const handleUpdateMedicine = async (e: React.FormEvent) => {
@@ -214,15 +240,7 @@ const Medicines = () => {
             ? null
             : updatedMedicine.stockLimit,
       });
-      setShowEditModal(false);
-      setEditingMedicine(null);
-      setUpdatedMedicine({
-        name: '',
-        description: '',
-        price: 0,
-        purchasePrice: 0,
-        stockLimit: '',
-      });
+      closeEditModal();
       fetchMedicines();
     } catch (err: any) {
       console.error('Failed to update medicine:', err);
@@ -475,12 +493,6 @@ const Medicines = () => {
               </div>
             </div>
           </form>
-
-          {error && (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
         </div>
 
         <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
@@ -623,25 +635,13 @@ const Medicines = () => {
                       </td>
                       {!isDentist && (
                         <td className="px-6 py-4 text-center text-sm">
-                          <div className="flex flex-wrap items-center justify-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleEditClick(medicine)}
-                              className="inline-flex items-center justify-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition hover:bg-[#00588f]"
-                            >
-                              <Edit className="w-4 h-4" />
-                              <span>{t('edit')}</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteMedicine(medicine)}
-                              className="inline-flex items-center justify-center space-x-1 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-red-700 transition hover:bg-red-100"
-                              title={t('delete')}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span>{t('delete')}</span>
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => handleEditClick(medicine)}
+                            className="inline-flex items-center justify-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition hover:bg-[#00588f]"
+                          >
+                            <Edit className="w-4 h-4" />
+                            <span>{t('edit')}</span>
+                          </button>
                         </td>
                       )}
                     </tr>
@@ -773,7 +773,8 @@ const Medicines = () => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-900">{t('editTitle')}</h2>
               <button
-                onClick={() => setShowEditModal(false)}
+                type="button"
+                onClick={closeEditModal}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="w-6 h-6" />
@@ -861,23 +862,83 @@ const Medicines = () => {
                 <p className="mt-1 text-xs text-gray-500">{t('form.stockLimitHint')}</p>
               </div>
 
+              <div className="border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={isSubmitting || isDeleting}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t('delete')}
+                </button>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isDeleting}
                   className="flex-1 py-2 bg-[#0066A6] text-white rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? t('updating') : t('update')}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                  onClick={closeEditModal}
+                  disabled={isDeleting}
+                  className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {t('cancel')}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation (above edit modal) */}
+      {showDeleteConfirm && editingMedicine && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900">{t('deleteModalTitle')}</h3>
+            <p className="mt-3 text-sm text-gray-600">
+              {t('deleteConfirm', { name: editingMedicine.name })}
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 rounded-lg bg-gray-200 py-2.5 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={confirmDeleteMedicine}
+                className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isDeleting ? t('deleting') : t('delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Centered notice for errors (replaces inline banner) */}
+      {!!error && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl ring-1 ring-slate-200">
+            <h3 className="text-lg font-bold text-gray-900">{t('noticeTitle')}</h3>
+            <p className="mt-3 whitespace-pre-wrap text-sm text-gray-700">{error}</p>
+            <button
+              type="button"
+              onClick={() => setError('')}
+              className="mt-6 w-full rounded-lg bg-[#0066A6] py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#00588f]"
+            >
+              {t('noticeOk')}
+            </button>
           </div>
         </div>
       )}
