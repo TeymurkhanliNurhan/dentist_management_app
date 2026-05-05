@@ -497,6 +497,8 @@ const Schedule = () => {
   const [directorWeeklyFilterDentistsOpen, setDirectorWeeklyFilterDentistsOpen] = useState(false);
   const [directorWeeklyFilterTypesOpen, setDirectorWeeklyFilterTypesOpen] = useState(false);
   const directorWeeklyAllTypesCheckboxRef = useRef<HTMLInputElement>(null);
+  const scheduleScrollRef = useRef<HTMLElement | null>(null);
+  const weeklyScrollRestoreTopRef = useRef<number | null>(null);
   const [showDirectorRequests, setShowDirectorRequests] = useState(false);
   const [requestActionBusyId, setRequestActionBusyId] = useState<number | null>(null);
   const [workingHoursModalOpen, setWorkingHoursModalOpen] = useState(false);
@@ -660,6 +662,9 @@ const Schedule = () => {
   }, [days, randevues, useClinicScheduleUi]);
 
   const fetchSchedule = useCallback(async () => {
+    if (isDirectorOrReception && viewMode === 'weekly' && scheduleScrollRef.current) {
+      weeklyScrollRestoreTopRef.current = scheduleScrollRef.current.scrollTop;
+    }
     setLoading(true);
     setLoadError(null);
     try {
@@ -713,7 +718,7 @@ const Schedule = () => {
     } finally {
       setLoading(false);
     }
-  }, [dayAnchor, t, useClinicScheduleUi, viewMode, weekAnchor]);
+  }, [dayAnchor, isDirectorOrReception, t, useClinicScheduleUi, viewMode, weekAnchor]);
 
   useEffect(() => {
     void fetchSchedule();
@@ -728,6 +733,20 @@ const Schedule = () => {
   useEffect(() => {
     if (loading) setHoverTip(null);
   }, [loading]);
+
+  useEffect(() => {
+    if (loading || !isDirectorOrReception || viewMode !== 'weekly') return;
+    const top = weeklyScrollRestoreTopRef.current;
+    if (top == null) return;
+
+    // Keep weekly scroll position stable after async schedule refreshes.
+    requestAnimationFrame(() => {
+      if (scheduleScrollRef.current) {
+        scheduleScrollRef.current.scrollTop = top;
+      }
+      weeklyScrollRestoreTopRef.current = null;
+    });
+  }, [isDirectorOrReception, loading, randevues, viewMode]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1999,6 +2018,7 @@ const Schedule = () => {
           <ScheduleRowChrome>
             <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
               <main
+                  ref={scheduleScrollRef}
                   className={
                     isDirector || isDentistUser
                         ? 'min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto px-6 py-6'
