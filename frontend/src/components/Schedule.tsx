@@ -739,10 +739,17 @@ const Schedule = () => {
     const top = weeklyScrollRestoreTopRef.current;
     if (top == null) return;
 
-    // Keep weekly scroll position stable after async schedule refreshes.
+    // Keep weekly scroll position stable only when refresh reset it to top.
+    // If user scrolled meanwhile, do not override their latest position.
     requestAnimationFrame(() => {
-      if (scheduleScrollRef.current) {
-        scheduleScrollRef.current.scrollTop = top;
+      const scroller = scheduleScrollRef.current;
+      if (!scroller) {
+        weeklyScrollRestoreTopRef.current = null;
+        return;
+      }
+      const wasResetToTop = scroller.scrollTop <= 4;
+      if (wasResetToTop) {
+        scroller.scrollTop = top;
       }
       weeklyScrollRestoreTopRef.current = null;
     });
