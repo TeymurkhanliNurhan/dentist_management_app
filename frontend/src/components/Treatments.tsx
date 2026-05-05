@@ -50,6 +50,11 @@ const Treatments = () => {
   const [selectedDentistIdToAdd, setSelectedDentistIdToAdd] = useState(0);
   const [isUpdatingDentists, setIsUpdatingDentists] = useState(false);
   const [isUpdatingDentistTreatments, setIsUpdatingDentistTreatments] = useState(false);
+  const [pendingDentistTreatment, setPendingDentistTreatment] = useState<{
+    action: 'add' | 'remove';
+    id: number;
+    name: string;
+  } | null>(null);
 
   const fetchTreatments = async (searchFilters?: TreatmentFilters) => {
     setIsLoading(true);
@@ -194,6 +199,17 @@ const Treatments = () => {
       setError(err.response?.data?.message || 'Failed to remove treatment');
     } finally {
       setIsUpdatingDentistTreatments(false);
+    }
+  };
+
+  const confirmPendingDentistTreatment = async () => {
+    if (!pendingDentistTreatment) return;
+    const { action, id } = pendingDentistTreatment;
+    setPendingDentistTreatment(null);
+    if (action === 'add') {
+      await handleAddTreatmentForCurrentDentist(id);
+    } else {
+      await handleRemoveTreatmentForCurrentDentist(id);
     }
   };
 
@@ -449,7 +465,13 @@ const Treatments = () => {
                             <button
                               type="button"
                               disabled={isUpdatingDentistTreatments}
-                              onClick={() => handleAddTreatmentForCurrentDentist(treatment.id)}
+                              onClick={() =>
+                                setPendingDentistTreatment({
+                                  action: 'add',
+                                  id: treatment.id,
+                                  name: treatment.name,
+                                })
+                              }
                               className="inline-flex min-w-[6.5rem] items-center justify-center gap-1 rounded-md border border-green-200 px-3 py-1.5 text-sm text-green-700 transition hover:bg-green-50 disabled:opacity-50"
                             >
                               <Plus className="h-4 w-4 shrink-0" />
@@ -459,7 +481,13 @@ const Treatments = () => {
                             <button
                               type="button"
                               disabled={isUpdatingDentistTreatments}
-                              onClick={() => handleRemoveTreatmentForCurrentDentist(treatment.id)}
+                              onClick={() =>
+                                setPendingDentistTreatment({
+                                  action: 'remove',
+                                  id: treatment.id,
+                                  name: treatment.name,
+                                })
+                              }
                               className="inline-flex min-w-[6.5rem] items-center justify-center gap-1 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                             >
                               <UserMinus className="h-4 w-4 shrink-0" />
@@ -485,6 +513,55 @@ const Treatments = () => {
         </div>
       </main>
       </ClinicManagementLayout>
+
+      {pendingDentistTreatment && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dentist-treatment-confirm-title"
+        >
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl ring-1 ring-slate-200">
+            <h2 id="dentist-treatment-confirm-title" className="text-lg font-semibold text-slate-900">
+              {pendingDentistTreatment.action === 'add' ? 'Add treatment' : 'Remove treatment'}
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              {pendingDentistTreatment.action === 'add' ? (
+                <>
+                  Are you sure you want to add{' '}
+                  <span className="font-medium text-slate-800">{pendingDentistTreatment.name}</span> to your treatments?
+                </>
+              ) : (
+                <>
+                  Are you sure you want to remove{' '}
+                  <span className="font-medium text-slate-800">{pendingDentistTreatment.name}</span> from your treatments?
+                </>
+              )}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingDentistTreatment(null)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isUpdatingDentistTreatments}
+                onClick={() => void confirmPendingDentistTreatment()}
+                className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50 ${
+                  pendingDentistTreatment.action === 'add'
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Treatment Modal */}
       {!isDentistUser && showAddModal && (
