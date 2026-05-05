@@ -405,7 +405,7 @@ const Medicines = () => {
   return (
     <>
       <ClinicManagementLayout>
-      <main className="mx-auto w-full max-w-[1400px] py-2">
+      <main className="mx-auto w-full min-w-0 max-w-[1400px] py-2">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">{t('title')}</h1>
@@ -495,32 +495,31 @@ const Medicines = () => {
           </form>
         </div>
 
-        <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
-          <div className="overflow-x-auto">
-            <table className="w-full table-fixed">
+        <div className="rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
+            <table className="w-full max-w-full table-fixed border-collapse">
               <thead className="border-b border-slate-100 bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="w-[28%] px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
+                  <th className={`${isDentist ? 'w-[34%]' : 'w-[22%]'} min-w-0 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider sm:px-4 sm:py-4`}>
                     {t('table.name')}
                   </th>
                   {!isDentist && (
-                    <th className="w-[26%] px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
+                    <th className="w-[20%] min-w-0 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider sm:px-4 sm:py-4">
                       {t('table.description')}
                     </th>
                   )}
-                  <th className={`${isDentist ? 'w-[24%]' : 'w-[14%]'} px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider`}>
+                  <th className={`${isDentist ? 'w-[33%]' : 'w-[12%]'} min-w-0 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider sm:px-4 sm:py-4`}>
                     {t('table.price')}
                   </th>
                   {!isDentist && (
-                    <th className="w-[14%] px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
+                    <th className="w-[12%] min-w-0 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider sm:px-4 sm:py-4">
                       {t('table.purchasePrice')}
                     </th>
                   )}
-                  <th className={`${isDentist ? 'w-[24%]' : 'w-[12%]'} px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider`}>
+                  <th className={`${isDentist ? 'w-[33%]' : 'w-[14%]'} min-w-0 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider sm:px-4 sm:py-4`}>
                     {t('table.stock')}
                   </th>
                   {!isDentist && (
-                    <th className="w-[6%] px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
+                    <th className="w-[20%] min-w-0 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider sm:px-4 sm:py-4">
                     </th>
                   )}
                 </tr>
@@ -530,7 +529,7 @@ const Medicines = () => {
                   <tr>
                     <td
                       colSpan={isDentist ? 3 : 6}
-                      className="px-6 py-8 text-center text-sm text-slate-500"
+                      className="px-3 py-8 text-center text-sm text-slate-500 sm:px-6"
                     >
                       {t('loading')}
                     </td>
@@ -539,7 +538,7 @@ const Medicines = () => {
                   <tr>
                     <td
                       colSpan={isDentist ? 3 : 6}
-                      className="px-6 py-8 text-center text-sm text-slate-500"
+                      className="px-3 py-8 text-center text-sm text-slate-500 sm:px-6"
                     >
                       {t('empty')}
                     </td>
@@ -557,26 +556,26 @@ const Medicines = () => {
                       className={`transition-colors ${isBelowStockLimit ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}`}
                     >
                       <td
-                        className={`truncate px-6 py-4 text-center text-sm font-semibold ${isBelowStockLimit ? 'text-red-700' : 'text-[#0066A6]'}`}
+                        className={`max-w-0 truncate px-3 py-3 text-center text-sm font-semibold sm:px-4 sm:py-4 ${isBelowStockLimit ? 'text-red-700' : 'text-[#0066A6]'}`}
                       >
                         {medicine.name}
                       </td>
                       {!isDentist && (
-                        <td className="truncate px-6 py-4 text-center text-sm text-slate-600">
+                        <td className="max-w-0 truncate px-3 py-3 text-center text-sm text-slate-600 sm:px-4 sm:py-4">
                           {medicine.description}
                         </td>
                       )}
-                      <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-slate-900">
+                      <td className="whitespace-nowrap px-3 py-3 text-center text-sm font-medium text-slate-900 sm:px-4 sm:py-4">
                         {medicine.price.toFixed(2)} USD
                       </td>
                       {!isDentist && (
-                        <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-slate-900">
+                        <td className="whitespace-nowrap px-3 py-3 text-center text-sm font-medium text-slate-900 sm:px-4 sm:py-4">
                           {(medicine.purchasePrice ?? 0).toFixed(2)} USD
                         </td>
                       )}
-                      <td className="w-32 min-w-[8rem] px-6 py-4 text-center text-sm align-middle">
+                      <td className="min-w-0 px-3 py-3 text-center text-sm align-middle sm:px-4 sm:py-4">
                         {!isDentist && editingStockMedicineId === medicine.id ? (
-                          <div className="mx-auto flex w-min min-w-[6.5rem] flex-col items-center gap-2">
+                          <div className="mx-auto flex max-w-full flex-col items-center gap-2">
                             <div className="inline-flex items-center gap-2 rounded border border-slate-200 px-2 py-1">
                               <button
                                 type="button"
@@ -616,11 +615,11 @@ const Medicines = () => {
                             </div>
                           </div>
                         ) : !isDentist ? (
-                          <div className="mx-auto flex w-min min-w-[6.5rem] justify-center">
+                          <div className="mx-auto flex justify-center">
                             <button
                               type="button"
                               onClick={() => startStockEditing(medicine)}
-                              className={`rounded px-3 py-1 font-semibold transition ${isBelowStockLimit ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100' : 'border-slate-200 text-slate-900 hover:bg-slate-50'}`}
+                              className={`rounded px-2 py-1 text-sm font-semibold transition sm:px-3 ${isBelowStockLimit ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100' : 'border-slate-200 text-slate-900 hover:bg-slate-50'}`}
                             >
                               {medicine.stock ?? 0}
                             </button>
@@ -634,13 +633,14 @@ const Medicines = () => {
                         )}
                       </td>
                       {!isDentist && (
-                        <td className="px-6 py-4 text-center text-sm">
+                        <td className="min-w-0 px-3 py-3 text-center text-sm sm:px-4 sm:py-4">
                           <button
+                            type="button"
                             onClick={() => handleEditClick(medicine)}
-                            className="inline-flex items-center justify-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition hover:bg-[#00588f]"
+                            className="inline-flex max-w-full items-center justify-center gap-1 rounded-md bg-[#0066A6] px-2 py-1.5 text-xs font-semibold text-white transition hover:bg-[#00588f] sm:px-3 sm:text-sm"
                           >
-                            <Edit className="w-4 h-4" />
-                            <span>{t('edit')}</span>
+                            <Edit className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                            <span className="truncate">{t('edit')}</span>
                           </button>
                         </td>
                       )}
@@ -650,7 +650,6 @@ const Medicines = () => {
                 )}
               </tbody>
             </table>
-          </div>
         </div>
       </main>
       </ClinicManagementLayout>
