@@ -86,6 +86,7 @@
   "workingHoursStaff": "Сотрудник",
   "workingHoursEmpty": "Рабочие часы не найдены.",
   "workingHoursLoadError": "Не удалось загрузить рабочие часы.",
+  "slotOutsideWorkingHours": "Вне рабочих часов",
   "requestsButton": "Запросы",
   "requestsPanelTitle": "Ожидающие запросы на блокировку",
   "requestsCountLabel": "Ожидают: {{count}}",

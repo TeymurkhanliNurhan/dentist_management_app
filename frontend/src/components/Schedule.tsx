@@ -392,6 +392,24 @@ function timeStringToMinutes(value: string): number {
   return Number(h) * 60 + Number(m);
 }
 
+/** Whether [hourBandStart, hourBandStart + 1) is fully contained in some working-hours row for that staff/weekday (matches scheduling validation). */
+function isStaffHourSlotWithinWorkingHours(
+    staffId: number,
+    day: Date,
+    hourBandStart: number,
+    rows: WorkingHourRow[],
+): boolean {
+  const dow = apiDayOfWeekFromDate(day);
+  const slotStartMin = hourBandStart * 60;
+  const slotEndMin = (hourBandStart + 1) * 60;
+  return rows.some((wh) => {
+    if (wh.staffId !== staffId || wh.dayOfWeek !== dow) return false;
+    const whStart = timeStringToMinutes(wh.startTime);
+    const whEnd = timeStringToMinutes(wh.endTime);
+    return slotStartMin >= whStart && slotEndMin <= whEnd;
+  });
+}
+
 const Schedule = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -505,6 +523,35 @@ const Schedule = () => {
   const [workingHoursRows, setWorkingHoursRows] = useState<WorkingHourRow[]>([]);
   const [workingHoursLoading, setWorkingHoursLoading] = useState(false);
   const [workingHoursError, setWorkingHoursError] = useState<string | null>(null);
+  const [dailyScheduleWorkingHours, setDailyScheduleWorkingHours] = useState<WorkingHourRow[]>([]);
+
+  /** Load all staff rows for weekday of `dayAnchor` for dentist Daily (Mine) / director Daily (Dentists) grid shading. */
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      const needsDailyGridWorkingHours =
+          useClinicScheduleUi &&
+          ((isDentistUser && viewMode === 'dailyMine') || (isDirector && viewMode === 'dailyDentists'));
+      if (!needsDailyGridWorkingHours) {
+        setDailyScheduleWorkingHours([]);
+        return;
+      }
+      const dow = apiDayOfWeekFromDate(dayAnchor);
+      try {
+        const res = await fetch(`${API_BASE_URL}/working-hours?dayOfWeek=${dow}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+        });
+        const raw = res.ok ? ((await res.json()) as WorkingHourRow[]) : [];
+        if (!cancelled) setDailyScheduleWorkingHours(Array.isArray(raw) ? raw : []);
+      } catch {
+        if (!cancelled) setDailyScheduleWorkingHours([]);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [dayAnchor, isDirector, isDentistUser, useClinicScheduleUi, viewMode]);
 
   useEffect(() => {
     const fetchDirectorStaff = async () => {
@@ -2376,6 +2423,16 @@ const Schedule = () => {
                             const cellDay = isWeekly ? weeklyColumn.day : dayAnchor;
                             const isToday = isWeekly ? weeklyColumn.isToday : formatYmd(dayAnchor) === formatYmd(new Date());
 
+                            let dailyGridStaffIdForWorkingHours: number | null = null;
+                            if (useClinicScheduleUi && isDentistUser && viewMode === 'dailyMine') {
+                              dailyGridStaffIdForWorkingHours = myStaffIdForSchedule ?? null;
+                            } else if (useClinicScheduleUi && isDirector && viewMode === 'dailyDentists') {
+                              dailyGridStaffIdForWorkingHours =
+                                  dentistStaffIdByDentistId.get(
+                                      (column as (typeof dentistColumns)[number]).dentistId,
+                                  ) ?? null;
+                            }
+
                             return (
                                 <div key={column.key} className="flex-1 min-w-[150px] border-r border-gray-200 last:border-r-0">
                                   <div
@@ -2403,11 +2460,31 @@ const Schedule = () => {
                                             />
                                       );
                                       }
+
+                                      const slotOutsideWorkingHours =
+                                          dailyGridStaffIdForWorkingHours != null &&
+                                          !isStaffHourSlotWithinWorkingHours(
+                                              dailyGridStaffIdForWorkingHours,
+                                              cellDay,
+                                              h,
+                                              dailyScheduleWorkingHours,
+                                          );
+                                      if (slotOutsideWorkingHours) {
+                                        return (
+                                            <div
+                                                key={`${column.key}-${slot}-${h}-off`}
+                                                className="absolute inset-x-0 z-[5] cursor-default border-b border-gray-300/80 bg-slate-300/85 pointer-events-none dark:bg-slate-600/85"
+                                                style={{ top: slot * HOUR_PX, height: HOUR_PX }}
+                                                title={t('slotOutsideWorkingHours')}
+                                                aria-hidden
+                                            />
+                                        );
+                                      }
                                       return (
                                           <button
                                               key={`${column.key}-${slot}-${h}`}
                                               type="button"
-                                              className="absolute left-0 right-0 z-[5] border-b border-gray-100 hover:bg-violet-50/40 transition-colors cursor-pointer px-1 py-0.5 text-left"
+                                              className="absolute inset-x-0 z-[5] border-b border-gray-100 hover:bg-violet-50/40 transition-colors cursor-pointer px-1 py-0.5 text-left"
                                               style={{ top: slot * HOUR_PX, height: HOUR_PX }}
                                               onClick={() => openNewModal(cellDay, h)}
                                               aria-label={`${t('newRandevue')} ${formatYmd(cellDay)} ${formatHourLabel24(h)}`}

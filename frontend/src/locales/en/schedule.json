@@ -86,6 +86,7 @@
   "workingHoursStaff": "Staff",
   "workingHoursEmpty": "No working hours found.",
   "workingHoursLoadError": "Could not load working hours.",
+  "slotOutsideWorkingHours": "Outside working hours",
   "requestsButton": "Requests",
   "requestsPanelTitle": "Awaiting blocking requests",
   "requestsCountLabel": "{{count}} awaiting",

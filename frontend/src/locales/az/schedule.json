@@ -86,6 +86,7 @@
   "workingHoursStaff": "Heyət",
   "workingHoursEmpty": "İş saatı tapılmadı.",
   "workingHoursLoadError": "İş saatları yüklənmədi.",
+  "slotOutsideWorkingHours": "İş saatlarından kənarda",
   "requestsButton": "Sorğular",
   "requestsPanelTitle": "Gözləyən blok sorğuları",
   "requestsCountLabel": "{{count}} gözləyir",
