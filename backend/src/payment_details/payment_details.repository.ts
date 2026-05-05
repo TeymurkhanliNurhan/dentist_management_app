@@ -304,6 +304,14 @@ export class PaymentDetailsRepository {
       .orderBy('paymentDetails.date', 'DESC')
       .getMany();
 
+    const clinicExpenses = await this.dataSource
+      .getRepository(Expense)
+      .createQueryBuilder('expense')
+      .select(['expense.id AS "id"', 'expense.name AS "name"'])
+      .where('expense.clinicId = :clinicId', { clinicId })
+      .orderBy('expense.name', 'ASC')
+      .getRawMany<{ id: number; name: string }>();
+
     const otherPaymentsByCategory = new Map<string, number>();
     for (const paymentDetail of monthlyPaymentDetails) {
       const category = paymentDetail.expense?.name ?? 'Other';
@@ -375,12 +383,11 @@ export class PaymentDetailsRepository {
       },
       otherPaymentDetails: {
         total: totalOtherPaymentDetails,
-        byCategory: Array.from(otherPaymentsByCategory.entries()).map(
-          ([name, totalCost]) => ({
-            name,
-            totalCost,
-          }),
-        ),
+        byCategory: clinicExpenses.map((expense) => ({
+          expenseId: Number(expense.id),
+          name: expense.name,
+          totalCost: otherPaymentsByCategory.get(expense.name) ?? 0,
+        })),
         items: monthlyPaymentDetails.map((item) => ({
           id: item.id,
           date: item.date,

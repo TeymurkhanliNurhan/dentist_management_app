@@ -320,37 +320,18 @@ const DirectorFinance = () => {
         return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
       })
       .join(' ');
-  const expenseGroups = Array.from(
-    (financeOverview?.otherPaymentDetails?.items ?? []).reduce(
-      (acc, item) => {
-        const key = `${item.expenseId ?? 'none'}-${item.expenseName ?? 'Other'}`;
-        const entry = acc.get(key) ?? {
-          key,
-          expenseName: item.expenseName ?? 'Other',
-          expenseId: item.expenseId ?? null,
-          totalCost: 0,
-          paymentDetails: [] as FinanceOverviewResponse['otherPaymentDetails']['items'],
-        };
-        entry.totalCost += Number(item.cost ?? 0);
-        if (!entry.expenseId && item.expenseId) {
-          entry.expenseId = item.expenseId;
-        }
-        entry.paymentDetails.push(item);
-        acc.set(key, entry);
-        return acc;
-      },
-      new Map<
-        string,
-        {
-          key: string;
-          expenseName: string;
-          expenseId: number | null;
-          totalCost: number;
-          paymentDetails: NonNullable<FinanceOverviewResponse['otherPaymentDetails']>['items'];
-        }
-      >(),
-    ).values(),
-  );
+  const expenseGroups = (financeOverview?.otherPaymentDetails?.byCategory ?? []).map((category) => {
+    const paymentDetails = (financeOverview?.otherPaymentDetails?.items ?? []).filter(
+      (item) => item.expenseId === category.expenseId,
+    );
+    return {
+      key: `${category.expenseId}-${category.name}`,
+      expenseName: category.name,
+      expenseId: category.expenseId,
+      totalCost: Number(category.totalCost ?? 0),
+      paymentDetails,
+    };
+  });
 
   return (
     <>
@@ -746,14 +727,16 @@ const DirectorFinance = () => {
                               <span className="font-semibold text-slate-900">
                                 -{formatCurrency(group.totalCost)}
                               </span>
-                              <button
-                                type="button"
-                                onClick={() => toggleExpenseExpanded(group.key)}
-                                className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                              >
-                                {isExpenseExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                {isExpenseExpanded ? 'Hide payment details' : 'Show payment details'}
-                              </button>
+                              {group.paymentDetails.length > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpenseExpanded(group.key)}
+                                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                                >
+                                  {isExpenseExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                  {isExpenseExpanded ? 'Hide payment details' : 'Show payment details'}
+                                </button>
+                              ) : null}
                             </div>
                           </div>
                           {isExpenseExpanded ? (

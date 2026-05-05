@@ -377,6 +377,7 @@ export interface FinanceOverviewResponse {
   otherPaymentDetails: {
     total: number;
     byCategory: Array<{
+      expenseId: number;
       name: string;
       totalCost: number;
     }>;
