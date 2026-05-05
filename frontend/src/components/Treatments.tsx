@@ -259,22 +259,24 @@ const Treatments = () => {
               type="button"
               className="rounded-md bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white"
             >
-              Treatments
+              {isDentistUser ? 'My Treatments' : 'Treatments'}
             </button>
-            <button
-              type="button"
-              onClick={() => navigate('/medicines')}
-              className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              Medicines
-            </button>
+            {!isDentistUser && (
+              <button
+                type="button"
+                onClick={() => navigate('/medicines')}
+                className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Medicines
+              </button>
+            )}
             {isDentistUser && (
               <button
                 type="button"
                 onClick={() => setShowRestTreatments((prev) => !prev)}
                 className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
-                {showRestTreatments ? 'My Treatments' : 'Rest Treatments'}
+                {showRestTreatments ? 'My Treatments' : 'Rest Treatment'}
               </button>
             )}
             {!isDentistUser && (
