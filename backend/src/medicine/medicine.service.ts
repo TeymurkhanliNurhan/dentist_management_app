@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
@@ -98,6 +99,28 @@ export class MedicineService {
       }));
     } catch (e: any) {
       throw e;
+    }
+  }
+
+  async remove(dentistId: number, id: number) {
+    try {
+      const { deletedId } = await this.repo.deleteMedicineEnsureOwnership(
+        dentistId,
+        id,
+      );
+      const msg = `Dentist with id ${dentistId} deleted Medicine with id ${deletedId}`;
+      this.logger.log(msg);
+      LogWriter.append('log', MedicineService.name, msg);
+      return { message: 'Medicine deleted successfully' };
+    } catch (e: any) {
+      if (e?.message === 'Referenced') {
+        throw new ConflictException(
+          'This medicine cannot be deleted because it is linked to treatments or purchase records.',
+        );
+      }
+      if (e?.message?.includes('Forbidden'))
+        throw new BadRequestException("You don't have such a medicine");
+      throw new BadRequestException('Failed to delete medicine');
     }
   }
 }

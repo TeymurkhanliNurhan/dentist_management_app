@@ -14,6 +14,8 @@
   "loading": "Loading medicines...",
   "empty": "No medicines found",
   "edit": "Edit",
+  "delete": "Delete",
+  "deleteConfirm": "Delete medicine \"{{name}}\"? This cannot be undone.",
   "addNew": "Add New Medicine",
   "addTitle": "Add New Medicine",
   "editTitle": "Edit Medicine",

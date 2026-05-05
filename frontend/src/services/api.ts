@@ -645,6 +645,10 @@ export const medicineService = {
     const response = await api.patch(`/medicine/${id}`, medicine);
     return response.data;
   },
+  delete: async (id: number): Promise<{ message: string }> => {
+    const response = await api.delete(`/medicine/${id}`);
+    return response.data;
+  },
 };
 
 export const purchaseMedicineService = {
