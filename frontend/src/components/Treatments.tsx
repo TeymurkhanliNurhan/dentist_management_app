@@ -255,12 +255,14 @@ const Treatments = () => {
             <p className="mt-1 text-sm text-slate-500">{t('searchPlaceholder')}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded-md bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white"
-            >
-              {isDentistUser ? 'My Treatments' : 'Treatments'}
-            </button>
+            {!isDentistUser && (
+              <button
+                type="button"
+                className="rounded-md bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white"
+              >
+                Treatments
+              </button>
+            )}
             {!isDentistUser && (
               <button
                 type="button"
@@ -271,13 +273,30 @@ const Treatments = () => {
               </button>
             )}
             {isDentistUser && (
-              <button
-                type="button"
-                onClick={() => setShowRestTreatments((prev) => !prev)}
-                className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                {showRestTreatments ? 'My Treatments' : 'Rest Treatment'}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowRestTreatments(false)}
+                  className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
+                    !showRestTreatments
+                      ? 'bg-[#0066A6] text-white'
+                      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  My Treatments
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRestTreatments(true)}
+                  className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
+                    showRestTreatments
+                      ? 'bg-[#0066A6] text-white'
+                      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  Rest Treatments
+                </button>
+              </>
             )}
             {!isDentistUser && (
               <button
