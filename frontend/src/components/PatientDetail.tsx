@@ -113,6 +113,12 @@ const PatientDetail = () => {
   }, [id]);
 
   useEffect(() => {
+    if (isReception && patientPanel !== 'appointments') {
+      setPatientPanel('appointments');
+    }
+  }, [isReception, patientPanel]);
+
+  useEffect(() => {
     if (!patient || patientPanel !== 'appointments') return;
 
     let cancelled = false;
@@ -227,11 +233,31 @@ const PatientDetail = () => {
     return map;
   }, [visibleTreatments]);
 
+  const allTreatmentsByAppointmentId = useMemo(() => {
+    const map = new Map<number, ToothTreatment[]>();
+    for (const tt of patientTreatments) {
+      const aid = tt.appointment?.id;
+      if (aid == null) continue;
+      const list = map.get(aid) ?? [];
+      list.push(tt);
+      map.set(aid, list);
+    }
+    return map;
+  }, [patientTreatments]);
+
   const appointmentsToDisplay = useMemo(() => {
     if (effectiveDentistTreatmentFilter === 0) return filteredAppointments;
     const ids = new Set(visibleTreatments.map((tt) => tt.appointment!.id));
     return filteredAppointments.filter((a) => ids.has(a.id));
   }, [filteredAppointments, effectiveDentistTreatmentFilter, visibleTreatments]);
+
+  const receptionAppointments = useMemo(
+    () =>
+      [...patientAppointments].sort(
+        (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime(),
+      ),
+    [patientAppointments],
+  );
 
   const dentistFilterOptions = useMemo(() => {
     const m = new Map<number, string>();
@@ -548,6 +574,7 @@ const PatientDetail = () => {
           <h2 className="text-xl font-semibold text-slate-900">
             {patientPanel === 'teeth' ? t('teethDiagram') : t('appointments')}
           </h2>
+          {!isReception ? (
           <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
@@ -576,9 +603,78 @@ const PatientDetail = () => {
               <CalendarDays className="h-5 w-5" />
             </button>
           </div>
+          ) : null}
         </div>
 
-        {patientPanel === 'teeth' ? (
+        {isReception ? (
+          <div className="space-y-4">
+            {appointmentsLoading && <p className="py-6 text-center text-sm text-slate-500">{t('loading')}</p>}
+
+            {!appointmentsLoading && appointmentsError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {appointmentsError === 'appointmentsLoadError' ? t('appointmentsLoadError') : appointmentsError}
+              </div>
+            )}
+
+            {!appointmentsLoading && !appointmentsError && receptionAppointments.length === 0 && (
+              <p className="py-4 text-sm text-slate-500">{t('noAppointments')}</p>
+            )}
+
+            {!appointmentsLoading && !appointmentsError && receptionAppointments.length > 0 && (
+              <ul className="space-y-4">
+                {receptionAppointments.map((appt) => {
+                  const treatmentCount = (allTreatmentsByAppointmentId.get(appt.id) ?? []).length;
+                  return (
+                    <li key={appt.id} className="rounded-lg border border-slate-200 bg-slate-50/80 p-4">
+                      <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                        <div>
+                          <span className="mr-1 text-slate-500">{t('startDate')}:</span>
+                          <span className="font-medium text-slate-900">{appt.startDate || '—'}</span>
+                        </div>
+                        <div>
+                          <span className="mr-1 text-slate-500">End date:</span>
+                          <span className="font-medium text-slate-900">{appt.endDate || '—'}</span>
+                        </div>
+                        <div>
+                          <span className="mr-1 text-slate-500">Treatment count:</span>
+                          <span className="font-medium text-slate-900">{treatmentCount}</span>
+                        </div>
+                        <div>
+                          <span className="mr-1 text-slate-500">Debt:</span>
+                          <span
+                            className={`font-medium ${
+                              getAppointmentDebt(appt) > 0 ? 'text-red-600' : 'text-emerald-600'
+                            }`}
+                          >
+                            {formatMoney(getAppointmentDebt(appt))}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={paymentAmountByAppointment[appt.id] ?? ''}
+                          onChange={(e) => handlePaymentAmountChange(appt.id, e.target.value)}
+                          placeholder="Enter payment"
+                          className="w-36 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void handleApplyPayment(appt.id)}
+                          disabled={paymentSubmittingByAppointment[appt.id] || getAppointmentDebt(appt) <= 0}
+                          className="rounded-md bg-[#0066A6] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#00588f] disabled:cursor-not-allowed disabled:bg-slate-300"
+                        >
+                          {paymentSubmittingByAppointment[appt.id] ? 'Applying...' : 'Apply Payment'}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        ) : patientPanel === 'teeth' ? (
           <TeethDiagram patientId={patient.id} patientTeeth={patientTeeth} toothTreatments={diagramTreatments} />
         ) : (
           <div className="space-y-4">
