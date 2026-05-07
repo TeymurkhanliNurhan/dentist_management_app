@@ -1984,7 +1984,7 @@ const Schedule = () => {
       [workingHoursRows],
   );
 
-  function ScheduleRowChrome({ children }: { children: ReactNode }) {
+  const renderScheduleRowChrome = (children: ReactNode) => {
     if (useClinicScheduleUi) {
       const menuItems = isDentistUser
         ? DENTIST_PORTAL_MENU
@@ -2032,7 +2032,7 @@ const Schedule = () => {
       );
     }
     return <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">{children}</div>;
-  }
+  };
 
   return (
       <>
@@ -2043,7 +2043,7 @@ const Schedule = () => {
                   : 'flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-50'
             }
         >
-          <ScheduleRowChrome>
+          {renderScheduleRowChrome(
             <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
               <main
                   ref={scheduleScrollRef}
@@ -3256,7 +3256,7 @@ const Schedule = () => {
                   </aside>
               )}
             </div>
-          </ScheduleRowChrome>
+          )}
         </div>
 
         {hoverTip && hoverTip.kind === 'randevue' && (
