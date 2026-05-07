@@ -39,6 +39,13 @@ export const DENTIST_PORTAL_MENU: ClinicPortalMenuItem[] = [
   { label: 'Finance', icon: Wallet, path: '/finance' },
 ];
 
+/** Reception portal: front-desk operations only. */
+export const FRONTDESK_PORTAL_MENU: ClinicPortalMenuItem[] = [
+  { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+  { label: 'Patients', icon: UserRound, path: '/patients' },
+  { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
+];
+
 export function isDirectorPortalNavActive(itemPath: string, pathname: string): boolean {
   if (itemPath === '/dashboard') return pathname === '/dashboard';
   return pathname === itemPath || pathname.startsWith(`${itemPath}/`);

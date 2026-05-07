@@ -64,10 +64,10 @@ type EditMedicineForm = {
 
 const Medicines = () => {
   const { t } = useTranslation('medicines');
-  const isDentist = useMemo(
-    () => (localStorage.getItem('role')?.toLowerCase() ?? '') === 'dentist',
-    [],
-  );
+  const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
+  const isDentist = role === 'dentist';
+  const isDirector = role === 'director';
+  const canAccessMedicines = isDentist || isDirector;
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [filters, setFilters] = useState<MedicineFilters>({
     name: '',
@@ -400,7 +400,7 @@ const Medicines = () => {
     }
   };
 
-  return (
+  return canAccessMedicines ? (
     <>
       <ClinicManagementLayout>
       <main className="mx-auto w-full min-w-0 max-w-[1400px] py-2">
@@ -1233,6 +1233,10 @@ const Medicines = () => {
         </div>
       )}
     </>
+  ) : (
+    <div className="flex h-dvh items-center justify-center bg-[#f4f6f8] text-slate-700">
+      <p className="text-lg">You do not have permission to view this page.</p>
+    </div>
   );
 };
 

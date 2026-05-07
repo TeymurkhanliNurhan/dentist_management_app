@@ -12,7 +12,7 @@ import api, {
 } from '../services/api';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
-import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
+import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU, FRONTDESK_PORTAL_MENU } from '../lib/clinicPortalNav';
 
 const TILE_IMAGE_QUERY = '?v=2';
 
@@ -344,6 +344,9 @@ const Dashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
+  const isDirector = role === 'director';
+  const isReception = role === 'frontdesk';
+  const isDirectorOrReception = isDirector || isReception;
   const [directorStaff, setDirectorStaff] = useState<StaffSummary | null>(null);
   const [awaitingBlockingCount, setAwaitingBlockingCount] = useState(0);
   const [metrics, setMetrics] = useState<DirectorMetrics | null>(null);
@@ -357,7 +360,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchDirectorStaff = async () => {
-      if (role !== 'director') {
+      if (!isDirectorOrReception) {
         setDirectorStaff(null);
         return;
       }
@@ -388,7 +391,7 @@ const Dashboard = () => {
     };
 
     void fetchDirectorStaff();
-  }, [role]);
+  }, [isDirectorOrReception]);
 
   useEffect(() => {
     if (role !== 'dentist') {
@@ -478,7 +481,7 @@ const Dashboard = () => {
   useEffect(() => {
     let cancelled = false;
     const fetchAwaitingCount = async (): Promise<number> => {
-      if (role !== 'director') {
+      if (!isDirectorOrReception) {
         setAwaitingBlockingCount(0);
         return 0;
       }
@@ -508,12 +511,12 @@ const Dashboard = () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [location.pathname, role]);
+  }, [isDirectorOrReception, location.pathname]);
 
   useEffect(() => {
     let disposed = false;
     const fetchDirectorDashboard = async () => {
-      if (role !== 'director') {
+      if (!isDirectorOrReception) {
         setMetrics(null);
         return;
       }
@@ -888,7 +891,7 @@ const Dashboard = () => {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [role]);
+  }, [isDirectorOrReception]);
 
   const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
 
@@ -920,16 +923,16 @@ const Dashboard = () => {
     },
   ];
 
-  if (role === 'director') {
+  if (isDirectorOrReception) {
     return (
       <>
       <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
           brandTitle="Precision Dental"
-          portalBadge="Admin Portal"
+          portalBadge={isDirector ? 'Admin Portal' : 'Reception Portal'}
           userDisplayName={directorDisplayName}
-          userSubtitle="Clinic Director"
-          menuItems={DIRECTOR_PORTAL_MENU}
+          userSubtitle={isDirector ? 'Clinic Director' : 'Receptionist'}
+          menuItems={isDirector ? DIRECTOR_PORTAL_MENU : FRONTDESK_PORTAL_MENU}
           pathname={location.pathname}
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
@@ -937,6 +940,7 @@ const Dashboard = () => {
           onLogoutClick={() => setShowLogoutConfirm(true)}
           scheduleNotificationCount={awaitingBlockingCount}
           headerActions={
+            isDirector ? (
             <button
               type="button"
               onClick={() => navigate('/staff')}
@@ -945,6 +949,7 @@ const Dashboard = () => {
             >
               <Settings size={16} />
             </button>
+            ) : null
           }
         >
           <main className="min-h-0 flex-1 overflow-y-auto bg-[#f9fafb] p-6">
@@ -957,6 +962,7 @@ const Dashboard = () => {
               </section>
 
               <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {isDirector && (
                 <button
                   type="button"
                   onClick={() => setActiveDetailsPanel('income')}
@@ -970,6 +976,8 @@ const Dashboard = () => {
                     ${Number(metrics?.dailyIncome ?? 0).toFixed(2)}
                   </p>
                 </button>
+                )}
+                {isDirector && (
                 <button
                   type="button"
                   onClick={() => setActiveDetailsPanel('outcome')}
@@ -983,6 +991,7 @@ const Dashboard = () => {
                     ${Number(metrics?.dailyOutcome ?? 0).toFixed(2)}
                   </p>
                 </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setActiveDetailsPanel('appointments')}
@@ -1005,6 +1014,7 @@ const Dashboard = () => {
                 </div>
               </section>
 
+              {isDirector && (
               <section className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
                   <div>
@@ -1026,6 +1036,7 @@ const Dashboard = () => {
                 </div>
                 <DirectorWeekIncomeOutcomeChart data={metrics?.weeklyChart ?? []} />
               </section>
+              )}
 
               {activeDetailsPanel && (
                 <section className="rounded-xl border border-slate-200 bg-white p-4">
@@ -1098,10 +1109,10 @@ const Dashboard = () => {
                     <h2 className="text-lg font-semibold text-slate-800">Today&apos;s Randevues</h2>
                     <button
                       type="button"
-                      onClick={() => navigate('/course-of-treatments')}
+                      onClick={() => navigate('/schedule')}
                       className="text-sm font-medium text-blue-600 hover:text-blue-700"
                     >
-                      View all
+                      Open schedule
                     </button>
                   </div>
                   <div className="overflow-x-auto">
@@ -1161,6 +1172,7 @@ const Dashboard = () => {
                     </div>
                   </div>
 
+                  {isDirector && (
                   <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
                     <h2 className="mb-2 text-lg font-semibold text-rose-800">Medicines to Purchase</h2>
                     <div className="space-y-2">
@@ -1178,6 +1190,7 @@ const Dashboard = () => {
                       )}
                     </div>
                   </div>
+                  )}
                 </div>
               </section>
 

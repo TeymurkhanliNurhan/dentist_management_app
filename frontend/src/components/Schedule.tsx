@@ -31,7 +31,7 @@ import {
   type Randevue,
   type UpdateRandevueDto,
 } from '../services/api';
-import { DENTIST_PORTAL_MENU, DIRECTOR_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
+import { DENTIST_PORTAL_MENU, DIRECTOR_PORTAL_MENU, FRONTDESK_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
 
 /** Visible schedule window (top->bottom): 08:00 ... 21:00 (end boundary 22:00). */
 const SCHEDULE_START_HOUR = 8;
@@ -1913,14 +1913,14 @@ const Schedule = () => {
       () =>
           DIRECTOR_PORTAL_MENU.map((item) =>
               item.path === '/schedule'
-                  ? { ...item, notificationCount: isDirector ? awaitingBlockingCount : 0 }
+                  ? { ...item, notificationCount: isDirectorOrReception ? awaitingBlockingCount : 0 }
                   : item,
           ),
-      [awaitingBlockingCount, isDirector],
+      [awaitingBlockingCount, isDirectorOrReception],
   );
 
   const handleDirectorRequestAction = async (id: number, action: 'approve' | 'reject') => {
-    if (!isDirector) return;
+    if (!isDirectorOrReception) return;
     setRequestActionBusyId(id);
     try {
       const res = await fetch(`${API_BASE_URL}/blocking-hours/${id}/${action}`, {
@@ -2001,7 +2001,7 @@ const Schedule = () => {
                   : 'flex min-h-0 min-w-0 flex-1 overflow-hidden'
             }
         >
-          {isDirector && (
+          {isDirectorOrReception && (
               <aside
                   className={`relative shrink-0 border-r border-slate-200 bg-[#f0f3f7] transition-all duration-300 ${
                       isSidebarOpen ? 'w-64' : 'w-20'
@@ -2009,7 +2009,7 @@ const Schedule = () => {
               >
                 <div className="flex h-full min-h-0 flex-col py-6">
                   <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3">
-                    {directorMenuItems.map((item) => (
+                    {(isDirector ? directorMenuItems : FRONTDESK_PORTAL_MENU).map((item) => (
                         <button
                             key={item.label}
                             type="button"
@@ -2094,14 +2094,16 @@ const Schedule = () => {
                     <button type="button" className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Notifications">
                       <Bell size={16} />
                     </button>
-                    <button type="button" onClick={() => navigate('/staff')} className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Staff and doctors">
-                      <Settings size={16} />
-                    </button>
+                    {isDirector && (
+                      <button type="button" onClick={() => navigate('/staff')} className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Staff and doctors">
+                        <Settings size={16} />
+                      </button>
+                    )}
                     <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5">
                       <div className="h-7 w-7 rounded-full bg-slate-200" />
                       <div className="leading-tight">
                         <p className="text-xs font-semibold text-slate-700">{directorDisplayName || '-'}</p>
-                        <p className="text-[10px] text-slate-400">Clinic Director</p>
+                        <p className="text-[10px] text-slate-400">{isDirector ? 'Clinic Director' : 'Receptionist'}</p>
                       </div>
                     </div>
                   </div>
@@ -2114,7 +2116,7 @@ const Schedule = () => {
               <main
                   ref={scheduleScrollRef}
                   className={
-                    isDirector || isDentistUser
+                    isDirectorOrReception || isDentistUser
                         ? 'min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto px-6 py-6'
                         : 'mx-auto min-h-0 flex-1 min-w-0 max-w-[1600px] overflow-x-auto overflow-y-auto px-4 py-6 sm:px-6 lg:px-8'
                   }
@@ -2230,7 +2232,7 @@ const Schedule = () => {
                           {t('workingHoursButton')}
                         </button>
                     )}
-                    {isDirector && (
+                    {isDirectorOrReception && (
                         <button
                             type="button"
                             onClick={() => setShowDirectorRequests((prev) => !prev)}
@@ -2247,7 +2249,7 @@ const Schedule = () => {
                   </div>
                 </div>
 
-                {isDirector && showDirectorRequests && (
+                {isDirectorOrReception && showDirectorRequests && (
                     <div className="mb-4 rounded-xl border border-violet-200 bg-violet-50/60 p-3">
                       <div className="mb-2 flex items-center justify-between">
                         <h2 className="text-sm font-semibold text-slate-800">{t('requestsPanelTitle')}</h2>

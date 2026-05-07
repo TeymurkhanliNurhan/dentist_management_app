@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Header from './Header';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
-import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
+import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU, FRONTDESK_PORTAL_MENU } from '../lib/clinicPortalNav';
 import { appointmentService, dentistService, patientService, toothTreatmentService } from '../services/api';
 import type { Patient, PatientFilters, CreatePatientDto, ToothTreatment } from '../services/api';
 import { useTranslation } from 'react-i18next';
@@ -22,8 +22,10 @@ const Patients = () => {
   const { t, i18n } = useTranslation('patients');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
+  const isReception = role === 'frontdesk';
+  const isDirectorOrReception = isDirector || isReception;
   const isDentist = role === 'dentist';
-  const usePatientsPortalShell = isDirector || isDentist;
+  const usePatientsPortalShell = isDirectorOrReception || isDentist;
   const [dentistPortalDisplayName, setDentistPortalDisplayName] = useState('');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [treatmentCountsByPatient, setTreatmentCountsByPatient] = useState<Record<number, number>>({});
@@ -69,7 +71,7 @@ const Patients = () => {
     ]);
 
     const debtMap: Record<number, number> = {};
-    if (isDirector || isDentist) {
+    if (isDirectorOrReception || isDentist) {
       for (const appointment of appointmentsData.appointments) {
         const patientId = appointment.patient?.id;
         if (!patientId) {
@@ -221,10 +223,10 @@ const Patients = () => {
       <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
           brandTitle="Clinic Management"
-          portalBadge={isDirector ? undefined : 'Dentist Portal'}
+          portalBadge={isDirector ? undefined : isReception ? 'Reception Portal' : 'Dentist Portal'}
           userDisplayName={isDentist ? dentistPortalDisplayName : ''}
-          userSubtitle={isDirector ? 'Clinic Director' : 'Dentist'}
-          menuItems={isDirector ? DIRECTOR_PORTAL_MENU : DENTIST_PORTAL_MENU}
+          userSubtitle={isDirector ? 'Clinic Director' : isReception ? 'Receptionist' : 'Dentist'}
+          menuItems={isDirector ? DIRECTOR_PORTAL_MENU : isReception ? FRONTDESK_PORTAL_MENU : DENTIST_PORTAL_MENU}
           pathname={location.pathname}
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
@@ -232,7 +234,7 @@ const Patients = () => {
           onLogoutClick={() => setShowLogoutConfirm(true)}
           showProfileStrip={isDentist}
           headerActions={
-            isDirector ? (
+            isDirectorOrReception ? (
             <button
               type="button"
               onClick={() => setShowAddModal(true)}
@@ -393,7 +395,7 @@ const Patients = () => {
           </main>
         </ClinicPortalShell>
 
-        {isDirector && showAddModal && (
+        {isDirectorOrReception && showAddModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
             <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">

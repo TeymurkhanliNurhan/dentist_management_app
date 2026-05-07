@@ -16,6 +16,8 @@ const Treatments = () => {
   const { t } = useTranslation('treatments');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isDentistUser = role === 'dentist';
+  const isDirectorUser = role === 'director';
+  const canAccessTreatments = isDentistUser || isDirectorUser;
   const dentistId = useMemo(() => Number(localStorage.getItem('dentistId') ?? 0), []);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [assignedTreatmentIds, setAssignedTreatmentIds] = useState<number[]>([]);
@@ -259,7 +261,7 @@ const Treatments = () => {
     }
   };
 
-  return (
+  return canAccessTreatments ? (
     <>
       <ClinicManagementLayout>
       <main className="mx-auto w-full max-w-[1400px] py-2">
@@ -846,6 +848,10 @@ const Treatments = () => {
         </div>
       )}
     </>
+  ) : (
+    <div className="flex h-dvh items-center justify-center bg-[#f4f6f8] text-slate-700">
+      <p className="text-lg">You do not have permission to view this page.</p>
+    </div>
   );
 };
 
