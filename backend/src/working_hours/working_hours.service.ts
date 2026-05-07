@@ -58,10 +58,10 @@ export class WorkingHoursService {
   async findAll(user: any, dto: GetWorkingHoursDto) {
     const role = (user?.role ?? '').toLowerCase();
 
-    if (role === 'director') {
+    if (role === 'director' || role === 'frontdesk') {
       const dentistId = this.parseNumericId(user?.userId ?? user?.sub ?? user?.dentistId);
       if (!Number.isFinite(dentistId) || dentistId <= 0) {
-        throw new ForbiddenException('Director context missing');
+        throw new ForbiddenException('Director/frontdesk context missing');
       }
       return await this.repo.findForDentist(dentistId, dto);
     }
