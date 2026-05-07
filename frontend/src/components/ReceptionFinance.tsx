@@ -37,6 +37,11 @@ const ReceptionFinance = () => {
   const [financeLoading, setFinanceLoading] = useState(false);
   const [financeError, setFinanceError] = useState<string | null>(null);
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
+  const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
+  const [selectedExpenseForPayment, setSelectedExpenseForPayment] = useState<{
+    id: number | null;
+    name: string;
+  } | null>(null);
   const [isCreatingExpenseWithPayment, setIsCreatingExpenseWithPayment] = useState(false);
   const [financeSubmitError, setFinanceSubmitError] = useState<string | null>(null);
   const [newExpense, setNewExpense] = useState<CreateExpenseDto>({
@@ -77,7 +82,7 @@ const ReceptionFinance = () => {
     setFinanceSubmitError(null);
   };
 
-  const handleCreateExpenseAndPayment = async (e: React.FormEvent) => {
+  const handleCreateExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     setFinanceSubmitError(null);
 
@@ -85,28 +90,14 @@ const ReceptionFinance = () => {
       setFinanceSubmitError('Cost name is required.');
       return;
     }
-    if (!newPaymentDetail.date) {
-      setFinanceSubmitError('Cost date is required.');
-      return;
-    }
-    if (!Number.isFinite(newPaymentDetail.cost ?? NaN) || (newPaymentDetail.cost ?? 0) < 0) {
-      setFinanceSubmitError('Cost amount must be a valid non-negative number.');
-      return;
-    }
 
     setIsCreatingExpenseWithPayment(true);
     try {
-      const createdExpense = await expenseService.create({
+      await expenseService.create({
         name: newExpense.name.trim(),
         description: newExpense.description?.trim() || undefined,
         fixedCost: newExpense.fixedCost,
         dayOfMonth: newExpense.dayOfMonth,
-      });
-
-      await paymentDetailsService.create({
-        date: newPaymentDetail.date,
-        cost: Number(newPaymentDetail.cost),
-        expenseId: createdExpense.id,
       });
 
       setShowAddExpenseModal(false);
@@ -114,7 +105,48 @@ const ReceptionFinance = () => {
       await fetchFinanceOverview(selectedYear, selectedMonth);
     } catch (err: any) {
       setFinanceSubmitError(
-        err?.response?.data?.message ?? 'Failed to create cost entry.',
+        err?.response?.data?.message ?? 'Failed to create expense.',
+      );
+    } finally {
+      setIsCreatingExpenseWithPayment(false);
+    }
+  };
+
+  const handleCreatePaymentForExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFinanceSubmitError(null);
+
+    if (selectedExpenseForPayment?.id == null) {
+      setFinanceSubmitError('Please select an expense before adding payment detail.');
+      return;
+    }
+    if (!newPaymentDetail.date) {
+      setFinanceSubmitError('Payment detail date is required.');
+      return;
+    }
+    if (!Number.isFinite(newPaymentDetail.cost ?? NaN) || (newPaymentDetail.cost ?? 0) < 0) {
+      setFinanceSubmitError('Payment detail amount must be a valid non-negative number.');
+      return;
+    }
+
+    setIsCreatingExpenseWithPayment(true);
+    try {
+      await paymentDetailsService.create({
+        date: newPaymentDetail.date,
+        cost: Number(newPaymentDetail.cost),
+        expenseId: selectedExpenseForPayment.id,
+      });
+      setShowAddPaymentModal(false);
+      setSelectedExpenseForPayment(null);
+      setFinanceSubmitError(null);
+      setNewPaymentDetail({
+        date: buildDefaultPaymentDate(selectedYear, selectedMonth),
+        cost: 0,
+      });
+      await fetchFinanceOverview(selectedYear, selectedMonth);
+    } catch (err: any) {
+      setFinanceSubmitError(
+        err?.response?.data?.message ?? 'Failed to add payment detail.',
       );
     } finally {
       setIsCreatingExpenseWithPayment(false);
@@ -144,6 +176,7 @@ const ReceptionFinance = () => {
     );
     return {
       key: `${category.expenseId}-${category.name}`,
+      expenseId: category.expenseId,
       expenseName: category.name,
       totalCost: Number(category.totalCost ?? 0),
       paymentDetails,
@@ -241,7 +274,28 @@ const ReceptionFinance = () => {
                       <div key={group.key} className="rounded-md border border-slate-200 px-3 py-2">
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-medium text-slate-800">{group.expenseName}</p>
-                          <span className="font-semibold text-slate-900">{formatCurrency(group.totalCost)}</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedExpenseForPayment({
+                                  id: group.expenseId,
+                                  name: group.expenseName,
+                                });
+                                setNewPaymentDetail({
+                                  date: buildDefaultPaymentDate(selectedYear, selectedMonth),
+                                  cost: 0,
+                                });
+                                setFinanceSubmitError(null);
+                                setShowAddPaymentModal(true);
+                              }}
+                              className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                            >
+                              <Plus size={12} />
+                              Payment Detail
+                            </button>
+                            <span className="font-semibold text-slate-900">{formatCurrency(group.totalCost)}</span>
+                          </div>
                         </div>
                         {group.paymentDetails.length > 0 ? (
                           <div className="mt-2 space-y-1 rounded-md bg-slate-50 p-2">
@@ -287,7 +341,7 @@ const ReceptionFinance = () => {
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={handleCreateExpenseAndPayment} className="space-y-3">
+            <form onSubmit={handleCreateExpense} className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs text-slate-600">Cost name</label>
                 <input
@@ -340,37 +394,6 @@ const ReceptionFinance = () => {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs text-slate-600">Cost date</label>
-                  <input
-                    type="date"
-                    value={newPaymentDetail.date}
-                    onChange={(e) =>
-                      setNewPaymentDetail((prev) => ({ ...prev, date: e.target.value }))
-                    }
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-slate-600">Amount</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={newPaymentDetail.cost ?? ''}
-                    onChange={(e) =>
-                      setNewPaymentDetail((prev) => ({
-                        ...prev,
-                        cost: e.target.value === '' ? 0 : Number(e.target.value),
-                      }))
-                    }
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                    required
-                  />
-                </div>
-              </div>
               {financeSubmitError ? (
                 <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
                   {financeSubmitError}
@@ -380,6 +403,84 @@ const ReceptionFinance = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddExpenseModal(false)}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingExpenseWithPayment}
+                  className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
+                >
+                  {isCreatingExpenseWithPayment ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+      {showAddPaymentModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">
+                Add Payment Detail for {selectedExpenseForPayment?.name ?? 'Expense'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddPaymentModal(false);
+                  setSelectedExpenseForPayment(null);
+                  setFinanceSubmitError(null);
+                }}
+                className="text-slate-500 hover:text-slate-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleCreatePaymentForExpense} className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs text-slate-600">Payment detail date</label>
+                <input
+                  type="date"
+                  value={newPaymentDetail.date}
+                  onChange={(e) =>
+                    setNewPaymentDetail((prev) => ({ ...prev, date: e.target.value }))
+                  }
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-slate-600">Amount</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={newPaymentDetail.cost ?? ''}
+                  onChange={(e) =>
+                    setNewPaymentDetail((prev) => ({
+                      ...prev,
+                      cost: e.target.value === '' ? 0 : Number(e.target.value),
+                    }))
+                  }
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              {financeSubmitError ? (
+                <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
+                  {financeSubmitError}
+                </p>
+              ) : null}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddPaymentModal(false);
+                    setSelectedExpenseForPayment(null);
+                    setFinanceSubmitError(null);
+                  }}
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
                   Cancel
