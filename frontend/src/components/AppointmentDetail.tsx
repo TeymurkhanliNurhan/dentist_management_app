@@ -2891,14 +2891,6 @@ const AppointmentDetail = () => {
                                 >
                                   Cancel
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setShowAddMediaForTreatment(treatment.id)}
-                                  className="flex items-center justify-center space-x-1 px-3 py-1.5 border border-[#0066A6] bg-white text-[#0066A6] rounded-md hover:bg-[#f0f7fc] transition-colors"
-                                >
-                                  <Plus className="w-4 h-4" />
-                                  <span>Add Media</span>
-                                </button>
                               </>
                             ) : (
                               <>
@@ -3001,133 +2993,141 @@ const AppointmentDetail = () => {
                               onSelectionModeChange={setToothSelectionMode}
                             />
                           </div>
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
                           <div>
-                            <h4 className="text-sm font-semibold text-gray-900 mb-1">Medicines</h4>
-                            <p className="mb-2 text-xs text-gray-600">
-                              Keep treatment quantity and stock-used quantity separate.
-                            </p>
-                            <div className="max-h-56 overflow-auto rounded-md border border-gray-200 bg-white">
-                              {allMedicines.map((m) => {
-                                const usage = editingMedicineQuantities[m.id] ?? { quantity: 0, stockUsedQuantity: 0 };
-                                const quantity = usage.quantity;
-                                const stockUsedQuantity = usage.stockUsedQuantity;
-                                const checked = quantity > 0;
-                                return (
-                                  <label key={m.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 cursor-pointer hover:bg-purple-50">
-                                    <div className="flex items-center gap-3">
-                                      <input
-                                        type="checkbox"
-                                        checked={checked}
-                                        onChange={(e) => {
-                                          if (e.target.checked) {
-                                            setEditingMedicineQuantities({
-                                              ...editingMedicineQuantities,
-                                              [m.id]: {
-                                                quantity: Math.max(1, quantity || 1),
-                                                stockUsedQuantity: Math.max(1, stockUsedQuantity || 1),
-                                              },
-                                            });
-                                          } else {
-                                            setEditingMedicineQuantities({
-                                              ...editingMedicineQuantities,
-                                              [m.id]: { quantity: 0, stockUsedQuantity: 0 },
-                                            });
-                                          }
-                                        }}
-                                        className="h-4 w-4 text-purple-600 border-gray-300 rounded"
-                                      />
-                                      <div>
-                                        <div className="text-sm font-medium text-gray-900">{m.name}</div>
-                                        <div className="text-xs text-gray-600">{m.description}</div>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <div className="flex items-center rounded-md border border-gray-300 bg-white">
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setEditingMedicineQuantities({
-                                              ...editingMedicineQuantities,
-                                              [m.id]: {
-                                                quantity: Math.max(0, quantity - 1),
-                                                stockUsedQuantity,
-                                              },
-                                            })
-                                          }
-                                          className="px-2 py-1 text-gray-700 hover:bg-gray-100"
-                                        >
-                                          −
-                                        </button>
+                            <div className="mt-4">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-1">Medicines</h4>
+                              <p className="mb-2 text-xs text-gray-600">
+                                Keep treatment quantity and stock-used quantity separate.
+                              </p>
+                              <div className="max-h-56 overflow-auto rounded-md border border-gray-200 bg-white">
+                                {allMedicines.map((m) => {
+                                  const usage = editingMedicineQuantities[m.id] ?? { quantity: 0, stockUsedQuantity: 0 };
+                                  const quantity = usage.quantity;
+                                  const stockUsedQuantity = usage.stockUsedQuantity;
+                                  const checked = quantity > 0;
+                                  return (
+                                    <label key={m.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 cursor-pointer hover:bg-purple-50">
+                                      <div className="flex items-center gap-3">
                                         <input
-                                          type="number"
-                                          min={0}
-                                          step={1}
-                                          value={quantity}
+                                          type="checkbox"
+                                          checked={checked}
                                           onChange={(e) => {
-                                            const next = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
-                                            setEditingMedicineQuantities({
-                                              ...editingMedicineQuantities,
-                                              [m.id]: { quantity: next, stockUsedQuantity },
-                                            });
+                                            if (e.target.checked) {
+                                              setEditingMedicineQuantities({
+                                                ...editingMedicineQuantities,
+                                                [m.id]: {
+                                                  quantity: Math.max(1, quantity || 1),
+                                                  stockUsedQuantity: Math.max(1, stockUsedQuantity || 1),
+                                                },
+                                              });
+                                            } else {
+                                              setEditingMedicineQuantities({
+                                                ...editingMedicineQuantities,
+                                                [m.id]: { quantity: 0, stockUsedQuantity: 0 },
+                                              });
+                                            }
                                           }}
-                                          className="w-16 border-x border-gray-300 px-2 py-1 text-center text-sm"
+                                          className="h-4 w-4 text-purple-600 border-gray-300 rounded"
                                         />
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setEditingMedicineQuantities({
-                                              ...editingMedicineQuantities,
-                                              [m.id]: {
-                                                quantity: Math.max(1, quantity + 1),
-                                                stockUsedQuantity,
-                                              },
-                                            })
-                                          }
-                                          className="px-2 py-1 text-gray-700 hover:bg-gray-100"
-                                        >
-                                          +
-                                        </button>
+                                        <div>
+                                          <div className="text-sm font-medium text-gray-900">{m.name}</div>
+                                          <div className="text-xs text-gray-600">{m.description}</div>
+                                        </div>
                                       </div>
-                                      <div className="flex items-center rounded-md border border-amber-300 bg-amber-50">
-                                        <span className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                                          Stock
-                                        </span>
-                                        <input
-                                          type="number"
-                                          min={0}
-                                          step={1}
-                                          value={stockUsedQuantity}
-                                          onChange={(e) => {
-                                            const next =
-                                              e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
-                                            setEditingMedicineQuantities({
-                                              ...editingMedicineQuantities,
-                                              [m.id]: { quantity, stockUsedQuantity: next },
-                                            });
-                                          }}
-                                          className="w-16 border-l border-amber-300 bg-white px-2 py-1 text-center text-sm"
-                                        />
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex items-center rounded-md border border-gray-300 bg-white">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setEditingMedicineQuantities({
+                                                ...editingMedicineQuantities,
+                                                [m.id]: {
+                                                  quantity: Math.max(0, quantity - 1),
+                                                  stockUsedQuantity,
+                                                },
+                                              })
+                                            }
+                                            className="px-2 py-1 text-gray-700 hover:bg-gray-100"
+                                          >
+                                            −
+                                          </button>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            step={1}
+                                            value={quantity}
+                                            onChange={(e) => {
+                                              const next = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                                              setEditingMedicineQuantities({
+                                                ...editingMedicineQuantities,
+                                                [m.id]: { quantity: next, stockUsedQuantity },
+                                              });
+                                            }}
+                                            className="w-16 border-x border-gray-300 px-2 py-1 text-center text-sm"
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setEditingMedicineQuantities({
+                                                ...editingMedicineQuantities,
+                                                [m.id]: {
+                                                  quantity: Math.max(1, quantity + 1),
+                                                  stockUsedQuantity,
+                                                },
+                                              })
+                                            }
+                                            className="px-2 py-1 text-gray-700 hover:bg-gray-100"
+                                          >
+                                            +
+                                          </button>
+                                        </div>
+                                        <div className="flex items-center rounded-md border border-amber-300 bg-amber-50">
+                                          <span className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                                            Stock
+                                          </span>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            step={1}
+                                            value={stockUsedQuantity}
+                                            onChange={(e) => {
+                                              const next =
+                                                e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                                              setEditingMedicineQuantities({
+                                                ...editingMedicineQuantities,
+                                                [m.id]: { quantity, stockUsedQuantity: next },
+                                              });
+                                            }}
+                                            className="w-16 border-l border-amber-300 bg-white px-2 py-1 text-center text-sm"
+                                          />
+                                        </div>
+                                        {canSeeTreatmentFees(treatment) ? (
+                                          <span className="text-sm font-semibold text-gray-700">${(m.price * quantity).toFixed(2)}</span>
+                                        ) : null}
                                       </div>
-                                      {canSeeTreatmentFees(treatment) ? (
-                                        <span className="text-sm font-semibold text-gray-700">${(m.price * quantity).toFixed(2)}</span>
-                                      ) : null}
-                                    </div>
-                                  </label>
-                                );
-                              })}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setShowAddMediaForTreatment(treatment.id)}
+                                className="mt-3 flex items-center justify-center space-x-1 px-3 py-1.5 border border-[#0066A6] bg-white text-[#0066A6] rounded-md hover:bg-[#f0f7fc] transition-colors"
+                              >
+                                <Plus className="w-4 h-4" />
+                                <span>Add Media</span>
+                              </button>
                             </div>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes</h4>
-                            <textarea
-                              rows={3}
-                              value={editingFields.description}
-                              onChange={(e) => setEditingFields({ ...editingFields, description: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
-                              placeholder="Enter notes"
-                            />
+                            <div className="mt-4">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes</h4>
+                              <textarea
+                                rows={3}
+                                value={editingFields.description}
+                                onChange={(e) => setEditingFields({ ...editingFields, description: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                                placeholder="Enter notes"
+                              />
+                            </div>
                           </div>
                         </div>
                         <div className="mt-6 border-t border-[#cce0f0] pt-4">
