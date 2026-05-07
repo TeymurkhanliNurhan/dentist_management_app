@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash, ChevronDown } from 'lucide-react';
 import ClinicManagementLayout from './ClinicManagementLayout';
 import { API_BASE_URL, appointmentService, dentistService, randevueService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
-import type { Appointment, Randevue, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, CreateMedicineDto, Media, TreatmentPricePer, DentistProfile } from '../services/api';
+import type { Appointment, Randevue, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, Media, TreatmentPricePer, DentistProfile } from '../services/api';
 
 function combineLocalDateAndTime(dateYmd: string, timeHm: string): Date {
   const [y, m, d] = dateYmd.split('-').map(Number);
@@ -363,6 +363,15 @@ type AppointmentLocationState = {
 type TreatmentTimeFilter = 'current' | 'past' | 'all';
 type TreatmentOwnershipFilter = 'mine' | 'all';
 type MedicineUsageInput = { quantity: number; stockUsedQuantity: number };
+type TreatmentDraft = {
+  selectedTreatmentIds: number[];
+  tooth_ids: number[];
+  description: string;
+  selectedMedicineQuantities: Record<number, MedicineUsageInput>;
+  randevueId: number | '';
+  toothSelectionMode: TeethSelectionMode;
+  pendingMedia: { key: string; name: string; description: string; file: File }[];
+};
 
 const resolveInternalReturnPath = (candidate: unknown): string | undefined => {
   if (typeof candidate !== 'string') return undefined;
@@ -372,6 +381,16 @@ const resolveInternalReturnPath = (candidate: unknown): string | undefined => {
 };
 
 const AppointmentDetail = () => {
+  const createEmptyTreatmentDraft = (): TreatmentDraft => ({
+    selectedTreatmentIds: [],
+    tooth_ids: [],
+    description: '',
+    selectedMedicineQuantities: {},
+    randevueId: '',
+    toothSelectionMode: 'multiple',
+    pendingMedia: [],
+  });
+
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -479,6 +498,8 @@ const AppointmentDetail = () => {
   const [confirmDeleteTreatmentId, setConfirmDeleteTreatmentId] = useState<number | null>(null);
   const [toothSelectionMode, setToothSelectionMode] = useState<TeethSelectionMode>('multiple');
   const [selectedTreatmentIds, setSelectedTreatmentIds] = useState<number[]>([]);
+  const [treatmentDrafts, setTreatmentDrafts] = useState<TreatmentDraft[]>([]);
+  const [activeTreatmentDraftIndex, setActiveTreatmentDraftIndex] = useState(0);
   const [showAddTreatmentInModal, setShowAddTreatmentInModal] = useState(false);
   const [newTreatmentForm, setNewTreatmentForm] = useState<CreateTreatmentDto>({
     name: '',
@@ -488,10 +509,6 @@ const AppointmentDetail = () => {
   });
   const [isSubmittingTreatment, setIsSubmittingTreatment] = useState(false);
   const [treatmentError, setTreatmentError] = useState<string>('');
-  const [showAddMedicineInModal, setShowAddMedicineInModal] = useState(false);
-  const [newMedicineForm, setNewMedicineForm] = useState<CreateMedicineDto>({ name: '', description: '', price: 0 });
-  const [isSubmittingMedicine, setIsSubmittingMedicine] = useState(false);
-  const [medicineError, setMedicineError] = useState<string>('');
   const [showAddMediaForTreatment, setShowAddMediaForTreatment] = useState<number | null>(null);
   const [newMediaForm, setNewMediaForm] = useState<{ name: string; description: string; file: File | null }>({
     name: '',
@@ -519,6 +536,51 @@ const AppointmentDetail = () => {
   const [previewMedia, setPreviewMedia] = useState<Media | null>(null);
   const [treatmentTimeFilter, setTreatmentTimeFilter] = useState<TreatmentTimeFilter>('current');
   const [treatmentOwnershipFilter, setTreatmentOwnershipFilter] = useState<TreatmentOwnershipFilter>('mine');
+
+  const hydrateTreatmentDraft = useCallback(
+    (draft: TreatmentDraft) => {
+      setSelectedTreatmentIds(draft.selectedTreatmentIds);
+      setToothSelectionMode(draft.toothSelectionMode);
+      setSelectedMedicineQuantities(draft.selectedMedicineQuantities);
+      setPendingMediaForNewTreatment(draft.pendingMedia);
+      setNewTreatmentRandevueId(draft.randevueId);
+      setNewTreatment((prev) => ({
+        ...prev,
+        tooth_ids: draft.tooth_ids,
+        description: draft.description,
+      }));
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!showAddTreatment || treatmentDrafts.length === 0) return;
+    setTreatmentDrafts((prev) => {
+      if (!prev[activeTreatmentDraftIndex]) return prev;
+      const next = [...prev];
+      next[activeTreatmentDraftIndex] = {
+        selectedTreatmentIds,
+        tooth_ids: newTreatment.tooth_ids,
+        description: newTreatment.description ?? '',
+        selectedMedicineQuantities,
+        randevueId: newTreatmentRandevueId,
+        toothSelectionMode,
+        pendingMedia: pendingMediaForNewTreatment,
+      };
+      return next;
+    });
+  }, [
+    activeTreatmentDraftIndex,
+    newTreatment.description,
+    newTreatment.tooth_ids,
+    newTreatmentRandevueId,
+    pendingMediaForNewTreatment,
+    selectedMedicineQuantities,
+    selectedTreatmentIds,
+    showAddTreatment,
+    toothSelectionMode,
+    treatmentDrafts.length,
+  ]);
 
   useEffect(() => {
     if (!previewMedia) return;
@@ -1110,15 +1172,16 @@ const AppointmentDetail = () => {
       setSelectedTreatmentIds([]);
       setToothSelectionMode('multiple');
       setSelectedMedicineQuantities({});
-      setShowAddMedicineInModal(false);
-      setNewMedicineForm({ name: '', description: '', price: 0 });
-      setMedicineError('');
       setShowAddMediaForNewTreatment(false);
       setNewTreatmentMediaDraft({ name: '', description: '', file: null });
       setNewTreatmentMediaFileKey((k) => k + 1);
       setPendingMediaForNewTreatment([]);
       setNewTreatmentMediaError('');
       setNewTreatmentRandevueId('');
+      const firstDraft = createEmptyTreatmentDraft();
+      setTreatmentDrafts([firstDraft]);
+      setActiveTreatmentDraftIndex(0);
+      hydrateTreatmentDraft(firstDraft);
     } catch (err: any) {
       console.error('Failed to fetch treatments/teeth:', err);
       setError(err.response?.data?.message || 'Failed to load data');
@@ -1132,13 +1195,20 @@ const AppointmentDetail = () => {
     setIsAddingTreatment(true);
     setError('');
     try {
-      const selectedMedicines = Object.entries(selectedMedicineQuantities)
-        .map(([medicineId, usage]) => ({
-          medicineId: Number(medicineId),
-          quantity: usage.quantity,
-          stockUsedQuantity: usage.stockUsedQuantity,
-        }))
-        .filter(({ quantity }) => quantity > 0);
+      const draftsToSubmit = (treatmentDrafts.length > 0 ? treatmentDrafts : [createEmptyTreatmentDraft()]).map(
+        (draft, index) =>
+          index === activeTreatmentDraftIndex
+            ? {
+                selectedTreatmentIds,
+                tooth_ids: newTreatment.tooth_ids,
+                description: newTreatment.description ?? '',
+                selectedMedicineQuantities,
+                randevueId: newTreatmentRandevueId,
+                toothSelectionMode,
+                pendingMedia: pendingMediaForNewTreatment,
+              }
+            : draft,
+      );
 
       const stockByMedicineId = new Map(
         allMedicines.map((medicine) => [medicine.id, medicine.stock]),
@@ -1153,7 +1223,11 @@ const AppointmentDetail = () => {
         stockByMedicineId.set(medicineId, nextStock);
       };
 
-      const attachMedicinesAndMedia = async (createdId: number | undefined) => {
+      const attachMedicinesAndMedia = async (
+        createdId: number | undefined,
+        selectedMedicines: Array<{ medicineId: number; quantity: number; stockUsedQuantity: number }>,
+        pendingMedia: { key: string; name: string; description: string; file: File }[],
+      ) => {
         if (!createdId) return;
         if (selectedMedicines.length > 0) {
           await Promise.all(
@@ -1167,8 +1241,8 @@ const AppointmentDetail = () => {
             })
           );
         }
-        if (pendingMediaForNewTreatment.length > 0) {
-          for (const item of pendingMediaForNewTreatment) {
+        if (pendingMedia.length > 0) {
+          for (const item of pendingMedia) {
             const formData = new FormData();
             formData.append('name', item.name);
             formData.append('description', item.description);
@@ -1179,28 +1253,39 @@ const AppointmentDetail = () => {
         }
       };
 
-      if (selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0) {
-        setError('Select at least one treatment and at least one tooth.');
+      if (draftsToSubmit.some((draft) => draft.selectedTreatmentIds.length === 0 || draft.tooth_ids.length === 0)) {
+        setError('Each treatment page must include at least one treatment and one tooth.');
         return;
       }
       const createdTreatmentIds: number[] = [];
-      for (const tid of selectedTreatmentIds) {
-        for (const toothId of newTreatment.tooth_ids) {
-          const created = await toothTreatmentService.create({
-            ...newTreatment,
-            treatment_id: tid,
-            tooth_ids: [toothId],
-          });
-          if (created?.id) {
-            createdTreatmentIds.push(created.id);
+      for (const draft of draftsToSubmit) {
+        const selectedMedicines = Object.entries(draft.selectedMedicineQuantities)
+          .map(([medicineId, usage]) => ({
+            medicineId: Number(medicineId),
+            quantity: usage.quantity,
+            stockUsedQuantity: usage.stockUsedQuantity,
+          }))
+          .filter(({ quantity }) => quantity > 0);
+
+        for (const tid of draft.selectedTreatmentIds) {
+          for (const toothId of draft.tooth_ids) {
+            const created = await toothTreatmentService.create({
+              ...newTreatment,
+              treatment_id: tid,
+              tooth_ids: [toothId],
+              description: draft.description,
+            });
+            if (created?.id) {
+              createdTreatmentIds.push(created.id);
+            }
+            await attachMedicinesAndMedia(created?.id, selectedMedicines, draft.pendingMedia);
           }
-          await attachMedicinesAndMedia(created?.id);
         }
-      }
-      if (newTreatmentRandevueId !== '' && createdTreatmentIds.length > 0) {
-        await randevueService.update(Number(newTreatmentRandevueId), {
-          append_tooth_treatment_ids: createdTreatmentIds,
-        });
+        if (draft.randevueId !== '' && createdTreatmentIds.length > 0) {
+          await randevueService.update(Number(draft.randevueId), {
+            append_tooth_treatment_ids: createdTreatmentIds,
+          });
+        }
       }
 
       setShowAddTreatment(false);
@@ -1208,6 +1293,8 @@ const AppointmentDetail = () => {
       setNewTreatmentRandevueId('');
       setSelectedTreatmentIds([]);
       setToothSelectionMode('multiple');
+      setTreatmentDrafts([]);
+      setActiveTreatmentDraftIndex(0);
 
       const treatmentsData = await toothTreatmentService.getAll({ appointment: appointment.id });
       setTreatments(treatmentsData);
@@ -1284,38 +1371,6 @@ const AppointmentDetail = () => {
       setTreatmentError(err.response?.data?.message || 'Failed to create treatment');
     } finally {
       setIsSubmittingTreatment(false);
-    }
-  };
-
-  const handleAddMedicineForm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMedicineError('');
-    setIsSubmittingMedicine(true);
-    try {
-      const createdMedicine = await medicineService.create(newMedicineForm);
-      setShowAddMedicineInModal(false);
-      setNewMedicineForm({ name: '', description: '', price: 0 });
-
-      const updatedMedicines = await medicineService.getAll();
-      setAllMedicines(updatedMedicines);
-
-      const normalizedQuery = medicineQuery.trim().toLowerCase();
-      if (!normalizedQuery) {
-        setAvailableMedicines(updatedMedicines);
-      } else {
-        setAvailableMedicines(updatedMedicines.filter((m) => m.name.toLowerCase().includes(normalizedQuery)));
-      }
-
-      setSelectedMedicineQuantities((prev) => ({
-        ...prev,
-        [createdMedicine.id]: prev[createdMedicine.id] ?? { quantity: 1, stockUsedQuantity: 1 },
-      }));
-      setMedicinePage(1);
-    } catch (err: any) {
-      console.error('Failed to create medicine:', err);
-      setMedicineError(err.response?.data?.message || 'Failed to create medicine');
-    } finally {
-      setIsSubmittingMedicine(false);
     }
   };
 
@@ -1836,6 +1891,47 @@ const AppointmentDetail = () => {
 
           {!isDirector && showAddTreatment && appointment && (
             <div className="mb-8 border border-[#cce0f0] rounded-lg p-6 bg-[#f0f7fc]/40">
+              <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-[#cce0f0] pb-4">
+                {treatmentDrafts.map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => {
+                      const draft = treatmentDrafts[index];
+                      if (!draft) return;
+                      setActiveTreatmentDraftIndex(index);
+                      hydrateTreatmentDraft(draft);
+                      setShowAddMediaForNewTreatment(false);
+                      setNewTreatmentMediaError('');
+                    }}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      index === activeTreatmentDraftIndex
+                        ? 'bg-[#0066A6] text-white'
+                        : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Treatment {index + 1}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextDraft = createEmptyTreatmentDraft();
+                    setTreatmentDrafts((prev) => [...prev, nextDraft]);
+                    const nextIndex = treatmentDrafts.length;
+                    setActiveTreatmentDraftIndex(nextIndex);
+                    hydrateTreatmentDraft(nextDraft);
+                    setShowAddMediaForNewTreatment(false);
+                    setNewTreatmentMediaDraft({ name: '', description: '', file: null });
+                    setNewTreatmentMediaFileKey((k) => k + 1);
+                    setNewTreatmentMediaError('');
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md border border-[#0066A6] bg-white px-3 py-1.5 text-sm font-medium text-[#0066A6] transition-colors hover:bg-[#e8f2fa]"
+                >
+                  <Plus className="h-4 w-4" />
+                  + New
+                </button>
+              </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Select treatments</h3>
@@ -2259,83 +2355,6 @@ const AppointmentDetail = () => {
                     />
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowAddMedicineInModal(true)}
-                    className="w-full mb-3 flex items-center justify-center space-x-1 px-4 py-2 bg-purple-50 text-purple-700 text-sm rounded-md font-medium border border-purple-200 hover:bg-purple-100 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>New Medicine</span>
-                  </button>
-
-                  {showAddMedicineInModal && (
-                    <div className="border border-purple-200 rounded-lg p-3 mb-3 bg-purple-50/40">
-                      <h4 className="text-sm font-medium text-gray-900 mb-3">New Medicine</h4>
-                      <div className="space-y-3">
-                        <div>
-                          <label htmlFor="modalNewMedicineName" className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
-                          <input
-                            id="modalNewMedicineName"
-                            type="text"
-                            maxLength={40}
-                            value={newMedicineForm.name}
-                            onChange={(e) => setNewMedicineForm({ ...newMedicineForm, name: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="modalNewMedicineDescription" className="block text-xs font-medium text-gray-700 mb-1">Description *</label>
-                          <textarea
-                            id="modalNewMedicineDescription"
-                            rows={2}
-                            maxLength={300}
-                            value={newMedicineForm.description}
-                            onChange={(e) => setNewMedicineForm({ ...newMedicineForm, description: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="modalNewMedicinePrice" className="block text-xs font-medium text-gray-700 mb-1">Price *</label>
-                          <input
-                            id="modalNewMedicinePrice"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={newMedicineForm.price || ''}
-                            onChange={(e) => setNewMedicineForm({ ...newMedicineForm, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-                        </div>
-
-                        {medicineError && (
-                          <div className="text-xs text-red-600">{medicineError}</div>
-                        )}
-
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={handleAddMedicineForm}
-                            disabled={isSubmittingMedicine || !newMedicineForm.name || !newMedicineForm.description || newMedicineForm.price < 0}
-                            className="flex-1 py-2 bg-purple-600 text-white text-xs rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isSubmittingMedicine ? 'Creating...' : 'Create'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowAddMedicineInModal(false);
-                              setNewMedicineForm({ name: '', description: '', price: 0 });
-                              setMedicineError('');
-                            }}
-                            className="flex-1 py-2 bg-gray-200 text-gray-700 text-xs rounded-lg font-medium hover:bg-gray-300 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
                   <div className="max-h-64 overflow-auto rounded-md border border-gray-200 bg-white">
                     {availableMedicines.length === 0 ? (
                       <div className="p-4 text-sm text-gray-500">No medicines found</div>
@@ -2474,17 +2493,29 @@ const AppointmentDetail = () => {
                       type="button"
                       onClick={handleAddTreatment}
                       disabled={
-                        isAddingTreatment || selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0
+                        isAddingTreatment ||
+                        treatmentDrafts.length === 0 ||
+                        treatmentDrafts.some(
+                          (draft) => draft.selectedTreatmentIds.length === 0 || draft.tooth_ids.length === 0,
+                        )
                       }
                       className="rounded-lg bg-[#0f766e] px-5 py-2 font-semibold text-white transition-colors hover:bg-[#0d5f59] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isAddingTreatment
                         ? 'Adding...'
-                        : selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0
-                          ? 'Add treatments'
-                          : `Add ${selectedTreatmentIds.length * newTreatment.tooth_ids.length} row${
-                              selectedTreatmentIds.length * newTreatment.tooth_ids.length === 1 ? '' : 's'
-                            }`}
+                        : `Add ${
+                            treatmentDrafts.reduce(
+                              (sum, draft) => sum + draft.selectedTreatmentIds.length * draft.tooth_ids.length,
+                              0,
+                            )
+                          } row${
+                            treatmentDrafts.reduce(
+                              (sum, draft) => sum + draft.selectedTreatmentIds.length * draft.tooth_ids.length,
+                              0,
+                            ) === 1
+                              ? ''
+                              : 's'
+                          }`}
                     </button>
                     <button
                       onClick={() => {
@@ -2497,6 +2528,8 @@ const AppointmentDetail = () => {
                         setNewTreatmentMediaError('');
                         setSelectedTreatmentIds([]);
                         setToothSelectionMode('multiple');
+                        setTreatmentDrafts([]);
+                        setActiveTreatmentDraftIndex(0);
                       }}
                       className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
                     >
