@@ -2058,14 +2058,6 @@ const AppointmentDetail = () => {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Select Medicines (optional)</h3>
-                  <p className="mb-3 text-xs text-gray-600">
-                    Use the first number for treatment details/calculation, and the Stock field for inventory deduction.
-                  </p>
-                  <p className="text-xs text-gray-600 mb-2">
-                    Description, medicines, and media are applied to each new tooth–treatment row created in this step.
-                  </p>
-
                   <div className="mb-3">
                     <label htmlFor="inlineDescription" className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
                     <textarea
@@ -2096,6 +2088,157 @@ const AppointmentDetail = () => {
                       ))}
                     </select>
                   </div>
+
+                  <div className="mt-4">
+                    <div className="flex flex-wrap items-center gap-3 mb-3">
+                      <h3 className="text-lg font-semibold text-gray-900">Media (optional)</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddMediaForNewTreatment((v) => !v);
+                          setNewTreatmentMediaError('');
+                        }}
+                        className="flex items-center space-x-1 px-3 py-1.5 bg-[#0066A6] text-white text-sm rounded-md hover:bg-[#00588f] transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>{showAddMediaForNewTreatment ? 'Hide' : 'Add Media'}</span>
+                      </button>
+                    </div>
+                    {pendingMediaForNewTreatment.length > 0 && (
+                      <ul className="mb-4 space-y-2 rounded-md border border-[#cce0f0] bg-[#f0f7fc]/40 p-3">
+                        {pendingMediaForNewTreatment.map((item) => (
+                          <li
+                            key={item.key}
+                            className="flex items-center justify-between gap-2 text-sm text-gray-800 border-b border-[#e8f2fa] pb-2 last:border-0 last:pb-0"
+                          >
+                            <span className="truncate font-medium" title={item.name}>
+                              {item.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPendingMediaForNewTreatment((prev) => prev.filter((p) => p.key !== item.key))
+                              }
+                              className="flex-shrink-0 text-red-600 hover:text-red-800 text-xs font-medium"
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {showAddMediaForNewTreatment && (
+                      <div className="rounded-md border border-[#cce0f0] p-4 bg-[#f0f7fc]/40">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Add Media</h4>
+                        <div className="space-y-3">
+                          <div>
+                            <label htmlFor="newTreatmentMediaName" className="block text-xs font-medium text-gray-700 mb-1">
+                              Name *
+                            </label>
+                            <input
+                              id="newTreatmentMediaName"
+                              type="text"
+                              maxLength={100}
+                              value={newTreatmentMediaDraft.name}
+                              onChange={(e) =>
+                                setNewTreatmentMediaDraft({ ...newTreatmentMediaDraft, name: e.target.value })
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                              placeholder="Enter media name"
+                            />
+                          </div>
+                          <div>
+                            <label
+                              htmlFor="newTreatmentMediaDescription"
+                              className="block text-xs font-medium text-gray-700 mb-1"
+                            >
+                              Description (optional)
+                            </label>
+                            <textarea
+                              id="newTreatmentMediaDescription"
+                              rows={2}
+                              maxLength={300}
+                              value={newTreatmentMediaDraft.description}
+                              onChange={(e) =>
+                                setNewTreatmentMediaDraft({ ...newTreatmentMediaDraft, description: e.target.value })
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                              placeholder="Enter description"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="newTreatmentMediaFile" className="block text-xs font-medium text-gray-700 mb-1">
+                              File *
+                            </label>
+                            <input
+                              key={newTreatmentMediaFileKey}
+                              id="newTreatmentMediaFile"
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) =>
+                                setNewTreatmentMediaDraft({
+                                  ...newTreatmentMediaDraft,
+                                  file: e.target.files?.[0] || null,
+                                })
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                            />
+                          </div>
+                          {newTreatmentMediaError && (
+                            <div className="text-xs text-red-600">{newTreatmentMediaError}</div>
+                          )}
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const file = newTreatmentMediaDraft.file;
+                                if (!newTreatmentMediaDraft.name || !file) {
+                                  setNewTreatmentMediaError('Name and file are required');
+                                  return;
+                                }
+                                setNewTreatmentMediaError('');
+                                setPendingMediaForNewTreatment((prev) => [
+                                  ...prev,
+                                  {
+                                    key: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                                    name: newTreatmentMediaDraft.name,
+                                    description: newTreatmentMediaDraft.description,
+                                    file,
+                                  },
+                                ]);
+                                setNewTreatmentMediaDraft({ name: '', description: '', file: null });
+                                setNewTreatmentMediaFileKey((k) => k + 1);
+                              }}
+                              className="flex-1 py-2 bg-[#0066A6] text-white text-xs rounded-lg font-medium hover:bg-[#00588f] transition-colors"
+                            >
+                              Add to list
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewTreatmentMediaDraft({ name: '', description: '', file: null });
+                                setNewTreatmentMediaFileKey((k) => k + 1);
+                                setNewTreatmentMediaError('');
+                              }}
+                              className="flex-1 py-2 bg-gray-200 text-gray-700 text-xs rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Select Medicines (optional)</h3>
+                  <p className="mb-3 text-xs text-gray-600">
+                    Use the first number for treatment details/calculation, and the Stock field for inventory deduction.
+                  </p>
+                  <p className="text-xs text-gray-600 mb-2">
+                    Description, medicines, and media are applied to each new tooth–treatment row created in this step.
+                  </p>
 
                   <div className="mb-3">
                     <input
@@ -2325,183 +2468,42 @@ const AppointmentDetail = () => {
                       </div>
                     </div>
                   )}
-                </div>
-              </div>
 
-              <div className="mt-6 border-t border-[#cce0f0] pt-6">
-                <div className="flex flex-wrap items-center gap-3 mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900">Media (optional)</h3>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAddMediaForNewTreatment((v) => !v);
-                      setNewTreatmentMediaError('');
-                    }}
-                    className="flex items-center space-x-1 px-3 py-1.5 bg-[#0066A6] text-white text-sm rounded-md hover:bg-[#00588f] transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>{showAddMediaForNewTreatment ? 'Hide' : 'Add Media'}</span>
-                  </button>
-                </div>
-                {pendingMediaForNewTreatment.length > 0 && (
-                  <ul className="mb-4 space-y-2 rounded-md border border-[#cce0f0] bg-[#f0f7fc]/40 p-3">
-                    {pendingMediaForNewTreatment.map((item) => (
-                      <li
-                        key={item.key}
-                        className="flex items-center justify-between gap-2 text-sm text-gray-800 border-b border-[#e8f2fa] pb-2 last:border-0 last:pb-0"
-                      >
-                        <span className="truncate font-medium" title={item.name}>
-                          {item.name}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPendingMediaForNewTreatment((prev) => prev.filter((p) => p.key !== item.key))
-                          }
-                          className="flex-shrink-0 text-red-600 hover:text-red-800 text-xs font-medium"
-                        >
-                          Remove
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {showAddMediaForNewTreatment && (
-                  <div className="rounded-md border border-[#cce0f0] p-4 bg-[#f0f7fc]/40">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Add Media</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label htmlFor="newTreatmentMediaName" className="block text-xs font-medium text-gray-700 mb-1">
-                          Name *
-                        </label>
-                        <input
-                          id="newTreatmentMediaName"
-                          type="text"
-                          maxLength={100}
-                          value={newTreatmentMediaDraft.name}
-                          onChange={(e) =>
-                            setNewTreatmentMediaDraft({ ...newTreatmentMediaDraft, name: e.target.value })
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
-                          placeholder="Enter media name"
-                        />
-                      </div>
-                      <div>
-                        <label
-                          htmlFor="newTreatmentMediaDescription"
-                          className="block text-xs font-medium text-gray-700 mb-1"
-                        >
-                          Description (optional)
-                        </label>
-                        <textarea
-                          id="newTreatmentMediaDescription"
-                          rows={2}
-                          maxLength={300}
-                          value={newTreatmentMediaDraft.description}
-                          onChange={(e) =>
-                            setNewTreatmentMediaDraft({ ...newTreatmentMediaDraft, description: e.target.value })
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
-                          placeholder="Enter description"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="newTreatmentMediaFile" className="block text-xs font-medium text-gray-700 mb-1">
-                          File *
-                        </label>
-                        <input
-                          key={newTreatmentMediaFileKey}
-                          id="newTreatmentMediaFile"
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) =>
-                            setNewTreatmentMediaDraft({
-                              ...newTreatmentMediaDraft,
-                              file: e.target.files?.[0] || null,
-                            })
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
-                        />
-                      </div>
-                      {newTreatmentMediaError && (
-                        <div className="text-xs text-red-600">{newTreatmentMediaError}</div>
-                      )}
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const file = newTreatmentMediaDraft.file;
-                            if (!newTreatmentMediaDraft.name || !file) {
-                              setNewTreatmentMediaError('Name and file are required');
-                              return;
-                            }
-                            setNewTreatmentMediaError('');
-                            setPendingMediaForNewTreatment((prev) => [
-                              ...prev,
-                              {
-                                key: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                                name: newTreatmentMediaDraft.name,
-                                description: newTreatmentMediaDraft.description,
-                                file,
-                              },
-                            ]);
-                            setNewTreatmentMediaDraft({ name: '', description: '', file: null });
-                            setNewTreatmentMediaFileKey((k) => k + 1);
-                          }}
-                          className="flex-1 py-2 bg-[#0066A6] text-white text-xs rounded-lg font-medium hover:bg-[#00588f] transition-colors"
-                        >
-                          Add to list
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNewTreatmentMediaDraft({ name: '', description: '', file: null });
-                            setNewTreatmentMediaFileKey((k) => k + 1);
-                            setNewTreatmentMediaError('');
-                          }}
-                          className="flex-1 py-2 bg-gray-200 text-gray-700 text-xs rounded-lg font-medium hover:bg-gray-300 transition-colors"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    </div>
+                  <div className="flex justify-end gap-3 mt-4">
+                    <button
+                      type="button"
+                      onClick={handleAddTreatment}
+                      disabled={
+                        isAddingTreatment || selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0
+                      }
+                      className="rounded-lg bg-[#0f766e] px-5 py-2 font-semibold text-white transition-colors hover:bg-[#0d5f59] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isAddingTreatment
+                        ? 'Adding...'
+                        : selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0
+                          ? 'Add treatments'
+                          : `Add ${selectedTreatmentIds.length * newTreatment.tooth_ids.length} row${
+                              selectedTreatmentIds.length * newTreatment.tooth_ids.length === 1 ? '' : 's'
+                            }`}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddTreatment(false);
+                        setNewTreatmentRandevueId('');
+                        setShowAddMediaForNewTreatment(false);
+                        setNewTreatmentMediaDraft({ name: '', description: '', file: null });
+                        setNewTreatmentMediaFileKey((k) => k + 1);
+                        setPendingMediaForNewTreatment([]);
+                        setNewTreatmentMediaError('');
+                        setSelectedTreatmentIds([]);
+                        setToothSelectionMode('multiple');
+                      }}
+                      className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
                   </div>
-                )}
-              </div>
-
-              <div className="flex gap-3 mt-4">
-                <button
-                  type="button"
-                  onClick={handleAddTreatment}
-                  disabled={
-                    isAddingTreatment || selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0
-                  }
-                  className="rounded-lg bg-[#0f766e] px-5 py-2 font-semibold text-white transition-colors hover:bg-[#0d5f59] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isAddingTreatment
-                    ? 'Adding...'
-                    : selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0
-                      ? 'Add treatments'
-                      : `Add ${selectedTreatmentIds.length * newTreatment.tooth_ids.length} row${
-                          selectedTreatmentIds.length * newTreatment.tooth_ids.length === 1 ? '' : 's'
-                        }`}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowAddTreatment(false);
-                    setNewTreatmentRandevueId('');
-                    setShowAddMediaForNewTreatment(false);
-                    setNewTreatmentMediaDraft({ name: '', description: '', file: null });
-                    setNewTreatmentMediaFileKey((k) => k + 1);
-                    setPendingMediaForNewTreatment([]);
-                    setNewTreatmentMediaError('');
-                    setSelectedTreatmentIds([]);
-                    setToothSelectionMode('multiple');
-                  }}
-                  className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
-                >
-                  Cancel
-                </button>
+                </div>
               </div>
             </div>
           )}
