@@ -538,6 +538,8 @@ const Dashboard = () => {
           paymentDetailsResponse,
           randevuesResponse,
           staffResponse,
+          dentistsResponse,
+          nursesResponse,
           workingHoursResponse,
           blockingHoursResponse,
           roomsResponse,
@@ -550,6 +552,8 @@ const Dashboard = () => {
           api.get('/payment-details', { params: { dateFrom: monYmd, dateTo: sunYmd } }),
           api.get('/randevue', { params: { from: dayStart.toISOString(), to: dayEnd.toISOString() } }),
           api.get('/staff', { params: { active: true } }),
+          api.get('/dentist'),
+          api.get('/nurse'),
           api.get('/working-hours'),
           api.get('/blocking-hours'),
           api.get('/room'),
@@ -580,6 +584,8 @@ const Dashboard = () => {
         );
         const randevues = Array.isArray(randevuesResponse.data) ? randevuesResponse.data : [];
         const staffRows = Array.isArray(staffResponse.data) ? staffResponse.data : [];
+        const dentists = Array.isArray(dentistsResponse.data) ? dentistsResponse.data : [];
+        const nurses = Array.isArray(nursesResponse.data) ? nursesResponse.data : [];
         const workingHours = Array.isArray(workingHoursResponse.data) ? workingHoursResponse.data : [];
         const blockingHours = Array.isArray(blockingHoursResponse.data) ? blockingHoursResponse.data : [];
         const rooms = Array.isArray(roomsResponse.data) ? roomsResponse.data : [];
@@ -608,6 +614,22 @@ const Dashboard = () => {
         );
 
         const activeByStaffId = new Map<number, { roomDescription?: string }>();
+        const dentistStaffIdByDentistId = new Map<number, number>();
+        dentists.forEach((dentist: { id?: number; staffId?: number; staff?: { id?: number } }) => {
+          const dentistId = dentist.id;
+          const staffId = dentist.staff?.id ?? dentist.staffId;
+          if (typeof dentistId === 'number' && typeof staffId === 'number') {
+            dentistStaffIdByDentistId.set(dentistId, staffId);
+          }
+        });
+        const nurseStaffIdByNurseId = new Map<number, number>();
+        nurses.forEach((nurse: { id?: number; staffId?: number; staff?: { id?: number } }) => {
+          const nurseId = nurse.id;
+          const staffId = nurse.staff?.id ?? nurse.staffId;
+          if (typeof nurseId === 'number' && typeof staffId === 'number') {
+            nurseStaffIdByNurseId.set(nurseId, staffId);
+          }
+        });
         activeRandevuesNow.forEach(
           (r: {
             dentist?: { id?: number };
@@ -615,10 +637,12 @@ const Dashboard = () => {
             room?: { description?: string };
           }) => {
             if (typeof r?.dentist?.id === 'number') {
-              activeByStaffId.set(r.dentist.id, { roomDescription: r.room?.description });
+              const staffId = dentistStaffIdByDentistId.get(r.dentist.id) ?? r.dentist.id;
+              activeByStaffId.set(staffId, { roomDescription: r.room?.description });
             }
             if (typeof r?.nurse?.id === 'number') {
-              activeByStaffId.set(r.nurse.id, { roomDescription: r.room?.description });
+              const staffId = nurseStaffIdByNurseId.get(r.nurse.id) ?? r.nurse.id;
+              activeByStaffId.set(staffId, { roomDescription: r.room?.description });
             }
           },
         );
