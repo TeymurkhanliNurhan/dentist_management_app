@@ -542,7 +542,7 @@ const Schedule = () => {
     const run = async () => {
       const dentistWeekly = useClinicScheduleUi && isDentistUser && viewMode === 'weekly';
       const dentistDailyMine = useClinicScheduleUi && isDentistUser && viewMode === 'dailyMine';
-      const directorDailyDentists = useClinicScheduleUi && isDirector && viewMode === 'dailyDentists';
+      const directorDailyDentists = useClinicScheduleUi && isDirectorOrReception && viewMode === 'dailyDentists';
 
       if (!dentistWeekly && !dentistDailyMine && !directorDailyDentists) {
         setDailyScheduleWorkingHours([]);
@@ -580,7 +580,7 @@ const Schedule = () => {
     return () => {
       cancelled = true;
     };
-  }, [dayAnchor, isDirector, isDentistUser, useClinicScheduleUi, viewMode]);
+  }, [dayAnchor, isDentistUser, isDirectorOrReception, useClinicScheduleUi, viewMode]);
 
   useEffect(() => {
     const fetchDirectorStaff = async () => {

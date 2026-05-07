@@ -347,6 +347,9 @@ const Dashboard = () => {
   const [awaitingBlockingCount, setAwaitingBlockingCount] = useState(0);
   const [metrics, setMetrics] = useState<DirectorMetrics | null>(null);
   const [loadingMetrics, setLoadingMetrics] = useState(false);
+  const [requestActionBusyId, setRequestActionBusyId] = useState<number | null>(null);
+  const [requestActionError, setRequestActionError] = useState<string | null>(null);
+  const [directorMetricsRefreshToken, setDirectorMetricsRefreshToken] = useState(0);
   const [activeDetailsPanel, setActiveDetailsPanel] = useState<
     'income' | 'outcome' | 'appointments' | 'requests' | null
   >(null);
@@ -887,7 +890,25 @@ const Dashboard = () => {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [isDirectorOrReception]);
+  }, [directorMetricsRefreshToken, isDirectorOrReception]);
+
+  const handleBlockingRequestAction = async (id: number, action: 'approve' | 'reject') => {
+    if (!isDirectorOrReception) return;
+    setRequestActionError(null);
+    setRequestActionBusyId(id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/blocking-hours/${id}/${action}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+      });
+      if (!res.ok) throw new Error(`blocking ${action}`);
+      setDirectorMetricsRefreshToken((x) => x + 1);
+    } catch {
+      setRequestActionError('Failed to update blocking request. Please try again.');
+    } finally {
+      setRequestActionBusyId(null);
+    }
+  };
 
   const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
 
@@ -1065,8 +1086,29 @@ const Dashboard = () => {
                           <span className="text-xs font-semibold uppercase tracking-wide text-rose-700">
                             {row.requestName || 'request'}
                           </span>
+                          <div className="ml-3 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void handleBlockingRequestAction(row.id, 'approve')}
+                              disabled={requestActionBusyId === row.id}
+                              className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleBlockingRequestAction(row.id, 'reject')}
+                              disabled={requestActionBusyId === row.id}
+                              className="rounded border border-rose-300 bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              Reject
+                            </button>
+                          </div>
                         </div>
                       ))}
+                    {activeDetailsPanel === 'requests' && requestActionError && (
+                      <p className="text-sm text-rose-600">{requestActionError}</p>
+                    )}
                   </div>
                 </section>
               )}
