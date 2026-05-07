@@ -50,8 +50,6 @@ const PatientDetail = () => {
   const [patientTreatments, setPatientTreatments] = useState<ToothTreatment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [appointmentsError, setAppointmentsError] = useState<string | null>(null);
-  const [paymentAmountByAppointment, setPaymentAmountByAppointment] = useState<Record<number, string>>({});
-  const [paymentSubmittingByAppointment, setPaymentSubmittingByAppointment] = useState<Record<number, boolean>>({});
 
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
@@ -293,58 +291,6 @@ const PatientDetail = () => {
     const fee = a.chargedFee ?? a.calculatedFee;
     if (fee == null) return '—';
     return `$${Number(fee).toFixed(2)}`;
-  };
-
-  const getAppointmentDebt = (a: Appointment) => {
-    const calculated = Number(a.calculatedFee ?? 0);
-    const charged = Number(a.chargedFee ?? 0);
-    return Math.max(0, calculated - charged);
-  };
-
-  const formatMoney = (value: number) => `$${Number(value || 0).toFixed(2)}`;
-
-  const handlePaymentAmountChange = (appointmentId: number, value: string) => {
-    if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
-      setPaymentAmountByAppointment((prev) => ({ ...prev, [appointmentId]: value }));
-    }
-  };
-
-  const handleApplyPayment = async (appointmentId: number) => {
-    const target = patientAppointments.find((a) => a.id === appointmentId);
-    if (!target) return;
-
-    const debt = getAppointmentDebt(target);
-    if (debt <= 0) return;
-
-    const rawInput = paymentAmountByAppointment[appointmentId] ?? '';
-    const paymentValue = Number(rawInput);
-    if (!Number.isFinite(paymentValue) || paymentValue <= 0) {
-      setAppointmentsError('Enter a valid payment amount greater than 0.');
-      return;
-    }
-
-    const effectivePayment = Math.min(paymentValue, debt);
-    const currentCharged = Number(target.chargedFee ?? 0);
-    const nextCharged = Number((currentCharged + effectivePayment).toFixed(2));
-
-    setPaymentSubmittingByAppointment((prev) => ({ ...prev, [appointmentId]: true }));
-    setAppointmentsError(null);
-    try {
-      await appointmentService.update(appointmentId, { chargedFee: nextCharged });
-      setPatientAppointments((prev) =>
-        prev.map((appt) => (appt.id === appointmentId ? { ...appt, chargedFee: nextCharged } : appt)),
-      );
-      setPaymentAmountByAppointment((prev) => ({ ...prev, [appointmentId]: '' }));
-    } catch (err: unknown) {
-      console.error('Failed to apply appointment payment:', err);
-      const message =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      setAppointmentsError(message || 'Failed to apply payment for this appointment.');
-    } finally {
-      setPaymentSubmittingByAppointment((prev) => ({ ...prev, [appointmentId]: false }));
-    }
   };
 
   const formatToothList = (tt: ToothTreatment) => {
@@ -765,45 +711,7 @@ const PatientDetail = () => {
                                 <span className="font-medium text-slate-900">{formatChargedPrice(appt)}</span>
                               </div>
                             ) : null}
-                            {!isDentist ? (
-                              <div>
-                                <span className="mr-1 text-slate-500">Debt:</span>
-                                <span
-                                  className={`font-medium ${
-                                    getAppointmentDebt(appt) > 0 ? 'text-red-600' : 'text-emerald-600'
-                                  }`}
-                                >
-                                  {formatMoney(getAppointmentDebt(appt))}
-                                </span>
-                              </div>
-                            ) : null}
                           </div>
-                          {!isDentist ? (
-                            <div
-                              className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3"
-                              onClick={(e) => e.preventDefault()}
-                            >
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={paymentAmountByAppointment[appt.id] ?? ''}
-                                onChange={(e) => handlePaymentAmountChange(appt.id, e.target.value)}
-                                placeholder="Enter payment"
-                                className="w-36 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
-                              />
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  void handleApplyPayment(appt.id);
-                                }}
-                                disabled={paymentSubmittingByAppointment[appt.id] || getAppointmentDebt(appt) <= 0}
-                                className="rounded-md bg-[#0066A6] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#00588f] disabled:cursor-not-allowed disabled:bg-slate-300"
-                              >
-                                {paymentSubmittingByAppointment[appt.id] ? 'Applying...' : 'Apply Payment'}
-                              </button>
-                            </div>
-                          ) : null}
                           {treatments.length > 0 && (
                             <div className="mt-3 border-t border-slate-200 pt-3">
                               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
