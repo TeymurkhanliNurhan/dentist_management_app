@@ -464,6 +464,7 @@ const AppointmentDetail = () => {
   const [newRandevueDayRandevues, setNewRandevueDayRandevues] = useState<Array<{ id: number; date: string; endTime: string; dentist?: { id: number } | null; nurse?: { id: number } | null; room?: { id: number } | null }>>([]);
   const [appointmentRandevues, setAppointmentRandevues] = useState<Randevue[]>([]);
   const [selectedRandevueByTreatment, setSelectedRandevueByTreatment] = useState<Record<number, number>>({});
+  const [showRandevuesByTreatment, setShowRandevuesByTreatment] = useState<Record<number, boolean>>({});
   const [linkingTreatmentId, setLinkingTreatmentId] = useState<number | null>(null);
   const [unlinkingRandevueKey, setUnlinkingRandevueKey] = useState<string | null>(null);
   const [linkTreatmentError, setLinkTreatmentError] = useState('');
@@ -1404,9 +1405,16 @@ const AppointmentDetail = () => {
       const meds = await toothTreatmentMedicineService.getAll({ tooth_treatment: tt.id });
       setEditingMedicineQuantities(
         meds.reduce<Record<number, MedicineUsageInput>>((acc, med) => {
+          const medWithStock = med as ToothTreatmentMedicine & {
+            stockUsedQuantity?: number;
+            stock_used_quantity?: number;
+          };
           acc[med.medicine.id] = {
             quantity: med.quantity,
-            stockUsedQuantity: med.quantity,
+            stockUsedQuantity:
+              medWithStock.stockUsedQuantity ??
+              medWithStock.stock_used_quantity ??
+              med.quantity,
           };
           return acc;
         }, {})
@@ -1433,10 +1441,17 @@ const AppointmentDetail = () => {
         description: editingFields.description || null,
       });
       const currentMeds = await toothTreatmentMedicineService.getAll({ tooth_treatment: tt.id });
+      const getStockUsedQuantity = (med: ToothTreatmentMedicine): number => {
+        const medWithStock = med as ToothTreatmentMedicine & {
+          stockUsedQuantity?: number;
+          stock_used_quantity?: number;
+        };
+        return medWithStock.stockUsedQuantity ?? medWithStock.stock_used_quantity ?? med.quantity;
+      };
       const currentMap = new Map(
         currentMeds.map((m) => [
           m.medicine.id,
-          { quantity: m.quantity, stockUsedQuantity: m.quantity },
+          { quantity: m.quantity, stockUsedQuantity: getStockUsedQuantity(m) },
         ]),
       );
       const desiredEntries = Object.entries(editingMedicineQuantities)
@@ -2580,8 +2595,12 @@ const AppointmentDetail = () => {
                 </div>
               )}
               {visibleTreatments.map((treatment) => {
+                const isEditingTreatment = editingTreatmentId === treatment.id;
                 const toothInfos = treatment.toothTreatmentTeeth.map(ttt => teethInfo.get(ttt.toothId)).filter(Boolean);
                 const medicines = treatmentMedicines.get(treatment.id) || [];
+                const linkedRandevues = treatment.linkedRandevues ?? [];
+                const hasLinkedRandevues = linkedRandevues.length > 0;
+                const isRandevuesExpanded = showRandevuesByTreatment[treatment.id] ?? false;
                 return (
                   <div 
                     key={treatment.id} 
@@ -2608,9 +2627,11 @@ const AppointmentDetail = () => {
                               You can view this treatment. Only the performing dentist can edit it, add media, or delete it.
                             </p>
                           ) : null}
-                          <p className="text-sm text-gray-600 mb-3">
-                            {treatment.treatment.description}
-                          </p>
+                          {!isEditingTreatment && (
+                            <>
+                              <p className="text-sm text-gray-600 mb-3">
+                                {treatment.treatment.description}
+                              </p>
 
                           {toothInfos.length > 0 && (
                             <div className="mb-3 p-3 bg-[#f0f7fc] rounded-md">
@@ -2674,23 +2695,34 @@ const AppointmentDetail = () => {
                             </div>
                           )}
 
-                          <div className="mb-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-                            <p className="mb-2 text-sm font-medium text-slate-900">Randevues</p>
-                            {(treatment.linkedRandevues?.length ?? 0) === 0 ? (
-                              <p className="text-sm text-gray-500">None linked.</p>
-                            ) : (
-                              <ul className="space-y-1.5">
-                                {(treatment.linkedRandevues ?? []).map((rv) => (
-                                  <li key={rv.id} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
-                                    <p className="font-medium">{formatRandevueDateTimeRange(rv)}</p>
-                                    <p className="text-xs text-slate-600">
-                                      Room: {formatRoomLabel(rv.room)} | Nurse: {formatStaffName(rv.nurse)} | Dentist: {formatStaffName(rv.dentist)}
-                                    </p>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
+                          {hasLinkedRandevues ? (
+                            <div className="mb-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShowRandevuesByTreatment((prev) => ({
+                                    ...prev,
+                                    [treatment.id]: !isRandevuesExpanded,
+                                  }))
+                                }
+                                className="rounded-md border border-[#0066A6] bg-white px-3 py-1.5 text-sm font-medium text-[#0066A6] hover:bg-[#f0f7fc]"
+                              >
+                                {isRandevuesExpanded ? 'Hide randevues' : 'See randevues'}
+                              </button>
+                              {isRandevuesExpanded ? (
+                                <ul className="mt-3 space-y-1.5">
+                                  {linkedRandevues.map((rv) => (
+                                    <li key={rv.id} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
+                                      <p className="font-medium">{formatRandevueDateTimeRange(rv)}</p>
+                                      <p className="text-xs text-slate-600">
+                                        Room: {formatRoomLabel(rv.room)} | Nurse: {formatStaffName(rv.nurse)} | Dentist: {formatStaffName(rv.dentist)}
+                                      </p>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : null}
+                            </div>
+                          ) : null}
 
                           {(() => {
                             const medias = treatmentMedias.get(treatment.id) || [];
@@ -2831,11 +2863,13 @@ const AppointmentDetail = () => {
                             </div>
                           )}
 
-                          {treatment.description && (
-                            <div className="mt-3 pt-3 border-t border-gray-200">
-                              <p className="text-sm font-medium text-gray-500 mb-1">Notes:</p>
-                              <p className="text-sm text-gray-700">{treatment.description}</p>
-                            </div>
+                              {treatment.description && (
+                                <div className="mt-3 pt-3 border-t border-gray-200">
+                                  <p className="text-sm font-medium text-gray-500 mb-1">Notes:</p>
+                                  <p className="text-sm text-gray-700">{treatment.description}</p>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
