@@ -314,10 +314,8 @@ const Patients = () => {
                     paginatedPortalRows.map((patient) => (
                       <tr
                         key={patient.id}
-                        onClick={isReception ? undefined : () => navigate(`/patients/${patient.id}`)}
-                        className={`text-sm text-slate-700 transition ${
-                          isReception ? '' : 'cursor-pointer hover:bg-slate-50'
-                        }`}
+                        onClick={() => navigate(`/patients/${patient.id}`)}
+                        className="cursor-pointer text-sm text-slate-700 transition hover:bg-slate-50"
                       >
                         <td className="px-4 py-3 font-semibold text-[#0066A6]">{patient.name}</td>
                         <td className="px-4 py-3">{patient.surname}</td>
