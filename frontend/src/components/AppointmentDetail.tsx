@@ -2982,18 +2982,6 @@ const AppointmentDetail = () => {
                                 </button>
                               ))}
                             </div>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Change Tooth</h4>
-                            <TeethSelector
-                              patientTeeth={patientTeeth}
-                              onSelectionChange={(toothIds) => setEditingFields({ ...editingFields, tooth_ids: toothIds })}
-                              selectedToothIds={editingFields.tooth_ids}
-                              selectionMode={toothSelectionMode}
-                              onSelectionModeChange={setToothSelectionMode}
-                            />
-                          </div>
-                          <div>
                             <div className="mt-4">
                               <h4 className="text-sm font-semibold text-gray-900 mb-1">Medicines</h4>
                               <p className="mb-2 text-xs text-gray-600">
@@ -3128,6 +3116,16 @@ const AppointmentDetail = () => {
                                 placeholder="Enter notes"
                               />
                             </div>
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Change Tooth</h4>
+                            <TeethSelector
+                              patientTeeth={patientTeeth}
+                              onSelectionChange={(toothIds) => setEditingFields({ ...editingFields, tooth_ids: toothIds })}
+                              selectedToothIds={editingFields.tooth_ids}
+                              selectionMode={toothSelectionMode}
+                              onSelectionModeChange={setToothSelectionMode}
+                            />
                           </div>
                         </div>
                         <div className="mt-6 border-t border-[#cce0f0] pt-4">
