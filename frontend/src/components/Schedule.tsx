@@ -508,6 +508,14 @@ const Schedule = () => {
   const [detailLoadingTreatments, setDetailLoadingTreatments] = useState(false);
   const [randevueDetailEditMode, setRandevueDetailEditMode] = useState(false);
 
+  const selectedCreateDentistId = useMemo(() => {
+    if (isDentistUser) {
+      const myDid = Number(localStorage.getItem('dentistId'));
+      return Number.isFinite(myDid) && myDid > 0 ? myDid : 0;
+    }
+    return formDentistId > 0 ? formDentistId : 0;
+  }, [formDentistId, isDentistUser]);
+
   type ScheduleHoverTip =
       | { kind: 'randevue'; r: Randevue; clientX: number; clientY: number }
       | { kind: 'blocking'; bh: BlockingHourRow; clientX: number; clientY: number };
@@ -907,8 +915,9 @@ const Schedule = () => {
         if (!cancelled) {
           setOpenAppointments(open);
           setAppointmentChoice((prev) => {
+            if (isReception && prev === 'none') return 'new';
             if (prev === 'none' || prev === 'new') return prev;
-            return open.some((a) => a.id === prev) ? prev : 'none';
+            return open.some((a) => a.id === prev) ? prev : (isReception ? 'new' : 'none');
           });
         }
       } catch {
@@ -920,7 +929,7 @@ const Schedule = () => {
     return () => {
       cancelled = true;
     };
-  }, [patientId]);
+  }, [isReception, patientId]);
 
   useEffect(() => {
     if (detailId == null || !editPatientId) {
@@ -962,7 +971,13 @@ const Schedule = () => {
       }
       setLoadingTreatments(true);
       try {
-        const treatments = await toothTreatmentService.getAll({ appointment: appointmentChoice });
+        const treatmentFilters: { appointment: number; dentist?: number } = {
+          appointment: appointmentChoice,
+        };
+        if (selectedCreateDentistId > 0) {
+          treatmentFilters.dentist = selectedCreateDentistId;
+        }
+        const treatments = await toothTreatmentService.getAll(treatmentFilters);
         if (!cancelled) {
           setAppointmentTreatments(treatments);
           setSelectedTreatmentIds([]);
@@ -976,7 +991,7 @@ const Schedule = () => {
     return () => {
       cancelled = true;
     };
-  }, [appointmentChoice]);
+  }, [appointmentChoice, selectedCreateDentistId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1073,6 +1088,10 @@ const Schedule = () => {
     const end = combineLocalDateAndTime(formDate, formEnd);
     if (end <= start) {
       setSubmitError(t('timeOrderError'));
+      return;
+    }
+    if (isReception && appointmentChoice === 'none') {
+      setSubmitError('Please choose an existing appointment or create a new one.');
       return;
     }
 
@@ -3735,15 +3754,17 @@ const Schedule = () => {
                                       <p className="text-sm text-gray-500 mb-2">{t('noOpenAppointments')}</p>
                                   )}
                                   <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
-                                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                      <input
-                                          type="radio"
-                                          name="appt"
-                                          checked={appointmentChoice === 'none'}
-                                          onChange={() => setAppointmentChoice('none')}
-                                      />
-                                      {t('noneStandalone')}
-                                    </label>
+                                    {!isReception && (
+                                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                          <input
+                                              type="radio"
+                                              name="appt"
+                                              checked={appointmentChoice === 'none'}
+                                              onChange={() => setAppointmentChoice('none')}
+                                          />
+                                          {t('noneStandalone')}
+                                        </label>
+                                    )}
                                     {openAppointments.map((a) => (
                                         <label key={a.id} className="flex items-center gap-2 text-sm cursor-pointer">
                                           <input
@@ -3772,6 +3793,8 @@ const Schedule = () => {
                                         <p className="text-sm font-medium text-gray-700 mb-2">{t('treatments')}</p>
                                         {loadingTreatments ? (
                                             <p className="text-sm text-gray-500">{t('loadingDots')}</p>
+                                        ) : selectedCreateDentistId <= 0 ? (
+                                            <p className="text-sm text-gray-500">{t('selectDoctor')}</p>
                                         ) : appointmentTreatments.length === 0 ? (
                                             <p className="text-sm text-gray-500">{t('noTreatmentsFound')}</p>
                                         ) : (
