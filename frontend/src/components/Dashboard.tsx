@@ -17,7 +17,7 @@ interface StaffSummary {
   surname?: string;
 }
 
-type StaffStatus = 'on-site' | 'in-surgery' | 'off-clock' | 'resting';
+type StaffStatus = 'on-site' | 'in-operation' | 'off-clock' | 'ooo';
 
 interface DirectorMetrics {
   dailyIncome: number;
@@ -674,10 +674,9 @@ const Dashboard = () => {
             if (!inWorkingHours) {
               status = 'off-clock';
             } else if (active) {
-              const isSurgery = (active.roomDescription ?? '').toLowerCase().includes('surgery');
-              status = isSurgery ? 'in-surgery' : 'on-site';
+              status = 'in-operation';
             } else if (blockingByStaffId.has(staff.id)) {
-              status = 'resting';
+              status = 'ooo';
             } else {
               status = 'on-site';
             }
