@@ -4,14 +4,11 @@ import { ClinicPortalShell } from './ClinicPortalShell';
 import { useLocation, useNavigate } from 'react-router-dom';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import {
-  Bell,
   CalendarDays,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  LogOut,
-  Menu,
   Settings,
   X,
 } from 'lucide-react';
@@ -31,7 +28,7 @@ import {
   type Randevue,
   type UpdateRandevueDto,
 } from '../services/api';
-import { DENTIST_PORTAL_MENU, DIRECTOR_PORTAL_MENU, FRONTDESK_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
+import { DENTIST_PORTAL_MENU, DIRECTOR_PORTAL_MENU, FRONTDESK_PORTAL_MENU } from '../lib/clinicPortalNav';
 
 /** Visible schedule window (top->bottom): 08:00 ... 21:00 (end boundary 22:00). */
 const SCHEDULE_START_HOUR = 8;
@@ -1970,22 +1967,45 @@ const Schedule = () => {
   );
 
   function ScheduleRowChrome({ children }: { children: ReactNode }) {
-    if (isDentistUser) {
+    if (useClinicScheduleUi) {
+      const menuItems = isDentistUser
+        ? DENTIST_PORTAL_MENU
+        : (isDirector ? directorMenuItems : FRONTDESK_PORTAL_MENU);
+      const brandTitle = isDentistUser ? 'Clinic Management' : 'Precision Dental';
+      const portalBadge = isDentistUser
+        ? 'Dentist Portal'
+        : (isDirector ? 'Admin Portal' : 'Reception Portal');
+      const userDisplayName = isDentistUser ? dentistPortalDisplayName : directorDisplayName;
+      const userSubtitle = isDentistUser ? 'Dentist' : (isDirector ? 'Clinic Director' : 'Receptionist');
+
       return (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <ClinicPortalShell
-                brandTitle="Clinic Management"
-                portalBadge="Dentist Portal"
-                userDisplayName={dentistPortalDisplayName}
-                userSubtitle="Dentist"
-                menuItems={DENTIST_PORTAL_MENU}
+                brandTitle={brandTitle}
+                portalBadge={portalBadge}
+                userDisplayName={userDisplayName}
+                userSubtitle={userSubtitle}
+                menuItems={menuItems}
                 pathname={pathname}
                 isSidebarOpen={isSidebarOpen}
                 setIsSidebarOpen={setIsSidebarOpen}
                 navigate={navigate}
                 onLogoutClick={() => setShowLogoutConfirm(true)}
-                showProfileStrip
-                collapseToggleVariant="menu"
+                showProfileStrip={isDentistUser || isDirectorOrReception}
+                collapseToggleVariant={isDentistUser ? 'menu' : 'chevron'}
+                scheduleNotificationCount={isDirectorOrReception ? awaitingBlockingCount : undefined}
+                headerActions={
+                  isDirector ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/staff')}
+                      className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100"
+                      aria-label="Staff and doctors"
+                    >
+                      <Settings size={16} />
+                    </button>
+                  ) : null
+                }
                 embeddedLayout
             >
               {children}
@@ -1993,62 +2013,7 @@ const Schedule = () => {
           </div>
       );
     }
-    return (
-        <div
-            className={
-              isDirector
-                  ? 'mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 overflow-hidden'
-                  : 'flex min-h-0 min-w-0 flex-1 overflow-hidden'
-            }
-        >
-          {isDirectorOrReception && (
-              <aside
-                  className={`relative shrink-0 border-r border-slate-200 bg-[#f0f3f7] transition-all duration-300 ${
-                      isSidebarOpen ? 'w-64' : 'w-20'
-                  }`}
-              >
-                <div className="flex h-full min-h-0 flex-col py-6">
-                  <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3">
-                    {(isDirector ? directorMenuItems : FRONTDESK_PORTAL_MENU).map((item) => (
-                        <button
-                            key={item.label}
-                            type="button"
-                            onClick={() => navigate(item.path)}
-                            className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition ${
-                                isDirectorPortalNavActive(item.path, pathname)
-                                    ? 'bg-white text-slate-800 shadow-sm'
-                                    : 'text-slate-500 hover:bg-white/80'
-                            }`}
-                        >
-                    <span className="relative inline-flex">
-                      <item.icon size={16} className="shrink-0" />
-                      {item.notificationCount != null && item.notificationCount > 0 && (
-                          <span className="absolute -right-2 -top-2 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-white">
-                          {item.notificationCount > 99 ? '99+' : item.notificationCount}
-                        </span>
-                      )}
-                    </span>
-                          {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
-                        </button>
-                    ))}
-                  </nav>
-
-                  <div className="mt-auto shrink-0 space-y-1 border-t border-slate-200/80 px-3 pt-4">
-                    <button
-                        type="button"
-                        onClick={() => setShowLogoutConfirm(true)}
-                        className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
-                    >
-                      <LogOut size={16} className="shrink-0" />
-                      {isSidebarOpen && <span className="ml-3 truncate">Logout</span>}
-                    </button>
-                  </div>
-                </div>
-              </aside>
-          )}
-          {children}
-        </div>
-    );
+    return <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">{children}</div>;
   }
 
   return (
@@ -2061,55 +2026,6 @@ const Schedule = () => {
             }
         >
           {!isDirector && !isDentistUser && <Header />}
-
-          {isDirector && (
-              <header className="h-16 shrink-0 border-b border-slate-200 bg-white px-6">
-                <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <button
-                        type="button"
-                        onClick={() => setIsSidebarOpen((prev) => !prev)}
-                        className="rounded-md border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100"
-                        aria-label={isSidebarOpen ? 'Collapse menu' : 'Expand menu'}
-                    >
-                      <Menu size={16} />
-                    </button>
-                    <span className="text-sm font-semibold text-slate-900">Precision Dental</span>
-                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Admin Portal
-              </span>
-                  </div>
-
-                  <div className="hidden lg:flex flex-1 max-w-md">
-                    <input
-                        type="text"
-                        readOnly
-                        value=""
-                        placeholder="Search appointments..."
-                        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <button type="button" className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Notifications">
-                      <Bell size={16} />
-                    </button>
-                    {isDirector && (
-                      <button type="button" onClick={() => navigate('/staff')} className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Staff and doctors">
-                        <Settings size={16} />
-                      </button>
-                    )}
-                    <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5">
-                      <div className="h-7 w-7 rounded-full bg-slate-200" />
-                      <div className="leading-tight">
-                        <p className="text-xs font-semibold text-slate-700">{directorDisplayName || '-'}</p>
-                        <p className="text-[10px] text-slate-400">{isDirector ? 'Clinic Director' : 'Receptionist'}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </header>
-          )}
 
           <ScheduleRowChrome>
             <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
