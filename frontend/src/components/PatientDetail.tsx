@@ -357,7 +357,11 @@ const PatientDetail = () => {
     setPaymentSubmittingByAppointment((prev) => ({ ...prev, [appointmentId]: true }));
     setAppointmentsError(null);
     try {
-      await appointmentService.update(appointmentId, { chargedFee: nextCharged });
+      await appointmentService.update(appointmentId, {
+        startDate: target.startDate,
+        endDate: target.endDate,
+        chargedFee: nextCharged,
+      });
       setPatientAppointments((prev) =>
         prev.map((appt) => (appt.id === appointmentId ? { ...appt, chargedFee: nextCharged } : appt)),
       );
