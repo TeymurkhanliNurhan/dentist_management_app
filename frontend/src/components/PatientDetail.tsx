@@ -57,6 +57,8 @@ const PatientDetail = () => {
   const isDirector = role === 'director';
   const isReception = role === 'frontdesk';
   const isDentist = role === 'dentist';
+  const canEditPatient = isDirector || isDentist || isReception;
+  const canDeletePatient = isDirector || isDentist;
   const loggedInDentistId = useMemo(() => {
     const raw = localStorage.getItem('dentistId');
     const n = raw ? parseInt(raw, 10) : NaN;
@@ -533,7 +535,7 @@ const PatientDetail = () => {
               </h1>
             </div>
           </div>
-          {!isReception ? (
+          {canEditPatient ? (
           <button
             onClick={() => {
               setEditFields({ name: patient.name, surname: patient.surname, birthDate: patient.birthDate });
@@ -1066,36 +1068,38 @@ const PatientDetail = () => {
                   {t('cancel')}
                 </button>
               </div>
-              <button
-                type="button"
-                disabled={isSubmitting || isDeleting}
-                onClick={async () => {
-                  if (!id || !patient) return;
-                  const confirmed = window.confirm(
-                    t('confirmDelete', { name: `${patient.name} ${patient.surname}` }),
-                  );
-                  if (!confirmed) return;
+              {canDeletePatient ? (
+                <button
+                  type="button"
+                  disabled={isSubmitting || isDeleting}
+                  onClick={async () => {
+                    if (!id || !patient) return;
+                    const confirmed = window.confirm(
+                      t('confirmDelete', { name: `${patient.name} ${patient.surname}` }),
+                    );
+                    if (!confirmed) return;
 
-                  setIsDeleting(true);
-                  setFormError(null);
-                  try {
-                    await patientService.delete(parseInt(id));
-                    setShowEditModal(false);
-                    navigate('/patients');
-                  } catch (err: any) {
-                    console.error('Failed to delete patient:', err);
-                    setFormError(err.response?.data?.message || DELETE_ERROR_KEY);
-                  } finally {
-                    setIsDeleting(false);
-                  }
-                }}
-                className="w-full rounded-lg bg-red-500 py-2 font-medium text-white transition-colors hover:bg-red-600 disabled:opacity-50"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <Trash2 className="h-4 w-4" />
-                  {isDeleting ? t('deleting') : t('deletePatient')}
-                </span>
-              </button>
+                    setIsDeleting(true);
+                    setFormError(null);
+                    try {
+                      await patientService.delete(parseInt(id));
+                      setShowEditModal(false);
+                      navigate('/patients');
+                    } catch (err: any) {
+                      console.error('Failed to delete patient:', err);
+                      setFormError(err.response?.data?.message || DELETE_ERROR_KEY);
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  className="w-full rounded-lg bg-red-500 py-2 font-medium text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Trash2 className="h-4 w-4" />
+                    {isDeleting ? t('deleting') : t('deletePatient')}
+                  </span>
+                </button>
+              ) : null}
             </form>
           </div>
         </div>

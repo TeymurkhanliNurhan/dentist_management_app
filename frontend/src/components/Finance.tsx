@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import DirectorFinance from './DirectorFinance';
 import DentistFinance from './DentistFinance';
+import ReceptionFinance from './ReceptionFinance';
 
 const Finance = () => {
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
@@ -11,6 +12,10 @@ const Finance = () => {
 
   if (role === 'dentist') {
     return <DentistFinance />;
+  }
+
+  if (role === 'frontdesk') {
+    return <ReceptionFinance />;
   }
 
   return (
