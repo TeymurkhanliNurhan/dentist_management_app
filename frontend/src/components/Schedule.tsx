@@ -1089,7 +1089,7 @@ const Schedule = () => {
     } else if (useClinicScheduleUi && formDentistId > 0) {
       body.dentist_id = formDentistId;
     }
-    if ((isDirector || isDentistUser) && formNurseId > 0) body.nurse_id = formNurseId;
+    if ((isDirectorOrReception || isDentistUser) && formNurseId > 0) body.nurse_id = formNurseId;
 
     if (appointmentChoice === 'new') {
       body.create_new_appointment = true;
@@ -1302,7 +1302,7 @@ const Schedule = () => {
     } else if (useClinicScheduleUi && detailDentistId > 0) {
       body.dentist_id = detailDentistId;
     }
-    if (isDirector || isDentistUser) {
+    if (isDirectorOrReception || isDentistUser) {
       if (detailNurseId > 0) body.nurse_id = detailNurseId;
       else if (detailRandevue?.nurse?.id) body.clear_nurse = true;
     }
@@ -3095,7 +3095,7 @@ const Schedule = () => {
                                       </select>
                                     </div>
                                   )}
-                                  {(isDirector || isDentistUser) && (
+                                  {(isDirectorOrReception || isDentistUser) && (
                                       <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">{t('nurse')}</label>
                                         <select
@@ -3650,7 +3650,7 @@ const Schedule = () => {
                                 </select>
                               </div>
                             )}
-                            {(isDirector || isDentistUser) && (
+                            {(isDirectorOrReception || isDentistUser) && (
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('nurse')}</label>
                                   <select
