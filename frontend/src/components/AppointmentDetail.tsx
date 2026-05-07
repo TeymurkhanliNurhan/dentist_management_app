@@ -1893,7 +1893,6 @@ const AppointmentDetail = () => {
                                 <span className="font-medium text-gray-900">{t.name}</span>
                                 <span className="text-sm font-semibold text-gray-700">${t.price.toFixed(2)}</span>
                               </div>
-                              <p className="text-xs text-gray-600 mt-1">{t.description}</p>
                             </div>
                           </label>
                         );
@@ -1917,6 +1916,38 @@ const AppointmentDetail = () => {
                           disabled={treatmentPage === totalTreatmentPages}
                           className="px-2 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50"
                         >Next</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTreatmentIds.length > 0 && (
+                    <div className="mt-3 rounded-md border border-[#cce0f0] bg-white p-3">
+                      <div className="mb-2 text-xs font-medium text-gray-700">
+                        Selected treatments ({selectedTreatmentIds.length})
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedTreatmentIds.map((sid) => {
+                          const sel = allTreatments.find((tr) => tr.id === sid);
+                          if (!sel) return null;
+                          return (
+                            <span
+                              key={sid}
+                              className="inline-flex items-center gap-1 rounded-full bg-[#e8f2fa] px-3 py-1 text-xs font-medium text-[#0066A6]"
+                            >
+                              {sel.name}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedTreatmentIds((prev) => prev.filter((id) => id !== sid))
+                                }
+                                className="ml-1 text-[#0066A6] hover:text-[#00588f]"
+                                aria-label={`Remove ${sel.name}`}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
