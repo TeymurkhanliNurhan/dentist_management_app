@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import Header from './Header';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { useLocation, useNavigate } from 'react-router-dom';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
@@ -2025,8 +2024,6 @@ const Schedule = () => {
                   : 'flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-50'
             }
         >
-          {!isDirector && !isDentistUser && <Header />}
-
           <ScheduleRowChrome>
             <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
               <main

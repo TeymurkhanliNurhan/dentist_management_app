@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Calendar, FileText, DollarSign, Globe, X, User } from 'lucide-react';
-import Header from './Header';
 import { toothTreatmentService, toothService, mediaService, dentistService } from '../services/api';
 import type { ToothTreatment, ToothInfo, Media } from '../services/api';
 import { useTranslation } from 'react-i18next';
@@ -382,7 +381,6 @@ const ToothDetail = () => {
     }
     return (
       <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
-        <Header />
         <main className="mx-auto min-h-0 max-w-7xl flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8">
           <div className="py-12 text-center">
             <p className="text-gray-500">{t('loading')}</p>
@@ -469,7 +467,6 @@ const ToothDetail = () => {
 
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
-      <Header />
       <main className="relative mx-auto min-h-0 max-w-7xl flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8">{inner}</main>
     </div>
   );

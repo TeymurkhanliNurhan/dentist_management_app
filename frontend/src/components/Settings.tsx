@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { User, Calendar, Edit, X, Save, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
-import Header from './Header';
 import { dentistService, authService } from '../services/api';
 
 interface Dentist {
@@ -234,7 +233,6 @@ const Settings = () => {
   if (isLoading) {
     return (
       <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
-        <Header />
         <main className="min-h-0 flex-1 overflow-y-auto max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <p className="text-gray-500">Loading settings...</p>
@@ -247,7 +245,6 @@ const Settings = () => {
   if (error && !dentist) {
     return (
       <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
-        <Header />
         <main className="min-h-0 flex-1 overflow-y-auto max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <p className="text-red-600">{error}</p>
@@ -259,8 +256,6 @@ const Settings = () => {
 
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
-      <Header />
-      
       <main className="min-h-0 flex-1 overflow-y-auto max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow-md p-8">
           <div className="flex items-center justify-between mb-6">

@@ -11,7 +11,6 @@ import {
   CalendarDays,
   Trash2,
 } from 'lucide-react';
-import Header from './Header';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import TeethDiagram from './TeethDiagram';
 import { appointmentService, dentistService, patientService, toothTreatmentService } from '../services/api';
@@ -348,7 +347,6 @@ const PatientDetail = () => {
 
     return (
       <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f4f6f8]">
-        <Header />
         <main className="relative mx-auto min-h-0 flex-1 max-w-7xl overflow-y-auto px-4 py-8 sm:px-6 lg:px-8">
           {children}
         </main>
