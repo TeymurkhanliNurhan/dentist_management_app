@@ -294,19 +294,19 @@ const Patients = () => {
                     <th className="px-4 py-3 text-left">Birthdate</th>
                     <th className="px-4 py-3 text-left">Contact</th>
                     <th className="px-4 py-3 text-left">{isDentist ? 'Your treatments' : 'Treatments'}</th>
-                    {isDirector || isDentist ? <th className="px-4 py-3 text-left">Debt Status</th> : null}
+                    {isDirectorOrReception || isDentist ? <th className="px-4 py-3 text-left">Debt Status</th> : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={isDirector || isDentist ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-500">
+                      <td colSpan={isDirectorOrReception || isDentist ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-500">
                         Loading patients...
                       </td>
                     </tr>
                   ) : paginatedPortalRows.length === 0 ? (
                     <tr>
-                      <td colSpan={isDirector || isDentist ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-500">
+                      <td colSpan={isDirectorOrReception || isDentist ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-500">
                         No patients found.
                       </td>
                     </tr>
@@ -314,15 +314,17 @@ const Patients = () => {
                     paginatedPortalRows.map((patient) => (
                       <tr
                         key={patient.id}
-                        onClick={() => navigate(`/patients/${patient.id}`)}
-                        className="cursor-pointer text-sm text-slate-700 transition hover:bg-slate-50"
+                        onClick={isReception ? undefined : () => navigate(`/patients/${patient.id}`)}
+                        className={`text-sm text-slate-700 transition ${
+                          isReception ? '' : 'cursor-pointer hover:bg-slate-50'
+                        }`}
                       >
                         <td className="px-4 py-3 font-semibold text-[#0066A6]">{patient.name}</td>
                         <td className="px-4 py-3">{patient.surname}</td>
                         <td className="px-4 py-3">{formatBirthDate(patient.birthDate)}</td>
                         <td className="px-4 py-3 text-slate-400">-</td>
                         <td className="px-4 py-3">{patient.treatmentCount}</td>
-                        {isDirector || isDentist ? (
+                        {isDirectorOrReception || isDentist ? (
                         <td
                           className={`px-4 py-3 font-semibold ${
                             patient.totalDebt > 0 ? 'text-red-600' : 'text-slate-400'
