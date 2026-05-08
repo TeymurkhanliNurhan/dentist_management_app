@@ -28,20 +28,6 @@ export class PaymentDetailsService {
     }
   }
 
-  private canReadClinicFinanceOverview(role?: string) {
-    const normalized = (role ?? '').toLowerCase();
-    return (
-      normalized === 'director' ||
-      normalized === 'frontdesk' ||
-      normalized === 'receptionist' ||
-      normalized === 'front_desk_worker' ||
-      normalized === 'singledentist' ||
-      normalized === 'single dentist' ||
-      normalized === 'single_dentist' ||
-      normalized === 'single-dentist'
-    );
-  }
-
   async create(
     dentistId: number,
     role: string | undefined,
@@ -111,11 +97,7 @@ export class PaymentDetailsService {
     role: string | undefined,
     dto: GetFinanceOverviewDto,
   ) {
-    if (!this.canReadClinicFinanceOverview(role)) {
-      throw new ForbiddenException(
-        'You do not have permission to view the clinic finance overview',
-      );
-    }
+    this.ensureDirectorOrReceptionist(role);
     return await this.repo.getFinanceOverviewForDentist(dentistId, dto);
   }
 }
