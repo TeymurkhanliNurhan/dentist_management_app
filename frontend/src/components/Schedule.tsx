@@ -427,6 +427,9 @@ const Schedule = () => {
   const isReception = role === 'frontdesk';
   const isDirectorOrReception = isDirector || isReception;
   const isDentistUser = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
+  // "singleDentist" should reuse the dentist schedule UI, but must not manage blocking time.
+  const isDentistBlockingManager = role === 'dentist';
+  const canManageBlockingTime = isDirectorOrReception || isDentistBlockingManager;
   const useClinicScheduleUi = isDirectorOrReception || isDentistUser;
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -1048,8 +1051,7 @@ const Schedule = () => {
     setNewPatient({ name: '', surname: '', birthDate: '' });
     setPatientFormMsg(null);
     setSubmitError(null);
-    const tab: 'randevue' | 'blocking' =
-        isDentistUser || isDirectorOrReception ? initialTab : 'randevue';
+    const tab: 'randevue' | 'blocking' = canManageBlockingTime ? initialTab : 'randevue';
     setCreateModalTab(tab);
     if (tab === 'blocking') {
       setBlockFormDate(formatYmd(baseDay));
@@ -1141,7 +1143,7 @@ const Schedule = () => {
       setBlockSubmitError(t('timeOrderError'));
       return;
     }
-    if (!isDentistUser && !isDirectorOrReception) return;
+    if (!canManageBlockingTime) return;
     setBlockSubmitBusy(true);
     try {
       const body: Record<string, unknown> = {
@@ -1186,7 +1188,7 @@ const Schedule = () => {
       blockingDetailId != null ? scheduleBlockingHours.find((x) => x.id === blockingDetailId) : undefined;
 
   const openBlockingDetail = (bh: BlockingHourRow) => {
-    if (!isDentistUser && !isDirectorOrReception) return;
+    if (!canManageBlockingTime) return;
     setDetailId(null);
     setRandevueDetailEditMode(false);
     setModalOpen(false);
@@ -1271,7 +1273,7 @@ const Schedule = () => {
   };
 
   const handleCancelBlockingDetail = async () => {
-    if (blockingDetailId == null || !isDentistUser) return;
+    if (blockingDetailId == null || !isDentistBlockingManager) return;
     setBlockingDetailError(null);
     setBlockingDeleteBusy(true);
     try {
@@ -2146,7 +2148,7 @@ const Schedule = () => {
                     >
                       {t('newRandevue')}
                     </button>
-                    {(isDentistUser || isDirectorOrReception) && (
+                    {canManageBlockingTime && (
                         <button
                             type="button"
                             onClick={() => openNewModal(undefined, undefined, 'blocking')}
@@ -2629,19 +2631,19 @@ const Schedule = () => {
                                                       role="button"
                                                       tabIndex={0}
                                                       className={`absolute left-0.5 right-0.5 rounded-md ${blockingStatusTone(bhStatus)} text-white text-[10px] px-1 py-0.5 shadow-sm z-[12] overflow-hidden ${
-                                                          isDentistUser || isDirectorOrReception
+                                                          canManageBlockingTime
                                                               ? 'pointer-events-auto cursor-pointer'
                                                               : 'pointer-events-none'
                                                       }`}
                                                       style={{ top: seg.top, height: seg.height }}
                                                       title={bh.name?.trim() || t('blockingFallbackLabel')}
                                                       onClick={(ev) => {
-                                                        if (!isDentistUser && !isDirectorOrReception) return;
+                                                        if (!canManageBlockingTime) return;
                                                         ev.stopPropagation();
                                                         openBlockingDetail(bh);
                                                       }}
                                                       onKeyDown={(ev) => {
-                                                        if (!isDentistUser && !isDirectorOrReception) return;
+                                                        if (!canManageBlockingTime) return;
                                                         if (ev.key === 'Enter' || ev.key === ' ') {
                                                           ev.preventDefault();
                                                           ev.stopPropagation();
@@ -2783,7 +2785,7 @@ const Schedule = () => {
                               <p className="text-sm text-gray-600">{t('blockingDetailNotFound')}</p>
                           ) : (
                               <>
-                                {isDentistUser ? (
+                                {isDentistBlockingManager ? (
                                     <>
                                       <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">{t('blockingNameLabel')}</label>
@@ -2866,7 +2868,7 @@ const Schedule = () => {
                                 )}
                                 {blockingDetailError && <p className="text-sm text-red-600">{blockingDetailError}</p>}
                                 <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-                                  {isDentistUser ? (
+                                  {isDentistBlockingManager ? (
                                       <>
                                         <button
                                             type="button"
@@ -2885,7 +2887,7 @@ const Schedule = () => {
                                           {blockingDetailBusy ? t('saving') : t('saveChanges')}
                                         </button>
                                       </>
-                                  ) : (
+                                  ) : isDirectorOrReception ? (
                                       <>
                                         <button
                                             type="button"
@@ -2912,7 +2914,7 @@ const Schedule = () => {
                                           Approve
                                         </button>
                                       </>
-                                  )}
+                                  ) : null}
                                 </div>
                               </>
                           )
@@ -3414,11 +3416,11 @@ const Schedule = () => {
                   aria-labelledby="randevue-modal-title"
               >
                 <h2 id="randevue-modal-title" className="text-xl font-bold text-gray-900 mb-4">
-                  {createModalTab === 'blocking' && (isDentistUser || isDirectorOrReception)
+                  {createModalTab === 'blocking' && canManageBlockingTime
                       ? t('blockingModalTitle')
                       : t('modalTitle')}
                 </h2>
-                {(isDentistUser || isDirectorOrReception) && (
+                {canManageBlockingTime && (
                     <div className="flex rounded-lg border border-gray-200 p-0.5 mb-4 bg-gray-50">
                       <button
                           type="button"
@@ -3451,7 +3453,7 @@ const Schedule = () => {
                       </button>
                     </div>
                 )}
-                {createModalTab === 'blocking' && (isDentistUser || isDirectorOrReception) ? (
+                {createModalTab === 'blocking' && canManageBlockingTime ? (
                     <div className="space-y-4">
                       <p className="text-sm text-gray-600">
                         {t('blockingStaffLabel')}:{' '}
