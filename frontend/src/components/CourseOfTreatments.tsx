@@ -33,7 +33,7 @@ export default function CourseOfTreatments() {
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const dentistId = useMemo(() => Number(localStorage.getItem('dentistId') ?? 0), []);
   const isDirector = role === 'director';
-  const isDentist = role === 'dentist';
+  const isDentist = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);

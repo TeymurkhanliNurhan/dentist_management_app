@@ -67,7 +67,7 @@ type EditMedicineForm = {
 const Medicines = () => {
   const { t } = useTranslation('medicines');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
-  const isDentist = role === 'dentist';
+  const isDentist = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
   const isDirector = role === 'director' || role === 'singledentist';
   const isReception = role === 'frontdesk';
   const canAccessMedicines = isDentist || isDirector || isReception;

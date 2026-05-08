@@ -426,7 +426,7 @@ const Schedule = () => {
   const isDirector = role === 'director';
   const isReception = role === 'frontdesk';
   const isDirectorOrReception = isDirector || isReception;
-  const isDentistUser = role === 'dentist';
+  const isDentistUser = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
   const useClinicScheduleUi = isDirectorOrReception || isDentistUser;
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);

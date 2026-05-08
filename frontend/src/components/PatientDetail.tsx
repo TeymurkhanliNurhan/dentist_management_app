@@ -56,7 +56,7 @@ const PatientDetail = () => {
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
   const isReception = role === 'frontdesk';
-  const isDentist = role === 'dentist';
+  const isDentist = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
   const canEditPatient = isDirector || isDentist || isReception;
   const canDeletePatient = isDirector || isDentist;
   const loggedInDentistId = useMemo(() => {

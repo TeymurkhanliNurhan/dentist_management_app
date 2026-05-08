@@ -409,7 +409,7 @@ const AppointmentDetail = () => {
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isAdminLike = role === 'director' || role === 'admin';
   const isDirector = role === 'director';
-  const isDentist = role === 'dentist';
+  const isDentist = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
   const loggedInDentistId = useMemo(() => {
     const raw = localStorage.getItem('dentistId');
     const n = raw ? parseInt(raw, 10) : NaN;

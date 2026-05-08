@@ -10,7 +10,7 @@ const Finance = () => {
     return <DirectorFinance />;
   }
 
-  if (role === 'dentist') {
+  if (role === 'dentist' || role === 'singledentist' || role === 'single dentist') {
     return <DentistFinance />;
   }
 

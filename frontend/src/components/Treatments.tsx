@@ -17,7 +17,7 @@ const ITEMS_PER_PAGE = 10;
 const Treatments = () => {
   const { t } = useTranslation('treatments');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
-  const isDentistUser = role === 'dentist';
+  const isDentistUser = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
   const isSingleDentistUser = role === 'singledentist';
   const isDentistLikeUser = isDentistUser || isSingleDentistUser;
   const isDirectorUser = role === 'director';
