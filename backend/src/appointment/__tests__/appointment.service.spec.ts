@@ -87,4 +87,24 @@ describe('AppointmentService', () => {
       discountFee: 20,
     });
   });
+
+  it('should serialize patch response when date columns are strings (TypeORM/pg)', async () => {
+    repoMock.updateAppointmentEnsureOwnership.mockResolvedValue({
+      id: 9,
+      startDate: '2025-11-16',
+      endDate: null,
+      calculatedFee: 300,
+      chargedFee: 280,
+      discountFee: 20,
+    });
+
+    await expect(service.patch(7, 9, { chargedFee: 280 } as any)).resolves.toEqual({
+      id: 9,
+      startDate: '2025-11-16',
+      endDate: null,
+      calculatedFee: 300,
+      chargedFee: 280,
+      discountFee: 20,
+    });
+  });
 });

@@ -18,6 +18,18 @@ export class AppointmentService {
 
   constructor(private readonly repo: AppointmentRepository) {}
 
+  /** TypeORM may return PostgreSQL `date` columns as strings; avoid calling Date methods blindly. */
+  private toApiDateOnly(value: Date | string | null | undefined): string | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'string') {
+      return value.length >= 10 ? value.slice(0, 10) : null;
+    }
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value.toISOString().slice(0, 10);
+    }
+    return null;
+  }
+
   async create(dentistId: number, dto: CreateAppointmentDto) {
     try {
       const created = await this.repo.createAppointmentForDentistAndPatient(
@@ -34,10 +46,8 @@ export class AppointmentService {
       LogWriter.append('log', AppointmentService.name, msg);
       return {
         id: created.id,
-        startDate: created.startDate.toISOString().slice(0, 10),
-        endDate: created.endDate
-          ? created.endDate.toISOString().slice(0, 10)
-          : null,
+        startDate: this.toApiDateOnly(created.startDate) ?? '',
+        endDate: this.toApiDateOnly(created.endDate),
         calculatedFee: created.calculatedFee,
         chargedFee: created.chargedFee,
         discountFee: created.discountFee,
@@ -94,10 +104,8 @@ export class AppointmentService {
       LogWriter.append('log', AppointmentService.name, msg);
       return {
         id: updated.id,
-        startDate: updated.startDate.toISOString().slice(0, 10),
-        endDate: updated.endDate
-          ? updated.endDate.toISOString().slice(0, 10)
-          : null,
+        startDate: this.toApiDateOnly(updated.startDate) ?? '',
+        endDate: this.toApiDateOnly(updated.endDate),
         calculatedFee: updated.calculatedFee,
         chargedFee: updated.chargedFee,
         discountFee: updated.discountFee,
