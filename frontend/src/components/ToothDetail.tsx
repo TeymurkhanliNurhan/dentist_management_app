@@ -27,6 +27,7 @@ const ToothDetail = () => {
 
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
+  const isSingleDentist = role === 'singledentist' || role === 'single dentist';
   const isDentist = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
   const isPortal = isDirector || isDentist;
   const loggedInDentistId = useMemo(() => {
@@ -218,7 +219,7 @@ const ToothDetail = () => {
                 </div>
               </div>
 
-              {treatment.dentist?.staff ? (
+              {treatment.dentist?.staff && !isSingleDentist ? (
                 <div className="flex items-start space-x-3">
                   <User className={`mt-1 h-5 w-5 shrink-0 ${accent}`} />
                   <div>

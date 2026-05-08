@@ -56,6 +56,7 @@ const PatientDetail = () => {
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
   const isReception = role === 'frontdesk';
+  const isSingleDentist = role === 'singledentist' || role === 'single dentist';
   const isDentist = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
   const canEditPatient = isDirector || isDentist || isReception;
   const canDeletePatient = isDirector || isDentist;
@@ -684,7 +685,7 @@ const PatientDetail = () => {
           <TeethDiagram patientId={patient.id} patientTeeth={patientTeeth} toothTreatments={diagramTreatments} />
         ) : (
           <div className="space-y-4">
-            {isDentist ? (
+            {isDentist && !isSingleDentist ? (
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
