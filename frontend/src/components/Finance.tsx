@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import DirectorFinance from './DirectorFinance';
 import DentistFinance from './DentistFinance';
 import ReceptionFinance from './ReceptionFinance';
+import SingleDentistFinance from './SingleDentistFinance';
 
 const Finance = () => {
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
@@ -10,7 +11,16 @@ const Finance = () => {
     return <DirectorFinance />;
   }
 
-  if (role === 'dentist' || role === 'singledentist' || role === 'single dentist') {
+  if (
+    role === 'singledentist' ||
+    role === 'single dentist' ||
+    role === 'single_dentist' ||
+    role === 'single-dentist'
+  ) {
+    return <SingleDentistFinance />;
+  }
+
+  if (role === 'dentist') {
     return <DentistFinance />;
   }
 

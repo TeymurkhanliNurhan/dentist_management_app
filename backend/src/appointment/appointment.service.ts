@@ -172,7 +172,8 @@ export class AppointmentService {
       const msg = `Dentist with id ${dentistId} retrieved ${appointments.length} appointment(s) out of ${total}`;
       this.logger.log(msg);
       LogWriter.append('log', AppointmentService.name, msg);
-      const dentistScopedView = (role ?? '').toLowerCase() === 'dentist';
+      const r = (role ?? '').toLowerCase();
+      const dentistScopedView = r === 'dentist' || r === 'singledentist';
       return {
         appointments: appointments.map((appointment) => {
           const startDate =
