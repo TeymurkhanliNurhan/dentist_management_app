@@ -5,6 +5,6 @@ import { ToothRepository } from './tooth.repository';
 
 @Module({
   controllers: [ToothController],
-  providers: [ToothService, ToothRepository]
+  providers: [ToothService, ToothRepository],
 })
 export class ToothModule {}

@@ -1,8 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { AuthService } from '../auth.service';
 import { AuthRepository } from '../auth.repository';
 import { EmailService } from '../../email/email.service';
@@ -20,13 +18,16 @@ describe('AuthService', () => {
   let authRepository: jest.Mocked<AuthRepository>;
   let jwtService: jest.Mocked<JwtService>;
   let emailService: jest.Mocked<EmailService>;
-  let dentistRepository: jest.Mocked<Repository<Dentist>>;
   let redisClient: any;
 
   const mockAuthRepository = {
     findUserByEmail: jest.fn(),
+    findStaffAuthByEmail: jest.fn(),
+    findDentistIdByStaffId: jest.fn(),
+    findAnyDentistIdInClinic: jest.fn(),
     createUser: jest.fn(),
     findUserById: jest.fn(),
+    updateUser: jest.fn(),
   };
 
   const mockJwtService = {
@@ -38,12 +39,6 @@ describe('AuthService', () => {
     generateVerificationCode: jest.fn(),
     sendVerificationEmail: jest.fn(),
     sendPasswordResetCode: jest.fn(),
-  };
-
-  const mockDentistRepository = {
-    findOne: jest.fn(),
-    save: jest.fn(),
-    update: jest.fn(),
   };
 
   const mockRedisClient = {
@@ -69,10 +64,6 @@ describe('AuthService', () => {
           useValue: mockEmailService,
         },
         {
-          provide: getRepositoryToken(Dentist),
-          useValue: mockDentistRepository,
-        },
-        {
           provide: 'REDIS_CLIENT',
           useValue: mockRedisClient,
         },
@@ -83,7 +74,6 @@ describe('AuthService', () => {
     authRepository = module.get(AuthRepository);
     jwtService = module.get(JwtService);
     emailService = module.get(EmailService);
-    dentistRepository = module.get(getRepositoryToken(Dentist));
     redisClient = module.get('REDIS_CLIENT');
 
     // Reset all mocks
@@ -106,11 +96,15 @@ describe('AuthService', () => {
     it('should throw ConflictException if user already exists', async () => {
       mockAuthRepository.findUserByEmail.mockResolvedValueOnce({
         id: 1,
-        gmail: 'john@example.com',
+        staff: { gmail: 'john@example.com' },
       } as Dentist);
 
-      await expect(service.register(registerDto)).rejects.toThrow(ConflictException);
-      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(registerDto.gmail);
+      await expect(service.register(registerDto)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(
+        registerDto.gmail,
+      );
     });
 
     it('should successfully register a new user', async () => {
@@ -118,22 +112,25 @@ describe('AuthService', () => {
       mockedBcrypt.hash.mockResolvedValueOnce('hashedPassword' as never);
       mockEmailService.generateVerificationCode.mockReturnValueOnce('123456');
       mockEmailService.sendVerificationEmail.mockResolvedValueOnce(undefined);
-      
+
       const mockDentist = {
         id: 1,
-        name: registerDto.name,
-        surname: registerDto.surname,
-        birthDate: new Date(registerDto.birthDate),
-        gmail: registerDto.gmail,
-        password: 'hashedPassword',
-        isEmailVerified: false,
+        staffId: 1,
+        staff: {
+          name: registerDto.name,
+          surname: registerDto.surname,
+          birthDate: new Date(registerDto.birthDate),
+          gmail: registerDto.gmail,
+        },
       } as Dentist;
 
       mockAuthRepository.createUser.mockResolvedValueOnce(mockDentist);
 
       const result = await service.register(registerDto);
 
-      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(registerDto.gmail);
+      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(
+        registerDto.gmail,
+      );
       expect(mockedBcrypt.hash).toHaveBeenCalledWith(registerDto.password, 10);
       expect(mockEmailService.generateVerificationCode).toHaveBeenCalled();
       expect(mockEmailService.sendVerificationEmail).toHaveBeenCalled();
@@ -148,46 +145,59 @@ describe('AuthService', () => {
       password: 'password123',
     };
 
-    const mockDentist = {
-      id: 1,
-      name: 'John',
-      surname: 'Doe',
+    const mockStaff = {
+      id: 10,
       gmail: 'john@example.com',
       password: 'hashedPassword',
       isEmailVerified: true,
-    } as Dentist;
+      role: 'Dentist',
+      clinicId: 5,
+    };
 
     it('should throw UnauthorizedException if user does not exist', async () => {
-      mockAuthRepository.findUserByEmail.mockResolvedValueOnce(null);
+      mockAuthRepository.findStaffAuthByEmail.mockResolvedValueOnce(null);
 
-      await expect(service.signIn(loginDto)).rejects.toThrow(UnauthorizedException);
-      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(loginDto.gmail);
+      await expect(service.signIn(loginDto)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockAuthRepository.findStaffAuthByEmail).toHaveBeenCalledWith(
+        loginDto.gmail,
+      );
     });
 
     it('should throw UnauthorizedException if password is incorrect', async () => {
-      mockAuthRepository.findUserByEmail.mockResolvedValueOnce(mockDentist);
+      mockAuthRepository.findStaffAuthByEmail.mockResolvedValueOnce(mockStaff as any);
       mockedBcrypt.compare.mockResolvedValueOnce(false as never);
 
-      await expect(service.signIn(loginDto)).rejects.toThrow(UnauthorizedException);
-      expect(mockedBcrypt.compare).toHaveBeenCalledWith(loginDto.password, mockDentist.password);
+      await expect(service.signIn(loginDto)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockedBcrypt.compare).toHaveBeenCalledWith(
+        loginDto.password,
+        mockStaff.password,
+      );
     });
 
     it('should successfully login and return access token', async () => {
-      mockAuthRepository.findUserByEmail.mockResolvedValueOnce(mockDentist);
+      mockAuthRepository.findStaffAuthByEmail.mockResolvedValueOnce(mockStaff as any);
+      mockAuthRepository.findDentistIdByStaffId.mockResolvedValueOnce(1);
       mockedBcrypt.compare.mockResolvedValueOnce(true as never);
-      mockJwtService.signAsync = jest.fn().mockResolvedValueOnce('mock-jwt-token');
+      mockJwtService.signAsync = jest
+        .fn()
+        .mockResolvedValueOnce('mock-jwt-token');
 
       const result = await service.signIn(loginDto);
 
-      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(loginDto.gmail);
-      expect(mockedBcrypt.compare).toHaveBeenCalledWith(loginDto.password, mockDentist.password);
+      expect(mockAuthRepository.findStaffAuthByEmail).toHaveBeenCalledWith(
+        loginDto.gmail,
+      );
+      expect(mockedBcrypt.compare).toHaveBeenCalledWith(
+        loginDto.password,
+        mockStaff.password,
+      );
       expect(mockJwtService.signAsync).toHaveBeenCalled();
       expect(result).toHaveProperty('access_token');
       expect(result.access_token).toBe('mock-jwt-token');
     });
   });
 });
-
-
-
-

@@ -11,5 +11,9 @@
   "price": "Цена",
   "treatmentDescription": "Описание процедуры",
   "notAvailable": "Нет данных",
-  "notes": "Заметки"
+  "notes": "Заметки",
+  "performedBy": "Выполнил(а)",
+  "roleDirector": "Директор",
+  "roleDentist": "Стоматолог",
+  "roleClinician": "Специалист"
 }

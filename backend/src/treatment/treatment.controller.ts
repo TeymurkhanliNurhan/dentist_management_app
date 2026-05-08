@@ -1,11 +1,31 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { TreatmentService } from './treatment.service';
 import { CreateTreatmentDto } from './dto/create-treatment.dto';
 import { UpdateTreatmentDto } from './dto/update-treatment.dto';
 import { GetTreatmentDto } from './dto/get-treatment.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
+import { isDirectorRole } from '../auth/role-guards';
 
 @ApiTags('treatment')
 @Controller('treatment')
@@ -30,6 +50,11 @@ export class TreatmentController {
   @ApiOperation({ summary: 'Create treatment' })
   @ApiResponse({ status: 201, description: 'Treatment created' })
   async create(@User() user: any, @Body() dto: CreateTreatmentDto) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for treatments',
+      );
+    }
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
     return await this.service.create(dentistId, dto);
   }
@@ -45,6 +70,11 @@ export class TreatmentController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateTreatmentDto,
   ) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for treatments',
+      );
+    }
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
     return await this.service.patch(dentistId, id, dto);
   }

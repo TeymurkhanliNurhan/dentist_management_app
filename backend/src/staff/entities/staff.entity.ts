@@ -1,0 +1,90 @@
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
+import { Clinic } from '../../clinic/entities/clinic.entity';
+import { Dentist } from '../../dentist/entities/dentist.entity';
+import { Nurse } from '../../nurse/entities/nurse.entity';
+import { FrontDeskWorker } from '../../front_desk_worker/entities/front_desk_worker.entity';
+import { Director } from '../../director/entities/director.entity';
+import { WorkingHours } from '../../working_hours/entities/working_hours.entity';
+import { BlockingHours } from '../../blocking_hours/entities/blocking_hours.entity';
+import { Salary } from '../../salary/entities/salary.entity';
+
+@Entity({ name: 'Staff' })
+export class Staff {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ type: 'varchar', length: 31 })
+  name: string;
+
+  @Column({ type: 'varchar', length: 31 })
+  surname: string;
+
+  @Column({ type: 'date' })
+  birthDate: Date;
+
+  @Column({ type: 'varchar', length: 63 })
+  gmail: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  password: string;
+
+  @Column({ type: 'boolean', default: false })
+  isEmailVerified: boolean;
+
+  @Column({ type: 'varchar', length: 6, nullable: true })
+  verificationCode: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  verificationCodeExpiry: Date | null;
+
+  @Column({ type: 'boolean', default: true })
+  active: boolean;
+
+  @Column({ type: 'date' })
+  startDate: Date;
+
+  @Column({ type: 'date', nullable: true })
+  endDate: Date | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  role: string | null;
+
+  @Column({ type: 'int' })
+  clinicId: number;
+
+  @ManyToOne(() => Clinic, (clinic) => clinic.staffMembers, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn({ name: 'clinicId' })
+  clinic: Clinic;
+
+  @OneToOne(() => Dentist, (dentist) => dentist.staff)
+  dentist: Dentist;
+
+  @OneToOne(() => Nurse, (nurse) => nurse.staff)
+  nurse: Nurse;
+
+  @OneToOne(() => FrontDeskWorker, (frontDeskWorker) => frontDeskWorker.staff)
+  frontDeskWorker: FrontDeskWorker;
+
+  @OneToOne(() => Director, (director) => director.staff)
+  director: Director;
+
+  @OneToOne(() => Salary, (salary) => salary.staff)
+  salary: Salary;
+
+  @OneToMany(() => WorkingHours, (workingHours) => workingHours.staff)
+  workingHours: WorkingHours[];
+
+  @OneToMany(() => BlockingHours, (blockingHours) => blockingHours.staff)
+  blockingHours: BlockingHours[];
+}

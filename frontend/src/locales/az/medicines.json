@@ -7,25 +7,62 @@
   "table": {
     "name": "Ad",
     "description": "Təsvir",
-    "price": "Qiymət"
+    "price": "Qiymət",
+    "purchasePrice": "Alış qiyməti",
+    "stock": "Stok"
   },
   "loading": "Dərmanlar yüklənir...",
   "empty": "Dərman tapılmadı",
   "edit": "Redaktə et",
+  "delete": "Sil",
+  "deleting": "Silinir...",
+  "deleteModalTitle": "Dərmanı sil",
+  "deleteConfirm": "\"{{name}}\" silinsin? Bu əməliyyat geri qaytarıla bilməz.",
+  "noticeTitle": "Bildiriş",
+  "noticeOk": "Tamam",
   "addNew": "Yeni dərman əlavə et",
   "addTitle": "Yeni dərman əlavə et",
   "editTitle": "Dərmanı redaktə et",
   "form": {
     "name": "Ad *",
     "description": "Təsvir *",
+    "descriptionOptional": "Təsvir (istəyə bağlı)",
     "price": "Qiymət *",
+    "purchasePrice": "Alış qiyməti *",
     "namePlaceholder": "Dərmanın adını daxil edin",
     "descriptionPlaceholder": "Təsviri daxil edin",
-    "pricePlaceholder": "Qiyməti daxil edin"
+    "pricePlaceholder": "Qiyməti daxil edin",
+    "purchasePricePlaceholder": "Alış qiymətini daxil edin",
+    "stockLimit": "Stok limiti",
+    "stockLimitPlaceholder": "məs. 5",
+    "stockLimitHint": "Boş buraxın: bu dərman üçün aşağı stok vurğulaması söndürülür."
   },
   "adding": "Əlavə olunur...",
   "add": "Dərman əlavə et",
   "updating": "Yenilənir...",
   "update": "Dərmanı yenilə",
-  "cancel": "Ləğv et"
+  "cancel": "Ləğv et",
+  "newPurchase": "Yeni alış",
+  "stats": {
+    "medicinesCount": "Dərman sayı",
+    "totalStock": "Ümumi stok"
+  },
+  "purchase": {
+    "title": "Yeni alış",
+    "medicine": "Dərman",
+    "chooseMedicine": "Dərman seçin",
+    "count": "Say",
+    "pricePerOne": "Birinin alış qiyməti",
+    "addMedicineRow": "Dərman əlavə et",
+    "newMedicine": "Yeni dərman",
+    "quickNewTitle": "Yeni dərman",
+    "quickCreateSubmit": "Yarat",
+    "nameRequired": "Dərmanın adını daxil edin",
+    "total": "Cəmi:",
+    "creating": "Yaradılır...",
+    "create": "Yarat",
+    "countPlaceholder": "1",
+    "pricePlaceholder": "0.00",
+    "fillRequired": "Hər sətir üçün dərman seçin, say (ən azı 1) və vahid qiymətini daxil edin."
+  }
 }

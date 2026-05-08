@@ -31,6 +31,6 @@
   "failedToSend": "Не удалось отправить код сброса",
   "failedToVerify": "Не удалось подтвердить код",
   "failedToReset": "Не удалось сбросить пароль",
-  "networkError": "Не удалось подключиться к серверу. Убедитесь, что бэкенд запущен на http://localhost:3000. API endpoints находятся по адресу /Auth/SignIn (не /api/Auth/SignIn)."
+  "networkError": "Не удалось подключиться к API. Локально: VITE_API_BASE_URL=/api (прокси Vite) или бэкенд на http://localhost:3000. Продакшен: полный URL API с префиксом /api."
 }
 

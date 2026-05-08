@@ -14,18 +14,45 @@ import { ToothTranslation } from './src/tooth/entities/tooth_translation.entity'
 import { ToothTreatmentTeeth } from './src/tooth_treatment_teeth/entities/tooth_treatment_teeth.entity';
 import { Media } from './src/media/entities/media.entity';
 import { Randevue } from './src/randevue/entities/randevue.entity';
+import { Clinic } from './src/clinic/entities/clinic.entity';
+import { Staff } from './src/staff/entities/staff.entity';
+import { Nurse } from './src/nurse/entities/nurse.entity';
+import { FrontDeskWorker } from './src/front_desk_worker/entities/front_desk_worker.entity';
+import { Director } from './src/director/entities/director.entity';
+import { Room } from './src/room/entities/room.entity';
+import { WorkingHours } from './src/working_hours/entities/working_hours.entity';
+import { BlockingHours } from './src/blocking_hours/entities/blocking_hours.entity';
+import { DentistTreatment } from './src/dentist_treatment/entities/dentist_treatment.entity';
+import { Salary } from './src/salary/entities/salary.entity';
+import { Expense } from './src/expense/entities/expense.entity';
+import { PaymentDetails } from './src/payment_details/entities/payment_details.entity';
+import { PurchaseMedicine } from './src/purchase_medicine/entities/purchase_medicine.entity';
+import { TreatmentRandevue } from './src/treatment_randevue/entities/treatment_randevue.entity';
 
 export default new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   entities: [
+    Clinic,
     Dentist,
+    FrontDeskWorker,
+    Director,
+    Nurse,
+    Staff,
+    Salary,
+    Expense,
+    PaymentDetails,
+    PurchaseMedicine,
+    Room,
+    WorkingHours,
+    BlockingHours,
     Patient,
     PatientTooth,
     Tooth,
     ToothTranslation,
     Treatment,
+    DentistTreatment,
     ToothTreatment,
     ToothTreatmentTeeth,
     Appointment,
@@ -33,6 +60,7 @@ export default new DataSource({
     ToothTreatmentMedicine,
     Media,
     Randevue,
+    TreatmentRandevue,
   ],
   migrations: [
     'src/migrations/*.ts',

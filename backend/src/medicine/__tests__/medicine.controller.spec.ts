@@ -16,5 +16,3 @@ describe('MedicineController', () => {
     expect(controller).toBeDefined();
   });
 });
-
-

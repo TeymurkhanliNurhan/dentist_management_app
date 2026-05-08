@@ -3,16 +3,22 @@ import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class GetMedicineDto {
-    @ApiPropertyOptional({ example: 1, description: 'Medicine ID' })
-    @IsOptional()
-    @Type(() => Number)
-    @IsInt()
-    @Min(1)
-    id?: number;
+  @ApiPropertyOptional({ example: 1, description: 'Medicine ID' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  id?: number;
 
-    @ApiPropertyOptional({ example: 'Aspirin', description: 'Medicine name' })
-    @IsOptional()
-    @IsString()
-    name?: string;
+  @ApiPropertyOptional({ example: 'Aspirin', description: 'Medicine name' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ example: 1, description: 'Clinic ID' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  clinic_id?: number;
 }
-

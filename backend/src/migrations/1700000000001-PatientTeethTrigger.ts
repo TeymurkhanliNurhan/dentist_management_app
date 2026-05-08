@@ -1,10 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class PatientTeethTrigger1700000000001 implements MigrationInterface {
-    name = 'PatientTeethTrigger1700000000001';
+  name = 'PatientTeethTrigger1700000000001';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
         CREATE OR REPLACE FUNCTION public.patient_teeth_after_insert()
         RETURNS trigger AS $$
         BEGIN
@@ -21,14 +21,12 @@ export class PatientTeethTrigger1700000000001 implements MigrationInterface {
         FOR EACH ROW
         EXECUTE FUNCTION public.patient_teeth_after_insert();
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
         DROP TRIGGER IF EXISTS trg_patient_teeth_after_insert ON "Patient";
         DROP FUNCTION IF EXISTS public.patient_teeth_after_insert();
         `);
-    }
+  }
 }
-
-

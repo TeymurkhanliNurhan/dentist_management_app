@@ -3,7 +3,8 @@ import Login from './components/Login';
 import SignUp from './components/SignUp';
 import Dashboard from './components/Dashboard';
 import MainBoard from './components/MainBoard';
-import Appointments from './components/Appointments';
+import Finance from './components/Finance';
+import CourseOfTreatments from './components/CourseOfTreatments';
 import AppointmentDetail from './components/AppointmentDetail';
 import Patients from './components/Patients';
 import PatientDetail from './components/PatientDetail';
@@ -13,6 +14,7 @@ import Treatments from './components/Treatments';
 import Schedule from './components/Schedule';
 import Contact from './components/Contact';
 import Settings from './components/Settings';
+import ClinicStaffDirectory from './components/ClinicStaffDirectory';
 import './App.css';
 
 function App() {
@@ -24,7 +26,8 @@ function App() {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/main" element={<MainBoard />} />
-        <Route path="/appointments" element={<Appointments />} />
+        <Route path="/finance" element={<Finance />} />
+        <Route path="/course-of-treatments" element={<CourseOfTreatments />} />
         <Route path="/appointments/:id" element={<AppointmentDetail />} />
         <Route path="/patients" element={<Patients />} />
         <Route path="/patients/:id" element={<PatientDetail />} />
@@ -33,6 +36,7 @@ function App() {
         <Route path="/treatments" element={<Treatments />} />
         <Route path="/schedule" element={<Schedule />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/staff" element={<ClinicStaffDirectory />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </Router>

@@ -31,6 +31,32 @@ import { S3Module } from './s3/s3.module';
 import { Media } from './media/entities/media.entity';
 import { Randevue } from './randevue/entities/randevue.entity';
 import { RandevueModule } from './randevue/randevue.module';
+import { Clinic } from './clinic/entities/clinic.entity';
+import { Staff } from './staff/entities/staff.entity';
+import { Nurse } from './nurse/entities/nurse.entity';
+import { FrontDeskWorker } from './front_desk_worker/entities/front_desk_worker.entity';
+import { Director } from './director/entities/director.entity';
+import { StaffModule } from './staff/staff.module';
+import { Room } from './room/entities/room.entity';
+import { WorkingHours } from './working_hours/entities/working_hours.entity';
+import { BlockingHours } from './blocking_hours/entities/blocking_hours.entity';
+import { DentistTreatmentModule } from './dentist_treatment/dentist_treatment.module';
+import { DentistTreatment } from './dentist_treatment/entities/dentist_treatment.entity';
+import { FrontDeskWorkerModule } from './front_desk_worker/front_desk_worker.module';
+import { DirectorModule } from './director/director.module';
+import { WorkingHoursModule } from './working_hours/working_hours.module';
+import { BlockingHoursModule } from './blocking_hours/blocking_hours.module';
+import { RoomModule } from './room/room.module';
+import { NurseModule } from './nurse/nurse.module';
+import { Salary } from './salary/entities/salary.entity';
+import { SalaryModule } from './salary/salary.module';
+import { Expense } from './expense/entities/expense.entity';
+import { PaymentDetails } from './payment_details/entities/payment_details.entity';
+import { PurchaseMedicine } from './purchase_medicine/entities/purchase_medicine.entity';
+import { TreatmentRandevue } from './treatment_randevue/entities/treatment_randevue.entity';
+import { ExpenseModule } from './expense/expense.module';
+import { PaymentDetailsModule } from './payment_details/payment_details.module';
+import { PurchaseMedicineModule } from './purchase_medicine/purchase_medicine.module';
 
 @Module({
   imports: [
@@ -40,24 +66,26 @@ import { RandevueModule } from './randevue/randevue.module';
         const databaseUrl = process.env.DATABASE_URL;
         console.log('DATABASE_URL:', databaseUrl ? 'Set (hidden)' : 'NOT SET');
         console.log('DB_SSL:', process.env.DB_SSL);
-        
+
         if (!databaseUrl) {
           throw new Error('DATABASE_URL environment variable is not set');
         }
-        
+
         try {
-          const match = databaseUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
-          
+          const match = databaseUrl.match(
+            /^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/,
+          );
+
           if (!match) {
             throw new Error('Invalid PostgreSQL URL format');
           }
-          
+
           const username = decodeURIComponent(match[1]);
           const password = decodeURIComponent(match[2]);
           const host = match[3];
           const port = parseInt(match[4]);
           const database = match[5];
-          
+
           console.log('Parsed connection:', {
             host,
             port,
@@ -65,7 +93,7 @@ import { RandevueModule } from './randevue/randevue.module';
             username: username ? `${username.substring(0, 20)}...` : 'NOT SET',
             passwordSet: password ? 'Yes' : 'No',
           });
-          
+
           return {
             type: 'postgres',
             host,
@@ -73,7 +101,10 @@ import { RandevueModule } from './randevue/randevue.module';
             username,
             password,
             database,
-            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+            ssl:
+              process.env.DB_SSL === 'true'
+                ? { rejectUnauthorized: false }
+                : false,
             entities: [
               Dentist,
               Patient,
@@ -81,6 +112,7 @@ import { RandevueModule } from './randevue/randevue.module';
               Tooth,
               ToothTranslation,
               Treatment,
+              DentistTreatment,
               ToothTreatment,
               ToothTreatmentTeeth,
               Appointment,
@@ -88,6 +120,19 @@ import { RandevueModule } from './randevue/randevue.module';
               ToothTreatmentMedicine,
               Media,
               Randevue,
+              Clinic,
+              Staff,
+              Salary,
+              Expense,
+              PaymentDetails,
+              PurchaseMedicine,
+              TreatmentRandevue,
+              Nurse,
+              FrontDeskWorker,
+              Director,
+              Room,
+              WorkingHours,
+              BlockingHours,
             ],
             synchronize: true,
             logging: ['schema', 'error', 'warn'],
@@ -99,11 +144,17 @@ import { RandevueModule } from './randevue/randevue.module';
             },
           };
         } catch (error) {
-          console.error('Error parsing DATABASE_URL, falling back to URL string:', error);
+          console.error(
+            'Error parsing DATABASE_URL, falling back to URL string:',
+            error,
+          );
           return {
             type: 'postgres',
             url: databaseUrl,
-            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+            ssl:
+              process.env.DB_SSL === 'true'
+                ? { rejectUnauthorized: false }
+                : false,
             entities: [
               Dentist,
               Patient,
@@ -111,6 +162,7 @@ import { RandevueModule } from './randevue/randevue.module';
               Tooth,
               ToothTranslation,
               Treatment,
+              DentistTreatment,
               ToothTreatment,
               ToothTreatmentTeeth,
               Appointment,
@@ -118,6 +170,19 @@ import { RandevueModule } from './randevue/randevue.module';
               ToothTreatmentMedicine,
               Media,
               Randevue,
+              Clinic,
+              Staff,
+              Salary,
+              Expense,
+              PaymentDetails,
+              PurchaseMedicine,
+              TreatmentRandevue,
+              Nurse,
+              FrontDeskWorker,
+              Director,
+              Room,
+              WorkingHours,
+              BlockingHours,
             ],
             synchronize: true,
             extra: {
@@ -145,6 +210,18 @@ import { RandevueModule } from './randevue/randevue.module';
     MediaModule,
     S3Module,
     RandevueModule,
+    StaffModule,
+    FrontDeskWorkerModule,
+    DirectorModule,
+    WorkingHoursModule,
+    BlockingHoursModule,
+    DentistTreatmentModule,
+    RoomModule,
+    NurseModule,
+    SalaryModule,
+    ExpenseModule,
+    PaymentDetailsModule,
+    PurchaseMedicineModule,
   ],
   controllers: [AppController],
   providers: [AppService],

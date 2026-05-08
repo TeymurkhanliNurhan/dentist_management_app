@@ -7,25 +7,62 @@
   "table": {
     "name": "Название",
     "description": "Описание",
-    "price": "Цена"
+    "price": "Цена",
+    "purchasePrice": "Закупочная цена",
+    "stock": "Остаток"
   },
   "loading": "Загрузка лекарств...",
   "empty": "Лекарства не найдены",
   "edit": "Редактировать",
+  "delete": "Удалить",
+  "deleting": "Удаление…",
+  "deleteModalTitle": "Удалить лекарство",
+  "deleteConfirm": "Удалить «{{name}}»? Это действие нельзя отменить.",
+  "noticeTitle": "Сообщение",
+  "noticeOk": "ОК",
   "addNew": "Добавить лекарство",
   "addTitle": "Добавить лекарство",
   "editTitle": "Редактировать лекарство",
   "form": {
     "name": "Название *",
     "description": "Описание *",
+    "descriptionOptional": "Описание (необязательно)",
     "price": "Цена *",
+    "purchasePrice": "Закупочная цена *",
     "namePlaceholder": "Введите название лекарства",
     "descriptionPlaceholder": "Введите описание",
-    "pricePlaceholder": "Введите цену"
+    "pricePlaceholder": "Введите цену",
+    "purchasePricePlaceholder": "Введите закупочную цену",
+    "stockLimit": "Лимит остатка",
+    "stockLimitPlaceholder": "напр. 5",
+    "stockLimitHint": "Оставьте пустым, чтобы отключить подсветку низкого остатка для этого лекарства."
   },
   "adding": "Добавление...",
   "add": "Добавить лекарство",
   "updating": "Обновление...",
   "update": "Обновить лекарство",
-  "cancel": "Отмена"
+  "cancel": "Отмена",
+  "newPurchase": "Новая закупка",
+  "stats": {
+    "medicinesCount": "Количество лекарств",
+    "totalStock": "Общий остаток"
+  },
+  "purchase": {
+    "title": "Новая закупка",
+    "medicine": "Лекарство",
+    "chooseMedicine": "Выберите лекарство",
+    "count": "Количество",
+    "pricePerOne": "Цена за единицу",
+    "addMedicineRow": "Добавить лекарство",
+    "newMedicine": "Новое лекарство",
+    "quickNewTitle": "Новое лекарство",
+    "quickCreateSubmit": "Создать",
+    "nameRequired": "Введите название лекарства",
+    "total": "Итого:",
+    "creating": "Создание...",
+    "create": "Создать",
+    "countPlaceholder": "1",
+    "pricePlaceholder": "0.00",
+    "fillRequired": "Для каждой строки выберите лекарство и укажите количество (не менее 1) и цену за единицу."
+  }
 }

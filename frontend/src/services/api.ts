@@ -1,9 +1,46 @@
 import axios from 'axios';
 import type { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from '../types/auth';
 
-/** Set VITE_API_BASE_URL at build time for staging/production (e.g. https://api.example.com/api). */
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, '') || 'http://localhost:3000/api';
+/**
+ * Nest uses global prefix `/api`. Production often sets `VITE_API_BASE_URL` to the
+ * service origin only (e.g. `https://app.onrender.com`), which would POST to
+ * `/Auth/SignIn` on that host and get "Cannot POST". Append `/api` only when the
+ * value is an absolute URL with an empty path. Relative bases (e.g. `/api` for Vite
+ * proxy) are left unchanged.
+ */
+function resolveApiBaseUrl(envValue: string | undefined): string {
+  const raw = envValue?.trim().replace(/\/+$/, '') ?? '';
+  if (!raw) return 'http://localhost:3000/api';
+  if (raw.startsWith('/')) return raw;
+  if (!/^https?:\/\//i.test(raw)) return raw;
+  try {
+    const u = new URL(raw);
+    const p = (u.pathname || '/').replace(/\/+$/, '') || '/';
+    if (p === '/') return `${u.origin}/api`;
+    return raw;
+  } catch {
+    return raw;
+  }
+}
+
+/** Set VITE_API_BASE_URL at build time (e.g. `https://host.onrender.com` or `https://host.onrender.com/api`). */
+export const API_BASE_URL = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+
+const PUBLIC_AUTH_PATHS = new Set([
+  '/Auth/SignIn',
+  '/Auth/Register',
+  '/Auth/VerifyEmail',
+  '/Auth/ResendVerificationCode',
+  '/Auth/password-reset/code-request',
+  '/Auth/password-resets/code-verification',
+  '/Auth/password-resets',
+]);
+
+function isPublicAuthRequest(url: string | undefined): boolean {
+  if (!url) return false;
+  const path = url.split('?')[0]?.replace(/\/{2,}/g, '/') ?? '';
+  return PUBLIC_AUTH_PATHS.has(path);
+}
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -23,8 +60,10 @@ api.interceptors.request.use(
     }
 
     const token = localStorage.getItem('access_token');
-    if (token) {
+    if (token && !isPublicAuthRequest(config.url)) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      delete config.headers.Authorization;
     }
     return config;
   },
@@ -35,41 +74,41 @@ api.interceptors.request.use(
 
 export const authService = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    const response = await api.post<LoginResponse>('/auth/signin', credentials);
+    const response = await api.post<LoginResponse>('/Auth/SignIn', credentials);
     return response.data;
   },
   register: async (registerData: RegisterRequest): Promise<RegisterResponse> => {
-    const response = await api.post<RegisterResponse>('/auth/register', registerData);
+    const response = await api.post<RegisterResponse>('/Auth/Register', registerData);
     return response.data;
   },
   verifyEmail: async (email: string, code: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/auth/verifyemail', {
+    const response = await api.post<{ message: string }>('/Auth/VerifyEmail', {
       gmail: email,
       code,
     });
     return response.data;
   },
   resendVerificationCode: async (email: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/auth/resendverificationcode', {
+    const response = await api.post<{ message: string }>('/Auth/ResendVerificationCode', {
       gmail: email,
     });
     return response.data;
   },
   forgotPassword: async (email: string): Promise<{ message: string }> => {
-    const response = await api.post<{ message: string }>('/auth/password-reset/code-request', {
+    const response = await api.post<{ message: string }>('/Auth/password-reset/code-request', {
       email,
     });
     return response.data;
   },
   verifyResetCode: async (email: string, code: string): Promise<{ valid: boolean }> => {
-    const response = await api.post<{ valid: boolean }>('/auth/password-resets/code-verification', {
+    const response = await api.post<{ valid: boolean }>('/Auth/password-resets/code-verification', {
       email,
       code,
     });
     return response.data;
   },
   resetPassword: async (email: string, newPassword: string, confirmPassword: string): Promise<{ success: boolean; message: string }> => {
-    const response = await api.post<{ success: boolean; message: string }>('/auth/password-resets', {
+    const response = await api.post<{ success: boolean; message: string }>('/Auth/password-resets', {
       email,
       newPassword,
       confirmPassword,
@@ -79,8 +118,16 @@ export const authService = {
 };
 
 export const dentistService = {
+  getAll: async (): Promise<DentistProfile[]> => {
+    const response = await api.get('/dentist');
+    return response.data;
+  },
   getById: async (id: number) => {
     const response = await api.get(`/dentist/${id}`);
+    return response.data;
+  },
+  create: async (payload: { staffId: number }) => {
+    const response = await api.post('/dentist', payload);
     return response.data;
   },
   update: async (data: { name?: string; surname?: string; birthDate?: string }) => {
@@ -91,6 +138,382 @@ export const dentistService = {
     const response = await api.patch(`/dentist/password`, data);
     return response.data;
   },
+  getFinanceOverview: async (filters?: { year?: number; month?: number }): Promise<DentistFinanceOverview> => {
+    const params = new URLSearchParams();
+    if (filters?.year != null) params.append('year', String(filters.year));
+    if (filters?.month != null) params.append('month', String(filters.month));
+    const query = params.toString();
+    const response = await api.get<DentistFinanceOverview>(
+      `/dentist/finance/overview${query ? `?${query}` : ''}`,
+    );
+    return response.data;
+  },
+  getDashboardOverview: async (): Promise<DentistDashboardOverview> => {
+    const response = await api.get<DentistDashboardOverview>('/dentist/dashboard/overview');
+    return response.data;
+  },
+};
+
+export interface DentistDashboardOverview {
+  todayTreatmentCount: number;
+  todayRevenue: number;
+  monthRevenue: number;
+  commissionRate: number;
+  todayTreatments: Array<{
+    appointmentId: number;
+    patientName: string;
+    treatmentName: string;
+    benefit: number;
+    date: string;
+  }>;
+  todayRandevues: Array<{
+    id: number;
+    startTime: string;
+    endTime: string;
+    patientName: string;
+  }>;
+  todayBlockingHours: Array<{
+    id: number;
+    startTime: string;
+    endTime: string;
+    name: string;
+    approvalStatus: string;
+  }>;
+}
+
+export interface DentistFinanceOverview {
+  period: { year: number; month: number };
+  commissionRate: number;
+  monthlyCommission: number;
+  treatmentsOperated: {
+    total: number;
+    breakdown: Array<{ name: string; count: number }>;
+  };
+  treatmentMix: Array<{
+    name: string;
+    commission: number;
+    percentage: number;
+  }>;
+  graphs: {
+    daily: Array<{ day: number; commission: number }>;
+    weekly: Array<{ week: number; commission: number }>;
+    monthly: Array<{ month: number; commission: number }>;
+  };
+  recentOperatedTreatments: Array<{
+    appointmentId: number;
+    patientInitials: string;
+    patientName: string;
+    treatmentList: string;
+    date: string;
+    totalCost: number;
+    commission: number;
+  }>;
+}
+
+export interface DentistProfile {
+  id: number;
+  staffId: number;
+  staff: {
+    id: number;
+    name: string;
+    surname: string;
+    birthDate: string;
+    gmail: string;
+    clinicId: number;
+  };
+}
+
+/** Staff list row from `GET /staff` (director context uses clinic-wide list). */
+export interface StaffListRecord {
+  id: number;
+  name: string;
+  surname: string;
+  birthDate: string;
+  gmail: string;
+  isEmailVerified: boolean;
+  verificationCodeExpiry: string | null;
+  active: boolean;
+  startDate: string;
+  endDate: string | null;
+  clinicId: number;
+  role: string | null;
+}
+
+export const staffService = {
+  getAll: async (filters?: { id?: number; active?: boolean }): Promise<StaffListRecord[]> => {
+    const params = new URLSearchParams();
+    if (filters?.id != null) params.append('id', String(filters.id));
+    if (filters?.active !== undefined) params.append('active', String(filters.active));
+    const query = params.toString();
+    const response = await api.get<StaffListRecord[]>(`/staff${query ? `?${query}` : ''}`);
+    return response.data;
+  },
+  create: async (payload: {
+    name: string;
+    surname: string;
+    birthDate: string;
+    gmail: string;
+    password: string;
+    startDate: string;
+    active?: boolean;
+  }): Promise<StaffListRecord> => {
+    const response = await api.post<StaffListRecord>('/staff', payload);
+    return response.data;
+  },
+};
+
+export const nurseService = {
+  create: async (payload: { staffId: number }) => {
+    const response = await api.post('/nurse', payload);
+    return response.data;
+  },
+};
+
+export const frontDeskWorkerService = {
+  create: async (payload: { staffId: number }) => {
+    const response = await api.post('/front-desk-worker', payload);
+    return response.data;
+  },
+};
+
+export const directorService = {
+  create: async (payload: { staffId: number }) => {
+    const response = await api.post('/director', payload);
+    return response.data;
+  },
+};
+
+export interface SalaryRecord {
+  staffId: number;
+  salary: number | null;
+  salaryDay: number | null;
+  treatmentPercentage: number | null;
+}
+
+export interface CreateSalaryDto {
+  staffId: number;
+  salary?: number;
+  salaryDay?: number;
+  treatmentPercentage?: number;
+}
+
+export interface UpdateSalaryDto {
+  salary?: number | null;
+  salaryDay?: number | null;
+  treatmentPercentage?: number | null;
+}
+
+export interface WorkingHoursRecord {
+  id: number;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  staffId: number;
+}
+
+export interface CreateWorkingHoursDto {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  staffId: number;
+}
+
+export interface UpdateWorkingHoursDto {
+  dayOfWeek?: number;
+  startTime?: string;
+  endTime?: string;
+  staffId?: number;
+}
+
+export interface FinanceOverviewSalaryRow {
+  staffId: number;
+  name: string;
+  surname: string;
+  role: string | null;
+  amount: number;
+  type: 'percentage' | 'fixed';
+  percentage: number | null;
+  treatmentCost: number | null;
+}
+
+export interface FinanceOverviewResponse {
+  period: {
+    year: number;
+    month: number;
+  };
+  monthlyIncome: number;
+  debt: number;
+  incomeBreakdown: {
+    byDentists: Array<{
+      staffId: number;
+      name: string;
+      surname: string;
+      amount: number;
+    }>;
+  };
+  outcome: {
+    total: number;
+    totalSalaries: number;
+    totalOtherPaymentDetails: number;
+    totalMedicinePurchases: number;
+    salaries: FinanceOverviewSalaryRow[];
+    medicinePurchases: {
+      total: number;
+      byMedicine: Array<{
+        medicineName: string;
+        totalCost: number;
+      }>;
+      items: Array<{
+        id: number;
+        date: string | null;
+        medicineId: number | null;
+        medicineName: string | null;
+        count: number;
+        pricePerOne: number;
+        totalPrice: number;
+      }>;
+    };
+  };
+  otherPaymentDetails: {
+    total: number;
+    byCategory: Array<{
+      expenseId: number;
+      name: string;
+      totalCost: number;
+    }>;
+    items: Array<{
+      id: number;
+      date: string;
+      cost: number;
+      expenseId: number | null;
+      expenseName: string | null;
+      purchaseMedicines: Array<{
+        id: number;
+        medicineName: string | null;
+        count: number;
+        totalPrice: number;
+      }>;
+    }>;
+  };
+}
+
+export interface CreateExpenseDto {
+  name: string;
+  description?: string;
+  fixedCost?: number;
+  dayOfMonth?: number;
+}
+
+export interface ExpenseRecord {
+  id: number;
+  name: string;
+  description: string | null;
+  fixedCost: number | null;
+  dayOfMonth: number | null;
+}
+
+export interface CreatePaymentDetailsDto {
+  date: string;
+  cost: number;
+  expenseId?: number;
+  salaryId?: number;
+}
+
+export const salaryService = {
+  getAll: async (filters?: { staffId?: number; salaryDay?: number }): Promise<SalaryRecord[]> => {
+    const params = new URLSearchParams();
+    if (filters?.staffId != null) params.append('staffId', String(filters.staffId));
+    if (filters?.salaryDay != null) params.append('salaryDay', String(filters.salaryDay));
+    const query = params.toString();
+    const response = await api.get<SalaryRecord[]>(`/salary${query ? `?${query}` : ''}`);
+    return response.data;
+  },
+  create: async (data: CreateSalaryDto): Promise<SalaryRecord> => {
+    const response = await api.post<SalaryRecord>('/salary', data);
+    return response.data;
+  },
+  update: async (staffId: number, data: UpdateSalaryDto): Promise<SalaryRecord> => {
+    const response = await api.patch<SalaryRecord>(`/salary/${staffId}`, data);
+    return response.data;
+  },
+};
+
+export const workingHoursService = {
+  getAll: async (filters?: { id?: number; dayOfWeek?: number; staffId?: number }): Promise<WorkingHoursRecord[]> => {
+    const params = new URLSearchParams();
+    if (filters?.id != null) params.append('id', String(filters.id));
+    if (filters?.dayOfWeek != null) params.append('dayOfWeek', String(filters.dayOfWeek));
+    if (filters?.staffId != null) params.append('staffId', String(filters.staffId));
+    const query = params.toString();
+    const response = await api.get<WorkingHoursRecord[]>(`/working-hours${query ? `?${query}` : ''}`);
+    return response.data;
+  },
+  create: async (payload: CreateWorkingHoursDto): Promise<WorkingHoursRecord> => {
+    const response = await api.post<WorkingHoursRecord>('/working-hours', payload);
+    return response.data;
+  },
+  update: async (id: number, payload: UpdateWorkingHoursDto): Promise<WorkingHoursRecord> => {
+    const response = await api.patch<WorkingHoursRecord>(`/working-hours/${id}`, payload);
+    return response.data;
+  },
+  delete: async (id: number): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/working-hours/${id}`);
+    return response.data;
+  },
+};
+
+export const paymentDetailsService = {
+  getFinanceOverview: async (filters?: {
+    year?: number;
+    month?: number;
+  }): Promise<FinanceOverviewResponse> => {
+    const params = new URLSearchParams();
+    if (filters?.year != null) params.append('year', String(filters.year));
+    if (filters?.month != null) params.append('month', String(filters.month));
+    const query = params.toString();
+    const response = await api.get<FinanceOverviewResponse>(
+      `/payment-details/finance-overview${query ? `?${query}` : ''}`,
+    );
+    return response.data;
+  },
+  create: async (payload: CreatePaymentDetailsDto) => {
+    const response = await api.post('/payment-details', payload);
+    return response.data;
+  },
+};
+
+export const expenseService = {
+  create: async (payload: CreateExpenseDto): Promise<ExpenseRecord> => {
+    const response = await api.post<ExpenseRecord>('/expense', payload);
+    return response.data;
+  },
+};
+
+let currentDentistProfilePromise: Promise<DentistProfile | null> | null = null;
+
+/** Clears cached dentist profile so the next session fetches fresh data after login. */
+export function resetCachedDentistProfile() {
+  currentDentistProfilePromise = null;
+}
+
+const getCurrentDentistProfile = async (): Promise<DentistProfile | null> => {
+  if (currentDentistProfilePromise) return currentDentistProfilePromise;
+
+  currentDentistProfilePromise = (async () => {
+    const dentistIdRaw = localStorage.getItem('dentistId');
+    if (!dentistIdRaw) return null;
+    const dentistId = Number(dentistIdRaw);
+    if (!Number.isFinite(dentistId) || dentistId <= 0) return null;
+
+    try {
+      const profile = await dentistService.getById(dentistId);
+      return profile as DentistProfile;
+    } catch {
+      return null;
+    }
+  })();
+
+  return currentDentistProfilePromise;
 };
 
 export interface Patient {
@@ -98,6 +521,8 @@ export interface Patient {
   name: string;
   surname: string;
   birthDate: string;
+  /** Present on POST /patient response; patients belong to a clinic. */
+  clinic?: { id: number };
 }
 
 export interface PatientFilters {
@@ -162,28 +587,52 @@ export interface Medicine {
   name: string;
   description: string;
   price: number;
+  stock: number;
+  stockLimit?: number | null;
+  purchasePrice: number;
 }
 
 export interface MedicineFilters {
   name?: string;
+  clinic_id?: number;
 }
 
 export interface CreateMedicineDto {
   name: string;
-  description: string;
+  description?: string;
   price: number;
+  stock?: number;
+  stockLimit?: number | null;
+  purchasePrice?: number;
 }
 
 export interface UpdateMedicineDto {
   name?: string;
   description?: string;
   price?: number;
+  stock?: number;
+  stockLimit?: number | null;
+  purchasePrice?: number;
+}
+
+export interface CreatePurchaseSessionItemDto {
+  medicineId: number;
+  count: number;
+  pricePerOne: number;
+}
+
+export interface CreatePurchaseSessionDto {
+  items: CreatePurchaseSessionItemDto[];
 }
 
 export const medicineService = {
   getAll: async (filters?: MedicineFilters): Promise<Medicine[]> => {
     const params = new URLSearchParams();
+    const effectiveClinicId =
+      filters?.clinic_id ??
+      (await getCurrentDentistProfile())?.staff?.clinicId;
     if (filters?.name) params.append('name', filters.name);
+    if (effectiveClinicId) params.append('clinic_id', effectiveClinicId.toString());
     
     const response = await api.get(`/medicine?${params.toString()}`);
     return response.data;
@@ -196,6 +645,17 @@ export const medicineService = {
     const response = await api.patch(`/medicine/${id}`, medicine);
     return response.data;
   },
+  delete: async (id: number): Promise<{ message: string }> => {
+    const response = await api.delete(`/medicine/${id}`);
+    return response.data;
+  },
+};
+
+export const purchaseMedicineService = {
+  createSession: async (payload: CreatePurchaseSessionDto) => {
+    const response = await api.post('/purchase-medicine/session', payload);
+    return response.data;
+  },
 };
 
 export type TreatmentPricePer = 'tooth' | 'chin' | 'mouth';
@@ -206,10 +666,12 @@ export interface Treatment {
   description: string;
   price: number;
   pricePer: TreatmentPricePer | null;
+  dentistCount: number;
 }
 
 export interface TreatmentFilters {
   name?: string;
+  clinic_id?: number;
 }
 
 export interface CreateTreatmentDto {
@@ -229,7 +691,11 @@ export interface UpdateTreatmentDto {
 export const treatmentService = {
   getAll: async (filters?: TreatmentFilters): Promise<Treatment[]> => {
     const params = new URLSearchParams();
+    const effectiveClinicId =
+      filters?.clinic_id ??
+      (await getCurrentDentistProfile())?.staff?.clinicId;
     if (filters?.name) params.append('name', filters.name);
+    if (effectiveClinicId) params.append('clinic_id', effectiveClinicId.toString());
     
     const response = await api.get(`/treatment?${params.toString()}`);
     return response.data;
@@ -244,11 +710,44 @@ export const treatmentService = {
   },
 };
 
+export interface DentistTreatmentLink {
+  treatment: number;
+  dentist: number;
+}
+
+export interface DentistTreatmentFilters {
+  treatment?: number;
+  dentist?: number;
+}
+
+export const dentistTreatmentService = {
+  getAll: async (filters?: DentistTreatmentFilters): Promise<DentistTreatmentLink[]> => {
+    const params = new URLSearchParams();
+    if (filters?.treatment !== undefined) params.append('treatment', filters.treatment.toString());
+    if (filters?.dentist !== undefined) params.append('dentist', filters.dentist.toString());
+    const response = await api.get(`/dentist-treatment?${params.toString()}`);
+    return response.data;
+  },
+  create: async (treatment: number, dentist: number): Promise<DentistTreatmentLink> => {
+    const response = await api.post('/dentist-treatment', { treatment, dentist });
+    return response.data;
+  },
+  remove: async (treatment: number, dentist: number): Promise<{ message: string }> => {
+    const params = new URLSearchParams({ treatment: treatment.toString(), dentist: dentist.toString() });
+    const response = await api.delete(`/dentist-treatment?${params.toString()}`);
+    return response.data;
+  },
+};
+
 export interface ToothTreatment {
   id: number;
   patient: number;
   tooth: number;
   feeSnapshot: number;
+  dentist?: {
+    id: number;
+    staff: { name: string; surname: string; role?: string | null };
+  } | null;
   appointment: {
     id: number;
     startDate: string;
@@ -261,6 +760,16 @@ export interface ToothTreatment {
     price: number;
     pricePer: TreatmentPricePer | null;
   };
+  lastRandevueDate?: string | null;
+  /** Distinct randevues linked to this placement (via tooth rows). */
+  linkedRandevues?: Array<{
+    id: number;
+    date: string;
+    endTime: string;
+    room: { id: number; number: string | null; description: string | null } | null;
+    nurse: { id: number; name: string; surname: string } | null;
+    dentist: { id: number; name: string; surname: string } | null;
+  }>;
   description: string | null;
   toothTreatmentTeeth: {
     id: number;
@@ -275,6 +784,7 @@ export interface ToothTreatmentFilters {
   tooth?: number;
   patient?: number;
   treatment?: number;
+  dentist?: number;
 }
 
 export interface CreateToothTreatmentDto {
@@ -357,7 +867,8 @@ export const toothTreatmentService = {
     if (filters?.tooth) params.append('tooth', filters.tooth.toString());
     if (filters?.patient) params.append('patient', filters.patient.toString());
     if (filters?.treatment) params.append('treatment', filters.treatment.toString());
-    
+    if (filters?.dentist) params.append('dentist', filters.dentist.toString());
+
     const response = await api.get(`/tooth-treatment?${params.toString()}`);
     return response.data;
   },
@@ -462,6 +973,12 @@ export interface Appointment {
     name: string;
     surname: string;
   };
+  dentist?: {
+    id: number;
+    name: string;
+    surname: string;
+  } | null;
+  treatmentPercentage?: number | null;
 }
 
 export interface AppointmentFilters {
@@ -505,28 +1022,45 @@ export interface Randevue {
     name: string;
     surname: string;
   };
-  appointment: { id: number } | null;
+  appointment: {
+    id: number;
+    startDate: string;
+    endDate: string | null;
+  } | null;
+  room?: { id: number; number: string; description: string };
+  nurse: { id: number; name?: string; surname?: string } | null;
+  dentist?: { id: number; name?: string; surname?: string } | null;
 }
 
 export interface CreateRandevueDto {
   startDateTime: string;
   endDateTime: string;
   patient_id: number;
+  dentist_id?: number;
   note?: string;
   appointment_id?: number;
   create_new_appointment?: boolean;
   appointment_start_date?: string;
+  room_id?: number;
+  nurse_id?: number;
+  tooth_treatment_ids?: number[];
 }
 
 export interface UpdateRandevueDto {
   startDateTime?: string;
   endDateTime?: string;
   patient_id?: number;
+  dentist_id?: number;
   note?: string;
   clear_appointment?: boolean;
   appointment_id?: number;
   create_new_appointment?: boolean;
   appointment_start_date?: string;
+  room_id?: number;
+  nurse_id?: number;
+  clear_nurse?: boolean;
+  append_tooth_treatment_ids?: number[];
+  remove_tooth_treatment_ids?: number[];
 }
 
 export const randevueService = {

@@ -31,6 +31,6 @@
   "failedToSend": "Sıfırlama kodu göndərilə bilmədi",
   "failedToVerify": "Kod təsdiqlənə bilmədi",
   "failedToReset": "Şifrə sıfırlana bilmədi",
-  "networkError": "Serverə qoşula bilmədi. Zəhmət olmasa backend-in http://localhost:3000 ünvanında işlədiyinə əmin olun. API endpoint-ləri /Auth/SignIn-dədir (deyil /api/Auth/SignIn)."
+  "networkError": "API-yə qoşulmaq mümkün olmadı. Lokal üçün: VITE_API_BASE_URL=/api (Vite proxy) və ya backend http://localhost:3000. İstehsal: tam API ünvanı, /api ilə."
 }
 

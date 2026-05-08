@@ -1,11 +1,32 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AppointmentService } from './appointment.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { GetAppointmentDto } from './dto/get-appointment.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
+import { isDirectorRole } from '../auth/role-guards';
 
 @ApiTags('appointment')
 @Controller('appointment')
@@ -20,7 +41,9 @@ export class AppointmentController {
   @ApiOkResponse({ description: 'Appointments retrieved' })
   async findAll(@User() user: any, @Query() dto: GetAppointmentDto) {
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.findAll(dentistId, dto);
+    const role =
+      typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
+    return await this.service.findAll(dentistId, dto, role);
   }
 
   @ApiBearerAuth('bearer')
@@ -30,6 +53,11 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Create appointment' })
   @ApiResponse({ status: 201, description: 'Appointment created' })
   async create(@User() user: any, @Body() dto: CreateAppointmentDto) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for appointment creation',
+      );
+    }
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
     return await this.service.create(dentistId, dto);
   }
@@ -46,7 +74,7 @@ export class AppointmentController {
     @Body() dto: UpdateAppointmentDto,
   ) {
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.patch(dentistId, id, dto);
+    return await this.service.patch(dentistId, id, dto, user?.role);
   }
 
   @ApiBearerAuth('bearer')
@@ -55,10 +83,12 @@ export class AppointmentController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete appointment by id' })
   @ApiOkResponse({ description: 'Appointment deleted' })
-  async delete(
-    @User() user: any,
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  async delete(@User() user: any, @Param('id', ParseIntPipe) id: number) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for appointment deletion',
+      );
+    }
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
     return await this.service.delete(dentistId, id);
   }

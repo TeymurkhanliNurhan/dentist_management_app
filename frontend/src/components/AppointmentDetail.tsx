@@ -1,14 +1,121 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash } from 'lucide-react';
-import Header from './Header';
-import { appointmentService, randevueService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
-import type { Appointment, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, CreateMedicineDto, Media, TreatmentPricePer } from '../services/api';
+import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash, ChevronDown } from 'lucide-react';
+import ClinicManagementLayout from './ClinicManagementLayout';
+import { API_BASE_URL, appointmentService, dentistService, randevueService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
+import type { Appointment, Randevue, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, Media, TreatmentPricePer, DentistProfile } from '../services/api';
 
 function combineLocalDateAndTime(dateYmd: string, timeHm: string): Date {
   const [y, m, d] = dateYmd.split('-').map(Number);
   const [hh, mm = '0'] = timeHm.split(':');
   return new Date(y, m - 1, d, Number(hh), Number(mm), 0, 0);
+}
+
+/** Uses existing GET /randevue?from&to (no dedicated appointment route). */
+function randevueQueryRangeForAppointment(appointment: Appointment): { from: string; to: string } {
+  const from = combineLocalDateAndTime(appointment.startDate, '00:00');
+  let to: Date;
+  if (appointment.endDate) {
+    to = combineLocalDateAndTime(appointment.endDate, '23:59');
+  } else {
+    to = new Date(
+      Math.max(Date.now() + 86_400_000, from.getTime() + 400 * 86_400_000),
+    );
+  }
+  if (to <= from) {
+    to = new Date(from.getTime() + 86_400_000);
+  }
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+function filterRandevuesForAppointment(
+  list: Randevue[],
+  appointmentId: number,
+  patientId: number,
+): Randevue[] {
+  return list.filter(
+    (r) => r.appointment?.id === appointmentId && r.patient.id === patientId,
+  );
+}
+
+/** Local date plus start–end times only (no id or extra fields). */
+function formatRandevueDateTimeRange(rv: { date: string; endTime: string }): string {
+  const start = new Date(rv.date);
+  const end = new Date(rv.endTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '—';
+  const datePart = start.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+  const timeOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+  return `${datePart} · ${start.toLocaleTimeString(undefined, timeOpts)} – ${end.toLocaleTimeString(undefined, timeOpts)}`;
+}
+
+function formatStaffName(person?: { id?: number; name?: string | null; surname?: string | null } | null): string {
+  if (!person) return 'Not assigned';
+  const fullName = `${person.name ?? ''} ${person.surname ?? ''}`.trim();
+  if (!fullName && person.id != null) return `#${person.id}`;
+  return fullName || 'Not assigned';
+}
+
+function formatRoomLabel(room?: { id?: number; number?: string | null; description?: string | null } | null): string {
+  if (!room) return 'Not assigned';
+  if (room.number) return `Room ${room.number}`;
+  if (room.description) return room.description;
+  if (room.id != null) return `#${room.id}`;
+  return 'Not assigned';
+}
+
+function apiDayOfWeekFromDate(d: Date): number {
+  const js = d.getDay();
+  return js === 0 ? 7 : js;
+}
+
+function hmToMinutes(hm: string): number {
+  const [h, m] = hm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function timeStringToMinutes(value: string): number {
+  const [h, m] = value.split(':');
+  return Number(h) * 60 + Number(m);
+}
+
+function intervalsOverlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date): boolean {
+  return aStart < bEnd && aEnd > bStart;
+}
+
+interface RoomOption {
+  id: number;
+  number: string;
+  description: string;
+}
+
+interface NurseOption {
+  id: number;
+  staffId: number;
+  staff?: {
+    id?: number;
+    name?: string;
+    surname?: string;
+  };
+}
+
+interface WorkingHourRow {
+  id: number;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  staffId: number;
+}
+
+interface BlockingHourRow {
+  id: number;
+  startTime: string;
+  endTime: string;
+  staffId: number | null;
+  roomId: number | null;
 }
 
 type TeethSelectionMode = 'multiple' | 'chin';
@@ -133,7 +240,7 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
         className={`absolute z-10 w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition-all select-none ${
           enabled
             ? isSelected
-              ? 'cursor-pointer bg-teal-600 text-white scale-110 shadow-sm hover:bg-teal-700'
+              ? 'cursor-pointer bg-[#0066A6] text-white scale-110 shadow-sm hover:bg-[#004a75]'
               : 'cursor-pointer text-black hover:scale-110 hover:bg-gray-400/20 hover:ring-2 hover:ring-gray-500/35'
             : 'text-gray-400 cursor-not-allowed opacity-50'
         }`}
@@ -152,7 +259,7 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
           <button
             type="button"
             onClick={() => onSelectionModeChange('multiple')}
-            className={`p-2 rounded-md transition-colors ${selectionMode === 'multiple' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            className={`p-2 rounded-md transition-colors ${selectionMode === 'multiple' ? 'bg-[#0066A6] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
             title="Multiple teeth selection"
           >
             <MultiToothIcon className="w-4 h-4" />
@@ -160,7 +267,7 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
           <button
             type="button"
             onClick={() => onSelectionModeChange('chin')}
-            className={`p-2 rounded-md transition-colors ${selectionMode === 'chin' ? 'bg-teal-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            className={`p-2 rounded-md transition-colors ${selectionMode === 'chin' ? 'bg-[#0066A6] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
             title="Jaw selection (upper or lower arch)"
           >
             <ChinArcTeethIcon className="w-4 h-4" />
@@ -169,7 +276,7 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
 
         <button
           onClick={() => setIsPermanent(!isPermanent)}
-          className="px-3 py-1.5 bg-teal-500 text-white rounded-md text-sm font-medium hover:bg-teal-600 transition-colors"
+          className="px-3 py-1.5 bg-[#0066A6] text-white rounded-md text-sm font-medium hover:bg-[#00588f] transition-colors"
         >
           {isPermanent ? 'Childish Teeth' : 'Permanent Teeth'}
         </button>
@@ -247,19 +354,82 @@ const TeethSelector = ({ patientTeeth, selectedToothIds, onSelectionChange, sele
   );
 };
 
-type AppointmentLocationState = { fromPatientId?: number };
+type AppointmentLocationState = {
+  fromPatientId?: number;
+  returnTo?: string;
+  returnLabel?: string;
+};
+
+type TreatmentTimeFilter = 'current' | 'past' | 'all';
+type TreatmentOwnershipFilter = 'mine' | 'all';
+type MedicineUsageInput = { quantity: number; stockUsedQuantity: number };
+type TreatmentDraft = {
+  selectedTreatmentIds: number[];
+  tooth_ids: number[];
+  description: string;
+  selectedMedicineQuantities: Record<number, MedicineUsageInput>;
+  randevueId: number | '';
+  toothSelectionMode: TeethSelectionMode;
+  pendingMedia: { key: string; name: string; description: string; file: File }[];
+};
+
+const resolveInternalReturnPath = (candidate: unknown): string | undefined => {
+  if (typeof candidate !== 'string') return undefined;
+  const trimmed = candidate.trim();
+  if (!trimmed.startsWith('/')) return undefined;
+  return trimmed;
+};
 
 const AppointmentDetail = () => {
+  const createEmptyTreatmentDraft = (): TreatmentDraft => ({
+    selectedTreatmentIds: [],
+    tooth_ids: [],
+    description: '',
+    selectedMedicineQuantities: {},
+    randevueId: '',
+    toothSelectionMode: 'multiple',
+    pendingMedia: [],
+  });
+
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const fromPatientIdRaw = (location.state as AppointmentLocationState | null)?.fromPatientId;
+  const locationState = location.state as AppointmentLocationState | null;
+  const fromPatientIdRaw = locationState?.fromPatientId;
   const fromPatientId =
     typeof fromPatientIdRaw === 'number' && Number.isFinite(fromPatientIdRaw) && fromPatientIdRaw > 0
       ? fromPatientIdRaw
       : undefined;
-  const backPath = fromPatientId != null ? `/patients/${fromPatientId}` : '/appointments';
-  const backButtonLabel = fromPatientId != null ? 'Back to Patient' : 'Back to Appointments';
+  const returnTo = resolveInternalReturnPath(locationState?.returnTo);
+  const returnLabelRaw = locationState?.returnLabel;
+  const returnLabel =
+    typeof returnLabelRaw === 'string' && returnLabelRaw.trim().length > 0
+      ? returnLabelRaw.trim()
+      : undefined;
+  const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
+  const isAdminLike = role === 'director' || role === 'admin';
+  const isDirector = role === 'director';
+  const isDentist = role === 'dentist';
+  const loggedInDentistId = useMemo(() => {
+    const raw = localStorage.getItem('dentistId');
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, []);
+  const canSeeTreatmentFees = (t: ToothTreatment) =>
+    !isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId);
+  const canMutateTreatment = (t: ToothTreatment) =>
+    !isDirector &&
+    (!isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId));
+  const backPath =
+    returnTo ??
+    (fromPatientId != null ? `/patients/${fromPatientId}` : isAdminLike ? '/schedule' : '/course-of-treatments');
+  const backButtonLabel =
+    returnLabel ??
+    (fromPatientId != null
+      ? 'Back to Patient'
+      : isAdminLike
+        ? 'Back to Schedule'
+        : 'Back to Course of Treatments');
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [treatments, setTreatments] = useState<ToothTreatment[]>([]);
   const [teethInfo, setTeethInfo] = useState<Map<number, ToothInfo>>(new Map());
@@ -279,10 +449,27 @@ const AppointmentDetail = () => {
   const [newRandevueDate, setNewRandevueDate] = useState('');
   const [newRandevueStart, setNewRandevueStart] = useState('09:00');
   const [newRandevueEnd, setNewRandevueEnd] = useState('10:00');
+  const [newRandevueRoomId, setNewRandevueRoomId] = useState<number>(0);
+  const [newRandevueDentistId, setNewRandevueDentistId] = useState<number>(0);
+  const [newRandevueNurseId, setNewRandevueNurseId] = useState<number>(0);
   const [newRandevueNote, setNewRandevueNote] = useState('');
+  const [newRandevueTreatmentIds, setNewRandevueTreatmentIds] = useState<number[]>([]);
   const [newRandevueError, setNewRandevueError] = useState('');
   const [isSubmittingNewRandevue, setIsSubmittingNewRandevue] = useState(false);
+  const [newRandevueRooms, setNewRandevueRooms] = useState<RoomOption[]>([]);
+  const [newRandevueDentists, setNewRandevueDentists] = useState<DentistProfile[]>([]);
+  const [newRandevueNurses, setNewRandevueNurses] = useState<NurseOption[]>([]);
+  const [newRandevueWorkingHours, setNewRandevueWorkingHours] = useState<WorkingHourRow[]>([]);
+  const [newRandevueBlockingHours, setNewRandevueBlockingHours] = useState<BlockingHourRow[]>([]);
+  const [newRandevueDayRandevues, setNewRandevueDayRandevues] = useState<Array<{ id: number; date: string; endTime: string; dentist?: { id: number } | null; nurse?: { id: number } | null; room?: { id: number } | null }>>([]);
+  const [appointmentRandevues, setAppointmentRandevues] = useState<Randevue[]>([]);
+  const [selectedRandevueByTreatment, setSelectedRandevueByTreatment] = useState<Record<number, number>>({});
+  const [showRandevuesByTreatment, setShowRandevuesByTreatment] = useState<Record<number, boolean>>({});
+  const [linkingTreatmentId, setLinkingTreatmentId] = useState<number | null>(null);
+  const [unlinkingRandevueKey, setUnlinkingRandevueKey] = useState<string | null>(null);
+  const [linkTreatmentError, setLinkTreatmentError] = useState('');
   const [showAddTreatment, setShowAddTreatment] = useState(false);
+  const [newTreatmentRandevueId, setNewTreatmentRandevueId] = useState<number | ''>('');
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>([]);
   const [allTreatments, setAllTreatments] = useState<Treatment[]>([]);
   const [patientTeeth, setPatientTeeth] = useState<PatientTooth[]>([]);
@@ -296,9 +483,8 @@ const AppointmentDetail = () => {
   const [isAddingTreatment, setIsAddingTreatment] = useState(false);
   const [availableMedicines, setAvailableMedicines] = useState<Medicine[]>([]);
   const [allMedicines, setAllMedicines] = useState<Medicine[]>([]);
-  const [selectedMedicineQuantities, setSelectedMedicineQuantities] = useState<Record<number, number>>({});
+  const [selectedMedicineQuantities, setSelectedMedicineQuantities] = useState<Record<number, MedicineUsageInput>>({});
   const [medicineQuery, setMedicineQuery] = useState('');
-
   const [treatmentPage, setTreatmentPage] = useState(1);
   const [medicinePage, setMedicinePage] = useState(1);
   const ITEMS_PER_PAGE = 10;
@@ -309,10 +495,12 @@ const AppointmentDetail = () => {
     tooth_ids: [],
     description: '',
   });
-  const [editingMedicineQuantities, setEditingMedicineQuantities] = useState<Record<number, number>>({});
+  const [editingMedicineQuantities, setEditingMedicineQuantities] = useState<Record<number, MedicineUsageInput>>({});
   const [confirmDeleteTreatmentId, setConfirmDeleteTreatmentId] = useState<number | null>(null);
   const [toothSelectionMode, setToothSelectionMode] = useState<TeethSelectionMode>('multiple');
   const [selectedTreatmentIds, setSelectedTreatmentIds] = useState<number[]>([]);
+  const [treatmentDrafts, setTreatmentDrafts] = useState<TreatmentDraft[]>([]);
+  const [activeTreatmentDraftIndex, setActiveTreatmentDraftIndex] = useState(0);
   const [showAddTreatmentInModal, setShowAddTreatmentInModal] = useState(false);
   const [newTreatmentForm, setNewTreatmentForm] = useState<CreateTreatmentDto>({
     name: '',
@@ -322,10 +510,6 @@ const AppointmentDetail = () => {
   });
   const [isSubmittingTreatment, setIsSubmittingTreatment] = useState(false);
   const [treatmentError, setTreatmentError] = useState<string>('');
-  const [showAddMedicineInModal, setShowAddMedicineInModal] = useState(false);
-  const [newMedicineForm, setNewMedicineForm] = useState<CreateMedicineDto>({ name: '', description: '', price: 0 });
-  const [isSubmittingMedicine, setIsSubmittingMedicine] = useState(false);
-  const [medicineError, setMedicineError] = useState<string>('');
   const [showAddMediaForTreatment, setShowAddMediaForTreatment] = useState<number | null>(null);
   const [newMediaForm, setNewMediaForm] = useState<{ name: string; description: string; file: File | null }>({
     name: '',
@@ -351,6 +535,55 @@ const AppointmentDetail = () => {
   const [editingMediaData, setEditingMediaData] = useState<{ name: string; description: string }>({ name: '', description: '' });
   const [isEditingMedia, setIsEditingMedia] = useState(false);
   const [previewMedia, setPreviewMedia] = useState<Media | null>(null);
+  const [treatmentTimeFilter, setTreatmentTimeFilter] = useState<TreatmentTimeFilter>('current');
+  const [treatmentOwnershipFilter, setTreatmentOwnershipFilter] = useState<TreatmentOwnershipFilter>(
+    isDirector ? 'all' : 'mine',
+  );
+
+  const hydrateTreatmentDraft = useCallback(
+    (draft: TreatmentDraft) => {
+      setSelectedTreatmentIds(draft.selectedTreatmentIds);
+      setToothSelectionMode(draft.toothSelectionMode);
+      setSelectedMedicineQuantities(draft.selectedMedicineQuantities);
+      setPendingMediaForNewTreatment(draft.pendingMedia);
+      setNewTreatmentRandevueId(draft.randevueId);
+      setNewTreatment((prev) => ({
+        ...prev,
+        tooth_ids: draft.tooth_ids,
+        description: draft.description,
+      }));
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!showAddTreatment || treatmentDrafts.length === 0) return;
+    setTreatmentDrafts((prev) => {
+      if (!prev[activeTreatmentDraftIndex]) return prev;
+      const next = [...prev];
+      next[activeTreatmentDraftIndex] = {
+        selectedTreatmentIds,
+        tooth_ids: newTreatment.tooth_ids,
+        description: newTreatment.description ?? '',
+        selectedMedicineQuantities,
+        randevueId: newTreatmentRandevueId,
+        toothSelectionMode,
+        pendingMedia: pendingMediaForNewTreatment,
+      };
+      return next;
+    });
+  }, [
+    activeTreatmentDraftIndex,
+    newTreatment.description,
+    newTreatment.tooth_ids,
+    newTreatmentRandevueId,
+    pendingMediaForNewTreatment,
+    selectedMedicineQuantities,
+    selectedTreatmentIds,
+    showAddTreatment,
+    toothSelectionMode,
+    treatmentDrafts.length,
+  ]);
 
   useEffect(() => {
     if (!previewMedia) return;
@@ -386,6 +619,293 @@ const AppointmentDetail = () => {
   }, [showNewRandevuePanel]);
 
   useEffect(() => {
+    if (!showNewRandevuePanel) return;
+    let cancelled = false;
+    const token = localStorage.getItem('access_token') || '';
+
+    const fetchRandevueResources = async () => {
+      try {
+        const [roomsRes, dentistsData, nursesRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/room`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          dentistService.getAll(),
+          fetch(`${API_BASE_URL}/nurse`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        const roomsData = roomsRes.ok ? ((await roomsRes.json()) as RoomOption[]) : [];
+        const nursesData = nursesRes.ok ? ((await nursesRes.json()) as NurseOption[]) : [];
+        if (cancelled) return;
+
+        setNewRandevueRooms(Array.isArray(roomsData) ? roomsData : []);
+        setNewRandevueDentists(Array.isArray(dentistsData) ? dentistsData : []);
+        setNewRandevueNurses(Array.isArray(nursesData) ? nursesData : []);
+      } catch {
+        if (cancelled) return;
+        setNewRandevueRooms([]);
+        setNewRandevueDentists([]);
+        setNewRandevueNurses([]);
+      }
+    };
+
+    void fetchRandevueResources();
+    return () => {
+      cancelled = true;
+    };
+  }, [showNewRandevuePanel]);
+
+  useEffect(() => {
+    if (!showNewRandevuePanel || !newRandevueDate) {
+      setNewRandevueWorkingHours([]);
+      setNewRandevueBlockingHours([]);
+      return;
+    }
+
+    let cancelled = false;
+    const token = localStorage.getItem('access_token') || '';
+    const targetDate = combineLocalDateAndTime(newRandevueDate, '00:00');
+    const dayOfWeek = apiDayOfWeekFromDate(targetDate);
+
+    const fetchAvailabilityRows = async () => {
+      try {
+        const dayStart = combineLocalDateAndTime(newRandevueDate, '00:00');
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+        const [workingRes, blockingRes, randevuesData] = await Promise.all([
+          fetch(`${API_BASE_URL}/working-hours?dayOfWeek=${dayOfWeek}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API_BASE_URL}/blocking-hours`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          randevueService.getForRange(dayStart.toISOString(), dayEnd.toISOString()),
+        ]);
+        const workingData = workingRes.ok
+          ? ((await workingRes.json()) as WorkingHourRow[])
+          : [];
+        const blockingData = blockingRes.ok
+          ? ((await blockingRes.json()) as BlockingHourRow[])
+          : [];
+        if (cancelled) return;
+        setNewRandevueWorkingHours(Array.isArray(workingData) ? workingData : []);
+        setNewRandevueBlockingHours(Array.isArray(blockingData) ? blockingData : []);
+        setNewRandevueDayRandevues(Array.isArray(randevuesData) ? randevuesData : []);
+      } catch {
+        if (cancelled) return;
+        setNewRandevueWorkingHours([]);
+        setNewRandevueBlockingHours([]);
+        setNewRandevueDayRandevues([]);
+      }
+    };
+
+    void fetchAvailabilityRows();
+    return () => {
+      cancelled = true;
+    };
+  }, [newRandevueDate, showNewRandevuePanel]);
+
+  const dentistStaffIdById = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const dentist of newRandevueDentists) {
+      if (dentist.id && dentist.staff?.id) map.set(dentist.id, dentist.staff.id);
+    }
+    return map;
+  }, [newRandevueDentists]);
+
+  const nurseStaffIdById = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const nurse of newRandevueNurses) {
+      const staffId = nurse.staff?.id ?? nurse.staffId;
+      if (nurse.id && staffId) map.set(nurse.id, staffId);
+    }
+    return map;
+  }, [newRandevueNurses]);
+
+  const staffAvailableAt = useCallback(
+    (staffId: number) => {
+      const intervalStart = combineLocalDateAndTime(newRandevueDate, newRandevueStart);
+      const intervalEnd = combineLocalDateAndTime(newRandevueDate, newRandevueEnd);
+      if (intervalEnd <= intervalStart) return false;
+      const dayOfWeek = apiDayOfWeekFromDate(intervalStart);
+      const startMinutes = hmToMinutes(newRandevueStart);
+      const endMinutes = hmToMinutes(newRandevueEnd);
+
+      const hasWorkingWindow = newRandevueWorkingHours.some((wh) => {
+        if (wh.staffId !== staffId || wh.dayOfWeek !== dayOfWeek) return false;
+        const whStart = timeStringToMinutes(wh.startTime);
+        const whEnd = timeStringToMinutes(wh.endTime);
+        return startMinutes >= whStart && endMinutes <= whEnd;
+      });
+      if (!hasWorkingWindow) return false;
+
+      const hasBlocking = newRandevueBlockingHours.some((bh) => {
+        if (bh.staffId !== staffId) return false;
+        return intervalsOverlap(
+          intervalStart,
+          intervalEnd,
+          new Date(bh.startTime),
+          new Date(bh.endTime),
+        );
+      });
+      if (hasBlocking) return false;
+
+      return !newRandevueDayRandevues.some((r) => {
+        const dentistStaffId =
+          r.dentist?.id != null ? dentistStaffIdById.get(r.dentist.id) : undefined;
+        const nurseStaffId =
+          r.nurse?.id != null ? nurseStaffIdById.get(r.nurse.id) : undefined;
+        if (dentistStaffId !== staffId && nurseStaffId !== staffId) return false;
+        return intervalsOverlap(
+          intervalStart,
+          intervalEnd,
+          new Date(r.date),
+          new Date(r.endTime),
+        );
+      });
+    },
+    [
+      dentistStaffIdById,
+      newRandevueBlockingHours,
+      newRandevueDate,
+      newRandevueDayRandevues,
+      newRandevueEnd,
+      newRandevueStart,
+      newRandevueWorkingHours,
+      nurseStaffIdById,
+    ],
+  );
+
+  const roomAvailableAt = useCallback(
+    (roomId: number) => {
+      const intervalStart = combineLocalDateAndTime(newRandevueDate, newRandevueStart);
+      const intervalEnd = combineLocalDateAndTime(newRandevueDate, newRandevueEnd);
+      if (intervalEnd <= intervalStart) return false;
+
+      const hasBlocking = newRandevueBlockingHours.some((bh) => {
+        if (bh.roomId !== roomId) return false;
+        return intervalsOverlap(
+          intervalStart,
+          intervalEnd,
+          new Date(bh.startTime),
+          new Date(bh.endTime),
+        );
+      });
+      if (hasBlocking) return false;
+
+      return !newRandevueDayRandevues.some((r) => {
+        if (r.room?.id !== roomId) return false;
+        return intervalsOverlap(
+          intervalStart,
+          intervalEnd,
+          new Date(r.date),
+          new Date(r.endTime),
+        );
+      });
+    },
+    [
+      newRandevueBlockingHours,
+      newRandevueDate,
+      newRandevueDayRandevues,
+      newRandevueEnd,
+      newRandevueStart,
+    ],
+  );
+
+  const availableRandevueDentists = useMemo(() => {
+    if (!newRandevueDate) return newRandevueDentists;
+    return newRandevueDentists.filter((dentist) => {
+      const staffId = dentist.staff?.id;
+      if (!staffId) return false;
+      return staffAvailableAt(staffId);
+    });
+  }, [newRandevueDate, newRandevueDentists, staffAvailableAt]);
+
+  const availableRandevueNurses = useMemo(() => {
+    if (!newRandevueDate) return newRandevueNurses;
+    return newRandevueNurses.filter((nurse) => {
+      const staffId = nurse.staff?.id ?? nurse.staffId;
+      if (!staffId) return false;
+      return staffAvailableAt(staffId);
+    });
+  }, [newRandevueDate, newRandevueNurses, staffAvailableAt]);
+
+  const availableRandevueRooms = useMemo(() => {
+    if (!newRandevueDate) return newRandevueRooms;
+    return newRandevueRooms.filter((room) => roomAvailableAt(room.id));
+  }, [newRandevueDate, newRandevueRooms, roomAvailableAt]);
+
+  const randevueTreatmentChoices = useMemo(() => {
+    return treatments.map((treatment) => {
+      const toothLabels = treatment.toothTreatmentTeeth
+        .map((ttt) => teethInfo.get(ttt.toothId)?.number)
+        .filter((value): value is number => value != null)
+        .sort((a, b) => a - b)
+        .map((number) => `#${number}`);
+
+      return {
+        id: treatment.id,
+        name: treatment.treatment?.name ?? `Treatment #${treatment.id}`,
+        toothLabels,
+      };
+    });
+  }, [teethInfo, treatments]);
+
+  useEffect(() => {
+    if (
+      newRandevueRoomId > 0 &&
+      !availableRandevueRooms.some((room) => room.id === newRandevueRoomId)
+    ) {
+      setNewRandevueRoomId(0);
+    }
+    if (
+      newRandevueDentistId > 0 &&
+      !availableRandevueDentists.some((dentist) => dentist.id === newRandevueDentistId)
+    ) {
+      // Dentists always book as themselves; do not clear when availability filter omits them.
+      if (!(isDentist && newRandevueDentistId === loggedInDentistId)) {
+        setNewRandevueDentistId(0);
+      }
+    }
+    if (
+      newRandevueNurseId > 0 &&
+      !availableRandevueNurses.some((nurse) => nurse.id === newRandevueNurseId)
+    ) {
+      setNewRandevueNurseId(0);
+    }
+  }, [
+    availableRandevueDentists,
+    availableRandevueNurses,
+    availableRandevueRooms,
+    isDentist,
+    loggedInDentistId,
+    newRandevueDentistId,
+    newRandevueNurseId,
+    newRandevueRoomId,
+  ]);
+
+  useEffect(() => {
+    if (!showNewRandevuePanel || isAdminLike || newRandevueDentistId > 0) return;
+    const currentDentistId = Number(localStorage.getItem('dentistId'));
+    if (!Number.isFinite(currentDentistId) || currentDentistId <= 0) return;
+    if (availableRandevueDentists.some((d) => d.id === currentDentistId)) {
+      setNewRandevueDentistId(currentDentistId);
+    }
+  }, [
+    availableRandevueDentists,
+    isAdminLike,
+    newRandevueDentistId,
+    showNewRandevuePanel,
+  ]);
+
+  useEffect(() => {
+    setNewRandevueTreatmentIds((prev) =>
+      prev.filter((id) => randevueTreatmentChoices.some((choice) => choice.id === id)),
+    );
+  }, [randevueTreatmentChoices]);
+
+  useEffect(() => {
     const fetchAppointmentData = async () => {
       if (!id) return;
       
@@ -394,7 +914,7 @@ const AppointmentDetail = () => {
       try {
         const [appointmentsData, treatmentsData] = await Promise.all([
           appointmentService.getAll(),
-          toothTreatmentService.getAll({ appointment: parseInt(id) })
+          toothTreatmentService.getAll({ appointment: parseInt(id) }),
         ]);
         
         const appointmentData = appointmentsData.appointments.find(a => a.id === parseInt(id));
@@ -409,6 +929,19 @@ const AppointmentDetail = () => {
           });
         }
         setTreatments(treatmentsData);
+        if (appointmentData) {
+          const { from, to } = randevueQueryRangeForAppointment(appointmentData);
+          const rangeList = await randevueService.getForRange(from, to);
+          setAppointmentRandevues(
+            filterRandevuesForAppointment(
+              rangeList,
+              appointmentData.id,
+              appointmentData.patient.id,
+            ),
+          );
+        } else {
+          setAppointmentRandevues([]);
+        }
 
         const uniqueToothIds = [...new Set(treatmentsData.flatMap(t => t.toothTreatmentTeeth.map(ttt => ttt.toothId)))];
         const teethPromises = uniqueToothIds.map(toothId => 
@@ -466,7 +999,9 @@ const AppointmentDetail = () => {
       await appointmentService.update(appointment.id, {
         startDate: editedAppointment.startDate,
         endDate: editedAppointment.endDate || null,
-        chargedFee: editedAppointment.chargedFee,
+        chargedFee: isDentist
+          ? (appointment.chargedFee ?? appointment.calculatedFee)
+          : editedAppointment.chargedFee,
       });
       setShowEditAppointment(false);
       const appointmentsData = await appointmentService.getAll();
@@ -488,12 +1023,81 @@ const AppointmentDetail = () => {
     }
   };
 
+  const refreshTreatmentsAndAppointmentRandevues = useCallback(async () => {
+    if (!appointment) return;
+    const treatmentsData = await toothTreatmentService.getAll({
+      appointment: appointment.id,
+    });
+    const { from, to } = randevueQueryRangeForAppointment(appointment);
+    const rangeList = await randevueService.getForRange(from, to);
+    setTreatments(treatmentsData);
+    setAppointmentRandevues(
+      filterRandevuesForAppointment(
+        rangeList,
+        appointment.id,
+        appointment.patient.id,
+      ),
+    );
+  }, [appointment]);
+
+  const handleLinkTreatmentToRandevue = async (treatmentId: number) => {
+    if (!appointment) return;
+    const selectedRandevueId = selectedRandevueByTreatment[treatmentId];
+    if (!selectedRandevueId || selectedRandevueId <= 0) {
+      setLinkTreatmentError('Please select a randevue to connect.');
+      return;
+    }
+
+    setLinkingTreatmentId(treatmentId);
+    setLinkTreatmentError('');
+    try {
+      await randevueService.update(selectedRandevueId, {
+        append_tooth_treatment_ids: [treatmentId],
+      });
+      await refreshTreatmentsAndAppointmentRandevues();
+      setSelectedRandevueByTreatment((prev) => ({ ...prev, [treatmentId]: 0 }));
+    } catch (err: any) {
+      setLinkTreatmentError(
+        err.response?.data?.message || 'Failed to connect treatment to randevue.',
+      );
+    } finally {
+      setLinkingTreatmentId(null);
+    }
+  };
+
+  const handleUnlinkTreatmentFromRandevue = async (
+    treatmentId: number,
+    randevueId: number,
+  ) => {
+    if (!appointment) return;
+    const key = `${treatmentId}-${randevueId}`;
+    setUnlinkingRandevueKey(key);
+    setLinkTreatmentError('');
+    try {
+      await randevueService.update(randevueId, {
+        remove_tooth_treatment_ids: [treatmentId],
+      });
+      await refreshTreatmentsAndAppointmentRandevues();
+    } catch (err: any) {
+      setLinkTreatmentError(
+        err.response?.data?.message ||
+          'Failed to remove randevue link from treatment.',
+      );
+    } finally {
+      setUnlinkingRandevueKey(null);
+    }
+  };
+
   const openNewRandevuePanel = () => {
     if (!appointment) return;
     setNewRandevueDate(appointment.startDate || new Date().toISOString().slice(0, 10));
     setNewRandevueStart('09:00');
     setNewRandevueEnd('10:00');
+    setNewRandevueRoomId(0);
+    setNewRandevueDentistId(isDentist && loggedInDentistId > 0 ? loggedInDentistId : 0);
+    setNewRandevueNurseId(0);
     setNewRandevueNote('');
+    setNewRandevueTreatmentIds([]);
     setNewRandevueError('');
     setShowNewRandevuePanel(true);
   };
@@ -508,6 +1112,20 @@ const AppointmentDetail = () => {
       setNewRandevueError('End time must be after start time.');
       return;
     }
+    if (newRandevueRoomId <= 0) {
+      setNewRandevueError('Please select a room.');
+      return;
+    }
+    const effectiveDentistId =
+      isDentist && loggedInDentistId > 0 ? loggedInDentistId : newRandevueDentistId;
+    if (effectiveDentistId <= 0) {
+      setNewRandevueError('Please select a dentist.');
+      return;
+    }
+    if (isAdminLike && newRandevueNurseId <= 0) {
+      setNewRandevueError('Please select a nurse.');
+      return;
+    }
     setIsSubmittingNewRandevue(true);
     try {
       await randevueService.create({
@@ -515,7 +1133,13 @@ const AppointmentDetail = () => {
         endDateTime: end.toISOString(),
         patient_id: appointment.patient.id,
         appointment_id: appointment.id,
+        room_id: newRandevueRoomId,
+        dentist_id: effectiveDentistId,
+        ...(newRandevueNurseId > 0 ? { nurse_id: newRandevueNurseId } : {}),
         ...(newRandevueNote.trim() ? { note: newRandevueNote.trim() } : {}),
+        ...(newRandevueTreatmentIds.length > 0
+          ? { tooth_treatment_ids: newRandevueTreatmentIds }
+          : {}),
       });
       setShowNewRandevuePanel(false);
     } catch (err: any) {
@@ -551,14 +1175,16 @@ const AppointmentDetail = () => {
       setSelectedTreatmentIds([]);
       setToothSelectionMode('multiple');
       setSelectedMedicineQuantities({});
-      setShowAddMedicineInModal(false);
-      setNewMedicineForm({ name: '', description: '', price: 0 });
-      setMedicineError('');
       setShowAddMediaForNewTreatment(false);
       setNewTreatmentMediaDraft({ name: '', description: '', file: null });
       setNewTreatmentMediaFileKey((k) => k + 1);
       setPendingMediaForNewTreatment([]);
       setNewTreatmentMediaError('');
+      setNewTreatmentRandevueId('');
+      const firstDraft = createEmptyTreatmentDraft();
+      setTreatmentDrafts([firstDraft]);
+      setActiveTreatmentDraftIndex(0);
+      hydrateTreatmentDraft(firstDraft);
     } catch (err: any) {
       console.error('Failed to fetch treatments/teeth:', err);
       setError(err.response?.data?.message || 'Failed to load data');
@@ -572,21 +1198,54 @@ const AppointmentDetail = () => {
     setIsAddingTreatment(true);
     setError('');
     try {
-      const selectedMedicines = Object.entries(selectedMedicineQuantities)
-        .map(([medicineId, quantity]) => ({ medicineId: Number(medicineId), quantity }))
-        .filter(({ quantity }) => quantity > 0);
+      const draftsToSubmit = (treatmentDrafts.length > 0 ? treatmentDrafts : [createEmptyTreatmentDraft()]).map(
+        (draft, index) =>
+          index === activeTreatmentDraftIndex
+            ? {
+                selectedTreatmentIds,
+                tooth_ids: newTreatment.tooth_ids,
+                description: newTreatment.description ?? '',
+                selectedMedicineQuantities,
+                randevueId: newTreatmentRandevueId,
+                toothSelectionMode,
+                pendingMedia: pendingMediaForNewTreatment,
+              }
+            : draft,
+      );
 
-      const attachMedicinesAndMedia = async (createdId: number | undefined) => {
+      const stockByMedicineId = new Map(
+        allMedicines.map((medicine) => [medicine.id, medicine.stock]),
+      );
+
+      const applyStockDelta = async (medicineId: number, delta: number) => {
+        if (!Number.isFinite(delta) || delta === 0) return;
+        const currentStock = stockByMedicineId.get(medicineId);
+        if (typeof currentStock !== 'number') return;
+        const nextStock = Math.max(0, currentStock + delta);
+        await medicineService.update(medicineId, { stock: nextStock });
+        stockByMedicineId.set(medicineId, nextStock);
+      };
+
+      const attachMedicinesAndMedia = async (
+        createdId: number | undefined,
+        selectedMedicines: Array<{ medicineId: number; quantity: number; stockUsedQuantity: number }>,
+        pendingMedia: { key: string; name: string; description: string; file: File }[],
+      ) => {
         if (!createdId) return;
         if (selectedMedicines.length > 0) {
           await Promise.all(
-            selectedMedicines.map(({ medicineId, quantity }) =>
-              toothTreatmentMedicineService.create({ tooth_treatment_id: createdId, medicine_id: medicineId, quantity })
-            )
+            selectedMedicines.map(async ({ medicineId, quantity, stockUsedQuantity }) => {
+              await applyStockDelta(medicineId, -stockUsedQuantity);
+              return toothTreatmentMedicineService.create({
+                tooth_treatment_id: createdId,
+                medicine_id: medicineId,
+                quantity,
+              });
+            })
           );
         }
-        if (pendingMediaForNewTreatment.length > 0) {
-          for (const item of pendingMediaForNewTreatment) {
+        if (pendingMedia.length > 0) {
+          for (const item of pendingMedia) {
             const formData = new FormData();
             formData.append('name', item.name);
             formData.append('description', item.description);
@@ -597,25 +1256,48 @@ const AppointmentDetail = () => {
         }
       };
 
-      if (selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0) {
-        setError('Select at least one treatment and at least one tooth.');
+      if (draftsToSubmit.some((draft) => draft.selectedTreatmentIds.length === 0 || draft.tooth_ids.length === 0)) {
+        setError('Each treatment page must include at least one treatment and one tooth.');
         return;
       }
-      for (const tid of selectedTreatmentIds) {
-        for (const toothId of newTreatment.tooth_ids) {
-          const created = await toothTreatmentService.create({
-            ...newTreatment,
-            treatment_id: tid,
-            tooth_ids: [toothId],
+      const createdTreatmentIds: number[] = [];
+      for (const draft of draftsToSubmit) {
+        const selectedMedicines = Object.entries(draft.selectedMedicineQuantities)
+          .map(([medicineId, usage]) => ({
+            medicineId: Number(medicineId),
+            quantity: usage.quantity,
+            stockUsedQuantity: usage.stockUsedQuantity,
+          }))
+          .filter(({ quantity }) => quantity > 0);
+
+        for (const tid of draft.selectedTreatmentIds) {
+          for (const toothId of draft.tooth_ids) {
+            const created = await toothTreatmentService.create({
+              ...newTreatment,
+              treatment_id: tid,
+              tooth_ids: [toothId],
+              description: draft.description,
+            });
+            if (created?.id) {
+              createdTreatmentIds.push(created.id);
+            }
+            await attachMedicinesAndMedia(created?.id, selectedMedicines, draft.pendingMedia);
+          }
+        }
+        if (draft.randevueId !== '' && createdTreatmentIds.length > 0) {
+          await randevueService.update(Number(draft.randevueId), {
+            append_tooth_treatment_ids: createdTreatmentIds,
           });
-          await attachMedicinesAndMedia(created?.id);
         }
       }
 
       setShowAddTreatment(false);
       setNewTreatment({ appointment_id: 0, treatment_id: 0, patient_id: 0, tooth_ids: [], description: '' });
+      setNewTreatmentRandevueId('');
       setSelectedTreatmentIds([]);
       setToothSelectionMode('multiple');
+      setTreatmentDrafts([]);
+      setActiveTreatmentDraftIndex(0);
 
       const treatmentsData = await toothTreatmentService.getAll({ appointment: appointment.id });
       setTreatments(treatmentsData);
@@ -695,37 +1377,12 @@ const AppointmentDetail = () => {
     }
   };
 
-  const handleAddMedicineForm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMedicineError('');
-    setIsSubmittingMedicine(true);
-    try {
-      const createdMedicine = await medicineService.create(newMedicineForm);
-      setShowAddMedicineInModal(false);
-      setNewMedicineForm({ name: '', description: '', price: 0 });
-
-      const updatedMedicines = await medicineService.getAll();
-      setAllMedicines(updatedMedicines);
-
-      const normalizedQuery = medicineQuery.trim().toLowerCase();
-      if (!normalizedQuery) {
-        setAvailableMedicines(updatedMedicines);
-      } else {
-        setAvailableMedicines(updatedMedicines.filter((m) => m.name.toLowerCase().includes(normalizedQuery)));
-      }
-
-      setSelectedMedicineQuantities((prev) => ({ ...prev, [createdMedicine.id]: prev[createdMedicine.id] ?? 1 }));
-      setMedicinePage(1);
-    } catch (err: any) {
-      console.error('Failed to create medicine:', err);
-      setMedicineError(err.response?.data?.message || 'Failed to create medicine');
-    } finally {
-      setIsSubmittingMedicine(false);
-    }
-  };
-
   const beginEditTreatment = async (tt: ToothTreatment) => {
+    if (isDentist && loggedInDentistId > 0 && tt.dentist?.id !== loggedInDentistId) {
+      return;
+    }
     setError('');
+    setLinkTreatmentError('');
     setEditingTreatmentId(tt.id);
     if (allTreatments.length === 0) {
       const ts = await treatmentService.getAll();
@@ -749,8 +1406,18 @@ const AppointmentDetail = () => {
     try {
       const meds = await toothTreatmentMedicineService.getAll({ tooth_treatment: tt.id });
       setEditingMedicineQuantities(
-        meds.reduce<Record<number, number>>((acc, med) => {
-          acc[med.medicine.id] = med.quantity;
+        meds.reduce<Record<number, MedicineUsageInput>>((acc, med) => {
+          const medWithStock = med as ToothTreatmentMedicine & {
+            stockUsedQuantity?: number;
+            stock_used_quantity?: number;
+          };
+          acc[med.medicine.id] = {
+            quantity: med.quantity,
+            stockUsedQuantity:
+              medWithStock.stockUsedQuantity ??
+              medWithStock.stock_used_quantity ??
+              med.quantity,
+          };
           return acc;
         }, {})
       );
@@ -762,6 +1429,7 @@ const AppointmentDetail = () => {
   const cancelEditTreatment = () => {
     setEditingTreatmentId(null);
     setEditingMedicineQuantities({});
+    setLinkTreatmentError('');
   };
 
   const saveEditTreatment = async (tt: ToothTreatment) => {
@@ -775,18 +1443,76 @@ const AppointmentDetail = () => {
         description: editingFields.description || null,
       });
       const currentMeds = await toothTreatmentMedicineService.getAll({ tooth_treatment: tt.id });
-      const currentMap = new Map(currentMeds.map((m) => [m.medicine.id, m.quantity]));
+      const getStockUsedQuantity = (med: ToothTreatmentMedicine): number => {
+        const medWithStock = med as ToothTreatmentMedicine & {
+          stockUsedQuantity?: number;
+          stock_used_quantity?: number;
+        };
+        return medWithStock.stockUsedQuantity ?? medWithStock.stock_used_quantity ?? med.quantity;
+      };
+      const currentMap = new Map(
+        currentMeds.map((m) => [
+          m.medicine.id,
+          { quantity: m.quantity, stockUsedQuantity: getStockUsedQuantity(m) },
+        ]),
+      );
       const desiredEntries = Object.entries(editingMedicineQuantities)
-        .map(([medicineId, quantity]) => ({ medicineId: Number(medicineId), quantity }))
+        .map(([medicineId, usage]) => ({
+          medicineId: Number(medicineId),
+          quantity: usage.quantity,
+          stockUsedQuantity: usage.stockUsedQuantity,
+        }))
         .filter(({ quantity }) => quantity > 0);
       const desiredIds = new Set(desiredEntries.map(({ medicineId }) => medicineId));
       const toAdd = desiredEntries.filter(({ medicineId }) => !currentMap.has(medicineId));
-      const toUpdate = desiredEntries.filter(({ medicineId, quantity }) => currentMap.has(medicineId) && currentMap.get(medicineId) !== quantity);
+      const toUpdate = desiredEntries.filter(({ medicineId, quantity, stockUsedQuantity }) => {
+        const current = currentMap.get(medicineId);
+        if (!current) return false;
+        return (
+          current.quantity !== quantity ||
+          current.stockUsedQuantity !== stockUsedQuantity
+        );
+      });
       const toRemove = currentMeds.filter((med) => !desiredIds.has(med.medicine.id));
+
+      const stockByMedicineId = new Map(
+        allMedicines.map((medicine) => [medicine.id, medicine.stock]),
+      );
+      const applyStockDelta = async (medicineId: number, delta: number) => {
+        if (!Number.isFinite(delta) || delta === 0) return;
+        const currentStock = stockByMedicineId.get(medicineId);
+        if (typeof currentStock !== 'number') return;
+        const nextStock = Math.max(0, currentStock + delta);
+        await medicineService.update(medicineId, { stock: nextStock });
+        stockByMedicineId.set(medicineId, nextStock);
+      };
+
       await Promise.all([
-        ...toAdd.map(({ medicineId, quantity }) => toothTreatmentMedicineService.create({ tooth_treatment_id: tt.id, medicine_id: medicineId, quantity })),
-        ...toUpdate.map(({ medicineId, quantity }) => toothTreatmentMedicineService.updateQuantity(tt.id, medicineId, quantity)),
-        ...toRemove.map((med) => toothTreatmentMedicineService.delete(tt.id, med.medicine.id)),
+        ...toAdd.map(async ({ medicineId, quantity, stockUsedQuantity }) => {
+          await applyStockDelta(medicineId, -stockUsedQuantity);
+          return toothTreatmentMedicineService.create({
+            tooth_treatment_id: tt.id,
+            medicine_id: medicineId,
+            quantity,
+          });
+        }),
+        ...toUpdate.map(async ({ medicineId, quantity, stockUsedQuantity }) => {
+          const current = currentMap.get(medicineId);
+          if (current) {
+            await applyStockDelta(
+              medicineId,
+              -(stockUsedQuantity - current.stockUsedQuantity),
+            );
+          }
+          return toothTreatmentMedicineService.updateQuantity(tt.id, medicineId, quantity);
+        }),
+        ...toRemove.map(async (med) => {
+          const current = currentMap.get(med.medicine.id);
+          if (current) {
+            await applyStockDelta(med.medicine.id, current.stockUsedQuantity);
+          }
+          return toothTreatmentMedicineService.delete(tt.id, med.medicine.id);
+        }),
       ]);
 
       const treatmentsData = await toothTreatmentService.getAll({ appointment: appointment.id });
@@ -896,66 +1622,63 @@ const AppointmentDetail = () => {
     }
   };
 
+  const handleBack = useCallback(() => {
+    navigate(backPath);
+  }, [backPath, navigate]);
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-blue-50">
-        <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <ClinicManagementLayout>
+        <div className="mx-auto max-w-7xl">
           <button
             type="button"
-            onClick={() => navigate(backPath)}
-            className="flex items-center space-x-2 text-teal-600 hover:text-teal-800 transition-colors mb-6"
+            onClick={handleBack}
+            className="mb-6 flex items-center space-x-2 text-[#0066A6] transition-colors hover:text-[#00588f]"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="h-5 w-5" />
             <span className="font-medium">{backButtonLabel}</span>
           </button>
-          <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-600">
+          <div className="rounded-lg bg-white p-8 text-center text-gray-600 shadow-md">
             Loading appointment details...
           </div>
-        </main>
-      </div>
+        </div>
+      </ClinicManagementLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-blue-50">
-        <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <ClinicManagementLayout>
+        <div className="mx-auto max-w-7xl">
           <button
             type="button"
-            onClick={() => navigate(backPath)}
-            className="flex items-center space-x-2 text-teal-600 hover:text-teal-800 transition-colors mb-6"
+            onClick={handleBack}
+            className="mb-6 flex items-center space-x-2 text-[#0066A6] transition-colors hover:text-[#00588f]"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="h-5 w-5" />
             <span className="font-medium">{backButtonLabel}</span>
           </button>
-          <div className="bg-red-50 border border-red-200 rounded-lg text-red-700 p-4 text-center">
-            {error}
-          </div>
-        </main>
-      </div>
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center text-red-700">{error}</div>
+        </div>
+      </ClinicManagementLayout>
     );
   }
 
   if (!appointment) {
     return (
-      <div className="min-h-screen bg-blue-50">
-        <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <ClinicManagementLayout>
+        <div className="mx-auto max-w-7xl">
           <button
             type="button"
-            onClick={() => navigate(backPath)}
-            className="flex items-center space-x-2 text-teal-600 hover:text-teal-800 transition-colors mb-6"
+            onClick={handleBack}
+            className="mb-6 flex items-center space-x-2 text-[#0066A6] transition-colors hover:text-[#00588f]"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="h-5 w-5" />
             <span className="font-medium">{backButtonLabel}</span>
           </button>
-          <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-600">
-            Appointment not found.
-          </div>
-        </main>
-      </div>
+          <div className="rounded-lg bg-white p-8 text-center text-gray-600 shadow-md">Appointment not found.</div>
+        </div>
+      </ClinicManagementLayout>
     );
   }
 
@@ -970,16 +1693,42 @@ const AppointmentDetail = () => {
 
   const totalMedicinePages = Math.max(1, Math.ceil(availableMedicines.length / ITEMS_PER_PAGE));
   const paginatedMedicines = availableMedicines.slice((medicinePage - 1) * ITEMS_PER_PAGE, medicinePage * ITEMS_PER_PAGE);
+  const nowMs = Date.now();
+  const isTreatmentCurrent = (treatment: ToothTreatment) => {
+    const linked = treatment.linkedRandevues ?? [];
+    if (linked.length > 0) {
+      const latestRvEndMs = linked.reduce((latest, rv) => {
+        const rvEndMs = new Date(rv.endTime).getTime();
+        return Number.isFinite(rvEndMs) ? Math.max(latest, rvEndMs) : latest;
+      }, Number.NEGATIVE_INFINITY);
+      return latestRvEndMs >= nowMs;
+    }
+    const appointmentEndMs = appointment?.endDate ? new Date(appointment.endDate).getTime() : Number.NaN;
+    if (!Number.isFinite(appointmentEndMs)) return true;
+    return appointmentEndMs >= nowMs;
+  };
+  const visibleTreatments = treatments.filter((treatment) => {
+    const passesTime =
+      isDentist || treatmentTimeFilter === 'all'
+        ? true
+        : treatmentTimeFilter === 'current'
+          ? isTreatmentCurrent(treatment)
+          : !isTreatmentCurrent(treatment);
+    const passesOwnership =
+      isDirector ||
+      treatmentOwnershipFilter === 'all' ||
+      loggedInDentistId <= 0 ||
+      treatment.dentist?.id === loggedInDentistId;
+    return passesTime && passesOwnership;
+  });
 
   return (
-    <div className="min-h-screen bg-blue-50">
-      <Header />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <ClinicManagementLayout>
+      <div className="mx-auto max-w-7xl">
         <button
           type="button"
-          onClick={() => navigate(backPath)}
-          className="flex items-center space-x-2 text-teal-600 hover:text-teal-800 transition-colors mb-6"
+          onClick={handleBack}
+          className="flex items-center space-x-2 text-[#0066A6] hover:text-[#00588f] transition-colors mb-6"
         >
           <ArrowLeft className="w-5 h-5" />
           <span className="font-medium">{backButtonLabel}</span>
@@ -991,13 +1740,16 @@ const AppointmentDetail = () => {
               Appointment Details
             </h1>
             <div className="flex flex-col items-end gap-2">
-              <button
-                onClick={() => setShowEditAppointment(true)}
-                className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors min-w-[96px]"
-              >
-                <Edit className="w-4 h-4" />
-                <span>Edit</span>
-              </button>
+              {!isDirector ? (
+                <button
+                  onClick={() => setShowEditAppointment(true)}
+                  className="flex min-w-[96px] items-center justify-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition-colors hover:bg-[#00588f]"
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>Edit</span>
+                </button>
+              ) : null}
+              {isAdminLike && !isDirector ? (
               <button
                 onClick={() => setConfirmDeleteAppointment(true)}
                 className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors min-w-[96px]"
@@ -1005,16 +1757,19 @@ const AppointmentDetail = () => {
                 <Trash className="w-4 h-4" />
                 <span>Delete</span>
               </button>
-              <button
-                type="button"
-                onClick={openNewRandevuePanel}
-                className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-violet-600 text-white rounded-md hover:bg-violet-700 transition-colors min-w-[96px]"
-              >
-                <Calendar className="w-4 h-4" />
-                <span>New randevue</span>
-              </button>
+              ) : null}
+              {!isDirector ? (
+                <button
+                  type="button"
+                  onClick={openNewRandevuePanel}
+                  className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-[#0066A6] text-white rounded-md hover:bg-[#00588f] transition-colors min-w-[96px]"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>New randevue</span>
+                </button>
+              ) : null}
 
-              {confirmDeleteAppointment && (
+              {isAdminLike && confirmDeleteAppointment && (
                 <div className="mt-1 w-64 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 shadow-sm">
                   <p className="mb-2 font-medium">Delete this appointment?</p>
                   <div className="flex justify-end gap-2">
@@ -1029,7 +1784,7 @@ const AppointmentDetail = () => {
                         if (!appointment) return;
                         try {
                           await appointmentService.delete(appointment.id);
-                          navigate(backPath);
+                          handleBack();
                         } catch (err: any) {
                           setError(err.response?.data?.message || 'Failed to delete appointment');
                         }
@@ -1046,7 +1801,7 @@ const AppointmentDetail = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex items-start space-x-3">
-              <Calendar className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+              <Calendar className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-gray-500">Start Date</p>
                 <p className="text-lg text-gray-900 font-semibold">
@@ -1056,7 +1811,7 @@ const AppointmentDetail = () => {
             </div>
 
             <div className="flex items-start space-x-3">
-              <Calendar className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+              <Calendar className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-gray-500">End Date</p>
                 <p className="text-lg text-gray-900 font-semibold">
@@ -1066,7 +1821,7 @@ const AppointmentDetail = () => {
             </div>
 
             <div className="flex items-start space-x-3">
-              <User className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+              <User className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-gray-500">Patient Name</p>
                 <p className="text-lg text-gray-900 font-semibold">
@@ -1076,7 +1831,7 @@ const AppointmentDetail = () => {
             </div>
 
             <div className="flex items-start space-x-3">
-              <User className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+              <User className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-gray-500">Patient Surname</p>
                 <p className="text-lg text-gray-900 font-semibold">
@@ -1085,67 +1840,116 @@ const AppointmentDetail = () => {
               </div>
             </div>
 
-            <div className="flex items-start space-x-3">
-              <DollarSign className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-gray-500">Calculated Fee</p>
-                <p className="text-lg text-gray-900 font-semibold">
-                  ${appointment.calculatedFee.toFixed(2)}
-                </p>
-              </div>
-            </div>
+            {!isDentist ? (
+              <>
+                <div className="flex items-start space-x-3">
+                  <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Calculated Fee</p>
+                    <p className="text-lg text-gray-900 font-semibold">
+                      ${appointment.calculatedFee.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
 
-            <div className="flex items-start space-x-3">
-              <DollarSign className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-gray-500">Charged Fee</p>
-                <p className="text-lg text-gray-900 font-semibold">
-                  {appointment.chargedFee !== null ? `$${appointment.chargedFee.toFixed(2)}` : 'N/A'}
-                </p>
-              </div>
-            </div>
+                <div className="flex items-start space-x-3">
+                  <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Charged Fee</p>
+                    <p className="text-lg text-gray-900 font-semibold">
+                      {appointment.chargedFee !== null ? `$${appointment.chargedFee.toFixed(2)}` : 'N/A'}
+                    </p>
+                  </div>
+                </div>
 
-            <div className="flex items-start space-x-3">
-              <DollarSign className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-gray-500">Discount Fee</p>
-                <p className="text-lg text-gray-900 font-semibold">
-                  {appointment.discountFee !== null ? `$${appointment.discountFee.toFixed(2)}` : 'N/A'}
-                </p>
-              </div>
-            </div>
+                <div className="flex items-start space-x-3">
+                  <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Discount Fee</p>
+                    <p className="text-lg text-gray-900 font-semibold">
+                      {appointment.discountFee !== null ? `$${appointment.discountFee.toFixed(2)}` : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : null}
           </div>
 
-          <div className="mt-6 pt-6 border-t-2 border-teal-500">
-            <div className="flex items-center justify-between bg-teal-50 p-4 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <DollarSign className="w-6 h-6 text-teal-600" />
-                <span className="text-lg font-semibold text-gray-900">Total Fee</span>
+          {!isDentist ? (
+            <div className="mt-6 pt-6 border-t-2 border-[#0066A6]">
+              <div className="flex items-center justify-between bg-[#f0f7fc] p-4 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <DollarSign className="w-6 h-6 text-[#0066A6]" />
+                  <span className="text-lg font-semibold text-gray-900">Total Fee</span>
+                </div>
+                <span className="text-2xl font-bold text-[#0066A6]">
+                  ${calculateTotalFee().toFixed(2)}
+                </span>
               </div>
-              <span className="text-2xl font-bold text-teal-600">
-                ${calculateTotalFee().toFixed(2)}
-              </span>
+              <p className="text-xs text-gray-500 mt-2 text-right">
+                (Charged fee if set, otherwise calculated fee)
+              </p>
             </div>
-            <p className="text-xs text-gray-500 mt-2 text-right">
-              (Charged fee if set, otherwise calculated fee)
-            </p>
-          </div>
+          ) : null}
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Treatments</h2>
-            <button
-              onClick={handleOpenAddTreatment}
-              className="flex items-center space-x-2 px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Treatment</span>
-            </button>
+            {!isDirector ? (
+              <button
+                onClick={handleOpenAddTreatment}
+                className="flex items-center space-x-2 rounded-md bg-[#0f766e] px-4 py-2 text-white transition-colors hover:bg-[#0d5f59]"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Treatment</span>
+              </button>
+            ) : null}
           </div>
 
-          {showAddTreatment && appointment && (
-            <div className="mb-8 border border-teal-200 rounded-lg p-6 bg-teal-50/40">
+          {!isDirector && showAddTreatment && appointment && (
+            <div className="mb-8 border border-[#cce0f0] rounded-lg p-6 bg-[#f0f7fc]/40">
+              <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-[#cce0f0] pb-4">
+                {treatmentDrafts.map((_, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => {
+                      const draft = treatmentDrafts[index];
+                      if (!draft) return;
+                      setActiveTreatmentDraftIndex(index);
+                      hydrateTreatmentDraft(draft);
+                      setShowAddMediaForNewTreatment(false);
+                      setNewTreatmentMediaError('');
+                    }}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      index === activeTreatmentDraftIndex
+                        ? 'bg-[#0066A6] text-white'
+                        : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Treatment {index + 1}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextDraft = createEmptyTreatmentDraft();
+                    setTreatmentDrafts((prev) => [...prev, nextDraft]);
+                    const nextIndex = treatmentDrafts.length;
+                    setActiveTreatmentDraftIndex(nextIndex);
+                    hydrateTreatmentDraft(nextDraft);
+                    setShowAddMediaForNewTreatment(false);
+                    setNewTreatmentMediaDraft({ name: '', description: '', file: null });
+                    setNewTreatmentMediaFileKey((k) => k + 1);
+                    setNewTreatmentMediaError('');
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md border border-[#0066A6] bg-white px-3 py-1.5 text-sm font-medium text-[#0066A6] transition-colors hover:bg-[#e8f2fa]"
+                >
+                  <Plus className="h-4 w-4" />
+                  + New
+                </button>
+              </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Select treatments</h3>
@@ -1156,7 +1960,7 @@ const AppointmentDetail = () => {
                     <input
                       type="text"
                       placeholder="Search treatment by name..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                       onChange={(e) => {
                         const q = e.target.value.toLowerCase();
                         setTreatmentPage(1);
@@ -1172,10 +1976,10 @@ const AppointmentDetail = () => {
                   <button
                     type="button"
                     onClick={() => setShowAddTreatmentInModal(true)}
-                    className="w-full mb-3 flex items-center justify-center space-x-1 px-4 py-2 bg-blue-50 text-blue-600 text-sm rounded-md font-medium border border-blue-200 hover:bg-blue-100 transition-colors"
+                    className="mb-3 flex w-full items-center justify-center space-x-1 rounded-md border border-[#99f6e4] bg-[#ccfbf1] px-4 py-2 text-sm font-medium text-[#115e59] transition-colors hover:bg-[#99f6e4]"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>New Treatment</span>
+                    <span>Create Treatment</span>
                   </button>
                   <div className="max-h-64 overflow-auto rounded-md border border-gray-200 bg-white">
                     {availableTreatments.length === 0 ? (
@@ -1186,7 +1990,7 @@ const AppointmentDetail = () => {
                         return (
                           <label
                             key={t.id}
-                            className={`flex w-full cursor-pointer items-start gap-3 px-4 py-2 border-b last:border-b-0 hover:bg-teal-50 transition-colors ${checked ? 'bg-teal-100' : ''}`}
+                            className={`flex w-full cursor-pointer items-start gap-3 px-4 py-2 border-b last:border-b-0 hover:bg-[#f0f7fc] transition-colors ${checked ? 'bg-[#e8f2fa]' : ''}`}
                           >
                             <input
                               type="checkbox"
@@ -1196,14 +2000,13 @@ const AppointmentDetail = () => {
                                   prev.includes(t.id) ? prev.filter((id) => id !== t.id) : [...prev, t.id]
                                 )
                               }
-                              className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                              className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-[#0066A6] focus:ring-[#0066A6]"
                             />
                             <div className="min-w-0 flex-1 text-left">
                               <div className="flex items-center justify-between gap-2">
                                 <span className="font-medium text-gray-900">{t.name}</span>
                                 <span className="text-sm font-semibold text-gray-700">${t.price.toFixed(2)}</span>
                               </div>
-                              <p className="text-xs text-gray-600 mt-1">{t.description}</p>
                             </div>
                           </label>
                         );
@@ -1230,11 +2033,43 @@ const AppointmentDetail = () => {
                       </div>
                     </div>
                   )}
+
+                  {selectedTreatmentIds.length > 0 && (
+                    <div className="mt-3 rounded-md border border-[#cce0f0] bg-white p-3">
+                      <div className="mb-2 text-xs font-medium text-gray-700">
+                        Selected treatments ({selectedTreatmentIds.length})
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedTreatmentIds.map((sid) => {
+                          const sel = allTreatments.find((tr) => tr.id === sid);
+                          if (!sel) return null;
+                          return (
+                            <span
+                              key={sid}
+                              className="inline-flex items-center gap-1 rounded-full bg-[#e8f2fa] px-3 py-1 text-xs font-medium text-[#0066A6]"
+                            >
+                              {sel.name}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedTreatmentIds((prev) => prev.filter((id) => id !== sid))
+                                }
+                                className="ml-1 text-[#0066A6] hover:text-[#00588f]"
+                                aria-label={`Remove ${sel.name}`}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {showAddTreatmentInModal && (
                   <div className="border-t pt-4 mt-4">
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">New Treatment</h3>
+                    <h3 className="text-sm font-medium text-gray-900 mb-3">Create Treatment</h3>
                     <div className="space-y-3">
                       <div>
                         <label htmlFor="modalNewTreatmentName" className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
@@ -1244,7 +2079,7 @@ const AppointmentDetail = () => {
                           maxLength={40}
                           value={newTreatmentForm.name}
                           onChange={(e) => setNewTreatmentForm({ ...newTreatmentForm, name: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                         />
                       </div>
                       <div>
@@ -1255,7 +2090,7 @@ const AppointmentDetail = () => {
                           maxLength={300}
                           value={newTreatmentForm.description}
                           onChange={(e) => setNewTreatmentForm({ ...newTreatmentForm, description: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                         />
                       </div>
                       <div>
@@ -1267,7 +2102,7 @@ const AppointmentDetail = () => {
                           step="0.01"
                           value={newTreatmentForm.price || ''}
                           onChange={(e) => setNewTreatmentForm({ ...newTreatmentForm, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                         />
                       </div>
                       <div>
@@ -1283,7 +2118,7 @@ const AppointmentDetail = () => {
                               pricePer: e.target.value === '' ? null : (e.target.value as TreatmentPricePer),
                             })
                           }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6] text-sm"
                         >
                           <option value="">Not set (one line price)</option>
                           <option value="tooth">Per tooth</option>
@@ -1301,7 +2136,7 @@ const AppointmentDetail = () => {
                           type="button"
                           onClick={handleAddTreatmentForm}
                           disabled={isSubmittingTreatment || !newTreatmentForm.name || !newTreatmentForm.description || newTreatmentForm.price < 0}
-                          className="flex-1 py-2 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 py-2 bg-[#0066A6] text-white text-xs rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {isSubmittingTreatment ? 'Creating...' : 'Create'}
                         </button>
@@ -1337,11 +2172,6 @@ const AppointmentDetail = () => {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Select Medicines (optional)</h3>
-                  <p className="text-xs text-gray-600 mb-2">
-                    Description, medicines, and media are applied to each new tooth–treatment row created in this step.
-                  </p>
-
                   <div className="mb-3">
                     <label htmlFor="inlineDescription" className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
                     <textarea
@@ -1350,10 +2180,179 @@ const AppointmentDetail = () => {
                       maxLength={300}
                       value={newTreatment.description}
                       onChange={(e) => setNewTreatment({ ...newTreatment, description: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                       placeholder="Enter treatment description/notes"
                     />
                   </div>
+                  <div className="mb-3">
+                    <label htmlFor="newTreatmentRandevue" className="mb-1 block text-sm font-medium text-gray-700">
+                      Randevue (Optional)
+                    </label>
+                    <select
+                      id="newTreatmentRandevue"
+                      value={newTreatmentRandevueId}
+                      onChange={(e) => setNewTreatmentRandevueId(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                    >
+                      <option value="">No randevue selected</option>
+                      {appointmentRandevues.map((rv) => (
+                        <option key={rv.id} value={rv.id}>
+                          {formatRandevueDateTimeRange(rv)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="flex flex-wrap items-center gap-3 mb-3">
+                      <h3 className="text-lg font-semibold text-gray-900">Media (optional)</h3>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddMediaForNewTreatment((v) => !v);
+                          setNewTreatmentMediaError('');
+                        }}
+                        className="flex items-center space-x-1 px-3 py-1.5 bg-[#0066A6] text-white text-sm rounded-md hover:bg-[#00588f] transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>{showAddMediaForNewTreatment ? 'Hide' : 'Add Media'}</span>
+                      </button>
+                    </div>
+                    {pendingMediaForNewTreatment.length > 0 && (
+                      <ul className="mb-4 space-y-2 rounded-md border border-[#cce0f0] bg-[#f0f7fc]/40 p-3">
+                        {pendingMediaForNewTreatment.map((item) => (
+                          <li
+                            key={item.key}
+                            className="flex items-center justify-between gap-2 text-sm text-gray-800 border-b border-[#e8f2fa] pb-2 last:border-0 last:pb-0"
+                          >
+                            <span className="truncate font-medium" title={item.name}>
+                              {item.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPendingMediaForNewTreatment((prev) => prev.filter((p) => p.key !== item.key))
+                              }
+                              className="flex-shrink-0 text-red-600 hover:text-red-800 text-xs font-medium"
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {showAddMediaForNewTreatment && (
+                      <div className="rounded-md border border-[#cce0f0] p-4 bg-[#f0f7fc]/40">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Add Media</h4>
+                        <div className="space-y-3">
+                          <div>
+                            <label htmlFor="newTreatmentMediaName" className="block text-xs font-medium text-gray-700 mb-1">
+                              Name *
+                            </label>
+                            <input
+                              id="newTreatmentMediaName"
+                              type="text"
+                              maxLength={100}
+                              value={newTreatmentMediaDraft.name}
+                              onChange={(e) =>
+                                setNewTreatmentMediaDraft({ ...newTreatmentMediaDraft, name: e.target.value })
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                              placeholder="Enter media name"
+                            />
+                          </div>
+                          <div>
+                            <label
+                              htmlFor="newTreatmentMediaDescription"
+                              className="block text-xs font-medium text-gray-700 mb-1"
+                            >
+                              Description (optional)
+                            </label>
+                            <textarea
+                              id="newTreatmentMediaDescription"
+                              rows={2}
+                              maxLength={300}
+                              value={newTreatmentMediaDraft.description}
+                              onChange={(e) =>
+                                setNewTreatmentMediaDraft({ ...newTreatmentMediaDraft, description: e.target.value })
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                              placeholder="Enter description"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="newTreatmentMediaFile" className="block text-xs font-medium text-gray-700 mb-1">
+                              File *
+                            </label>
+                            <input
+                              key={newTreatmentMediaFileKey}
+                              id="newTreatmentMediaFile"
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) =>
+                                setNewTreatmentMediaDraft({
+                                  ...newTreatmentMediaDraft,
+                                  file: e.target.files?.[0] || null,
+                                })
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                            />
+                          </div>
+                          {newTreatmentMediaError && (
+                            <div className="text-xs text-red-600">{newTreatmentMediaError}</div>
+                          )}
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const file = newTreatmentMediaDraft.file;
+                                if (!newTreatmentMediaDraft.name || !file) {
+                                  setNewTreatmentMediaError('Name and file are required');
+                                  return;
+                                }
+                                setNewTreatmentMediaError('');
+                                setPendingMediaForNewTreatment((prev) => [
+                                  ...prev,
+                                  {
+                                    key: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                                    name: newTreatmentMediaDraft.name,
+                                    description: newTreatmentMediaDraft.description,
+                                    file,
+                                  },
+                                ]);
+                                setNewTreatmentMediaDraft({ name: '', description: '', file: null });
+                                setNewTreatmentMediaFileKey((k) => k + 1);
+                              }}
+                              className="flex-1 py-2 bg-[#0066A6] text-white text-xs rounded-lg font-medium hover:bg-[#00588f] transition-colors"
+                            >
+                              Add to list
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewTreatmentMediaDraft({ name: '', description: '', file: null });
+                                setNewTreatmentMediaFileKey((k) => k + 1);
+                                setNewTreatmentMediaError('');
+                              }}
+                              className="flex-1 py-2 bg-gray-200 text-gray-700 text-xs rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Select Medicines (optional)</h3>
+                  <p className="mb-3 text-xs text-gray-600">
+                    Use the first number for treatment details/calculation, and the Stock field for inventory deduction.
+                  </p>
+                  <p className="text-xs text-gray-600 mb-2">
+                    Description, medicines, and media are applied to each new tooth–treatment row created in this step.
+                  </p>
 
                   <div className="mb-3">
                     <input
@@ -1370,93 +2369,18 @@ const AppointmentDetail = () => {
                           setAvailableMedicines(allMedicines.filter(m => m.name.toLowerCase().includes(q)));
                         }
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                     />
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowAddMedicineInModal(true)}
-                    className="w-full mb-3 flex items-center justify-center space-x-1 px-4 py-2 bg-purple-50 text-purple-700 text-sm rounded-md font-medium border border-purple-200 hover:bg-purple-100 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>New Medicine</span>
-                  </button>
-
-                  {showAddMedicineInModal && (
-                    <div className="border border-purple-200 rounded-lg p-3 mb-3 bg-purple-50/40">
-                      <h4 className="text-sm font-medium text-gray-900 mb-3">New Medicine</h4>
-                      <div className="space-y-3">
-                        <div>
-                          <label htmlFor="modalNewMedicineName" className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
-                          <input
-                            id="modalNewMedicineName"
-                            type="text"
-                            maxLength={40}
-                            value={newMedicineForm.name}
-                            onChange={(e) => setNewMedicineForm({ ...newMedicineForm, name: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="modalNewMedicineDescription" className="block text-xs font-medium text-gray-700 mb-1">Description *</label>
-                          <textarea
-                            id="modalNewMedicineDescription"
-                            rows={2}
-                            maxLength={300}
-                            value={newMedicineForm.description}
-                            onChange={(e) => setNewMedicineForm({ ...newMedicineForm, description: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="modalNewMedicinePrice" className="block text-xs font-medium text-gray-700 mb-1">Price *</label>
-                          <input
-                            id="modalNewMedicinePrice"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={newMedicineForm.price || ''}
-                            onChange={(e) => setNewMedicineForm({ ...newMedicineForm, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-                        </div>
-
-                        {medicineError && (
-                          <div className="text-xs text-red-600">{medicineError}</div>
-                        )}
-
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={handleAddMedicineForm}
-                            disabled={isSubmittingMedicine || !newMedicineForm.name || !newMedicineForm.description || newMedicineForm.price < 0}
-                            className="flex-1 py-2 bg-purple-600 text-white text-xs rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isSubmittingMedicine ? 'Creating...' : 'Create'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowAddMedicineInModal(false);
-                              setNewMedicineForm({ name: '', description: '', price: 0 });
-                              setMedicineError('');
-                            }}
-                            className="flex-1 py-2 bg-gray-200 text-gray-700 text-xs rounded-lg font-medium hover:bg-gray-300 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   <div className="max-h-64 overflow-auto rounded-md border border-gray-200 bg-white">
                     {availableMedicines.length === 0 ? (
                       <div className="p-4 text-sm text-gray-500">No medicines found</div>
                     ) : (
                       paginatedMedicines.map((m) => {
-                        const quantity = selectedMedicineQuantities[m.id] ?? 0;
+                        const usage = selectedMedicineQuantities[m.id] ?? { quantity: 0, stockUsedQuantity: 0 };
+                        const quantity = usage.quantity;
+                        const stockUsedQuantity = usage.stockUsedQuantity;
                         const checked = quantity > 0;
                         return (
                           <label key={m.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 cursor-pointer hover:bg-purple-50">
@@ -1466,9 +2390,18 @@ const AppointmentDetail = () => {
                                 checked={checked}
                                 onChange={(e) => {
                                   if (e.target.checked) {
-                                    setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: Math.max(1, quantity || 1) });
+                                    setSelectedMedicineQuantities({
+                                      ...selectedMedicineQuantities,
+                                      [m.id]: {
+                                        quantity: Math.max(1, quantity || 1),
+                                        stockUsedQuantity: Math.max(1, stockUsedQuantity || 1),
+                                      },
+                                    });
                                   } else {
-                                    setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: 0 });
+                                    setSelectedMedicineQuantities({
+                                      ...selectedMedicineQuantities,
+                                      [m.id]: { quantity: 0, stockUsedQuantity: 0 },
+                                    });
                                   }
                                 }}
                                 className="h-4 w-4 text-purple-600 border-gray-300 rounded"
@@ -1482,7 +2415,15 @@ const AppointmentDetail = () => {
                               <div className="flex items-center rounded-md border border-gray-300 bg-white">
                                 <button
                                   type="button"
-                                  onClick={() => setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: Math.max(0, quantity - 1) })}
+                                  onClick={() =>
+                                    setSelectedMedicineQuantities({
+                                      ...selectedMedicineQuantities,
+                                      [m.id]: {
+                                        quantity: Math.max(0, quantity - 1),
+                                        stockUsedQuantity,
+                                      },
+                                    })
+                                  }
                                   className="px-2 py-1 text-gray-700 hover:bg-gray-100"
                                 >
                                   −
@@ -1494,17 +2435,48 @@ const AppointmentDetail = () => {
                                   value={quantity}
                                   onChange={(e) => {
                                     const next = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
-                                    setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: next });
+                                    setSelectedMedicineQuantities({
+                                      ...selectedMedicineQuantities,
+                                      [m.id]: { quantity: next, stockUsedQuantity },
+                                    });
                                   }}
                                   className="w-16 border-x border-gray-300 px-2 py-1 text-center text-sm"
                                 />
                                 <button
                                   type="button"
-                                  onClick={() => setSelectedMedicineQuantities({ ...selectedMedicineQuantities, [m.id]: Math.max(1, quantity + 1) })}
+                                  onClick={() =>
+                                    setSelectedMedicineQuantities({
+                                      ...selectedMedicineQuantities,
+                                      [m.id]: {
+                                        quantity: Math.max(1, quantity + 1),
+                                        stockUsedQuantity,
+                                      },
+                                    })
+                                  }
                                   className="px-2 py-1 text-gray-700 hover:bg-gray-100"
                                 >
                                   +
                                 </button>
+                              </div>
+                              <div className="flex items-center rounded-md border border-amber-300 bg-amber-50">
+                                <span className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                                  Stock
+                                </span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  value={stockUsedQuantity}
+                                  onChange={(e) => {
+                                    const next =
+                                      e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                                    setSelectedMedicineQuantities({
+                                      ...selectedMedicineQuantities,
+                                      [m.id]: { quantity, stockUsedQuantity: next },
+                                    });
+                                  }}
+                                  className="w-16 border-l border-amber-300 bg-white px-2 py-1 text-center text-sm"
+                                />
                               </div>
                               <span className="text-sm font-semibold text-gray-700">${(m.price * quantity).toFixed(2)}</span>
                             </div>
@@ -1533,219 +2505,147 @@ const AppointmentDetail = () => {
                       </div>
                     </div>
                   )}
-                </div>
-              </div>
 
-              <div className="mt-6 border-t border-teal-200 pt-6">
-                <div className="flex flex-wrap items-center gap-3 mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900">Media (optional)</h3>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAddMediaForNewTreatment((v) => !v);
-                      setNewTreatmentMediaError('');
-                    }}
-                    className="flex items-center space-x-1 px-3 py-1.5 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>{showAddMediaForNewTreatment ? 'Hide' : 'Add Media'}</span>
-                  </button>
-                </div>
-                {pendingMediaForNewTreatment.length > 0 && (
-                  <ul className="mb-4 space-y-2 rounded-md border border-blue-200 bg-blue-50/40 p-3">
-                    {pendingMediaForNewTreatment.map((item) => (
-                      <li
-                        key={item.key}
-                        className="flex items-center justify-between gap-2 text-sm text-gray-800 border-b border-blue-100 pb-2 last:border-0 last:pb-0"
-                      >
-                        <span className="truncate font-medium" title={item.name}>
-                          {item.name}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPendingMediaForNewTreatment((prev) => prev.filter((p) => p.key !== item.key))
-                          }
-                          className="flex-shrink-0 text-red-600 hover:text-red-800 text-xs font-medium"
-                        >
-                          Remove
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {showAddMediaForNewTreatment && (
-                  <div className="rounded-md border border-blue-200 p-4 bg-blue-50/40">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Add Media</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <label htmlFor="newTreatmentMediaName" className="block text-xs font-medium text-gray-700 mb-1">
-                          Name *
-                        </label>
-                        <input
-                          id="newTreatmentMediaName"
-                          type="text"
-                          maxLength={100}
-                          value={newTreatmentMediaDraft.name}
-                          onChange={(e) =>
-                            setNewTreatmentMediaDraft({ ...newTreatmentMediaDraft, name: e.target.value })
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Enter media name"
-                        />
-                      </div>
-                      <div>
-                        <label
-                          htmlFor="newTreatmentMediaDescription"
-                          className="block text-xs font-medium text-gray-700 mb-1"
-                        >
-                          Description (optional)
-                        </label>
-                        <textarea
-                          id="newTreatmentMediaDescription"
-                          rows={2}
-                          maxLength={300}
-                          value={newTreatmentMediaDraft.description}
-                          onChange={(e) =>
-                            setNewTreatmentMediaDraft({ ...newTreatmentMediaDraft, description: e.target.value })
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Enter description"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="newTreatmentMediaFile" className="block text-xs font-medium text-gray-700 mb-1">
-                          File *
-                        </label>
-                        <input
-                          key={newTreatmentMediaFileKey}
-                          id="newTreatmentMediaFile"
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) =>
-                            setNewTreatmentMediaDraft({
-                              ...newTreatmentMediaDraft,
-                              file: e.target.files?.[0] || null,
-                            })
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      {newTreatmentMediaError && (
-                        <div className="text-xs text-red-600">{newTreatmentMediaError}</div>
-                      )}
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const file = newTreatmentMediaDraft.file;
-                            if (!newTreatmentMediaDraft.name || !file) {
-                              setNewTreatmentMediaError('Name and file are required');
-                              return;
-                            }
-                            setNewTreatmentMediaError('');
-                            setPendingMediaForNewTreatment((prev) => [
-                              ...prev,
-                              {
-                                key: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                                name: newTreatmentMediaDraft.name,
-                                description: newTreatmentMediaDraft.description,
-                                file,
-                              },
-                            ]);
-                            setNewTreatmentMediaDraft({ name: '', description: '', file: null });
-                            setNewTreatmentMediaFileKey((k) => k + 1);
-                          }}
-                          className="flex-1 py-2 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                        >
-                          Add to list
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNewTreatmentMediaDraft({ name: '', description: '', file: null });
-                            setNewTreatmentMediaFileKey((k) => k + 1);
-                            setNewTreatmentMediaError('');
-                          }}
-                          className="flex-1 py-2 bg-gray-200 text-gray-700 text-xs rounded-lg font-medium hover:bg-gray-300 transition-colors"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    </div>
+                  <div className="flex justify-end gap-3 mt-4">
+                    <button
+                      type="button"
+                      onClick={handleAddTreatment}
+                      disabled={
+                        isAddingTreatment ||
+                        treatmentDrafts.length === 0 ||
+                        treatmentDrafts.some(
+                          (draft) => draft.selectedTreatmentIds.length === 0 || draft.tooth_ids.length === 0,
+                        )
+                      }
+                      className="rounded-lg bg-[#0f766e] px-5 py-2 font-semibold text-white transition-colors hover:bg-[#0d5f59] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isAddingTreatment
+                        ? 'Adding...'
+                        : `Add ${
+                            treatmentDrafts.reduce(
+                              (sum, draft) => sum + draft.selectedTreatmentIds.length * draft.tooth_ids.length,
+                              0,
+                            )
+                          } row${
+                            treatmentDrafts.reduce(
+                              (sum, draft) => sum + draft.selectedTreatmentIds.length * draft.tooth_ids.length,
+                              0,
+                            ) === 1
+                              ? ''
+                              : 's'
+                          }`}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddTreatment(false);
+                        setNewTreatmentRandevueId('');
+                        setShowAddMediaForNewTreatment(false);
+                        setNewTreatmentMediaDraft({ name: '', description: '', file: null });
+                        setNewTreatmentMediaFileKey((k) => k + 1);
+                        setPendingMediaForNewTreatment([]);
+                        setNewTreatmentMediaError('');
+                        setSelectedTreatmentIds([]);
+                        setToothSelectionMode('multiple');
+                        setTreatmentDrafts([]);
+                        setActiveTreatmentDraftIndex(0);
+                      }}
+                      className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
                   </div>
-                )}
-              </div>
-
-              <div className="flex gap-3 mt-4">
-                <button
-                  type="button"
-                  onClick={handleAddTreatment}
-                  disabled={
-                    isAddingTreatment || selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0
-                  }
-                  className="px-5 py-2 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isAddingTreatment
-                    ? 'Adding...'
-                    : selectedTreatmentIds.length === 0 || newTreatment.tooth_ids.length === 0
-                      ? 'Add treatments'
-                      : `Add ${selectedTreatmentIds.length * newTreatment.tooth_ids.length} row${
-                          selectedTreatmentIds.length * newTreatment.tooth_ids.length === 1 ? '' : 's'
-                        }`}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowAddTreatment(false);
-                    setShowAddMediaForNewTreatment(false);
-                    setNewTreatmentMediaDraft({ name: '', description: '', file: null });
-                    setNewTreatmentMediaFileKey((k) => k + 1);
-                    setPendingMediaForNewTreatment([]);
-                    setNewTreatmentMediaError('');
-                    setSelectedTreatmentIds([]);
-                    setToothSelectionMode('multiple');
-                  }}
-                  className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
-                >
-                  Cancel
-                </button>
+                </div>
               </div>
             </div>
           )}
           
-          {treatments.length === 0 ? (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            {!isDentist ? (
+              <div className="relative">
+                <select
+                  value={treatmentTimeFilter}
+                  onChange={(e) => setTreatmentTimeFilter(e.target.value as TreatmentTimeFilter)}
+                  className="appearance-none rounded-md border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-gray-800 hover:border-gray-400 focus:border-[#0f766e] focus:outline-none focus:ring-2 focus:ring-[#99f6e4]"
+                >
+                  <option value="current">Current</option>
+                  <option value="past">Past</option>
+                  <option value="all">All</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
+              </div>
+            ) : null}
+            {!isDirector ? (
+              <div className="relative">
+                <select
+                  value={treatmentOwnershipFilter}
+                  onChange={(e) => setTreatmentOwnershipFilter(e.target.value as TreatmentOwnershipFilter)}
+                  className="appearance-none rounded-md border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-gray-800 hover:border-gray-400 focus:border-[#0f766e] focus:outline-none focus:ring-2 focus:ring-[#99f6e4]"
+                >
+                  <option value="mine">Mine</option>
+                  <option value="all">All</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
+              </div>
+            ) : null}
+          </div>
+          {visibleTreatments.length === 0 ? (
             <p className="text-center text-gray-500 py-8">
-              No treatments found for this appointment.
+              No treatments found for this filter.
             </p>
           ) : (
             <div className="space-y-4">
-              {treatments.map((treatment) => {
+              {linkTreatmentError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {linkTreatmentError}
+                </div>
+              )}
+              {visibleTreatments.map((treatment) => {
+                const isEditingTreatment = editingTreatmentId === treatment.id;
                 const toothInfos = treatment.toothTreatmentTeeth.map(ttt => teethInfo.get(ttt.toothId)).filter(Boolean);
                 const medicines = treatmentMedicines.get(treatment.id) || [];
+                const linkedRandevues = treatment.linkedRandevues ?? [];
+                const hasLinkedRandevues = linkedRandevues.length > 0;
+                const isRandevuesExpanded = showRandevuesByTreatment[treatment.id] ?? false;
                 return (
                   <div 
                     key={treatment.id} 
-                    className="border border-gray-200 rounded-lg p-6 hover:border-teal-300 transition-colors"
+                    className="border border-gray-200 rounded-lg p-6 hover:border-[#0066A6]/40 transition-colors"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start space-x-3 flex-1">
-                        <FileText className="w-5 h-5 text-teal-600 mt-1 flex-shrink-0" />
+                        <FileText className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
                         <div className="flex-1">
                           <h3 className="text-lg font-semibold text-gray-900 mb-2">
                             {treatment.treatment.name}
                           </h3>
-                          <p className="text-sm text-gray-600 mb-3">
-                            {treatment.treatment.description}
-                          </p>
-                          
+                          {treatment.dentist ? (
+                            <p className="text-sm text-slate-600 mb-2">
+                              Performing dentist:{' '}
+                              <span className="font-medium text-slate-900">
+                                {treatment.dentist.staff?.name ?? ''}{' '}
+                                {treatment.dentist.staff?.surname ?? ''}
+                              </span>
+                            </p>
+                          ) : null}
+                          {isDentist && !canMutateTreatment(treatment) ? (
+                            <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                              You can view this treatment. Only the performing dentist can edit it, add media, or delete it.
+                            </p>
+                          ) : null}
+                          {!isEditingTreatment && (
+                            <>
+                              <p className="text-sm text-gray-600 mb-3">
+                                {treatment.treatment.description}
+                              </p>
+
                           {toothInfos.length > 0 && (
-                            <div className="mb-3 p-3 bg-teal-50 rounded-md">
-                              <p className="text-sm font-medium text-teal-900 mb-1">
+                            <div className="mb-3 p-3 bg-[#f0f7fc] rounded-md">
+                              <p className="text-sm font-medium text-slate-900 mb-1">
                                 Teeth ({toothInfos.length})
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 {toothInfos.map((info, index) => (
-                                  <span key={index} className="text-sm text-teal-700 font-semibold bg-white px-2 py-1 rounded">
+                                  <span key={index} className="text-sm text-[#00588f] font-semibold bg-white px-2 py-1 rounded">
                                     {info?.name}
                                   </span>
                                 ))}
@@ -1753,24 +2653,26 @@ const AppointmentDetail = () => {
                             </div>
                           )}
                           
-                          <div className="flex flex-wrap items-center gap-4 text-sm mb-3">
-                            <span className="text-gray-500">
-                              Unit price:{' '}
-                              <span className="font-medium text-gray-900">${treatment.treatment.price.toFixed(2)}</span>
-                              <span className="text-gray-600">
-                                {treatment.treatment.pricePer === 'tooth' && ' (× each selected tooth)'}
-                                {treatment.treatment.pricePer === 'chin' && ' (× each jaw with selected teeth)'}
-                                {treatment.treatment.pricePer === 'mouth' && ' (flat per placement)'}
-                                {treatment.treatment.pricePer == null && ' (single line amount)'}
+                          {canSeeTreatmentFees(treatment) ? (
+                            <div className="flex flex-wrap items-center gap-4 text-sm mb-3">
+                              <span className="text-gray-500">
+                                Unit price:{' '}
+                                <span className="font-medium text-gray-900">${treatment.treatment.price.toFixed(2)}</span>
+                                <span className="text-gray-600">
+                                  {treatment.treatment.pricePer === 'tooth' && ' (× each selected tooth)'}
+                                  {treatment.treatment.pricePer === 'chin' && ' (× each jaw with selected teeth)'}
+                                  {treatment.treatment.pricePer === 'mouth' && ' (flat per placement)'}
+                                  {treatment.treatment.pricePer == null && ' (single line amount)'}
+                                </span>
                               </span>
-                            </span>
-                            <span className="text-gray-500">
-                              Line total:{' '}
-                              <span className="font-semibold text-teal-700">
-                                ${(typeof treatment.feeSnapshot === 'number' ? treatment.feeSnapshot : treatment.treatment.price).toFixed(2)}
+                              <span className="text-gray-500">
+                                Line total:{' '}
+                                <span className="font-semibold text-[#00588f]">
+                                  ${(typeof treatment.feeSnapshot === 'number' ? treatment.feeSnapshot : treatment.treatment.price).toFixed(2)}
+                                </span>
                               </span>
-                            </span>
-                          </div>
+                            </div>
+                          ) : null}
 
                           {medicines.length > 0 && (
                             <div className="mb-3 p-3 bg-purple-50 rounded-md border border-purple-200">
@@ -1787,19 +2689,50 @@ const AppointmentDetail = () => {
                                         <span className="text-purple-600"> - {med.medicine.description}</span>
                                       )}
                                     </div>
-                                    <span className="text-sm font-semibold text-purple-900 ml-2">
-                                      ${(med.medicine.price * med.quantity).toFixed(2)}
-                                    </span>
+                                    {canSeeTreatmentFees(treatment) ? (
+                                      <span className="text-sm font-semibold text-purple-900 ml-2">
+                                        ${(med.medicine.price * med.quantity).toFixed(2)}
+                                      </span>
+                                    ) : null}
                                   </div>
                                 ))}
                               </div>
                             </div>
                           )}
 
+                          {hasLinkedRandevues ? (
+                            <div className="mb-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShowRandevuesByTreatment((prev) => ({
+                                    ...prev,
+                                    [treatment.id]: !isRandevuesExpanded,
+                                  }))
+                                }
+                                className="rounded-md border border-[#0066A6] bg-white px-3 py-1.5 text-sm font-medium text-[#0066A6] hover:bg-[#f0f7fc]"
+                              >
+                                {isRandevuesExpanded ? 'Hide randevues' : 'See randevues'}
+                              </button>
+                              {isRandevuesExpanded ? (
+                                <ul className="mt-3 space-y-1.5">
+                                  {linkedRandevues.map((rv) => (
+                                    <li key={rv.id} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
+                                      <p className="font-medium">{formatRandevueDateTimeRange(rv)}</p>
+                                      <p className="text-xs text-slate-600">
+                                        Room: {formatRoomLabel(rv.room)} | Nurse: {formatStaffName(rv.nurse)} | Dentist: {formatStaffName(rv.dentist)}
+                                      </p>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : null}
+                            </div>
+                          ) : null}
+
                           {(() => {
                             const medias = treatmentMedias.get(treatment.id) || [];
                             return medias.length > 0 ? (
-                              <div className="mb-3 p-3 bg-blue-50 rounded-md border border-blue-200">
+                              <div className="mb-3 p-3 bg-[#f0f7fc] rounded-md border border-[#cce0f0]">
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                   {medias.map((media) => (
                                     <div
@@ -1816,28 +2749,32 @@ const AppointmentDetail = () => {
                                         }}
                                       />
                                       <div className="absolute inset-0 pointer-events-none bg-black/0 group-hover:bg-black/60 transition-colors flex items-center justify-center gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleEditMedia(media);
-                                          }}
-                                          className="pointer-events-auto opacity-0 group-hover:opacity-100 p-2 bg-white rounded-full hover:bg-gray-100 transition-all"
-                                          title="Edit media"
-                                        >
-                                          <Edit className="w-4 h-4 text-blue-600" />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteMedia(media.id, treatment.id);
-                                          }}
-                                          className="pointer-events-auto opacity-0 group-hover:opacity-100 p-2 bg-red-500 rounded-full hover:bg-red-600 transition-all"
-                                          title="Delete media"
-                                        >
-                                          <Trash className="w-4 h-4 text-white" />
-                                        </button>
+                                        {canMutateTreatment(treatment) ? (
+                                          <>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEditMedia(media);
+                                              }}
+                                              className="pointer-events-auto opacity-0 group-hover:opacity-100 p-2 bg-white rounded-full hover:bg-gray-100 transition-all"
+                                              title="Edit media"
+                                            >
+                                              <Edit className="w-4 h-4 text-[#0066A6]" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteMedia(media.id, treatment.id);
+                                              }}
+                                              className="pointer-events-auto opacity-0 group-hover:opacity-100 p-2 bg-red-500 rounded-full hover:bg-red-600 transition-all"
+                                              title="Delete media"
+                                            >
+                                              <Trash className="w-4 h-4 text-white" />
+                                            </button>
+                                          </>
+                                        ) : null}
                                       </div>
                                       <p className="text-xs text-gray-600 mt-1 px-1 truncate" title={media.name}>
                                         {media.name}
@@ -1849,8 +2786,8 @@ const AppointmentDetail = () => {
                             ) : null;
                           })()}
 
-                          {editingMediaId && (
-                            <div className="mt-4 rounded-md border border-blue-200 p-4 bg-blue-50/40">
+                          {canMutateTreatment(treatment) && editingMediaId && (
+                            <div className="mt-4 rounded-md border border-[#cce0f0] p-4 bg-[#f0f7fc]/40">
                               <h4 className="text-sm font-semibold text-gray-900 mb-3">Edit Media</h4>
                               <div className="space-y-3">
                                 <div>
@@ -1861,7 +2798,7 @@ const AppointmentDetail = () => {
                                     maxLength={100}
                                     value={editingMediaData.name}
                                     onChange={(e) => setEditingMediaData({ ...editingMediaData, name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                                     placeholder="Enter media name"
                                   />
                                 </div>
@@ -1873,7 +2810,7 @@ const AppointmentDetail = () => {
                                     maxLength={300}
                                     value={editingMediaData.description}
                                     onChange={(e) => setEditingMediaData({ ...editingMediaData, description: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                                     placeholder="Enter description"
                                   />
                                 </div>
@@ -1882,7 +2819,7 @@ const AppointmentDetail = () => {
                                     type="button"
                                     onClick={() => saveEditMedia(treatment.id)}
                                     disabled={isEditingMedia || !editingMediaData.name}
-                                    className="flex-1 py-2 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-1 py-2 bg-[#0066A6] text-white text-xs rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     {isEditingMedia ? 'Saving...' : 'Save'}
                                   </button>
@@ -1901,7 +2838,9 @@ const AppointmentDetail = () => {
                             </div>
                           )}
 
-                          {confirmDeleteMediaId && confirmDeleteMediaTreatmentId === treatment.id && (
+                          {canMutateTreatment(treatment) &&
+                            confirmDeleteMediaId &&
+                            confirmDeleteMediaTreatmentId === treatment.id && (
                             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 rounded-md">
                               <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-4">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Delete Media?</h3>
@@ -1929,56 +2868,63 @@ const AppointmentDetail = () => {
                             </div>
                           )}
 
-                          {treatment.description && (
-                            <div className="mt-3 pt-3 border-t border-gray-200">
-                              <p className="text-sm font-medium text-gray-500 mb-1">Notes:</p>
-                              <p className="text-sm text-gray-700">{treatment.description}</p>
-                            </div>
+                              {treatment.description && (
+                                <div className="mt-3 pt-3 border-t border-gray-200">
+                                  <p className="text-sm font-medium text-gray-500 mb-1">Notes:</p>
+                                  <p className="text-sm text-gray-700">{treatment.description}</p>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
                       <div className="ml-4 flex flex-col gap-2 flex-shrink-0">
-                        {editingTreatmentId === treatment.id ? (
+                        {canMutateTreatment(treatment) ? (
                           <>
+                            {editingTreatmentId === treatment.id ? (
+                              <>
+                                <button
+                                  onClick={() => saveEditTreatment(treatment)}
+                                  className="px-3 py-1.5 bg-[#0066A6] text-white rounded-md hover:bg-[#004a75] transition-colors"
+                                  disabled={isSubmitting}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={cancelEditTreatment}
+                                  className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => beginEditTreatment(treatment)}
+                                  className="flex items-center space-x-1 px-3 py-1.5 bg-[#0066A6] text-white rounded-md hover:bg-[#00588f] transition-colors"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAddMediaForTreatment(treatment.id)}
+                                  className="flex items-center space-x-1 px-3 py-1.5 border border-[#0066A6] bg-white text-[#0066A6] rounded-md hover:bg-[#f0f7fc] transition-colors"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                  <span>Add Media</span>
+                                </button>
+                              </>
+                            )}
                             <button
-                              onClick={() => saveEditTreatment(treatment)}
-                              className="px-3 py-1.5 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors"
-                              disabled={isSubmitting}
+                              onClick={() => setConfirmDeleteTreatmentId(treatment.id)}
+                              className="px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
                             >
-                              Save
-                            </button>
-                            <button
-                              onClick={cancelEditTreatment}
-                              className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-                            >
-                              Cancel
+                              Delete
                             </button>
                           </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => beginEditTreatment(treatment)}
-                              className="flex items-center space-x-1 px-3 py-1.5 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
-                            >
-                              <Edit className="w-4 h-4" />
-                              <span>Edit</span>
-                            </button>
-                            <button
-                              onClick={() => setShowAddMediaForTreatment(treatment.id)}
-                              className="flex items-center space-x-1 px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                            >
-                              <Plus className="w-4 h-4" />
-                              <span>Add Media</span>
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={() => setConfirmDeleteTreatmentId(treatment.id)}
-                          className="px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
-                        >
-                          Delete
-                        </button>
-                        {confirmDeleteTreatmentId === treatment.id && (
+                        ) : null}
+                        {canMutateTreatment(treatment) && confirmDeleteTreatmentId === treatment.id && (
                           <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 shadow-sm">
                             <p className="mb-2 font-medium">Delete this treatment?</p>
                             <div className="flex justify-end gap-2">
@@ -2019,8 +2965,8 @@ const AppointmentDetail = () => {
                         )}
                       </div>
                     </div>
-                    {editingTreatmentId === treatment.id && (
-                      <div className="mt-4 rounded-md border border-teal-200 p-4 bg-teal-50/40">
+                    {editingTreatmentId === treatment.id && canMutateTreatment(treatment) && (
+                      <div className="mt-4 rounded-md border border-[#cce0f0] p-4 bg-[#f0f7fc]/40">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           <div>
                             <h4 className="text-sm font-semibold text-gray-900 mb-2">Change Treatment</h4>
@@ -2030,14 +2976,150 @@ const AppointmentDetail = () => {
                                   key={t.id}
                                   type="button"
                                   onClick={() => setEditingFields({ ...editingFields, treatment_id: t.id })}
-                                  className={`w-full text-left px-4 py-2 border-b last:border-b-0 hover:bg-teal-50 ${editingFields.treatment_id === t.id ? 'bg-teal-100' : ''}`}
+                                  className={`w-full text-left px-4 py-2 border-b last:border-b-0 hover:bg-[#f0f7fc] ${editingFields.treatment_id === t.id ? 'bg-[#e8f2fa]' : ''}`}
                                 >
                                   <div className="flex items-center justify-between">
                                     <span className="font-medium text-gray-900">{t.name}</span>
-                                    <span className="text-sm font-semibold text-gray-700">${t.price.toFixed(2)}</span>
+                                    {canSeeTreatmentFees(treatment) ? (
+                                      <span className="text-sm font-semibold text-gray-700">${t.price.toFixed(2)}</span>
+                                    ) : null}
                                   </div>
                                 </button>
                               ))}
+                            </div>
+                            <div className="mt-4">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-1">Medicines</h4>
+                              <p className="mb-2 text-xs text-gray-600">
+                                Keep treatment quantity and stock-used quantity separate.
+                              </p>
+                              <div className="max-h-56 overflow-auto rounded-md border border-gray-200 bg-white">
+                                {allMedicines.map((m) => {
+                                  const usage = editingMedicineQuantities[m.id] ?? { quantity: 0, stockUsedQuantity: 0 };
+                                  const quantity = usage.quantity;
+                                  const stockUsedQuantity = usage.stockUsedQuantity;
+                                  const checked = quantity > 0;
+                                  return (
+                                    <label key={m.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 cursor-pointer hover:bg-purple-50">
+                                      <div className="flex items-center gap-3">
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setEditingMedicineQuantities({
+                                                ...editingMedicineQuantities,
+                                                [m.id]: {
+                                                  quantity: Math.max(1, quantity || 1),
+                                                  stockUsedQuantity: Math.max(1, stockUsedQuantity || 1),
+                                                },
+                                              });
+                                            } else {
+                                              setEditingMedicineQuantities({
+                                                ...editingMedicineQuantities,
+                                                [m.id]: { quantity: 0, stockUsedQuantity: 0 },
+                                              });
+                                            }
+                                          }}
+                                          className="h-4 w-4 text-purple-600 border-gray-300 rounded"
+                                        />
+                                        <div>
+                                          <div className="text-sm font-medium text-gray-900">{m.name}</div>
+                                          <div className="text-xs text-gray-600">{m.description}</div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex items-center rounded-md border border-gray-300 bg-white">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setEditingMedicineQuantities({
+                                                ...editingMedicineQuantities,
+                                                [m.id]: {
+                                                  quantity: Math.max(0, quantity - 1),
+                                                  stockUsedQuantity,
+                                                },
+                                              })
+                                            }
+                                            className="px-2 py-1 text-gray-700 hover:bg-gray-100"
+                                          >
+                                            −
+                                          </button>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            step={1}
+                                            value={quantity}
+                                            onChange={(e) => {
+                                              const next = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                                              setEditingMedicineQuantities({
+                                                ...editingMedicineQuantities,
+                                                [m.id]: { quantity: next, stockUsedQuantity },
+                                              });
+                                            }}
+                                            className="w-16 border-x border-gray-300 px-2 py-1 text-center text-sm"
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setEditingMedicineQuantities({
+                                                ...editingMedicineQuantities,
+                                                [m.id]: {
+                                                  quantity: Math.max(1, quantity + 1),
+                                                  stockUsedQuantity,
+                                                },
+                                              })
+                                            }
+                                            className="px-2 py-1 text-gray-700 hover:bg-gray-100"
+                                          >
+                                            +
+                                          </button>
+                                        </div>
+                                        <div className="flex items-center rounded-md border border-amber-300 bg-amber-50">
+                                          <span className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                                            Stock
+                                          </span>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            step={1}
+                                            value={stockUsedQuantity}
+                                            onChange={(e) => {
+                                              const next =
+                                                e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
+                                              setEditingMedicineQuantities({
+                                                ...editingMedicineQuantities,
+                                                [m.id]: { quantity, stockUsedQuantity: next },
+                                              });
+                                            }}
+                                            className="w-16 border-l border-amber-300 bg-white px-2 py-1 text-center text-sm"
+                                          />
+                                        </div>
+                                        {canSeeTreatmentFees(treatment) ? (
+                                          <span className="text-sm font-semibold text-gray-700">${(m.price * quantity).toFixed(2)}</span>
+                                        ) : null}
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setShowAddMediaForTreatment(treatment.id)}
+                                className="mt-3 flex items-center justify-center space-x-1 px-3 py-1.5 border border-[#0066A6] bg-white text-[#0066A6] rounded-md hover:bg-[#f0f7fc] transition-colors"
+                              >
+                                <Plus className="w-4 h-4" />
+                                <span>Add Media</span>
+                              </button>
+                            </div>
+                            <div className="mt-4">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes</h4>
+                              <textarea
+                                rows={3}
+                                value={editingFields.description}
+                                onChange={(e) => setEditingFields({ ...editingFields, description: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                                placeholder="Enter notes"
+                              />
                             </div>
                           </div>
                           <div>
@@ -2051,80 +3133,98 @@ const AppointmentDetail = () => {
                             />
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
-                          <div>
-                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Medicines</h4>
-                            <div className="max-h-56 overflow-auto rounded-md border border-gray-200 bg-white">
-                              {allMedicines.map((m) => {
-                                const quantity = editingMedicineQuantities[m.id] ?? 0;
-                                const checked = quantity > 0;
+                        <div className="mt-6 border-t border-[#cce0f0] pt-4">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-2">Randevues</h4>
+                          {(treatment.linkedRandevues?.length ?? 0) === 0 ? (
+                            <p className="mb-4 text-sm text-gray-500">None linked yet.</p>
+                          ) : (
+                            <ul className="mb-4 space-y-2">
+                              {(treatment.linkedRandevues ?? []).map((rv) => {
+                                const unlinkKey = `${treatment.id}-${rv.id}`;
                                 return (
-                                  <label key={m.id} className="flex items-center justify-between px-4 py-2 border-b last:border-b-0 cursor-pointer hover:bg-purple-50">
-                                    <div className="flex items-center gap-3">
-                                      <input
-                                        type="checkbox"
-                                        checked={checked}
-                                        onChange={(e) => {
-                                          if (e.target.checked) setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: Math.max(1, quantity || 1) });
-                                          else setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: 0 });
-                                        }}
-                                        className="h-4 w-4 text-purple-600 border-gray-300 rounded"
-                                      />
-                                      <div>
-                                        <div className="text-sm font-medium text-gray-900">{m.name}</div>
-                                        <div className="text-xs text-gray-600">{m.description}</div>
-                                      </div>
+                                  <li
+                                    key={rv.id}
+                                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+                                  >
+                                    <div className="text-gray-800">
+                                      <p className="font-medium">{formatRandevueDateTimeRange(rv)}</p>
+                                      <p className="text-xs text-gray-600">
+                                        Room: {formatRoomLabel(rv.room)} | Nurse: {formatStaffName(rv.nurse)} | Dentist: {formatStaffName(rv.dentist)}
+                                      </p>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                      <div className="flex items-center rounded-md border border-gray-300 bg-white">
-                                        <button
-                                          type="button"
-                                          onClick={() => setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: Math.max(0, quantity - 1) })}
-                                          className="px-2 py-1 text-gray-700 hover:bg-gray-100"
-                                        >
-                                          −
-                                        </button>
-                                        <input
-                                          type="number"
-                                          min={0}
-                                          step={1}
-                                          value={quantity}
-                                          onChange={(e) => {
-                                            const next = e.target.value === '' ? 0 : Math.max(0, parseInt(e.target.value, 10) || 0);
-                                            setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: next });
-                                          }}
-                                          className="w-16 border-x border-gray-300 px-2 py-1 text-center text-sm"
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() => setEditingMedicineQuantities({ ...editingMedicineQuantities, [m.id]: Math.max(1, quantity + 1) })}
-                                          className="px-2 py-1 text-gray-700 hover:bg-gray-100"
-                                        >
-                                          +
-                                        </button>
-                                      </div>
-                                      <span className="text-sm font-semibold text-gray-700">${(m.price * quantity).toFixed(2)}</span>
-                                    </div>
-                                  </label>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleUnlinkTreatmentFromRandevue(treatment.id, rv.id)
+                                      }
+                                      disabled={unlinkingRandevueKey === unlinkKey}
+                                      className="rounded-md border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {unlinkingRandevueKey === unlinkKey ? 'Removing…' : 'Remove'}
+                                    </button>
+                                  </li>
                                 );
                               })}
-                            </div>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-semibold text-gray-900 mb-2">Notes</h4>
-                            <textarea
-                              rows={3}
-                              value={editingFields.description}
-                              onChange={(e) => setEditingFields({ ...editingFields, description: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                              placeholder="Enter notes"
-                            />
-                          </div>
+                            </ul>
+                          )}
+                          <label className="mb-1 block text-xs font-medium text-gray-600">
+                            Connect another randevue
+                          </label>
+                          <select
+                            value={selectedRandevueByTreatment[treatment.id] || ''}
+                            onChange={(e) =>
+                              setSelectedRandevueByTreatment((prev) => ({
+                                ...prev,
+                                [treatment.id]: Number(e.target.value) || 0,
+                              }))
+                            }
+                            className="w-full max-w-md rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-[#0066A6] focus:outline-none"
+                            disabled={
+                              appointmentRandevues.filter(
+                                (rv) =>
+                                  !(treatment.linkedRandevues ?? []).some((l) => l.id === rv.id),
+                              ).length === 0
+                            }
+                          >
+                            <option value="">
+                              {appointmentRandevues.length === 0
+                                ? 'No randevues for this appointment'
+                                : appointmentRandevues.every((rv) =>
+                                      (treatment.linkedRandevues ?? []).some((l) => l.id === rv.id),
+                                    )
+                                  ? 'All appointment randevues are already linked'
+                                  : 'Select randevue'}
+                            </option>
+                            {appointmentRandevues
+                              .filter(
+                                (rv) =>
+                                  !(treatment.linkedRandevues ?? []).some((l) => l.id === rv.id),
+                              )
+                              .map((rv) => (
+                                <option key={rv.id} value={rv.id}>
+                                  {formatRandevueDateTimeRange(rv)}
+                                </option>
+                              ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => void handleLinkTreatmentToRandevue(treatment.id)}
+                            disabled={
+                              linkingTreatmentId === treatment.id ||
+                              appointmentRandevues.filter(
+                                (rv) =>
+                                  !(treatment.linkedRandevues ?? []).some((l) => l.id === rv.id),
+                              ).length === 0
+                            }
+                            className="mt-2 max-w-md rounded-md bg-[#0066A6] px-3 py-1.5 text-sm text-white hover:bg-[#00588f] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {linkingTreatmentId === treatment.id ? 'Connecting…' : 'Connect'}
+                          </button>
                         </div>
                       </div>
                     )}
-                    {showAddMediaForTreatment === treatment.id && (
-                      <div className="mt-4 rounded-md border border-blue-200 p-4 bg-blue-50/40">
+                    {showAddMediaForTreatment === treatment.id && canMutateTreatment(treatment) && (
+                      <div className="mt-4 rounded-md border border-[#cce0f0] p-4 bg-[#f0f7fc]/40">
                         <h4 className="text-sm font-semibold text-gray-900 mb-3">Add Media</h4>
                         <div className="space-y-3">
                           <div>
@@ -2135,7 +3235,7 @@ const AppointmentDetail = () => {
                               maxLength={100}
                               value={newMediaForm.name}
                               onChange={(e) => setNewMediaForm({ ...newMediaForm, name: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                               placeholder="Enter media name"
                             />
                           </div>
@@ -2147,7 +3247,7 @@ const AppointmentDetail = () => {
                               maxLength={300}
                               value={newMediaForm.description}
                               onChange={(e) => setNewMediaForm({ ...newMediaForm, description: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                               placeholder="Enter description"
                             />
                           </div>
@@ -2158,7 +3258,7 @@ const AppointmentDetail = () => {
                               type="file"
                               accept="image/*"
                               onChange={(e) => setNewMediaForm({ ...newMediaForm, file: e.target.files?.[0] || null })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                             />
                           </div>
                           {mediaError && (
@@ -2169,7 +3269,7 @@ const AppointmentDetail = () => {
                               type="button"
                               onClick={() => handleAddMedia(treatment.id)}
                               disabled={isSubmittingMedia || !newMediaForm.name || !newMediaForm.file}
-                              className="flex-1 py-2 bg-blue-600 text-white text-xs rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="flex-1 py-2 bg-[#0066A6] text-white text-xs rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {isSubmittingMedia ? 'Uploading...' : 'Upload'}
                             </button>
@@ -2286,7 +3386,7 @@ const AppointmentDetail = () => {
                       required
                       value={newRandevueDate}
                       onChange={(e) => setNewRandevueDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                     />
                   </div>
 
@@ -2301,7 +3401,7 @@ const AppointmentDetail = () => {
                         required
                         value={newRandevueStart}
                         onChange={(e) => setNewRandevueStart(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                       />
                     </div>
                     <div>
@@ -2314,9 +3414,122 @@ const AppointmentDetail = () => {
                         required
                         value={newRandevueEnd}
                         onChange={(e) => setNewRandevueEnd(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                       />
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label htmlFor="newRandevueRoom" className="block text-sm font-medium text-gray-700 mb-1">
+                        Room *
+                      </label>
+                      <select
+                        id="newRandevueRoom"
+                        value={newRandevueRoomId || ''}
+                        onChange={(e) => setNewRandevueRoomId(Number(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                      >
+                        <option value="">Select room</option>
+                        {availableRandevueRooms.map((room) => (
+                          <option key={room.id} value={room.id}>
+                            {room.number ? `Room ${room.number}` : room.description || `Room #${room.id}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {!isDentist && (
+                      <div>
+                        <label htmlFor="newRandevueDentist" className="block text-sm font-medium text-gray-700 mb-1">
+                          Dentist *
+                        </label>
+                        <select
+                          id="newRandevueDentist"
+                          value={newRandevueDentistId || ''}
+                          onChange={(e) => setNewRandevueDentistId(Number(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                        >
+                          <option value="">Select dentist</option>
+                          {availableRandevueDentists.map((dentist) => (
+                            <option key={dentist.id} value={dentist.id}>
+                              Dr. {dentist.staff?.surname || `#${dentist.id}`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <div>
+                      <label htmlFor="newRandevueNurse" className="block text-sm font-medium text-gray-700 mb-1">
+                        Nurse {isAdminLike ? '*' : '(optional)'}
+                      </label>
+                      <select
+                        id="newRandevueNurse"
+                        value={newRandevueNurseId || ''}
+                        onChange={(e) => setNewRandevueNurseId(Number(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                      >
+                        <option value="">Select nurse</option>
+                        {availableRandevueNurses.map((nurse) => (
+                          <option key={nurse.id} value={nurse.id}>
+                            {nurse.staff?.surname && nurse.staff?.name
+                              ? `${nurse.staff.surname}, ${nurse.staff.name}`
+                              : `#${nurse.id}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Treatments (optional)
+                    </label>
+                    <div className="max-h-44 overflow-auto rounded-lg border border-gray-300 bg-white">
+                      {randevueTreatmentChoices.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-gray-500">
+                          No treatments exist in this appointment yet.
+                        </p>
+                      ) : (
+                        randevueTreatmentChoices.map((choice) => {
+                          const isChecked = newRandevueTreatmentIds.includes(choice.id);
+                          return (
+                            <label
+                              key={choice.id}
+                              className={`flex cursor-pointer items-start gap-3 border-b border-gray-100 px-3 py-2 last:border-b-0 ${
+                                isChecked ? 'bg-[#e8f2fa]' : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() =>
+                                  setNewRandevueTreatmentIds((prev) =>
+                                    prev.includes(choice.id)
+                                      ? prev.filter((id) => id !== choice.id)
+                                      : [...prev, choice.id],
+                                  )
+                                }
+                                className="mt-1 h-4 w-4 rounded border-gray-300 text-[#0066A6] focus:ring-[#0066A6]"
+                              />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-900">
+                                  {choice.name}
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                  TT #{choice.id}
+                                  {choice.toothLabels.length > 0
+                                    ? ` - Teeth: ${choice.toothLabels.join(', ')}`
+                                    : ''}
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Selected treatments will be linked to this randevue.
+                    </p>
                   </div>
 
                   <div>
@@ -2329,7 +3542,7 @@ const AppointmentDetail = () => {
                       value={newRandevueNote}
                       onChange={(e) => setNewRandevueNote(e.target.value)}
                       placeholder="Optional"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 resize-y min-h-[100px]"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6] resize-y min-h-[100px]"
                     />
                   </div>
 
@@ -2344,7 +3557,7 @@ const AppointmentDetail = () => {
                   <button
                     type="submit"
                     disabled={isSubmittingNewRandevue}
-                    className="flex-1 py-2.5 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 py-2.5 bg-[#0066A6] text-white rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmittingNewRandevue ? 'Saving…' : 'Create randevue'}
                   </button>
@@ -2385,7 +3598,7 @@ const AppointmentDetail = () => {
                     required
                     value={editedAppointment.startDate}
                     onChange={(e) => setEditedAppointment({ ...editedAppointment, startDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   />
                 </div>
 
@@ -2398,48 +3611,50 @@ const AppointmentDetail = () => {
                     id="editEndDate"
                     value={editedAppointment.endDate}
                     onChange={(e) => setEditedAppointment({ ...editedAppointment, endDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   />
                 </div>
 
-                <div>
-                  <label htmlFor="editChargedFee" className="block text-sm font-medium text-gray-700 mb-1">
-                    Charged Fee
-                  </label>
-                  <div className="space-y-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      id="editChargedFee"
-                      value={editedAppointment.chargedFee}
-                      onChange={(e) => setEditedAppointment({ ...editedAppointment, chargedFee: Number(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    />
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditedAppointment({ ...editedAppointment, chargedFee: appointment.calculatedFee })}
-                        className="w-full py-1.5 px-3 bg-blue-500 text-white text-sm rounded-md font-medium hover:bg-blue-600 transition-colors"
-                      >
-                        Set as Calculated Fee (${appointment.calculatedFee.toFixed(2)})
-                      </button>
-                      <div className="text-xs text-gray-600 space-y-1">
-                        <p><span className="font-medium">Calculated Fee:</span> ${appointment.calculatedFee.toFixed(2)}</p>
-                        <p><span className="font-medium">Charged Fee:</span> ${editedAppointment.chargedFee.toFixed(2)}</p>
-                        <p className={`font-medium ${editedAppointment.chargedFee > appointment.calculatedFee ? 'text-green-600' : editedAppointment.chargedFee < appointment.calculatedFee ? 'text-red-600' : 'text-gray-600'}`}>
-                          Discount: ${(editedAppointment.chargedFee - appointment.calculatedFee).toFixed(2)}
-                        </p>
+                {!isDentist ? (
+                  <div>
+                    <label htmlFor="editChargedFee" className="block text-sm font-medium text-gray-700 mb-1">
+                      Charged Fee
+                    </label>
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        id="editChargedFee"
+                        value={editedAppointment.chargedFee}
+                        onChange={(e) => setEditedAppointment({ ...editedAppointment, chargedFee: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                      />
+                      <div className="bg-[#f0f7fc] border border-[#cce0f0] rounded-lg p-3 space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditedAppointment({ ...editedAppointment, chargedFee: appointment.calculatedFee })}
+                          className="w-full py-1.5 px-3 bg-[#0066A6] text-white text-sm rounded-md font-medium hover:bg-[#00588f] transition-colors"
+                        >
+                          Set as Calculated Fee (${appointment.calculatedFee.toFixed(2)})
+                        </button>
+                        <div className="text-xs text-gray-600 space-y-1">
+                          <p><span className="font-medium">Calculated Fee:</span> ${appointment.calculatedFee.toFixed(2)}</p>
+                          <p><span className="font-medium">Charged Fee:</span> ${editedAppointment.chargedFee.toFixed(2)}</p>
+                          <p className={`font-medium ${editedAppointment.chargedFee > appointment.calculatedFee ? 'text-green-600' : editedAppointment.chargedFee < appointment.calculatedFee ? 'text-red-600' : 'text-gray-600'}`}>
+                            Discount: ${(editedAppointment.chargedFee - appointment.calculatedFee).toFixed(2)}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                ) : null}
 
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 py-2 bg-[#0066A6] text-white rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? 'Updating...' : 'Update Appointment'}
                   </button>
@@ -2457,8 +3672,8 @@ const AppointmentDetail = () => {
         )}
 
         {/* Inline form replaces modal above; modal removed */}
-      </main>
-    </div>
+      </div>
+    </ClinicManagementLayout>
   );
 };
 

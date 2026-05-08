@@ -1,49 +1,121 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsDateString, IsNumber, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
+import {
+  ArrayUnique,
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 
 export class UpdateRandevueDto {
-    @ApiPropertyOptional({ example: '2026-04-07T09:00:00.000Z' })
-    @IsOptional()
-    @IsDateString()
-    startDateTime?: string;
+  @ApiPropertyOptional({ example: '2026-04-07T09:00:00.000Z' })
+  @IsOptional()
+  @IsDateString()
+  startDateTime?: string;
 
-    @ApiPropertyOptional({ example: '2026-04-07T10:00:00.000Z' })
-    @IsOptional()
-    @IsDateString()
-    endDateTime?: string;
+  @ApiPropertyOptional({ example: '2026-04-07T10:00:00.000Z' })
+  @IsOptional()
+  @IsDateString()
+  endDateTime?: string;
 
-    @ApiPropertyOptional({ example: 1 })
-    @IsOptional()
-    @IsNumber()
-    @Min(1)
-    patient_id?: number;
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  patient_id?: number;
 
-    @ApiPropertyOptional({ description: 'Note text; send empty string to clear' })
-    @IsOptional()
-    @IsString()
-    note?: string;
+  @ApiPropertyOptional({ example: 1, description: 'Dentist id' })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  dentist_id?: number;
 
-    @ApiPropertyOptional({ description: 'Remove link to an appointment (standalone randevue)' })
-    @IsOptional()
-    @IsBoolean()
-    clear_appointment?: boolean;
+  @ApiPropertyOptional({ description: 'Note text; send empty string to clear' })
+  @IsOptional()
+  @IsString()
+  note?: string;
 
-    @ApiPropertyOptional({ description: 'Link to an open appointment for the current patient' })
-    @IsOptional()
-    @IsNumber()
-    @Min(1)
-    appointment_id?: number;
+  @ApiPropertyOptional({
+    description: 'Remove link to an appointment (standalone randevue)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  clear_appointment?: boolean;
 
-    @ApiPropertyOptional({ description: 'Create a new open appointment and link this randevue' })
-    @IsOptional()
-    @IsBoolean()
-    create_new_appointment?: boolean;
+  @ApiPropertyOptional({
+    description: 'Link to an open appointment for the current patient',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  appointment_id?: number;
 
-    @ApiPropertyOptional({
-        example: '2026-04-07',
-        description: 'Appointment start date (YYYY-MM-DD); required when create_new_appointment is true',
-    })
-    @ValidateIf((o) => o.create_new_appointment === true)
-    @IsDateString()
-    appointment_start_date?: string;
+  @ApiPropertyOptional({
+    description: 'Create a new open appointment and link this randevue',
+  })
+  @IsOptional()
+  @IsBoolean()
+  create_new_appointment?: boolean;
+
+  @ApiPropertyOptional({
+    example: '2026-04-07',
+    description:
+      'Appointment start date (YYYY-MM-DD); required when create_new_appointment is true',
+  })
+  @ValidateIf((o) => o.create_new_appointment === true)
+  @IsDateString()
+  appointment_start_date?: string;
+
+  @ApiPropertyOptional({
+    description: 'Room in the same clinic as the patient',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  room_id?: number;
+
+  @ApiPropertyOptional({
+    description: 'Nurse in the same clinic as the patient',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  nurse_id?: number;
+
+  @ApiPropertyOptional({
+    description: 'Remove assigned nurse from this randevue',
+  })
+  @IsOptional()
+  @IsBoolean()
+  clear_nurse?: boolean;
+
+  @ApiPropertyOptional({
+    type: [Number],
+    description:
+      'Append treatment rows from this randevue appointment to Treatment_Randevue links',
+    example: [12, 15],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsNumber({}, { each: true })
+  @Min(1, { each: true })
+  append_tooth_treatment_ids?: number[];
+
+  @ApiPropertyOptional({
+    type: [Number],
+    description:
+      'Remove Treatment_Randevue links for these tooth treatments on this randevue',
+    example: [12, 15],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsNumber({}, { each: true })
+  @Min(1, { each: true })
+  remove_tooth_treatment_ids?: number[];
 }

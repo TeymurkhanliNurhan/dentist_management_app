@@ -1,11 +1,32 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ToothTreatmentService } from './tooth_treatment.service';
 import { CreateToothTreatmentDto } from './dto/create-tooth_treatment.dto';
 import { UpdateToothTreatmentDto } from './dto/update-tooth_treatment.dto';
 import { GetToothTreatmentDto } from './dto/get-tooth_treatment.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
+import { isDirectorRole } from '../auth/role-guards';
 
 @ApiTags('tooth_treatment')
 @Controller('tooth-treatment')
@@ -30,6 +51,11 @@ export class ToothTreatmentController {
   @ApiOperation({ summary: 'Create tooth treatment' })
   @ApiResponse({ status: 201, description: 'Tooth treatment created' })
   async create(@User() user: any, @Body() dto: CreateToothTreatmentDto) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for tooth treatments',
+      );
+    }
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
     return await this.service.create(dentistId, dto);
   }
@@ -45,8 +71,13 @@ export class ToothTreatmentController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateToothTreatmentDto,
   ) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for tooth treatments',
+      );
+    }
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.patch(dentistId, id, dto);
+    return await this.service.patch(dentistId, id, dto, user?.role);
   }
 
   @ApiBearerAuth('bearer')
@@ -55,11 +86,13 @@ export class ToothTreatmentController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete tooth treatment by id' })
   @ApiOkResponse({ description: 'Tooth treatment deleted' })
-  async delete(
-    @User() user: any,
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  async delete(@User() user: any, @Param('id', ParseIntPipe) id: number) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for tooth treatments',
+      );
+    }
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.delete(dentistId, id);
+    return await this.service.delete(dentistId, id, user?.role);
   }
 }

@@ -1,47 +1,30 @@
-import {Entity, PrimaryGeneratedColumn, Column, OneToMany}  from 'typeorm';
-import { Patient } from '../../patient/entities/patient.entity';
-import { Medicine } from '../../medicine/entities/medicine.entity';
-import { Treatment } from '../../treatment/entities/treatment.entity';
-import { Appointment } from '../../appointment/entities/appointment.entity';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  OneToOne,
+  JoinColumn,
+  Column,
+  OneToMany,
+} from 'typeorm';
+import { Staff } from '../../staff/entities/staff.entity';
+import { Randevue } from '../../randevue/entities/randevue.entity';
+import { DentistTreatment } from '../../dentist_treatment/entities/dentist_treatment.entity';
 
-@Entity({name: 'Dentist'})
+@Entity({ name: 'Dentist' })
 export class Dentist {
-    @PrimaryGeneratedColumn()
-    id: number;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column({type: 'varchar', length:20})
-    name: string;
+  @Column({ type: 'int', unique: true })
+  staffId: number;
 
-    @Column({type: 'varchar', length:20})
-    surname: string;
+  @OneToOne(() => Staff, { nullable: false, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'staffId' })
+  staff: Staff;
 
-    @Column({type: 'date'})
-    birthDate: Date;
+  @OneToMany(() => Randevue, (randevue) => randevue.dentist)
+  randevues: Randevue[];
 
-    @Column({type: 'varchar', length: 40})
-    gmail: string;
-
-    @Column({type: 'varchar',length: 256})
-    password: string;
-
-    @Column({type: 'boolean', default: false})
-    isEmailVerified: boolean;
-
-    @Column({type: 'varchar', length: 6, nullable: true})
-    verificationCode: string | null;
-
-    @Column({type: 'timestamp', nullable: true})
-    verificationCodeExpiry: Date | null;
-
-    @OneToMany(()=> Patient, (patient)=> patient.dentist)
-    patients: Patient[];
-
-    @OneToMany(() => Medicine, (medicine) => medicine.dentist)
-    medicines: Medicine[];
-
-    @OneToMany(() => Treatment, (treatment) => treatment.dentist)
-    treatments: Treatment[];
-
-    @OneToMany(() => Appointment, (appointment) => appointment.dentist)
-    appointments: Appointment[];
+  @OneToMany(() => DentistTreatment, (dt) => dt.dentistEntity)
+  dentistTreatments: DentistTreatment[];
 }

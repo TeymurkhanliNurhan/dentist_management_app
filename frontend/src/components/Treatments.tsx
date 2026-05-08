@@ -1,13 +1,27 @@
-import { useState, useEffect } from 'react';
-import { Search, Plus, X, Edit } from 'lucide-react';
-import Header from './Header';
-import { treatmentService } from '../services/api';
-import type { Treatment, TreatmentFilters, CreateTreatmentDto, UpdateTreatmentDto, TreatmentPricePer } from '../services/api';
+import { useMemo, useState, useEffect } from 'react';
+import { Search, Plus, X, Edit, Eye, UserPlus, UserMinus } from 'lucide-react';
+import ClinicManagementLayout from './ClinicManagementLayout';
+import { treatmentService, dentistService, dentistTreatmentService } from '../services/api';
+import type {
+  Treatment,
+  TreatmentFilters,
+  CreateTreatmentDto,
+  UpdateTreatmentDto,
+  TreatmentPricePer,
+  DentistProfile,
+} from '../services/api';
 import { useTranslation } from 'react-i18next';
 
 const Treatments = () => {
   const { t } = useTranslation('treatments');
+  const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
+  const isDentistUser = role === 'dentist';
+  const isDirectorUser = role === 'director';
+  const canAccessTreatments = isDentistUser || isDirectorUser;
+  const dentistId = useMemo(() => Number(localStorage.getItem('dentistId') ?? 0), []);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
+  const [assignedTreatmentIds, setAssignedTreatmentIds] = useState<number[]>([]);
+  const [showRestTreatments, setShowRestTreatments] = useState(false);
   const [filters, setFilters] = useState<TreatmentFilters>({
     name: '',
   });
@@ -29,13 +43,31 @@ const Treatments = () => {
     pricePer: null,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDentistsModal, setShowDentistsModal] = useState(false);
+  const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null);
+  const [dentists, setDentists] = useState<DentistProfile[]>([]);
+  const [assignedDentistIds, setAssignedDentistIds] = useState<number[]>([]);
+  const [selectedDentistIdToAdd, setSelectedDentistIdToAdd] = useState(0);
+  const [isUpdatingDentists, setIsUpdatingDentists] = useState(false);
+  const [isUpdatingDentistTreatments, setIsUpdatingDentistTreatments] = useState(false);
+  const [pendingDentistTreatment, setPendingDentistTreatment] = useState<{
+    action: 'add' | 'remove';
+    id: number;
+    name: string;
+  } | null>(null);
 
   const fetchTreatments = async (searchFilters?: TreatmentFilters) => {
     setIsLoading(true);
     setError('');
     try {
-      const data = await treatmentService.getAll(searchFilters);
+      const [data, links] = await Promise.all([
+        treatmentService.getAll(searchFilters),
+        isDentistUser && Number.isFinite(dentistId) && dentistId > 0
+          ? dentistTreatmentService.getAll({ dentist: dentistId })
+          : Promise.resolve([]),
+      ]);
       setTreatments(data);
+      setAssignedTreatmentIds(links.map((link) => link.treatment));
     } catch (err: any) {
       console.error('Failed to fetch treatments:', err);
       setError(err.response?.data?.message || 'Failed to fetch treatments');
@@ -47,6 +79,12 @@ const Treatments = () => {
   useEffect(() => {
     fetchTreatments();
   }, []);
+
+  useEffect(() => {
+    if (!isDentistUser) {
+      setShowRestTreatments(false);
+    }
+  }, [isDentistUser]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +103,114 @@ const Treatments = () => {
     if (p === 'chin') return t('form.pricePerChin');
     if (p === 'mouth') return t('form.pricePerMouth');
     return t('form.pricePerUnset');
+  };
+
+  const availableDentistsToAdd = useMemo(
+    () => dentists.filter((dentist) => !assignedDentistIds.includes(dentist.id)),
+    [dentists, assignedDentistIds],
+  );
+
+  const visibleTreatments = useMemo(() => {
+    if (!isDentistUser) {
+      return treatments;
+    }
+    return treatments.filter((treatment) =>
+      showRestTreatments
+        ? !assignedTreatmentIds.includes(treatment.id)
+        : assignedTreatmentIds.includes(treatment.id),
+    );
+  }, [assignedTreatmentIds, isDentistUser, showRestTreatments, treatments]);
+
+  const openDentistsModal = async (treatment: Treatment) => {
+    setError('');
+    setSelectedTreatment(treatment);
+    setShowDentistsModal(true);
+    try {
+      const [allDentists, links] = await Promise.all([
+        dentistService.getAll(),
+        dentistTreatmentService.getAll({ treatment: treatment.id }),
+      ]);
+      setDentists(allDentists);
+      setAssignedDentistIds(links.map((link) => link.dentist));
+      setSelectedDentistIdToAdd(0);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load dentists');
+    }
+  };
+
+  const handleAddDentistToTreatment = async () => {
+    if (!selectedTreatment || !selectedDentistIdToAdd) return;
+    setIsUpdatingDentists(true);
+    try {
+      await dentistTreatmentService.create(
+        selectedTreatment.id,
+        selectedDentistIdToAdd,
+      );
+      setAssignedDentistIds((prev) => [...prev, selectedDentistIdToAdd]);
+      setSelectedDentistIdToAdd(0);
+      await fetchTreatments(filters.name ? { name: filters.name } : undefined);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to add dentist');
+    } finally {
+      setIsUpdatingDentists(false);
+    }
+  };
+
+  const handleRemoveDentistFromTreatment = async (dentistId: number) => {
+    if (!selectedTreatment) return;
+    setIsUpdatingDentists(true);
+    try {
+      await dentistTreatmentService.remove(selectedTreatment.id, dentistId);
+      setAssignedDentistIds((prev) => prev.filter((id) => id !== dentistId));
+      await fetchTreatments(filters.name ? { name: filters.name } : undefined);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to remove dentist');
+    } finally {
+      setIsUpdatingDentists(false);
+    }
+  };
+
+  const refreshTreatmentsWithCurrentFilters = async () => {
+    await fetchTreatments(filters.name ? { name: filters.name } : undefined);
+  };
+
+  const handleAddTreatmentForCurrentDentist = async (treatmentId: number) => {
+    if (!isDentistUser || !dentistId) return;
+    setIsUpdatingDentistTreatments(true);
+    setError('');
+    try {
+      await dentistTreatmentService.create(treatmentId, dentistId);
+      await refreshTreatmentsWithCurrentFilters();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to add treatment');
+    } finally {
+      setIsUpdatingDentistTreatments(false);
+    }
+  };
+
+  const handleRemoveTreatmentForCurrentDentist = async (treatmentId: number) => {
+    if (!isDentistUser || !dentistId) return;
+    setIsUpdatingDentistTreatments(true);
+    setError('');
+    try {
+      await dentistTreatmentService.remove(treatmentId, dentistId);
+      await refreshTreatmentsWithCurrentFilters();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to remove treatment');
+    } finally {
+      setIsUpdatingDentistTreatments(false);
+    }
+  };
+
+  const confirmPendingDentistTreatment = async () => {
+    if (!pendingDentistTreatment) return;
+    const { action, id } = pendingDentistTreatment;
+    setPendingDentistTreatment(null);
+    if (action === 'add') {
+      await handleAddTreatmentForCurrentDentist(id);
+    } else {
+      await handleRemoveTreatmentForCurrentDentist(id);
+    }
   };
 
   const handleAddTreatment = async (e: React.FormEvent) => {
@@ -115,18 +261,67 @@ const Treatments = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-blue-50">
-      <Header />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">{t('title')}</h1>
-          
-          <form onSubmit={handleSearch} className="bg-white rounded-lg shadow p-4 mb-4">
+  return canAccessTreatments ? (
+    <>
+      <ClinicManagementLayout>
+      <main className="mx-auto w-full max-w-[1400px] py-2">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="min-w-0 flex-1 pr-4">
+            <h1 className="text-3xl font-bold text-slate-900">{t('title')}</h1>
+            <p className="mt-1 text-sm text-slate-500">{t('searchPlaceholder')}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {!isDentistUser && (
+              <button
+                type="button"
+                className="rounded-md bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white"
+              >
+                Treatments
+              </button>
+            )}
+            {isDentistUser && (
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRestTreatments(false)}
+                  className={`rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
+                    !showRestTreatments
+                      ? 'border-[#0066A6] bg-[#0066A6] text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  My Treatments
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRestTreatments(true)}
+                  className={`rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
+                    showRestTreatments
+                      ? 'border-[#0066A6] bg-[#0066A6] text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  Rest Treatments
+                </button>
+              </div>
+            )}
+            {!isDentistUser && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="ml-2 flex items-center space-x-2 rounded-md bg-[#0066A6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#00588f]"
+              >
+                <Plus className="h-4 w-4" />
+                <span>{t('addNew')}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="mb-6 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+          <form onSubmit={handleSearch}>
             <div className="flex flex-wrap gap-3 items-end">
-              <div className="flex-1 min-w-[300px]">
-                <label htmlFor="name" className="block text-xs font-medium text-gray-700 mb-1">
+              <div className="flex-1 min-w-[280px]">
+                <label htmlFor="name" className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
                   {t('searchLabel')}
                 </label>
                 <input
@@ -134,25 +329,25 @@ const Treatments = () => {
                   id="name"
                   value={filters.name}
                   onChange={(e) => setFilters({ ...filters, name: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-[#0066A6] focus:outline-none"
                   placeholder={t('searchPlaceholder')}
                 />
               </div>
-              
+
               <div className="flex gap-2">
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex items-center space-x-1 px-4 py-2 bg-teal-500 text-white text-sm rounded-md font-medium hover:bg-teal-600 transition-colors disabled:opacity-50"
+                  className="flex items-center space-x-1 rounded-md bg-[#0066A6] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#00588f] disabled:opacity-50"
                 >
-                  <Search className="w-4 h-4" />
+                  <Search className="h-4 w-4" />
                   <span>{t('search')}</span>
                 </button>
-                
+
                 <button
                   type="button"
                   onClick={handleClearSearch}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded-md font-medium hover:bg-gray-300 transition-colors"
+                  className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                 >
                   {t('clear')}
                 </button>
@@ -161,61 +356,144 @@ const Treatments = () => {
           </form>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               {error}
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-teal-500 text-white">
+            <table
+              className={`w-full ${isDentistUser ? 'table-fixed' : ''}`}
+            >
+              <thead className="border-b border-slate-100 bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDentistUser ? 'w-[24%]' : ''
+                    }`}
+                  >
                     {t('table.name')}
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDentistUser ? 'w-[40%]' : ''
+                    }`}
+                  >
                     {t('table.description')}
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDentistUser ? 'w-[18%]' : ''
+                    }`}
+                  >
                     {t('table.price')}
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
-                    {t('table.pricePer')}
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">
+                  {!isDentistUser && (
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                      {t('table.dentists')}
+                    </th>
+                  )}
+                  <th
+                    className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDentistUser ? 'w-[18%]' : ''
+                    }`}
+                  >
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={isDentistUser ? 4 : 5} className="px-6 py-8 text-center text-sm text-slate-500">
                       {t('loading')}
                     </td>
                   </tr>
-                ) : treatments.length === 0 ? (
+                ) : visibleTreatments.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={isDentistUser ? 4 : 5} className="px-6 py-8 text-center text-sm text-slate-500">
                       {t('empty')}
                     </td>
                   </tr>
                 ) : (
-                  treatments.map((treatment) => (
-                    <tr key={treatment.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 text-sm text-gray-900 font-medium">{treatment.name}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{treatment.description}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">${treatment.price.toFixed(2)}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{pricePerLabel(treatment.pricePer)}</td>
-                      <td className="px-6 py-4 text-sm">
-                        <button
-                          onClick={() => handleEditClick(treatment)}
-                          className="flex items-center space-x-1 px-3 py-1.5 bg-teal-500 text-white rounded-md hover:bg-teal-600 transition-colors"
-                        >
-                          <Edit className="w-4 h-4" />
-                          <span>{t('edit')}</span>
-                        </button>
+                  visibleTreatments.map((treatment) => (
+                    <tr key={treatment.id} className="transition-colors hover:bg-slate-50">
+                      <td className="px-6 py-4 text-sm font-semibold text-[#0066A6]">
+                        <span className={`line-clamp-2 ${isDentistUser ? 'block min-w-0' : ''}`}>
+                          {treatment.name}
+                        </span>
+                      </td>
+                      <td className={`px-6 py-4 text-sm text-slate-600 ${isDentistUser ? 'min-w-0' : ''}`}>
+                        <span className={`${isDentistUser ? 'line-clamp-3 break-words' : ''}`}>
+                          {treatment.description}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm align-top">
+                        <p className="font-medium text-slate-900 whitespace-nowrap">
+                          {treatment.price.toFixed(2)} USD
+                        </p>
+                        <p className="text-xs text-slate-500">{pricePerLabel(treatment.pricePer)}</p>
+                      </td>
+                      {!isDentistUser && (
+                        <td className="px-6 py-4 text-sm text-slate-700">
+                          <div className="flex items-center gap-3">
+                            <span>{treatment.dentistCount}</span>
+                            <button
+                              type="button"
+                              onClick={() => openDentistsModal(treatment)}
+                              className="rounded-md border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-50"
+                              aria-label="Manage dentists"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                      <td className={`px-6 py-4 text-sm ${isDentistUser ? 'align-top' : ''}`}>
+                        {isDentistUser ? (
+                          showRestTreatments ? (
+                            <button
+                              type="button"
+                              disabled={isUpdatingDentistTreatments}
+                              onClick={() =>
+                                setPendingDentistTreatment({
+                                  action: 'add',
+                                  id: treatment.id,
+                                  name: treatment.name,
+                                })
+                              }
+                              className="inline-flex min-w-[6.5rem] items-center justify-center gap-1 rounded-md border border-green-200 px-3 py-1.5 text-sm text-green-700 transition hover:bg-green-50 disabled:opacity-50"
+                            >
+                              <Plus className="h-4 w-4 shrink-0" />
+                              Add
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={isUpdatingDentistTreatments}
+                              onClick={() =>
+                                setPendingDentistTreatment({
+                                  action: 'remove',
+                                  id: treatment.id,
+                                  name: treatment.name,
+                                })
+                              }
+                              className="inline-flex min-w-[6.5rem] items-center justify-center gap-1 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                            >
+                              <UserMinus className="h-4 w-4 shrink-0" />
+                              Remove
+                            </button>
+                          )
+                        ) : (
+                          <button
+                            onClick={() => handleEditClick(treatment)}
+                            className="flex items-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition hover:bg-[#00588f]"
+                          >
+                            <Edit className="w-4 h-4" />
+                            <span>{t('edit')}</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -224,20 +502,60 @@ const Treatments = () => {
             </table>
           </div>
         </div>
-
-        <div className="mt-6 flex justify-end">
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center space-x-2 px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition-colors shadow-md"
-          >
-            <Plus className="w-5 h-5" />
-            <span>{t('addNew')}</span>
-          </button>
-        </div>
       </main>
+      </ClinicManagementLayout>
+
+      {pendingDentistTreatment && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dentist-treatment-confirm-title"
+        >
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl ring-1 ring-slate-200">
+            <h2 id="dentist-treatment-confirm-title" className="text-lg font-semibold text-slate-900">
+              {pendingDentistTreatment.action === 'add' ? 'Add treatment' : 'Remove treatment'}
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              {pendingDentistTreatment.action === 'add' ? (
+                <>
+                  Are you sure you want to add{' '}
+                  <span className="font-medium text-slate-800">{pendingDentistTreatment.name}</span> to your treatments?
+                </>
+              ) : (
+                <>
+                  Are you sure you want to remove{' '}
+                  <span className="font-medium text-slate-800">{pendingDentistTreatment.name}</span> from your treatments?
+                </>
+              )}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingDentistTreatment(null)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isUpdatingDentistTreatments}
+                onClick={() => void confirmPendingDentistTreatment()}
+                className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50 ${
+                  pendingDentistTreatment.action === 'add'
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Treatment Modal */}
-      {showAddModal && (
+      {!isDentistUser && showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
@@ -262,7 +580,7 @@ const Treatments = () => {
                   maxLength={40}
                   value={newTreatment.name}
                   onChange={(e) => setNewTreatment({ ...newTreatment, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   placeholder={t('form.namePlaceholder')}
                 />
               </div>
@@ -278,7 +596,7 @@ const Treatments = () => {
                   rows={3}
                   value={newTreatment.description}
                   onChange={(e) => setNewTreatment({ ...newTreatment, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   placeholder={t('form.descriptionPlaceholder')}
                 />
               </div>
@@ -295,7 +613,7 @@ const Treatments = () => {
                   step="0.01"
                   value={newTreatment.price || ''}
                   onChange={(e) => setNewTreatment({ ...newTreatment, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   placeholder={t('form.pricePlaceholder')}
                 />
               </div>
@@ -313,7 +631,7 @@ const Treatments = () => {
                       pricePer: e.target.value === '' ? null : (e.target.value as TreatmentPricePer),
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                 >
                   <option value="">{t('form.pricePerUnset')}</option>
                   <option value="tooth">{t('form.pricePerTooth')}</option>
@@ -327,7 +645,7 @@ const Treatments = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-2 bg-[#0066A6] text-white rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? t('adding') : t('add')}
                 </button>
@@ -345,7 +663,7 @@ const Treatments = () => {
       )}
 
       {/* Edit Treatment Modal */}
-      {showEditModal && editingTreatment && (
+      {!isDentistUser && showEditModal && editingTreatment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
@@ -370,7 +688,7 @@ const Treatments = () => {
                   maxLength={40}
                   value={updatedTreatment.name}
                   onChange={(e) => setUpdatedTreatment({ ...updatedTreatment, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   placeholder={t('form.namePlaceholder')}
                 />
               </div>
@@ -386,7 +704,7 @@ const Treatments = () => {
                   rows={3}
                   value={updatedTreatment.description}
                   onChange={(e) => setUpdatedTreatment({ ...updatedTreatment, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   placeholder={t('form.descriptionPlaceholder')}
                 />
               </div>
@@ -403,7 +721,7 @@ const Treatments = () => {
                   step="0.01"
                   value={updatedTreatment.price || ''}
                   onChange={(e) => setUpdatedTreatment({ ...updatedTreatment, price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   placeholder={t('form.pricePlaceholder')}
                 />
               </div>
@@ -421,7 +739,7 @@ const Treatments = () => {
                       pricePer: e.target.value === '' ? null : (e.target.value as TreatmentPricePer),
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                 >
                   <option value="">{t('form.pricePerUnset')}</option>
                   <option value="tooth">{t('form.pricePerTooth')}</option>
@@ -434,7 +752,7 @@ const Treatments = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 py-2 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-2 bg-[#0066A6] text-white rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? t('updating') : t('update')}
                 </button>
@@ -450,6 +768,89 @@ const Treatments = () => {
           </div>
         </div>
       )}
+      {!isDentistUser && showDentistsModal && selectedTreatment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{selectedTreatment.name}</h2>
+                <p className="text-sm text-gray-500">Manage assigned dentists</p>
+              </div>
+              <button
+                onClick={() => setShowDentistsModal(false)}
+                className="text-gray-400 transition-colors hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-[240px] flex-1">
+                  <label htmlFor="dentist-to-add" className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Add dentist
+                  </label>
+                  <select
+                    id="dentist-to-add"
+                    value={selectedDentistIdToAdd}
+                    onChange={(e) => setSelectedDentistIdToAdd(Number(e.target.value))}
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-[#0066A6] focus:outline-none"
+                  >
+                    <option value={0}>Select dentist</option>
+                    {availableDentistsToAdd.map((dentist) => (
+                      <option key={dentist.id} value={dentist.id}>
+                        Dr. {dentist.staff?.name} {dentist.staff?.surname}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  disabled={!selectedDentistIdToAdd || isUpdatingDentists}
+                  onClick={handleAddDentistToTreatment}
+                  className="flex items-center gap-1 rounded-md bg-[#0066A6] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#00588f] disabled:opacity-50"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Add
+                </button>
+              </div>
+            </div>
+            <div className="max-h-[340px] overflow-auto rounded-lg border border-slate-100">
+              {assignedDentistIds.length === 0 ? (
+                <div className="p-4 text-sm text-slate-500">No dentists assigned yet.</div>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {assignedDentistIds.map((dentistId) => {
+                    const dentist = dentists.find((d) => d.id === dentistId);
+                    return (
+                      <li key={dentistId} className="flex items-center justify-between p-3">
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">
+                            Dr. {dentist?.staff?.name ?? 'Unknown'} {dentist?.staff?.surname ?? ''}
+                          </p>
+                          <p className="text-xs text-slate-500">Dentist ID: {dentistId}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDentistFromTreatment(dentistId)}
+                          disabled={isUpdatingDentists}
+                          className="flex items-center gap-1 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                        >
+                          <UserMinus className="h-4 w-4" />
+                          Remove
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  ) : (
+    <div className="flex h-dvh items-center justify-center bg-[#f4f6f8] text-slate-700">
+      <p className="text-lg">You do not have permission to view this page.</p>
     </div>
   );
 };

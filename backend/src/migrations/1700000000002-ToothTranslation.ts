@@ -1,10 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class ToothTranslation1700000000002 implements MigrationInterface {
-    name = 'ToothTranslation1700000000002';
+  name = 'ToothTranslation1700000000002';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
         CREATE TABLE IF NOT EXISTS "Tooth_Translation" (
             tooth int PRIMARY KEY REFERENCES "Tooth"(id) ON DELETE CASCADE,
             name_in_english varchar(30) NOT NULL,
@@ -13,7 +13,7 @@ export class ToothTranslation1700000000002 implements MigrationInterface {
         );
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
         INSERT INTO "Tooth_Translation"(tooth, name_in_english, name_in_azerbaijani, name_in_russian) VALUES
         (1, 'Central incisor','Mərkəzi kəsici','Центральный резец'),
         (2, 'Lateral incisor','Yan kəsici','Боковой резец'),
@@ -70,7 +70,7 @@ export class ToothTranslation1700000000002 implements MigrationInterface {
         ON CONFLICT (tooth) DO NOTHING;
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
         DO $$ BEGIN
           IF EXISTS (
             SELECT 1 FROM information_schema.columns
@@ -80,12 +80,12 @@ export class ToothTranslation1700000000002 implements MigrationInterface {
           END IF;
         END $$;
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE "Tooth" ADD COLUMN "name" varchar(30);`);
-        await queryRunner.query(`DROP TABLE IF EXISTS "Tooth_Translation";`);
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `ALTER TABLE "Tooth" ADD COLUMN "name" varchar(30);`,
+    );
+    await queryRunner.query(`DROP TABLE IF EXISTS "Tooth_Translation";`);
+  }
 }
-
-

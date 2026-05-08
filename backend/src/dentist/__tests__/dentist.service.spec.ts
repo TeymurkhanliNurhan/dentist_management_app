@@ -16,4 +16,3 @@ describe('DentistService', () => {
     expect(service).toBeDefined();
   });
 });
-

@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { User, Calendar, Edit, X, Save, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
-import Header from './Header';
 import { dentistService, authService } from '../services/api';
 
 interface Dentist {
   id: number;
-  name: string;
-  surname: string;
-  birthDate: string;
-  gmail: string;
+  staffId: number;
+  staff: {
+    id: number;
+    name: string;
+    surname: string;
+    birthDate: string;
+    gmail: string;
+    clinicId: number;
+  };
 }
 
 const Settings = () => {
@@ -42,9 +46,9 @@ const Settings = () => {
         const dentistData = await dentistService.getById(parseInt(dentistId));
         setDentist(dentistData);
         setEditFields({
-          name: dentistData.name || '',
-          surname: dentistData.surname || '',
-          birthDate: dentistData.birthDate ? dentistData.birthDate.split('T')[0] : '',
+          name: dentistData.staff?.name || '',
+          surname: dentistData.staff?.surname || '',
+          birthDate: dentistData.staff?.birthDate ? dentistData.staff.birthDate.split('T')[0] : '',
         });
       } catch (err: any) {
         console.error('Failed to fetch dentist data:', err);
@@ -60,9 +64,9 @@ const Settings = () => {
   const handleEdit = () => {
     if (dentist) {
       setEditFields({
-        name: dentist.name || '',
-        surname: dentist.surname || '',
-        birthDate: dentist.birthDate ? dentist.birthDate.split('T')[0] : '',
+        name: dentist.staff?.name || '',
+        surname: dentist.staff?.surname || '',
+        birthDate: dentist.staff?.birthDate ? dentist.staff.birthDate.split('T')[0] : '',
       });
       setShowEditModal(true);
       setError('');
@@ -144,7 +148,7 @@ const Settings = () => {
     setSuccess('');
 
     try {
-      await authService.forgotPassword(dentist.gmail);
+      await authService.forgotPassword(dentist.staff.gmail);
       setSuccess('Reset code has been sent to your email.');
       setForgotPasswordStep('code');
     } catch (err: any) {
@@ -163,7 +167,7 @@ const Settings = () => {
     setSuccess('');
 
     try {
-      const result = await authService.verifyResetCode(dentist.gmail, forgotPasswordFields.code);
+      const result = await authService.verifyResetCode(dentist.staff.gmail, forgotPasswordFields.code);
       if (result.valid) {
         setSuccess('Code verified successfully!');
         setForgotPasswordStep('password');
@@ -199,7 +203,7 @@ const Settings = () => {
 
     try {
       const result = await authService.resetPassword(
-        dentist.gmail,
+        dentist.staff.gmail,
         forgotPasswordFields.newPassword,
         forgotPasswordFields.confirmPassword
       );
@@ -228,9 +232,8 @@ const Settings = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-blue-50">
-        <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
+        <main className="min-h-0 flex-1 overflow-y-auto max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <p className="text-gray-500">Loading settings...</p>
           </div>
@@ -241,9 +244,8 @@ const Settings = () => {
 
   if (error && !dentist) {
     return (
-      <div className="min-h-screen bg-blue-50">
-        <Header />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
+        <main className="min-h-0 flex-1 overflow-y-auto max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <p className="text-red-600">{error}</p>
           </div>
@@ -253,10 +255,8 @@ const Settings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-blue-50">
-      <Header />
-      
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
+      <main className="min-h-0 flex-1 overflow-y-auto max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow-md p-8">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
@@ -288,7 +288,7 @@ const Settings = () => {
                   <User className="w-5 h-5 text-teal-600 mt-1" />
                   <div>
                     <p className="text-sm font-medium text-gray-500">Name</p>
-                    <p className="text-lg text-gray-900">{dentist.name}</p>
+                    <p className="text-lg text-gray-900">{dentist.staff.name}</p>
                   </div>
                 </div>
 
@@ -296,7 +296,7 @@ const Settings = () => {
                   <User className="w-5 h-5 text-teal-600 mt-1" />
                   <div>
                     <p className="text-sm font-medium text-gray-500">Surname</p>
-                    <p className="text-lg text-gray-900">{dentist.surname}</p>
+                    <p className="text-lg text-gray-900">{dentist.staff.surname}</p>
                   </div>
                 </div>
 
@@ -305,7 +305,7 @@ const Settings = () => {
                   <div>
                     <p className="text-sm font-medium text-gray-500">Birth Date</p>
                     <p className="text-lg text-gray-900">
-                      {dentist.birthDate ? new Date(dentist.birthDate).toLocaleDateString() : 'Not set'}
+                      {dentist.staff.birthDate ? new Date(dentist.staff.birthDate).toLocaleDateString() : 'Not set'}
                     </p>
                   </div>
                 </div>
@@ -314,7 +314,7 @@ const Settings = () => {
                   <User className="w-5 h-5 text-teal-600 mt-1" />
                   <div>
                     <p className="text-sm font-medium text-gray-500">Email</p>
-                    <p className="text-lg text-gray-900">{dentist.gmail}</p>
+                    <p className="text-lg text-gray-900">{dentist.staff.gmail}</p>
                   </div>
                 </div>
               </div>
@@ -630,7 +630,7 @@ const Settings = () => {
 
             {dentist && (
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
-                Verification code has been sent to: <strong>{dentist.gmail}</strong>
+                Verification code has been sent to: <strong>{dentist.staff.gmail}</strong>
               </div>
             )}
 

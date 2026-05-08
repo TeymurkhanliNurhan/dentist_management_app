@@ -7,25 +7,62 @@
   "table": {
     "name": "Name",
     "description": "Description",
-    "price": "Price"
+    "price": "Price",
+    "purchasePrice": "Purchase price",
+    "stock": "Stock"
   },
   "loading": "Loading medicines...",
   "empty": "No medicines found",
   "edit": "Edit",
+  "delete": "Delete",
+  "deleting": "Deleting...",
+  "deleteModalTitle": "Delete medicine",
+  "deleteConfirm": "Delete \"{{name}}\"? This cannot be undone.",
+  "noticeTitle": "Notice",
+  "noticeOk": "OK",
   "addNew": "Add New Medicine",
   "addTitle": "Add New Medicine",
   "editTitle": "Edit Medicine",
   "form": {
     "name": "Name *",
     "description": "Description *",
+    "descriptionOptional": "Description (optional)",
     "price": "Price *",
+    "purchasePrice": "Purchase price *",
     "namePlaceholder": "Enter medicine name",
     "descriptionPlaceholder": "Enter description",
-    "pricePlaceholder": "Enter price"
+    "pricePlaceholder": "Enter price",
+    "purchasePricePlaceholder": "Enter purchase price",
+    "stockLimit": "Stock limit",
+    "stockLimitPlaceholder": "e.g. 5",
+    "stockLimitHint": "Leave empty to turn off low-stock highlighting for this medicine."
   },
   "adding": "Adding...",
   "add": "Add Medicine",
   "updating": "Updating...",
   "update": "Update Medicine",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "newPurchase": "New Purchase",
+  "stats": {
+    "medicinesCount": "Medicines Count",
+    "totalStock": "Total Stock"
+  },
+  "purchase": {
+    "title": "New Purchase",
+    "medicine": "Medicine",
+    "chooseMedicine": "Choose medicine",
+    "count": "Count",
+    "pricePerOne": "Price Per One",
+    "addMedicineRow": "Add Medicine",
+    "newMedicine": "New medicine",
+    "quickNewTitle": "New medicine",
+    "quickCreateSubmit": "Create",
+    "nameRequired": "Please enter the medicine name",
+    "total": "Total:",
+    "creating": "Creating...",
+    "create": "Create",
+    "countPlaceholder": "1",
+    "pricePlaceholder": "0.00",
+    "fillRequired": "Select a medicine and enter a valid count (at least 1) and price per unit for each line."
+  }
 }

@@ -1,7 +1,8 @@
 import { Treatment } from '../treatment/entities/treatment.entity';
 import { TreatmentPricePer } from '../treatment/treatment-price-per.enum';
 
-const roundMoney = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+const roundMoney = (value: number): number =>
+  Math.round((value + Number.EPSILON) * 100) / 100;
 
 export function calculateToothTreatmentFeeSnapshot(
   treatment: Pick<Treatment, 'price' | 'pricePer'>,
@@ -9,7 +10,10 @@ export function calculateToothTreatmentFeeSnapshot(
 ): number {
   const base = treatment.price;
 
-  if (treatment.pricePer == null || treatment.pricePer === TreatmentPricePer.MOUTH) {
+  if (
+    treatment.pricePer == null ||
+    treatment.pricePer === TreatmentPricePer.MOUTH
+  ) {
     return roundMoney(base);
   }
 

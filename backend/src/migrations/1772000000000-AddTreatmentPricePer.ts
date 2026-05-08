@@ -10,6 +10,8 @@ export class AddTreatmentPricePer1772000000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "Treatment" DROP COLUMN IF EXISTS "pricePer"`);
+    await queryRunner.query(
+      `ALTER TABLE "Treatment" DROP COLUMN IF EXISTS "pricePer"`,
+    );
   }
 }

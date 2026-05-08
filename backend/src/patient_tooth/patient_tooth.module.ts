@@ -5,6 +5,6 @@ import { PatientToothRepository } from './patient_tooth.repository';
 
 @Module({
   controllers: [PatientToothController],
-  providers: [PatientToothService, PatientToothRepository]
+  providers: [PatientToothService, PatientToothRepository],
 })
 export class PatientToothModule {}

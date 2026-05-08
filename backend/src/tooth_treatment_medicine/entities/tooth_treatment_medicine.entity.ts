@@ -4,23 +4,29 @@ import { ToothTreatment } from '../../tooth_treatment/entities/tooth_treatment.e
 
 @Entity({ name: 'Tooth_Treatment_Medicine' })
 export class ToothTreatmentMedicine {
-    @PrimaryColumn({ type: 'int', name: 'Medicine' })
-    medicine: number;
+  @PrimaryColumn({ type: 'int', name: 'Medicine' })
+  medicine: number;
 
-    @PrimaryColumn({ type: 'int', name: 'Tooth_Treatment' })
-    toothTreatment: number;
+  @PrimaryColumn({ type: 'int', name: 'Tooth_Treatment' })
+  toothTreatment: number;
 
-    @Column({ type: 'double precision', nullable: false, default: 0 })
-    medicinePriceSnapshot: number;
+  @Column({ type: 'double precision', nullable: false, default: 0 })
+  medicinePriceSnapshot: number;
 
-    @Column({ type: 'int', nullable: false, default: 1 })
-    quantity: number;
+  @Column({ type: 'int', nullable: false, default: 1 })
+  quantity: number;
 
-    @ManyToOne(() => Medicine, (medicine) => medicine.toothTreatmentMedicines, { nullable: false })
-    @JoinColumn({ name: 'Medicine' })
-    medicineEntity: Medicine;
+  @ManyToOne(() => Medicine, (medicine) => medicine.toothTreatmentMedicines, {
+    nullable: false,
+  })
+  @JoinColumn({ name: 'Medicine' })
+  medicineEntity: Medicine;
 
-    @ManyToOne(() => ToothTreatment, (toothTreatment) => toothTreatment.toothTreatmentMedicines, { nullable: false, onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'Tooth_Treatment' })
-    toothTreatmentEntity: ToothTreatment;
+  @ManyToOne(
+    () => ToothTreatment,
+    (toothTreatment) => toothTreatment.toothTreatmentMedicines,
+    { nullable: false, onDelete: 'CASCADE' },
+  )
+  @JoinColumn({ name: 'Tooth_Treatment' })
+  toothTreatmentEntity: ToothTreatment;
 }

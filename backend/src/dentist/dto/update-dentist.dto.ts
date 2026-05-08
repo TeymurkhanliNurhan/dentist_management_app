@@ -19,4 +19,3 @@ export class UpdateDentistDto {
   @IsDateString()
   birthDate?: string;
 }
-

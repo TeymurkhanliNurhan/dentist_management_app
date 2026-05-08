@@ -19,4 +19,3 @@ export class UpdatePasswordDto {
   @MinLength(6)
   confirmPassword: string;
 }
-

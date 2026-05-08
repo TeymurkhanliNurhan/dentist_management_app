@@ -31,6 +31,6 @@
   "failedToSend": "Failed to send reset code",
   "failedToVerify": "Failed to verify code",
   "failedToReset": "Failed to reset password",
-  "networkError": "Cannot connect to server. Please make sure the backend is running on http://localhost:3000. The API endpoints are at /Auth/SignIn (not /api/Auth/SignIn)."
+  "networkError": "Cannot connect to the API. For local dev use the Vite proxy: set VITE_API_BASE_URL to /api, or run the backend on http://localhost:3000 with VITE_API_BASE_URL http://localhost:3000 (the app adds /api when needed). Production: use your full API base including /api."
 }
 

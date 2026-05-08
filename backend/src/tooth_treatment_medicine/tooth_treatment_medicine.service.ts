@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { ToothTreatmentMedicineRepository } from './tooth_treatment_medicine.repository';
 import { CreateToothTreatmentMedicineDto } from './dto/create-tooth_treatment_medicine.dto';
 import { GetToothTreatmentMedicineDto } from './dto/get-tooth_treatment_medicine.dto';
@@ -11,90 +16,149 @@ export class ToothTreatmentMedicineService {
 
   constructor(private readonly repo: ToothTreatmentMedicineRepository) {}
 
-  async create(dentistId: number, dto: CreateToothTreatmentMedicineDto) {
+  private restrictMutationsToPerformingDentist(role: string | undefined): boolean {
+    return (role ?? '').toLowerCase() === 'dentist';
+  }
+
+  async create(
+    dentistId: number,
+    dto: CreateToothTreatmentMedicineDto,
+    role?: string,
+  ) {
     try {
-      const quantity = dto.quantity ?? 1;
-      const created = await this.repo.createForDentist(dentistId, dto.tooth_treatment_id, dto.medicine_id, quantity);
-      const msg = `Dentist with id ${dentistId} added quantity ${quantity} for Medicine ${dto.medicine_id} in ToothTreatment ${dto.tooth_treatment_id}`;
+      const created = await this.repo.createForDentist(
+        dentistId,
+        dto.tooth_treatment_id,
+        dto.medicine_id,
+        dto.quantity ?? 1,
+        this.restrictMutationsToPerformingDentist(role),
+      );
+      const msg = `Dentist with id ${dentistId} created ToothTreatmentMedicine for ToothTreatment ${dto.tooth_treatment_id} with Medicine ${dto.medicine_id}`;
       this.logger.log(msg);
       LogWriter.append('log', ToothTreatmentMedicineService.name, msg);
       return {
         tooth_treatment: created.toothTreatment,
         medicine: created.medicine,
-        quantity: created.quantity,
       };
     } catch (e: any) {
-      if (e?.message?.includes('ToothTreatment not found')) throw new NotFoundException('ToothTreatment not found');
-      if (e?.message?.includes('Medicine not found')) throw new NotFoundException('Medicine not found');
+      if (e?.message?.includes('ToothTreatment not found'))
+        throw new NotFoundException('ToothTreatment not found');
+      if (e?.message?.includes('Medicine not found'))
+        throw new NotFoundException('Medicine not found');
+      if (e?.message?.includes('Insufficient medicine stock'))
+        throw new BadRequestException('Not enough medicine stock');
+      if (e?.message?.includes('Already exists'))
+        throw new BadRequestException(
+          'This medicine is already assigned to this tooth treatment',
+        );
       if (e?.message?.includes('Forbidden')) {
         const warn = `Dentist with id ${dentistId} attempted to create ToothTreatmentMedicine for non-owned resources`;
         this.logger.warn(warn);
         LogWriter.append('warn', ToothTreatmentMedicineService.name, warn);
         throw new BadRequestException("You don't have such a tooth treatment");
       }
-      throw new BadRequestException('Failed to create tooth treatment medicine');
+      throw new BadRequestException(
+        'Failed to create tooth treatment medicine',
+      );
     }
   }
 
-  async updateQuantity(dentistId: number, toothTreatmentId: number, medicineId: number, dto: UpdateToothTreatmentMedicineDto) {
+  async delete(
+    dentistId: number,
+    toothTreatmentId: number,
+    medicineId: number,
+    role?: string,
+  ) {
     try {
-      const updated = await this.repo.updateQuantityEnsureOwnership(dentistId, toothTreatmentId, medicineId, dto.quantity);
-      const msg = `Dentist with id ${dentistId} updated Medicine ${medicineId} quantity to ${dto.quantity} for ToothTreatment ${toothTreatmentId}`;
-      this.logger.log(msg);
-      LogWriter.append('log', ToothTreatmentMedicineService.name, msg);
-      return {
-        tooth_treatment: updated.toothTreatment,
-        medicine: updated.medicine,
-        quantity: updated.quantity,
-      };
-    } catch (e: any) {
-      if (e?.message?.includes('ToothTreatment not found')) throw new NotFoundException('ToothTreatment not found');
-      if (e?.message?.includes('ToothTreatmentMedicine not found')) throw new NotFoundException('ToothTreatmentMedicine not found');
-      if (e?.message?.includes('Forbidden')) {
-        const warn = `Dentist with id ${dentistId} attempted to update ToothTreatmentMedicine for ToothTreatment ${toothTreatmentId} without ownership`;
-        this.logger.warn(warn);
-        LogWriter.append('warn', ToothTreatmentMedicineService.name, warn);
-        throw new BadRequestException("You don't have such a tooth treatment medicine");
-      }
-      throw new BadRequestException('Failed to update tooth treatment medicine quantity');
-    }
-  }
-
-  async delete(dentistId: number, toothTreatmentId: number, medicineId: number) {
-    try {
-      await this.repo.deleteEnsureOwnership(dentistId, toothTreatmentId, medicineId);
+      await this.repo.deleteEnsureOwnership(
+        dentistId,
+        toothTreatmentId,
+        medicineId,
+        this.restrictMutationsToPerformingDentist(role),
+      );
       const msg = `Dentist with id ${dentistId} deleted ToothTreatmentMedicine for ToothTreatment ${toothTreatmentId} with Medicine ${medicineId}`;
       this.logger.log(msg);
       LogWriter.append('log', ToothTreatmentMedicineService.name, msg);
       return { message: 'Tooth treatment medicine deleted successfully' };
     } catch (e: any) {
-      if (e?.message?.includes('ToothTreatment not found')) throw new NotFoundException('ToothTreatment not found');
-      if (e?.message?.includes('ToothTreatmentMedicine not found')) throw new NotFoundException('ToothTreatmentMedicine not found');
+      if (e?.message?.includes('ToothTreatment not found'))
+        throw new NotFoundException('ToothTreatment not found');
+      if (e?.message?.includes('ToothTreatmentMedicine not found'))
+        throw new NotFoundException('ToothTreatmentMedicine not found');
+      if (e?.message?.includes('Insufficient medicine stock'))
+        throw new BadRequestException('Not enough medicine stock');
       if (e?.message?.includes('Forbidden')) {
         const warn = `Dentist with id ${dentistId} attempted to delete ToothTreatmentMedicine for ToothTreatment ${toothTreatmentId} without ownership`;
         this.logger.warn(warn);
         LogWriter.append('warn', ToothTreatmentMedicineService.name, warn);
-        throw new BadRequestException("You don't have such a tooth treatment medicine");
+        throw new BadRequestException(
+          "You don't have such a tooth treatment medicine",
+        );
       }
-      throw new BadRequestException('Failed to delete tooth treatment medicine');
+      throw new BadRequestException(
+        'Failed to delete tooth treatment medicine',
+      );
+    }
+  }
+
+  async updateQuantity(
+    dentistId: number,
+    toothTreatmentId: number,
+    medicineId: number,
+    dto: UpdateToothTreatmentMedicineDto,
+    role?: string,
+  ) {
+    try {
+      const updated = await this.repo.updateQuantityEnsureOwnership(
+        dentistId,
+        toothTreatmentId,
+        medicineId,
+        dto.quantity,
+        this.restrictMutationsToPerformingDentist(role),
+      );
+      const msg = `Dentist with id ${dentistId} updated quantity for ToothTreatment ${toothTreatmentId} and Medicine ${medicineId} to ${dto.quantity}`;
+      this.logger.log(msg);
+      LogWriter.append('log', ToothTreatmentMedicineService.name, msg);
+      return {
+        medicine: updated.medicine,
+        tooth_treatment: updated.toothTreatment,
+        quantity: updated.quantity,
+      };
+    } catch (e: any) {
+      if (e?.message?.includes('ToothTreatment not found'))
+        throw new NotFoundException('ToothTreatment not found');
+      if (e?.message?.includes('ToothTreatmentMedicine not found'))
+        throw new NotFoundException('ToothTreatmentMedicine not found');
+      if (e?.message?.includes('Forbidden')) {
+        const warn = `Dentist with id ${dentistId} attempted to update ToothTreatmentMedicine for ToothTreatment ${toothTreatmentId} without ownership`;
+        this.logger.warn(warn);
+        LogWriter.append('warn', ToothTreatmentMedicineService.name, warn);
+        throw new BadRequestException(
+          "You don't have such a tooth treatment medicine",
+        );
+      }
+      throw new BadRequestException(
+        'Failed to update tooth treatment medicine quantity',
+      );
     }
   }
 
   async findAll(dentistId: number, dto: GetToothTreatmentMedicineDto) {
     try {
-      const toothTreatmentMedicines = await this.repo.findToothTreatmentMedicinesForDentist(dentistId, {
-        medicine: dto.medicine,
-        toothTreatment: dto.tooth_treatment,
-      });
+      const toothTreatmentMedicines =
+        await this.repo.findToothTreatmentMedicinesForDentist(dentistId, {
+          medicine: dto.medicine,
+          toothTreatment: dto.tooth_treatment,
+        });
       const msg = `Dentist with id ${dentistId} retrieved ${toothTreatmentMedicines.length} tooth treatment medicine(s)`;
       this.logger.log(msg);
       LogWriter.append('log', ToothTreatmentMedicineService.name, msg);
-      return toothTreatmentMedicines.map(ttm => ({
+      return toothTreatmentMedicines.map((ttm) => ({
         medicine: {
           id: ttm.medicineEntity?.id || ttm.medicine,
           name: ttm.medicineEntity?.name || null,
           description: ttm.medicineEntity?.description || null,
-          price: ttm.medicineEntity?.price ?? ttm.medicinePriceSnapshot ?? 0,
+          price: ttm.medicineEntity?.price || null,
         },
         tooth_treatment: ttm.toothTreatment,
         quantity: ttm.quantity,
@@ -104,4 +168,3 @@ export class ToothTreatmentMedicineService {
     }
   }
 }
-

@@ -11,5 +11,9 @@
   "price": "Qiymət",
   "treatmentDescription": "Müalicə təsviri",
   "notAvailable": "Mövcud deyil",
-  "notes": "Qeydlər"
+  "notes": "Qeydlər",
+  "performedBy": "İcra edən",
+  "roleDirector": "Direktor",
+  "roleDentist": "Diş həkimi",
+  "roleClinician": "Klinika işçisi"
 }
