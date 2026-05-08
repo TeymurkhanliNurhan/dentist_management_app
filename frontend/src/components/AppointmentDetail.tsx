@@ -536,7 +536,9 @@ const AppointmentDetail = () => {
   const [isEditingMedia, setIsEditingMedia] = useState(false);
   const [previewMedia, setPreviewMedia] = useState<Media | null>(null);
   const [treatmentTimeFilter, setTreatmentTimeFilter] = useState<TreatmentTimeFilter>('current');
-  const [treatmentOwnershipFilter, setTreatmentOwnershipFilter] = useState<TreatmentOwnershipFilter>('mine');
+  const [treatmentOwnershipFilter, setTreatmentOwnershipFilter] = useState<TreatmentOwnershipFilter>(
+    isDirector ? 'all' : 'mine',
+  );
 
   const hydrateTreatmentDraft = useCallback(
     (draft: TreatmentDraft) => {
@@ -1713,6 +1715,7 @@ const AppointmentDetail = () => {
           ? isTreatmentCurrent(treatment)
           : !isTreatmentCurrent(treatment);
     const passesOwnership =
+      isDirector ||
       treatmentOwnershipFilter === 'all' ||
       loggedInDentistId <= 0 ||
       treatment.dentist?.id === loggedInDentistId;
@@ -2571,17 +2574,19 @@ const AppointmentDetail = () => {
                 <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
               </div>
             ) : null}
-            <div className="relative">
-              <select
-                value={treatmentOwnershipFilter}
-                onChange={(e) => setTreatmentOwnershipFilter(e.target.value as TreatmentOwnershipFilter)}
-                className="appearance-none rounded-md border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-gray-800 hover:border-gray-400 focus:border-[#0f766e] focus:outline-none focus:ring-2 focus:ring-[#99f6e4]"
-              >
-                <option value="mine">Mine</option>
-                <option value="all">All</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
-            </div>
+            {!isDirector ? (
+              <div className="relative">
+                <select
+                  value={treatmentOwnershipFilter}
+                  onChange={(e) => setTreatmentOwnershipFilter(e.target.value as TreatmentOwnershipFilter)}
+                  className="appearance-none rounded-md border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-gray-800 hover:border-gray-400 focus:border-[#0f766e] focus:outline-none focus:ring-2 focus:ring-[#99f6e4]"
+                >
+                  <option value="mine">Mine</option>
+                  <option value="all">All</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
+              </div>
+            ) : null}
           </div>
           {visibleTreatments.length === 0 ? (
             <p className="text-center text-gray-500 py-8">
