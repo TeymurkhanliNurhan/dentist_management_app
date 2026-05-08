@@ -710,7 +710,7 @@ const PatientDetail = () => {
                   {t('appointmentsAll')}
                 </button>
               </div>
-            ) : (
+            ) : !isDentist ? (
               <>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -779,7 +779,7 @@ const PatientDetail = () => {
                   </select>
                 </div>
               </>
-            )}
+            ) : null}
 
             {appointmentsLoading && (
               <p className="py-6 text-center text-sm text-slate-500">{t('loading')}</p>
