@@ -33,7 +33,8 @@ export default function CourseOfTreatments() {
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const dentistId = useMemo(() => Number(localStorage.getItem('dentistId') ?? 0), []);
   const isDirector = role === 'director';
-  const isDentist = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
+  const isSingleDentist = role === 'singledentist' || role === 'single dentist';
+  const isDentist = role === 'dentist' || isSingleDentist;
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -135,12 +136,12 @@ export default function CourseOfTreatments() {
     () => {
       let result = filterAppointmentsByEnd(rawAppointments, listMode);
       // For dentist view, filter by "mine" if selected
-      if (isDentist && dentistFilterMode === 'mine') {
+      if (isDentist && !isSingleDentist && dentistFilterMode === 'mine') {
         result = result.filter((a) => dentistTreatmentAppointmentIds.has(a.id));
       }
       return result;
     },
-    [rawAppointments, listMode, isDentist, dentistFilterMode, dentistTreatmentAppointmentIds],
+    [rawAppointments, listMode, isDentist, isSingleDentist, dentistFilterMode, dentistTreatmentAppointmentIds],
   );
 
   const totalFiltered = filteredAppointments.length;
@@ -154,6 +155,10 @@ export default function CourseOfTreatments() {
     }
     return appointment.calculatedFee * (appointment.treatmentPercentage / 100);
   };
+
+  const appointmentDebt = (a: Appointment) => Math.max(0, a.calculatedFee - (a.chargedFee ?? 0));
+
+  const courseTableColSpan = isDirector ? 6 : isSingleDentist ? 6 : isDentist ? 5 : 6;
 
   const handleAddPatient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,7 +219,7 @@ export default function CourseOfTreatments() {
           brandTitle="Precision Dental"
           portalBadge={portalBadge}
           userDisplayName={directorDisplayName || '-'}
-          userSubtitle={isDirector ? 'Clinic Director' : 'Dentist'}
+          userSubtitle={isDirector ? 'Clinic Director' : isSingleDentist ? 'Solo Practitioner' : 'Dentist'}
           menuItems={menuItems}
           pathname={location.pathname}
           isSidebarOpen={isSidebarOpen}
@@ -242,7 +247,9 @@ export default function CourseOfTreatments() {
                   <p className="text-sm text-slate-500">
                     {isDirector
                       ? 'Appointments across all dentists in your clinic'
-                      : 'Your treatment appointments'}
+                      : isSingleDentist
+                        ? 'All treatment courses — fees and balances for your clinic'
+                        : 'Your treatment appointments'}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -366,7 +373,7 @@ export default function CourseOfTreatments() {
                   <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-slate-500" />
                 </div>
 
-                {isDentist ? (
+                {isDentist && !isSingleDentist ? (
                   <div className="relative">
                     <select
                       value={dentistFilterMode}
@@ -398,10 +405,16 @@ export default function CourseOfTreatments() {
                         <th className="px-4 py-3 text-left">Start date</th>
                         <th className="px-4 py-3 text-left">End date</th>
                         <th className="px-4 py-3 text-left">Patient</th>
-                        {isDentist ? (
+                        {isDentist && !isSingleDentist ? (
                           <>
                             <th className="px-4 py-3 text-right">Calculated Fee</th>
                             <th className="px-4 py-3 text-right">Benefit</th>
+                          </>
+                        ) : isSingleDentist ? (
+                          <>
+                            <th className="px-4 py-3 text-right">Calculated</th>
+                            <th className="px-4 py-3 text-right">Debt</th>
+                            <th className="px-4 py-3 text-right">Treatments</th>
                           </>
                         ) : (
                           <>
@@ -416,7 +429,7 @@ export default function CourseOfTreatments() {
                       {isLoading ? (
                         <tr>
                           <td
-                            colSpan={isDentist ? 5 : 6}
+                            colSpan={courseTableColSpan}
                             className="px-4 py-8 text-center text-slate-500"
                           >
                             Loading appointments...
@@ -425,7 +438,7 @@ export default function CourseOfTreatments() {
                       ) : pagedAppointments.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={isDentist ? 5 : 6}
+                            colSpan={courseTableColSpan}
                             className="px-4 py-8 text-center text-slate-500"
                           >
                             No appointments found.
@@ -450,7 +463,7 @@ export default function CourseOfTreatments() {
                             <td className="px-4 py-3 text-slate-700">
                               {appointment.patient.name} {appointment.patient.surname}
                             </td>
-                            {isDentist ? (
+                            {isDentist && !isSingleDentist ? (
                               <>
                                 <td className="px-4 py-3 text-right text-slate-900">
                                   {appointment.calculatedFee > 0
@@ -461,6 +474,18 @@ export default function CourseOfTreatments() {
                                   {appointment.calculatedFee > 0 && calculateBenefit(appointment) !== null
                                     ? `$${calculateBenefit(appointment)!.toFixed(2)}`
                                     : '-'}
+                                </td>
+                              </>
+                            ) : isSingleDentist ? (
+                              <>
+                                <td className="px-4 py-3 text-right text-slate-900">
+                                  ${appointment.calculatedFee.toFixed(2)}
+                                </td>
+                                <td className="px-4 py-3 text-right text-slate-900">
+                                  ${appointmentDebt(appointment).toFixed(2)}
+                                </td>
+                                <td className="px-4 py-3 text-right text-slate-900">
+                                  {appointment.treatmentCount ?? 0}
                                 </td>
                               </>
                             ) : (

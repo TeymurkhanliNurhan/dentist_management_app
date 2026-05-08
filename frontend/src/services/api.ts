@@ -979,6 +979,7 @@ export interface Appointment {
     surname: string;
   } | null;
   treatmentPercentage?: number | null;
+  treatmentCount?: number;
 }
 
 export interface AppointmentFilters {

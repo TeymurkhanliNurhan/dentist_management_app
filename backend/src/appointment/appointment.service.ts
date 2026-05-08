@@ -199,6 +199,7 @@ export class AppointmentService {
             },
             dentist: dentistInfo?.dentist || null,
             treatmentPercentage: dentistInfo?.treatmentPercentage || null,
+            treatmentCount: dentistInfo?.treatmentCount ?? 0,
           };
         }),
         total,

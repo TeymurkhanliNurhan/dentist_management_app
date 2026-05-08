@@ -131,7 +131,19 @@ export class AppointmentRepository {
       page?: number;
       limit?: number;
     },
-  ): Promise<{ appointments: Appointment[]; total: number; appointmentsDentistMap: Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null; dentistCalculatedFee: number }> }> {
+  ): Promise<{
+    appointments: Appointment[];
+    total: number;
+    appointmentsDentistMap: Map<
+      number,
+      {
+        dentist: { id: number; name: string; surname: string } | null;
+        treatmentPercentage: number | null;
+        dentistCalculatedFee: number;
+        treatmentCount: number;
+      }
+    >;
+  }> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const queryBuilder = this.repo
       .createQueryBuilder('appointment')
@@ -208,8 +220,26 @@ export class AppointmentRepository {
   private async fetchAppointmentsDentistAndSalary(
     appointments: Appointment[],
     dentistId: number,
-  ): Promise<Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null; dentistCalculatedFee: number }>> {
-    const resultMap = new Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null; dentistCalculatedFee: number }>();
+  ): Promise<
+    Map<
+      number,
+      {
+        dentist: { id: number; name: string; surname: string } | null;
+        treatmentPercentage: number | null;
+        dentistCalculatedFee: number;
+        treatmentCount: number;
+      }
+    >
+  > {
+    const resultMap = new Map<
+      number,
+      {
+        dentist: { id: number; name: string; surname: string } | null;
+        treatmentPercentage: number | null;
+        dentistCalculatedFee: number;
+        treatmentCount: number;
+      }
+    >();
     
     const dentistRepo = this.dataSource.getRepository(Dentist);
     const salaryRepo = this.dataSource.getRepository(Salary);
@@ -272,6 +302,7 @@ export class AppointmentRepository {
         dentist: dentistInfo,
         treatmentPercentage: salary?.treatmentPercentage ?? null,
         dentistCalculatedFee,
+        treatmentCount: appointmentWithTreatments?.toothTreatments?.length ?? 0,
       });
     }
 

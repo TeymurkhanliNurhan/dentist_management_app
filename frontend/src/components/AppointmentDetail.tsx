@@ -409,7 +409,8 @@ const AppointmentDetail = () => {
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isAdminLike = role === 'director' || role === 'admin';
   const isDirector = role === 'director';
-  const isDentist = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
+  const isSingleDentist = role === 'singledentist' || role === 'single dentist';
+  const isDentist = role === 'dentist' || isSingleDentist;
   const loggedInDentistId = useMemo(() => {
     const raw = localStorage.getItem('dentistId');
     const n = raw ? parseInt(raw, 10) : NaN;
@@ -535,9 +536,11 @@ const AppointmentDetail = () => {
   const [editingMediaData, setEditingMediaData] = useState<{ name: string; description: string }>({ name: '', description: '' });
   const [isEditingMedia, setIsEditingMedia] = useState(false);
   const [previewMedia, setPreviewMedia] = useState<Media | null>(null);
+  const [debtPaymentInput, setDebtPaymentInput] = useState('');
+  const [debtPaymentSubmitting, setDebtPaymentSubmitting] = useState(false);
   const [treatmentTimeFilter, setTreatmentTimeFilter] = useState<TreatmentTimeFilter>('current');
   const [treatmentOwnershipFilter, setTreatmentOwnershipFilter] = useState<TreatmentOwnershipFilter>(
-    isDirector ? 'all' : 'mine',
+    isDirector || isSingleDentist ? 'all' : 'mine',
   );
 
   const hydrateTreatmentDraft = useCallback(
@@ -1020,6 +1023,40 @@ const AppointmentDetail = () => {
       setError(err.response?.data?.message || 'Failed to update appointment');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleApplyDebtPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appointment) return;
+    const raw = debtPaymentInput.trim();
+    const amount = Number.parseFloat(raw);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Enter a valid payment amount greater than zero.');
+      return;
+    }
+    setDebtPaymentSubmitting(true);
+    setError('');
+    try {
+      const currentCollected = appointment.chargedFee ?? 0;
+      const nextCharged = Math.min(appointment.calculatedFee, currentCollected + amount);
+      await appointmentService.update(appointment.id, { chargedFee: nextCharged });
+      setDebtPaymentInput('');
+      const appointmentsData = await appointmentService.getAll();
+      const updatedAppointment = appointmentsData.appointments.find((a) => a.id === appointment.id);
+      if (updatedAppointment) {
+        setAppointment(updatedAppointment);
+        setEditedAppointment({
+          startDate: updatedAppointment.startDate,
+          endDate: updatedAppointment.endDate || '',
+          chargedFee: updatedAppointment.chargedFee ?? updatedAppointment.calculatedFee,
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to record payment:', err);
+      setError(err.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setDebtPaymentSubmitting(false);
     }
   };
 
@@ -1688,6 +1725,9 @@ const AppointmentDetail = () => {
     return appointment.chargedFee ?? appointment.calculatedFee;
   };
 
+  const appointmentOutstandingDebt = (a: Appointment) =>
+    Math.max(0, a.calculatedFee - (a.chargedFee ?? 0));
+
   const totalTreatmentPages = Math.max(1, Math.ceil(availableTreatments.length / ITEMS_PER_PAGE));
   const paginatedTreatments = availableTreatments.slice((treatmentPage - 1) * ITEMS_PER_PAGE, treatmentPage * ITEMS_PER_PAGE);
 
@@ -1716,6 +1756,7 @@ const AppointmentDetail = () => {
           : !isTreatmentCurrent(treatment);
     const passesOwnership =
       isDirector ||
+      isSingleDentist ||
       treatmentOwnershipFilter === 'all' ||
       loggedInDentistId <= 0 ||
       treatment.dentist?.id === loggedInDentistId;
@@ -1872,6 +1913,28 @@ const AppointmentDetail = () => {
                   </div>
                 </div>
               </>
+            ) : isSingleDentist ? (
+              <>
+                <div className="flex items-start space-x-3">
+                  <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Calculated Fee</p>
+                    <p className="text-lg text-gray-900 font-semibold">
+                      ${appointment.calculatedFee.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <DollarSign className="w-5 h-5 text-[#0066A6] mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Debt</p>
+                    <p className="text-lg text-gray-900 font-semibold">
+                      ${appointmentOutstandingDebt(appointment).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </>
             ) : null}
           </div>
 
@@ -1889,6 +1952,49 @@ const AppointmentDetail = () => {
               <p className="text-xs text-gray-500 mt-2 text-right">
                 (Charged fee if set, otherwise calculated fee)
               </p>
+            </div>
+          ) : isSingleDentist ? (
+            <div className="mt-6 pt-6 border-t-2 border-[#0066A6]">
+              <form
+                onSubmit={handleApplyDebtPayment}
+                className="rounded-lg border border-[#cce0f0] bg-[#f0f7fc]/60 p-4"
+              >
+                <p className="mb-3 text-sm font-medium text-gray-900">Record patient payment toward debt</p>
+                <p className="mb-4 text-xs text-gray-600">
+                  Collected so far:{' '}
+                  <span className="font-semibold text-gray-800">
+                    ${(appointment.chargedFee ?? 0).toFixed(2)}
+                  </span>{' '}
+                  · Outstanding:{' '}
+                  <span className="font-semibold text-gray-800">
+                    ${appointmentOutstandingDebt(appointment).toFixed(2)}
+                  </span>
+                </p>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="min-w-[140px] flex-1">
+                    <label htmlFor="debtPaymentAmount" className="mb-1 block text-xs font-medium text-gray-600">
+                      Payment amount
+                    </label>
+                    <input
+                      id="debtPaymentAmount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={debtPaymentInput}
+                      onChange={(e) => setDebtPaymentInput(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={debtPaymentSubmitting || appointmentOutstandingDebt(appointment) <= 0}
+                    className="rounded-lg bg-[#0066A6] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00588f] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {debtPaymentSubmitting ? 'Saving…' : 'Apply payment'}
+                  </button>
+                </div>
+              </form>
             </div>
           ) : null}
         </div>
@@ -2574,7 +2680,7 @@ const AppointmentDetail = () => {
                 <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
               </div>
             ) : null}
-            {!isDirector ? (
+            {!isDirector && !isSingleDentist ? (
               <div className="relative">
                 <select
                   value={treatmentOwnershipFilter}
@@ -2618,7 +2724,7 @@ const AppointmentDetail = () => {
                           <h3 className="text-lg font-semibold text-gray-900 mb-2">
                             {treatment.treatment.name}
                           </h3>
-                          {treatment.dentist ? (
+                          {treatment.dentist && !isSingleDentist ? (
                             <p className="text-sm text-slate-600 mb-2">
                               Performing dentist:{' '}
                               <span className="font-medium text-slate-900">
@@ -2627,7 +2733,7 @@ const AppointmentDetail = () => {
                               </span>
                             </p>
                           ) : null}
-                          {isDentist && !canMutateTreatment(treatment) ? (
+                          {isDentist && !isSingleDentist && !canMutateTreatment(treatment) ? (
                             <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                               You can view this treatment. Only the performing dentist can edit it, add media, or delete it.
                             </p>
