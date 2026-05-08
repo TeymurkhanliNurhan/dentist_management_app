@@ -18,11 +18,13 @@ const Treatments = () => {
   const { t } = useTranslation('treatments');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isDentistUser = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
-  const isSingleDentistUser = role === 'singledentist';
+  const isSingleDentistUser =
+    role === 'singledentist' || role === 'single dentist';
   const isDentistLikeUser = isDentistUser || isSingleDentistUser;
   const isDirectorUser = role === 'director';
   const canManageClinicTreatments = isDirectorUser || isSingleDentistUser;
   const canAccessTreatments = isDentistLikeUser || isDirectorUser;
+  const isAssignmentDentistUser = isDentistUser && !isSingleDentistUser;
   const dentistId = useMemo(() => Number(localStorage.getItem('dentistId') ?? 0), []);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [assignedTreatmentIds, setAssignedTreatmentIds] = useState<number[]>([]);
@@ -68,7 +70,7 @@ const Treatments = () => {
     try {
       const [data, links] = await Promise.all([
         treatmentService.getAll(searchFilters),
-        isDentistUser && Number.isFinite(dentistId) && dentistId > 0
+        isAssignmentDentistUser && Number.isFinite(dentistId) && dentistId > 0
           ? dentistTreatmentService.getAll({ dentist: dentistId })
           : Promise.resolve([]),
       ]);
@@ -87,10 +89,10 @@ const Treatments = () => {
   }, []);
 
   useEffect(() => {
-    if (!isDentistUser) {
+    if (!isAssignmentDentistUser) {
       setShowRestTreatments(false);
     }
-  }, [isDentistUser]);
+  }, [isAssignmentDentistUser]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,7 +119,7 @@ const Treatments = () => {
   );
 
   const visibleTreatments = useMemo(() => {
-    if (!isDentistUser) {
+    if (!isAssignmentDentistUser) {
       return treatments;
     }
     return treatments.filter((treatment) =>
@@ -125,7 +127,7 @@ const Treatments = () => {
         ? !assignedTreatmentIds.includes(treatment.id)
         : assignedTreatmentIds.includes(treatment.id),
     );
-  }, [assignedTreatmentIds, isDentistUser, showRestTreatments, treatments]);
+  }, [assignedTreatmentIds, isAssignmentDentistUser, showRestTreatments, treatments]);
 
   const totalPages = Math.max(1, Math.ceil(visibleTreatments.length / ITEMS_PER_PAGE));
   const paginatedTreatments = useMemo(() => {
@@ -195,7 +197,7 @@ const Treatments = () => {
   };
 
   const handleAddTreatmentForCurrentDentist = async (treatmentId: number) => {
-    if (!isDentistUser || !dentistId) return;
+    if (!isAssignmentDentistUser || !dentistId) return;
     setIsUpdatingDentistTreatments(true);
     setError('');
     try {
@@ -209,7 +211,7 @@ const Treatments = () => {
   };
 
   const handleRemoveTreatmentForCurrentDentist = async (treatmentId: number) => {
-    if (!isDentistUser || !dentistId) return;
+    if (!isAssignmentDentistUser || !dentistId) return;
     setIsUpdatingDentistTreatments(true);
     setError('');
     try {
@@ -299,7 +301,7 @@ const Treatments = () => {
                 Treatments
               </button>
             )}
-            {isDentistUser && (
+            {isAssignmentDentistUser && (
               <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
@@ -471,7 +473,15 @@ const Treatments = () => {
                         </td>
                       )}
                       <td className={`px-6 py-4 text-sm ${isDentistLikeUser ? 'align-top' : ''}`}>
-                        {isDentistUser ? (
+                        {canManageClinicTreatments ? (
+                          <button
+                            onClick={() => handleEditClick(treatment)}
+                            className="flex items-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition hover:bg-[#00588f]"
+                          >
+                            <Edit className="w-4 h-4" />
+                            <span>{t('edit')}</span>
+                          </button>
+                        ) : isAssignmentDentistUser ? (
                           showRestTreatments ? (
                             <button
                               type="button"
@@ -505,14 +515,6 @@ const Treatments = () => {
                               Remove
                             </button>
                           )
-                        ) : canManageClinicTreatments ? (
-                          <button
-                            onClick={() => handleEditClick(treatment)}
-                            className="flex items-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition hover:bg-[#00588f]"
-                          >
-                            <Edit className="w-4 h-4" />
-                            <span>{t('edit')}</span>
-                          </button>
                         ) : null}
                       </td>
                     </tr>
