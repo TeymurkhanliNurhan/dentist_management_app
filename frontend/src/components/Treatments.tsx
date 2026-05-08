@@ -12,6 +12,8 @@ import type {
 } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
+const ITEMS_PER_PAGE = 10;
+
 const Treatments = () => {
   const { t } = useTranslation('treatments');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
@@ -53,6 +55,7 @@ const Treatments = () => {
   const [selectedDentistIdToAdd, setSelectedDentistIdToAdd] = useState(0);
   const [isUpdatingDentists, setIsUpdatingDentists] = useState(false);
   const [isUpdatingDentistTreatments, setIsUpdatingDentistTreatments] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const [pendingDentistTreatment, setPendingDentistTreatment] = useState<{
     action: 'add' | 'remove';
     id: number;
@@ -123,6 +126,20 @@ const Treatments = () => {
         : assignedTreatmentIds.includes(treatment.id),
     );
   }, [assignedTreatmentIds, isDentistUser, showRestTreatments, treatments]);
+
+  const totalPages = Math.max(1, Math.ceil(visibleTreatments.length / ITEMS_PER_PAGE));
+  const paginatedTreatments = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return visibleTreatments.slice(start, start + ITEMS_PER_PAGE);
+  }, [currentPage, visibleTreatments]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters.name, showRestTreatments]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
 
   const openDentistsModal = async (treatment: Treatment) => {
     setError('');
@@ -420,7 +437,7 @@ const Treatments = () => {
                     </td>
                   </tr>
                 ) : (
-                  visibleTreatments.map((treatment) => (
+                  paginatedTreatments.map((treatment) => (
                     <tr key={treatment.id} className="transition-colors hover:bg-slate-50">
                       <td className="px-6 py-4 text-sm font-semibold text-[#0066A6]">
                         <span className={`line-clamp-2 ${isDentistLikeUser ? 'block min-w-0' : ''}`}>
@@ -504,6 +521,35 @@ const Treatments = () => {
               </tbody>
             </table>
           </div>
+          {!isLoading && visibleTreatments.length > 0 && (
+            <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+              <p className="text-sm text-slate-500">
+                Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
+                {Math.min(currentPage * ITEMS_PER_PAGE, visibleTreatments.length)} of {visibleTreatments.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-slate-600">
+                  Page {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
       </ClinicManagementLayout>
