@@ -16,7 +16,7 @@ export class LoginResponseDto {
 
   @ApiProperty({
     example: 'director',
-    enum: ['dentist', 'director', 'frontdesk', 'nurse', 'staff'],
+    enum: ['dentist', 'singleDentist', 'director', 'frontdesk', 'nurse', 'staff'],
   })
-  role: 'dentist' | 'director' | 'frontdesk' | 'nurse' | 'staff';
+  role: 'dentist' | 'singleDentist' | 'director' | 'frontdesk' | 'nurse' | 'staff';
 }

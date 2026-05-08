@@ -39,15 +39,17 @@ export class AuthService {
 
   private normalizeAuthRole(
     role: string | null | undefined,
-  ): 'dentist' | 'director' | 'frontdesk' | 'nurse' | 'staff' {
+  ): 'dentist' | 'singleDentist' | 'director' | 'frontdesk' | 'nurse' | 'staff' {
     const normalizedRole = (role ?? '').trim().toLowerCase();
+    if (normalizedRole === 'dentist') {
+      return 'dentist';
+    }
     if (
-      normalizedRole === 'dentist' ||
       normalizedRole === 'singledentist' ||
       normalizedRole === 'single_dentist' ||
       normalizedRole === 'single-dentist'
     ) {
-      return 'dentist';
+      return 'singleDentist';
     }
     if (normalizedRole === 'director') {
       return 'director';

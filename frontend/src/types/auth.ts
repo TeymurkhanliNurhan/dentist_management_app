@@ -7,7 +7,7 @@ export interface LoginResponse {
   access_token: string;
   dentistId: number;
   staffId: number;
-  role: 'dentist' | 'director' | 'frontdesk' | 'nurse' | 'staff';
+  role: 'dentist' | 'singleDentist' | 'director' | 'frontdesk' | 'nurse' | 'staff';
 }
 
 export interface RegisterRequest {

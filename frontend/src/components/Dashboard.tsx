@@ -340,6 +340,7 @@ const Dashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
+  const isDentistLike = role === 'dentist' || role === 'singledentist';
   const isDirector = role === 'director';
   const isReception = role === 'frontdesk';
   const isDirectorOrReception = isDirector || isReception;
@@ -393,7 +394,7 @@ const Dashboard = () => {
   }, [isDirectorOrReception]);
 
   useEffect(() => {
-    if (role !== 'dentist') {
+    if (!isDentistLike) {
       setDentistPortalDisplayName('');
       return;
     }
@@ -414,13 +415,13 @@ const Dashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [role]);
+  }, [isDentistLike]);
 
   useEffect(() => {
     let disposed = false;
 
     const loadDentistDashboard = async () => {
-      if (role !== 'dentist') {
+      if (!isDentistLike) {
         setDentistMetrics(null);
         return;
       }
@@ -475,7 +476,7 @@ const Dashboard = () => {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [role]);
+  }, [isDentistLike]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1246,7 +1247,7 @@ const Dashboard = () => {
     );
   }
 
-  if (role === 'dentist') {
+  if (isDentistLike) {
     return (
       <>
         <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">

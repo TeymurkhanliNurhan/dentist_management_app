@@ -16,8 +16,11 @@ const Treatments = () => {
   const { t } = useTranslation('treatments');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isDentistUser = role === 'dentist';
+  const isSingleDentistUser = role === 'singledentist';
+  const isDentistLikeUser = isDentistUser || isSingleDentistUser;
   const isDirectorUser = role === 'director';
-  const canAccessTreatments = isDentistUser || isDirectorUser;
+  const canManageClinicTreatments = isDirectorUser || isSingleDentistUser;
+  const canAccessTreatments = isDentistLikeUser || isDirectorUser;
   const dentistId = useMemo(() => Number(localStorage.getItem('dentistId') ?? 0), []);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [assignedTreatmentIds, setAssignedTreatmentIds] = useState<number[]>([]);
@@ -271,7 +274,7 @@ const Treatments = () => {
             <p className="mt-1 text-sm text-slate-500">{t('searchPlaceholder')}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {!isDentistUser && (
+            {!isDentistLikeUser && (
               <button
                 type="button"
                 className="rounded-md bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white"
@@ -305,7 +308,7 @@ const Treatments = () => {
                 </button>
               </div>
             )}
-            {!isDentistUser && (
+            {canManageClinicTreatments && (
               <button
                 onClick={() => setShowAddModal(true)}
                 className="ml-2 flex items-center space-x-2 rounded-md bg-[#0066A6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#00588f]"
@@ -365,39 +368,39 @@ const Treatments = () => {
         <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
           <div className="overflow-x-auto">
             <table
-              className={`w-full ${isDentistUser ? 'table-fixed' : ''}`}
+              className={`w-full ${isDentistLikeUser ? 'table-fixed' : ''}`}
             >
               <thead className="border-b border-slate-100 bg-slate-50 text-slate-500">
                 <tr>
                   <th
                     className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
-                      isDentistUser ? 'w-[24%]' : ''
+                      isDentistLikeUser ? 'w-[24%]' : ''
                     }`}
                   >
                     {t('table.name')}
                   </th>
                   <th
                     className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
-                      isDentistUser ? 'w-[40%]' : ''
+                      isDentistLikeUser ? 'w-[40%]' : ''
                     }`}
                   >
                     {t('table.description')}
                   </th>
                   <th
                     className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
-                      isDentistUser ? 'w-[18%]' : ''
+                      isDentistLikeUser ? 'w-[18%]' : ''
                     }`}
                   >
                     {t('table.price')}
                   </th>
-                  {!isDentistUser && (
+                  {isDirectorUser && (
                     <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
                       {t('table.dentists')}
                     </th>
                   )}
                   <th
                     className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
-                      isDentistUser ? 'w-[18%]' : ''
+                      isDentistLikeUser ? 'w-[18%]' : ''
                     }`}
                   >
                   </th>
@@ -406,13 +409,13 @@ const Treatments = () => {
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={isDentistUser ? 4 : 5} className="px-6 py-8 text-center text-sm text-slate-500">
+                    <td colSpan={isDentistLikeUser ? 4 : 5} className="px-6 py-8 text-center text-sm text-slate-500">
                       {t('loading')}
                     </td>
                   </tr>
                 ) : visibleTreatments.length === 0 ? (
                   <tr>
-                    <td colSpan={isDentistUser ? 4 : 5} className="px-6 py-8 text-center text-sm text-slate-500">
+                    <td colSpan={isDentistLikeUser ? 4 : 5} className="px-6 py-8 text-center text-sm text-slate-500">
                       {t('empty')}
                     </td>
                   </tr>
@@ -420,12 +423,12 @@ const Treatments = () => {
                   visibleTreatments.map((treatment) => (
                     <tr key={treatment.id} className="transition-colors hover:bg-slate-50">
                       <td className="px-6 py-4 text-sm font-semibold text-[#0066A6]">
-                        <span className={`line-clamp-2 ${isDentistUser ? 'block min-w-0' : ''}`}>
+                        <span className={`line-clamp-2 ${isDentistLikeUser ? 'block min-w-0' : ''}`}>
                           {treatment.name}
                         </span>
                       </td>
-                      <td className={`px-6 py-4 text-sm text-slate-600 ${isDentistUser ? 'min-w-0' : ''}`}>
-                        <span className={`${isDentistUser ? 'line-clamp-3 break-words' : ''}`}>
+                      <td className={`px-6 py-4 text-sm text-slate-600 ${isDentistLikeUser ? 'min-w-0' : ''}`}>
+                        <span className={`${isDentistLikeUser ? 'line-clamp-3 break-words' : ''}`}>
                           {treatment.description}
                         </span>
                       </td>
@@ -435,7 +438,7 @@ const Treatments = () => {
                         </p>
                         <p className="text-xs text-slate-500">{pricePerLabel(treatment.pricePer)}</p>
                       </td>
-                      {!isDentistUser && (
+                      {isDirectorUser && (
                         <td className="px-6 py-4 text-sm text-slate-700">
                           <div className="flex items-center gap-3">
                             <span>{treatment.dentistCount}</span>
@@ -450,7 +453,7 @@ const Treatments = () => {
                           </div>
                         </td>
                       )}
-                      <td className={`px-6 py-4 text-sm ${isDentistUser ? 'align-top' : ''}`}>
+                      <td className={`px-6 py-4 text-sm ${isDentistLikeUser ? 'align-top' : ''}`}>
                         {isDentistUser ? (
                           showRestTreatments ? (
                             <button
@@ -485,7 +488,7 @@ const Treatments = () => {
                               Remove
                             </button>
                           )
-                        ) : (
+                        ) : canManageClinicTreatments ? (
                           <button
                             onClick={() => handleEditClick(treatment)}
                             className="flex items-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition hover:bg-[#00588f]"
@@ -493,7 +496,7 @@ const Treatments = () => {
                             <Edit className="w-4 h-4" />
                             <span>{t('edit')}</span>
                           </button>
-                        )}
+                        ) : null}
                       </td>
                     </tr>
                   ))
@@ -555,7 +558,7 @@ const Treatments = () => {
       )}
 
       {/* Add Treatment Modal */}
-      {!isDentistUser && showAddModal && (
+      {canManageClinicTreatments && showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
@@ -663,7 +666,7 @@ const Treatments = () => {
       )}
 
       {/* Edit Treatment Modal */}
-      {!isDentistUser && showEditModal && editingTreatment && (
+      {canManageClinicTreatments && showEditModal && editingTreatment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
@@ -768,7 +771,7 @@ const Treatments = () => {
           </div>
         </div>
       )}
-      {!isDentistUser && showDentistsModal && selectedTreatment && (
+      {isDirectorUser && showDentistsModal && selectedTreatment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">

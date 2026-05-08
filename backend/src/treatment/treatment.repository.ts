@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Treatment } from './entities/treatment.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
 import { Clinic } from '../clinic/entities/clinic.entity';
+import { DentistTreatment } from '../dentist_treatment/entities/dentist_treatment.entity';
 
 @Injectable()
 export class TreatmentRepository {
@@ -27,14 +28,24 @@ export class TreatmentRepository {
       .findOne({ where: { id: dentistId }, relations: ['staff'] });
     if (!dentist?.staff) throw new Error('Dentist not found');
     const clinicId = dentist.staff.clinicId;
-    const treatment = this.repo.create({
-      name: input.name,
-      price: input.price,
-      description: input.description,
-      pricePer: input.pricePer ?? null,
-      clinic: { id: clinicId } as Clinic,
+    return await this.dataSource.transaction(async (manager) => {
+      const treatment = manager.getRepository(Treatment).create({
+        name: input.name,
+        price: input.price,
+        description: input.description,
+        pricePer: input.pricePer ?? null,
+        clinic: { id: clinicId } as Clinic,
+      });
+      const created = await manager.getRepository(Treatment).save(treatment);
+      await manager.getRepository(DentistTreatment).save(
+        manager.getRepository(DentistTreatment).create({
+          treatment: created.id,
+          dentist: dentistId,
+          active: true,
+        }),
+      );
+      return created;
     });
-    return await this.repo.save(treatment);
   }
 
   async updateTreatmentEnsureOwnership(
