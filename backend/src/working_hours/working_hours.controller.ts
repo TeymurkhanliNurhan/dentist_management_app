@@ -48,7 +48,7 @@ export class WorkingHoursController {
   @ApiOperation({ summary: 'Create working hours' })
   @ApiResponse({ status: 201, description: 'Working hours created' })
   async create(@User() user: any, @Body() dto: CreateWorkingHoursDto) {
-    return await this.service.create(user.userId, user.role, dto);
+    return await this.service.create(user, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -72,6 +72,6 @@ export class WorkingHoursController {
   @ApiOperation({ summary: 'Delete working hours by id' })
   @ApiOkResponse({ description: 'Working hours deleted' })
   async delete(@User() user: any, @Param('id', ParseIntPipe) id: number) {
-    return await this.service.delete(user.userId, user.role, id);
+    return await this.service.delete(user, id);
   }
 }

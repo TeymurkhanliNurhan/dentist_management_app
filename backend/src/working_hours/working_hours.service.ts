@@ -23,6 +23,15 @@ export class WorkingHoursService {
     }
   }
 
+  private isDentistRole(role?: string): boolean {
+    const normalized = (role ?? '').toLowerCase();
+    return (
+      normalized === 'dentist' ||
+      normalized === 'singledentist' ||
+      normalized === 'single dentist'
+    );
+  }
+
   private parseNumericId(value: unknown): number {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     if (typeof value === 'string' && value.trim() !== '') {
@@ -40,7 +49,24 @@ export class WorkingHoursService {
     return staffId;
   }
 
-  async create(dentistId: number, role: string | undefined, dto: CreateWorkingHoursDto) {
+  async create(user: any, dto: CreateWorkingHoursDto) {
+    const role = user?.role;
+    if (this.isDentistRole(role)) {
+      const staffId = this.resolveStaffIdFromUser(user);
+      const created = await this.repo.createForStaff(staffId, {
+        dayOfWeek: dto.dayOfWeek,
+        startTime: dto.startTime,
+        endTime: dto.endTime,
+      });
+      const msg = `Staff with id ${staffId} created WorkingHours with id ${created.id}`;
+      this.logger.log(msg);
+      LogWriter.append('log', WorkingHoursService.name, msg);
+      return created;
+    }
+    const dentistId = this.parseNumericId(user?.userId);
+    if (!Number.isFinite(dentistId) || dentistId <= 0) {
+      throw new ForbiddenException('Director context missing');
+    }
     this.ensureDirectorRole(role);
     try {
       const created = await this.repo.createForDentist(dentistId, dto);
@@ -92,7 +118,20 @@ export class WorkingHoursService {
     }
   }
 
-  async delete(dentistId: number, role: string | undefined, id: number) {
+  async delete(user: any, id: number) {
+    const role = user?.role;
+    if (this.isDentistRole(role)) {
+      const staffId = this.resolveStaffIdFromUser(user);
+      await this.repo.deleteForStaff(staffId, id);
+      const msg = `Staff with id ${staffId} deleted WorkingHours with id ${id}`;
+      this.logger.log(msg);
+      LogWriter.append('log', WorkingHoursService.name, msg);
+      return { message: 'Working hours deleted' };
+    }
+    const dentistId = this.parseNumericId(user?.userId);
+    if (!Number.isFinite(dentistId) || dentistId <= 0) {
+      throw new ForbiddenException('Director context missing');
+    }
     this.ensureDirectorRole(role);
     try {
       await this.repo.deleteForDentist(dentistId, id);

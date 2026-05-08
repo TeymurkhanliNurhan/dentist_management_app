@@ -541,6 +541,10 @@ const Schedule = () => {
   const [workingHoursRows, setWorkingHoursRows] = useState<WorkingHourRow[]>([]);
   const [workingHoursLoading, setWorkingHoursLoading] = useState(false);
   const [workingHoursError, setWorkingHoursError] = useState<string | null>(null);
+  const [workingHoursSaving, setWorkingHoursSaving] = useState(false);
+  const [workingHoursFormDay, setWorkingHoursFormDay] = useState<number>(1);
+  const [workingHoursFormStart, setWorkingHoursFormStart] = useState('09:00');
+  const [workingHoursFormEnd, setWorkingHoursFormEnd] = useState('17:00');
   const [dailyScheduleWorkingHours, setDailyScheduleWorkingHours] = useState<WorkingHourRow[]>([]);
 
   /**
@@ -1954,9 +1958,7 @@ const Schedule = () => {
     }
   };
 
-  const openWorkingHoursModal = useCallback(async () => {
-    if (!isDentistUser) return;
-    setWorkingHoursModalOpen(true);
+  const loadWorkingHours = useCallback(async () => {
     setWorkingHoursLoading(true);
     setWorkingHoursError(null);
     try {
@@ -1973,7 +1975,71 @@ const Schedule = () => {
     } finally {
       setWorkingHoursLoading(false);
     }
-  }, [isDentistUser, myStaffIdForSchedule, t]);
+  }, [myStaffIdForSchedule, t]);
+
+  const openWorkingHoursModal = useCallback(async () => {
+    if (!isDentistUser) return;
+    setWorkingHoursModalOpen(true);
+    await loadWorkingHours();
+  }, [isDentistUser, loadWorkingHours]);
+
+  const handleAddWorkingHour = useCallback(async () => {
+    if (!myStaffIdForSchedule) return;
+    if (hmToMinutes(workingHoursFormEnd) <= hmToMinutes(workingHoursFormStart)) {
+      setWorkingHoursError(t('timeOrderError'));
+      return;
+    }
+    setWorkingHoursSaving(true);
+    setWorkingHoursError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/working-hours`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
+        },
+        body: JSON.stringify({
+          dayOfWeek: workingHoursFormDay,
+          startTime: `${workingHoursFormStart}:00`,
+          endTime: `${workingHoursFormEnd}:00`,
+          staffId: myStaffIdForSchedule,
+        }),
+      });
+      if (!res.ok) throw new Error('create working hours');
+      await loadWorkingHours();
+    } catch {
+      setWorkingHoursError(t('createError'));
+    } finally {
+      setWorkingHoursSaving(false);
+    }
+  }, [
+    loadWorkingHours,
+    myStaffIdForSchedule,
+    t,
+    workingHoursFormDay,
+    workingHoursFormEnd,
+    workingHoursFormStart,
+  ]);
+
+  const handleDeleteWorkingHour = useCallback(
+    async (id: number) => {
+      setWorkingHoursSaving(true);
+      setWorkingHoursError(null);
+      try {
+        const res = await fetch(`${API_BASE_URL}/working-hours/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` },
+        });
+        if (!res.ok) throw new Error('delete working hours');
+        await loadWorkingHours();
+      } catch {
+        setWorkingHoursError(t('blockingDeleteError'));
+      } finally {
+        setWorkingHoursSaving(false);
+      }
+    },
+    [loadWorkingHours, t],
+  );
 
   const workingHoursRowsSorted = useMemo(
       () =>
@@ -3366,6 +3432,52 @@ const Schedule = () => {
                     {t('closeDetail')}
                   </button>
                 </div>
+                <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="mb-2 text-sm font-medium text-slate-700">{t('workingHoursButton')}</p>
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                    <select
+                      value={workingHoursFormDay}
+                      onChange={(e) => setWorkingHoursFormDay(Number(e.target.value))}
+                      className="rounded-md border border-gray-300 px-2 py-2 text-sm"
+                    >
+                      {[1, 2, 3, 4, 5, 6].map((day) => (
+                        <option key={day} value={day}>
+                          {formatWorkingHourDay(day, i18n.language)}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={workingHoursFormStart}
+                      onChange={(e) => setWorkingHoursFormStart(e.target.value)}
+                      className="rounded-md border border-gray-300 px-2 py-2 text-sm"
+                    >
+                      {TIME_OPTIONS.map((hm) => (
+                        <option key={`wh-start-${hm}`} value={hm}>
+                          {hm}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={workingHoursFormEnd}
+                      onChange={(e) => setWorkingHoursFormEnd(e.target.value)}
+                      className="rounded-md border border-gray-300 px-2 py-2 text-sm"
+                    >
+                      {TIME_OPTIONS.map((hm) => (
+                        <option key={`wh-end-${hm}`} value={hm}>
+                          {hm}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={workingHoursSaving}
+                      onClick={() => void handleAddWorkingHour()}
+                      className="rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                    >
+                      {workingHoursSaving ? t('saving') : 'Add'}
+                    </button>
+                  </div>
+                </div>
                 {workingHoursLoading ? (
                     <p className="text-sm text-gray-500">{t('loading')}</p>
                 ) : workingHoursError ? (
@@ -3380,6 +3492,7 @@ const Schedule = () => {
                             <th className="py-2 pr-3 font-semibold">dayOfWeek</th>
                             <th className="py-2 pr-3 font-semibold">startTime</th>
                             <th className="py-2 pr-3 font-semibold">endTime</th>
+                            <th className="py-2 pr-3 font-semibold">actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -3391,6 +3504,16 @@ const Schedule = () => {
                                   </td>
                                   <td className="py-2 pr-3 text-slate-700">{toHourMinute(wh.startTime)}</td>
                                   <td className="py-2 pr-3 text-slate-700">{toHourMinute(wh.endTime)}</td>
+                                  <td className="py-2 pr-3">
+                                    <button
+                                      type="button"
+                                      disabled={workingHoursSaving}
+                                      onClick={() => void handleDeleteWorkingHour(wh.id)}
+                                      className="rounded-md border border-rose-300 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                                    >
+                                      Delete
+                                    </button>
+                                  </td>
                                 </tr>
                             );
                           })}

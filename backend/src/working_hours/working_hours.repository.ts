@@ -50,6 +50,23 @@ export class WorkingHoursRepository {
     return await this.repo.save(created);
   }
 
+  async createForStaff(
+    staffId: number,
+    input: {
+      dayOfWeek: number;
+      startTime: string;
+      endTime: string;
+    },
+  ): Promise<WorkingHours> {
+    const created = this.repo.create({
+      dayOfWeek: input.dayOfWeek,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      staffId,
+    });
+    return await this.repo.save(created);
+  }
+
   async findForDentist(
     dentistId: number,
     filters: {
@@ -153,6 +170,14 @@ export class WorkingHoursRepository {
       .getOne();
     if (!existing) throw new Error('Forbidden');
 
+    await this.repo.remove(existing);
+  }
+
+  async deleteForStaff(staffId: number, id: number): Promise<void> {
+    const existing = await this.repo.findOne({
+      where: { id, staffId },
+    });
+    if (!existing) throw new Error('Forbidden');
     await this.repo.remove(existing);
   }
 }
