@@ -14,16 +14,17 @@ import { CreatePurchaseSessionDto } from './dto/create-purchase-session.dto';
 export class PurchaseMedicineService {
   constructor(private readonly repo: PurchaseMedicineRepository) {}
 
-  private ensureDirectorOrReceptionist(role?: string) {
+  private ensurePurchaseMedicineAccess(role?: string) {
     const normalized = (role ?? '').toLowerCase();
     const allowed =
       normalized === 'director' ||
+      normalized === 'singledentist' ||
       normalized === 'frontdesk' ||
       normalized === 'receptionist' ||
       normalized === 'front_desk_worker';
     if (!allowed) {
       throw new ForbiddenException(
-        'Only director and receptionist can access purchase medicine endpoints',
+        'Only director, single dentist, and receptionist can access purchase medicine endpoints',
       );
     }
   }
@@ -33,7 +34,7 @@ export class PurchaseMedicineService {
     role: string | undefined,
     dto: CreatePurchaseMedicineDto,
   ) {
-    this.ensureDirectorOrReceptionist(role);
+    this.ensurePurchaseMedicineAccess(role);
     const totalPrice = dto.totalPrice ?? dto.count * dto.pricePerOne;
     try {
       return await this.repo.createForDentist(dentistId, {
@@ -56,7 +57,7 @@ export class PurchaseMedicineService {
     role: string | undefined,
     dto: CreatePurchaseSessionDto,
   ) {
-    this.ensureDirectorOrReceptionist(role);
+    this.ensurePurchaseMedicineAccess(role);
     try {
       return await this.repo.createSessionForDentist(dentistId, {
         items: dto.items,
@@ -74,7 +75,7 @@ export class PurchaseMedicineService {
     role: string | undefined,
     dto: GetPurchaseMedicineDto,
   ) {
-    this.ensureDirectorOrReceptionist(role);
+    this.ensurePurchaseMedicineAccess(role);
     return await this.repo.findForDentist(dentistId, dto);
   }
 
@@ -84,7 +85,7 @@ export class PurchaseMedicineService {
     id: number,
     dto: UpdatePurchaseMedicineDto,
   ) {
-    this.ensureDirectorOrReceptionist(role);
+    this.ensurePurchaseMedicineAccess(role);
     try {
       const totalPrice =
         dto.totalPrice ??
@@ -111,7 +112,7 @@ export class PurchaseMedicineService {
   }
 
   async delete(dentistId: number, role: string | undefined, id: number) {
-    this.ensureDirectorOrReceptionist(role);
+    this.ensurePurchaseMedicineAccess(role);
     try {
       await this.repo.deleteForDentist(dentistId, id);
       return { message: 'PurchaseMedicine deleted' };

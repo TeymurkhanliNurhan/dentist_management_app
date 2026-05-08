@@ -44,6 +44,7 @@ type NewMedicineForm = {
   description?: string;
   price: DraftNumber;
   purchasePrice: DraftNumber;
+  stockLimit: number | '';
 };
 
 type QuickMedicineForm = {
@@ -51,6 +52,7 @@ type QuickMedicineForm = {
   description: string;
   price: DraftNumber;
   purchasePrice: DraftNumber;
+  stockLimit: number | '';
 };
 
 type EditMedicineForm = {
@@ -83,6 +85,7 @@ const Medicines = () => {
     description: '',
     price: 0,
     purchasePrice: 0,
+    stockLimit: '',
   });
   const [updatedMedicine, setUpdatedMedicine] = useState<EditMedicineForm>({
     name: '',
@@ -104,6 +107,7 @@ const Medicines = () => {
     description: '',
     price: 0,
     purchasePrice: 0,
+    stockLimit: '',
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -148,10 +152,17 @@ const Medicines = () => {
         description: (newMedicine.description ?? '').trim() || undefined,
         price: priceDraftToNumber(newMedicine.price),
         purchasePrice: priceDraftToNumber(newMedicine.purchasePrice),
+        stockLimit: newMedicine.stockLimit === '' ? null : newMedicine.stockLimit,
         stock: 2,
       });
       setShowAddModal(false);
-      setNewMedicine({ name: '', description: '', price: 0, purchasePrice: 0 });
+      setNewMedicine({
+        name: '',
+        description: '',
+        price: 0,
+        purchasePrice: 0,
+        stockLimit: '',
+      });
       fetchMedicines();
     } catch (err: any) {
       console.error('Failed to create medicine:', err);
@@ -293,7 +304,13 @@ const Medicines = () => {
   };
 
   const resetQuickMedicineForm = () => {
-    setQuickMedicine({ name: '', description: '', price: 0, purchasePrice: 0 });
+    setQuickMedicine({
+      name: '',
+      description: '',
+      price: 0,
+      purchasePrice: 0,
+      stockLimit: '',
+    });
   };
 
   const handleQuickCreateMedicine = async (e: React.FormEvent) => {
@@ -312,6 +329,7 @@ const Medicines = () => {
         description: quickMedicine.description.trim() || undefined,
         price: priceDraftToNumber(quickMedicine.price),
         purchasePrice: priceDraftToNumber(quickMedicine.purchasePrice),
+        stockLimit: quickMedicine.stockLimit === '' ? null : quickMedicine.stockLimit,
         stock: 0,
       });
       await fetchMedicines(filters);
@@ -734,6 +752,32 @@ const Medicines = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   placeholder={t('form.purchasePricePlaceholder')}
                 />
+              </div>
+
+              <div>
+                <label htmlFor="newStockLimit" className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('form.stockLimit')}
+                </label>
+                <input
+                  type="number"
+                  id="newStockLimit"
+                  min="0"
+                  step="1"
+                  value={newMedicine.stockLimit === '' ? '' : newMedicine.stockLimit}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setNewMedicine({ ...newMedicine, stockLimit: '' });
+                      return;
+                    }
+                    const n = parseInt(raw, 10);
+                    if (!Number.isFinite(n) || n < 0) return;
+                    setNewMedicine({ ...newMedicine, stockLimit: n });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0066A6] placeholder:text-slate-400"
+                  placeholder={t('form.stockLimitPlaceholder')}
+                />
+                <p className="mt-1 text-xs text-gray-500">{t('form.stockLimitHint')}</p>
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -1209,6 +1253,31 @@ const Medicines = () => {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
                   placeholder={t('form.purchasePricePlaceholder')}
                 />
+              </div>
+              <div>
+                <label htmlFor="quickStockLimit" className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('form.stockLimit')}
+                </label>
+                <input
+                  id="quickStockLimit"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={quickMedicine.stockLimit === '' ? '' : quickMedicine.stockLimit}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setQuickMedicine({ ...quickMedicine, stockLimit: '' });
+                      return;
+                    }
+                    const n = parseInt(raw, 10);
+                    if (!Number.isFinite(n) || n < 0) return;
+                    setQuickMedicine({ ...quickMedicine, stockLimit: n });
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                  placeholder={t('form.stockLimitPlaceholder')}
+                />
+                <p className="mt-1 text-xs text-gray-500">{t('form.stockLimitHint')}</p>
               </div>
               <div className="flex gap-3 pt-2">
                 <button
