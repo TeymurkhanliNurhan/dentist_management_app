@@ -47,6 +47,12 @@ interface DirectorMetrics {
     status: string;
     linkedToAppointment: boolean;
   }>;
+  todayRandevuesTimeline: Array<{
+    id: number;
+    startTime: string;
+    endTime: string;
+    patientName: string;
+  }>;
   dailyIncomeBreakdown: Array<{
     id: number;
     patientName: string;
@@ -265,15 +271,17 @@ function DentistTodayTimeline({
   empty,
   randevuesTitle,
   blockingTitle,
+  showBlockingColumn = true,
 }: {
   randevues: DentistDashboardOverview['todayRandevues'];
   blockingHours: DentistDashboardOverview['todayBlockingHours'];
   empty: string;
   randevuesTitle: string;
   blockingTitle: string;
+  showBlockingColumn?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div className={`grid grid-cols-1 gap-4 ${showBlockingColumn ? 'lg:grid-cols-2' : ''}`}>
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-600">{randevuesTitle}</h3>
         <div className="space-y-2">
@@ -289,6 +297,7 @@ function DentistTodayTimeline({
           )}
         </div>
       </div>
+      {showBlockingColumn ? (
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-600">{blockingTitle}</h3>
         <div className="space-y-2">
@@ -304,6 +313,7 @@ function DentistTodayTimeline({
           )}
         </div>
       </div>
+      ) : null}
     </div>
   );
 }
@@ -340,10 +350,12 @@ const Dashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
-  const isDentistLike = role === 'dentist' || role === 'singledentist';
+  const isSingleDentist = role === 'singledentist' || role === 'single dentist';
+  const isDentistLike = role === 'dentist';
   const isDirector = role === 'director';
   const isReception = role === 'frontdesk';
   const isDirectorOrReception = isDirector || isReception;
+  const usesDirectorDashboard = isDirectorOrReception || isSingleDentist;
   const [directorStaff, setDirectorStaff] = useState<StaffSummary | null>(null);
   const [awaitingBlockingCount, setAwaitingBlockingCount] = useState(0);
   const [metrics, setMetrics] = useState<DirectorMetrics | null>(null);
@@ -360,7 +372,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchDirectorStaff = async () => {
-      if (!isDirectorOrReception) {
+      if (!usesDirectorDashboard) {
         setDirectorStaff(null);
         return;
       }
@@ -391,7 +403,7 @@ const Dashboard = () => {
     };
 
     void fetchDirectorStaff();
-  }, [isDirectorOrReception]);
+  }, [usesDirectorDashboard]);
 
   useEffect(() => {
     if (!isDentistLike) {
@@ -481,7 +493,7 @@ const Dashboard = () => {
   useEffect(() => {
     let cancelled = false;
     const fetchAwaitingCount = async (): Promise<number> => {
-      if (!isDirectorOrReception) {
+      if (!usesDirectorDashboard) {
         setAwaitingBlockingCount(0);
         return 0;
       }
@@ -511,12 +523,12 @@ const Dashboard = () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [isDirectorOrReception, location.pathname]);
+  }, [usesDirectorDashboard, location.pathname]);
 
   useEffect(() => {
     let disposed = false;
     const fetchDirectorDashboard = async () => {
-      if (!isDirectorOrReception) {
+      if (!usesDirectorDashboard) {
         setMetrics(null);
         return;
       }
@@ -851,33 +863,44 @@ const Dashboard = () => {
           }),
         );
 
-        const todayRandevues = randevues
-          .slice()
-          .sort(
-            (a: { date: string }, b: { date: string }) =>
-              new Date(a.date).getTime() - new Date(b.date).getTime(),
-          )
-          .slice(0, 8)
-          .map(
-            (item: {
-              id: number;
-              date: string;
-              endTime: string;
-              status: string;
-              patient?: { name?: string; surname?: string };
-              dentist?: { name?: string; surname?: string } | null;
-              appointment?: { id?: number } | null;
-            }) => ({
-              id: item.id,
-              patientName:
-                `${item.patient?.name ?? ''} ${item.patient?.surname ?? ''}`.trim() || '-',
-              treatingDentist:
-                `${item.dentist?.name ?? ''} ${item.dentist?.surname ?? ''}`.trim() || '-',
-              time: hmFromIso(item.date),
-              status: getRandevueTimeStatus(item.date, item.endTime, now),
-              linkedToAppointment: !!item.appointment?.id,
-            }),
-          );
+        const sortedTodayRandevues = randevues.slice().sort(
+          (a: { date: string }, b: { date: string }) =>
+            new Date(a.date).getTime() - new Date(b.date).getTime(),
+        );
+        const todayRandevuesTimeline = sortedTodayRandevues.map(
+          (item: {
+            id: number;
+            date: string;
+            endTime: string;
+            patient?: { name?: string; surname?: string };
+          }) => ({
+            id: item.id,
+            startTime: item.date,
+            endTime: item.endTime,
+            patientName:
+              `${item.patient?.name ?? ''} ${item.patient?.surname ?? ''}`.trim() || 'Unknown patient',
+          }),
+        );
+        const todayRandevues = sortedTodayRandevues.slice(0, 8).map(
+          (item: {
+            id: number;
+            date: string;
+            endTime: string;
+            status: string;
+            patient?: { name?: string; surname?: string };
+            dentist?: { name?: string; surname?: string } | null;
+            appointment?: { id?: number } | null;
+          }) => ({
+            id: item.id,
+            patientName:
+              `${item.patient?.name ?? ''} ${item.patient?.surname ?? ''}`.trim() || '-',
+            treatingDentist:
+              `${item.dentist?.name ?? ''} ${item.dentist?.surname ?? ''}`.trim() || '-',
+            time: hmFromIso(item.date),
+            status: getRandevueTimeStatus(item.date, item.endTime, now),
+            linkedToAppointment: !!item.appointment?.id,
+          }),
+        );
 
         if (!disposed) {
           setAwaitingBlockingCount(blockingRequestsCount);
@@ -891,6 +914,7 @@ const Dashboard = () => {
             blockingRequestsCount,
             lowStockMedicines,
             todayRandevues,
+            todayRandevuesTimeline,
             dailyIncomeBreakdown,
             dailyOutcomeBreakdown,
             dailyAppointmentsBreakdown,
@@ -914,10 +938,10 @@ const Dashboard = () => {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [directorMetricsRefreshToken, isDirectorOrReception]);
+  }, [directorMetricsRefreshToken, usesDirectorDashboard]);
 
   const handleBlockingRequestAction = async (id: number, action: 'approve' | 'reject') => {
-    if (!isDirectorOrReception) return;
+    if (!usesDirectorDashboard) return;
     setRequestActionError(null);
     setRequestActionBusyId(id);
     try {
@@ -936,16 +960,19 @@ const Dashboard = () => {
 
   const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
 
-  if (isDirectorOrReception) {
+  const showDirectorFinanceAndChart = isDirector || isSingleDentist;
+  const showRoomOccupancyCard = isDirectorOrReception && !isSingleDentist;
+
+  if (usesDirectorDashboard) {
     return (
       <>
       <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
           brandTitle="Precision Dental"
-          portalBadge={isDirector ? 'Admin Portal' : 'Reception Portal'}
+          portalBadge={isDirector || isSingleDentist ? 'Admin Portal' : 'Reception Portal'}
           userDisplayName={directorDisplayName}
-          userSubtitle={isDirector ? 'Clinic Director' : 'Receptionist'}
-          menuItems={isDirector ? DIRECTOR_PORTAL_MENU : FRONTDESK_PORTAL_MENU}
+          userSubtitle={isDirector || isSingleDentist ? 'Clinic Director' : 'Receptionist'}
+          menuItems={isDirector || isSingleDentist ? DIRECTOR_PORTAL_MENU : FRONTDESK_PORTAL_MENU}
           pathname={location.pathname}
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
@@ -953,7 +980,7 @@ const Dashboard = () => {
           onLogoutClick={() => setShowLogoutConfirm(true)}
           scheduleNotificationCount={awaitingBlockingCount}
           headerActions={
-            isDirector ? (
+            isDirector || isSingleDentist ? (
             <button
               type="button"
               onClick={() => navigate('/staff')}
@@ -975,7 +1002,7 @@ const Dashboard = () => {
               </section>
 
               <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {isDirector && (
+                {showDirectorFinanceAndChart && (
                 <button
                   type="button"
                   onClick={() => setActiveDetailsPanel('income')}
@@ -990,7 +1017,7 @@ const Dashboard = () => {
                   </p>
                 </button>
                 )}
-                {isDirector && (
+                {showDirectorFinanceAndChart && (
                 <button
                   type="button"
                   onClick={() => setActiveDetailsPanel('outcome')}
@@ -1016,6 +1043,7 @@ const Dashboard = () => {
                   </div>
                   <p className="text-2xl font-semibold text-slate-800">{metrics?.dailyAppointments ?? 0}</p>
                 </button>
+                {showRoomOccupancyCard ? (
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <Users className="h-4 w-4 text-indigo-600" />
@@ -1025,9 +1053,10 @@ const Dashboard = () => {
                     {metrics?.occupiedRooms ?? 0} / {metrics?.totalRooms ?? 0}
                   </p>
                 </div>
+                ) : null}
               </section>
 
-              {isDirector && (
+              {showDirectorFinanceAndChart && (
               <section className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
                   <div>
@@ -1149,6 +1178,16 @@ const Dashboard = () => {
                       Open schedule
                     </button>
                   </div>
+                  {isSingleDentist ? (
+                    <DentistTodayTimeline
+                      randevues={metrics?.todayRandevuesTimeline ?? []}
+                      blockingHours={[]}
+                      empty={t('dentistScheduleEmpty')}
+                      randevuesTitle={t('dentistTodayRandevues')}
+                      blockingTitle=""
+                      showBlockingColumn={false}
+                    />
+                  ) : (
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead>
@@ -1175,9 +1214,11 @@ const Dashboard = () => {
                       </tbody>
                     </table>
                   </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-4">
+                  {!isSingleDentist ? (
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <div className="mb-2 flex items-center justify-between">
                       <h2 className="text-lg font-semibold text-slate-800">Staff Status</h2>
@@ -1205,8 +1246,9 @@ const Dashboard = () => {
                       ))}
                     </div>
                   </div>
+                  ) : null}
 
-                  {isDirectorOrReception && (
+                  {(isDirectorOrReception || isSingleDentist) && (
                   <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
                     <h2 className="mb-2 text-lg font-semibold text-rose-800">Medicines to Purchase</h2>
                     <div className="space-y-2">
