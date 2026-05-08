@@ -66,7 +66,7 @@ const Medicines = () => {
   const { t } = useTranslation('medicines');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isDentist = role === 'dentist';
-  const isDirector = role === 'director';
+  const isDirector = role === 'director' || role === 'singledentist';
   const isReception = role === 'frontdesk';
   const canAccessMedicines = isDentist || isDirector || isReception;
   const [medicines, setMedicines] = useState<Medicine[]>([]);
