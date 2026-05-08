@@ -22,6 +22,9 @@ describe('AuthService', () => {
 
   const mockAuthRepository = {
     findUserByEmail: jest.fn(),
+    findStaffAuthByEmail: jest.fn(),
+    findDentistIdByStaffId: jest.fn(),
+    findAnyDentistIdInClinic: jest.fn(),
     createUser: jest.fn(),
     findUserById: jest.fn(),
     updateUser: jest.fn(),
@@ -142,28 +145,28 @@ describe('AuthService', () => {
       password: 'password123',
     };
 
-    const mockDentist = {
-      id: 1,
-      staff: {
-        gmail: 'john@example.com',
-        password: 'hashedPassword',
-        isEmailVerified: true,
-      },
-    } as Dentist;
+    const mockStaff = {
+      id: 10,
+      gmail: 'john@example.com',
+      password: 'hashedPassword',
+      isEmailVerified: true,
+      role: 'Dentist',
+      clinicId: 5,
+    };
 
     it('should throw UnauthorizedException if user does not exist', async () => {
-      mockAuthRepository.findUserByEmail.mockResolvedValueOnce(null);
+      mockAuthRepository.findStaffAuthByEmail.mockResolvedValueOnce(null);
 
       await expect(service.signIn(loginDto)).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(
+      expect(mockAuthRepository.findStaffAuthByEmail).toHaveBeenCalledWith(
         loginDto.gmail,
       );
     });
 
     it('should throw UnauthorizedException if password is incorrect', async () => {
-      mockAuthRepository.findUserByEmail.mockResolvedValueOnce(mockDentist);
+      mockAuthRepository.findStaffAuthByEmail.mockResolvedValueOnce(mockStaff as any);
       mockedBcrypt.compare.mockResolvedValueOnce(false as never);
 
       await expect(service.signIn(loginDto)).rejects.toThrow(
@@ -171,12 +174,13 @@ describe('AuthService', () => {
       );
       expect(mockedBcrypt.compare).toHaveBeenCalledWith(
         loginDto.password,
-        mockDentist.staff.password,
+        mockStaff.password,
       );
     });
 
     it('should successfully login and return access token', async () => {
-      mockAuthRepository.findUserByEmail.mockResolvedValueOnce(mockDentist);
+      mockAuthRepository.findStaffAuthByEmail.mockResolvedValueOnce(mockStaff as any);
+      mockAuthRepository.findDentistIdByStaffId.mockResolvedValueOnce(1);
       mockedBcrypt.compare.mockResolvedValueOnce(true as never);
       mockJwtService.signAsync = jest
         .fn()
@@ -184,12 +188,12 @@ describe('AuthService', () => {
 
       const result = await service.signIn(loginDto);
 
-      expect(mockAuthRepository.findUserByEmail).toHaveBeenCalledWith(
+      expect(mockAuthRepository.findStaffAuthByEmail).toHaveBeenCalledWith(
         loginDto.gmail,
       );
       expect(mockedBcrypt.compare).toHaveBeenCalledWith(
         loginDto.password,
-        mockDentist.staff.password,
+        mockStaff.password,
       );
       expect(mockJwtService.signAsync).toHaveBeenCalled();
       expect(result).toHaveProperty('access_token');

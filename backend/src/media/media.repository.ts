@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Media } from './entities/media.entity';
 import { ToothTreatment } from '../tooth_treatment/entities/tooth_treatment.entity';
+import { Dentist } from '../dentist/entities/dentist.entity';
 import { LogWriter } from '../log-writer';
 
 @Injectable()
@@ -13,6 +14,35 @@ export class MediaRepository {
 
   private get repo(): Repository<Media> {
     return this.dataSource.getRepository(Media);
+  }
+
+  private async getClinicIdForDentist(dentistId: number): Promise<number> {
+    const dentist = await this.dataSource
+      .getRepository(Dentist)
+      .findOne({ where: { id: dentistId }, relations: ['staff'] });
+    if (!dentist?.staff) throw new Error('Dentist not found');
+    return dentist.staff.clinicId;
+  }
+
+  async assertUserMayMutateToothTreatment(opts: {
+    contextDentistId: number;
+    userRole?: string | null;
+    toothTreatmentId: number;
+  }): Promise<void> {
+    const ttRepo = this.dataSource.getRepository(ToothTreatment);
+    const tt = await ttRepo.findOne({
+      where: { id: opts.toothTreatmentId },
+      relations: ['appointment', 'dentist'],
+    });
+    if (!tt) throw new Error('Tooth Treatment not found');
+    const clinicId = await this.getClinicIdForDentist(opts.contextDentistId);
+    if (tt.appointment?.clinicId !== clinicId) throw new Error('Forbidden');
+    if (
+      (opts.userRole ?? '').toLowerCase() === 'dentist' &&
+      (tt.dentist == null || tt.dentist.id !== opts.contextDentistId)
+    ) {
+      throw new Error('Forbidden');
+    }
   }
 
   async findAll(filters: {

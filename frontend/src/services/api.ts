@@ -138,7 +138,77 @@ export const dentistService = {
     const response = await api.patch(`/dentist/password`, data);
     return response.data;
   },
+  getFinanceOverview: async (filters?: { year?: number; month?: number }): Promise<DentistFinanceOverview> => {
+    const params = new URLSearchParams();
+    if (filters?.year != null) params.append('year', String(filters.year));
+    if (filters?.month != null) params.append('month', String(filters.month));
+    const query = params.toString();
+    const response = await api.get<DentistFinanceOverview>(
+      `/dentist/finance/overview${query ? `?${query}` : ''}`,
+    );
+    return response.data;
+  },
+  getDashboardOverview: async (): Promise<DentistDashboardOverview> => {
+    const response = await api.get<DentistDashboardOverview>('/dentist/dashboard/overview');
+    return response.data;
+  },
 };
+
+export interface DentistDashboardOverview {
+  todayTreatmentCount: number;
+  todayRevenue: number;
+  monthRevenue: number;
+  commissionRate: number;
+  todayTreatments: Array<{
+    appointmentId: number;
+    patientName: string;
+    treatmentName: string;
+    benefit: number;
+    date: string;
+  }>;
+  todayRandevues: Array<{
+    id: number;
+    startTime: string;
+    endTime: string;
+    patientName: string;
+  }>;
+  todayBlockingHours: Array<{
+    id: number;
+    startTime: string;
+    endTime: string;
+    name: string;
+    approvalStatus: string;
+  }>;
+}
+
+export interface DentistFinanceOverview {
+  period: { year: number; month: number };
+  commissionRate: number;
+  monthlyCommission: number;
+  treatmentsOperated: {
+    total: number;
+    breakdown: Array<{ name: string; count: number }>;
+  };
+  treatmentMix: Array<{
+    name: string;
+    commission: number;
+    percentage: number;
+  }>;
+  graphs: {
+    daily: Array<{ day: number; commission: number }>;
+    weekly: Array<{ week: number; commission: number }>;
+    monthly: Array<{ month: number; commission: number }>;
+  };
+  recentOperatedTreatments: Array<{
+    appointmentId: number;
+    patientInitials: string;
+    patientName: string;
+    treatmentList: string;
+    date: string;
+    totalCost: number;
+    commission: number;
+  }>;
+}
 
 export interface DentistProfile {
   id: number;
@@ -233,6 +303,28 @@ export interface UpdateSalaryDto {
   treatmentPercentage?: number | null;
 }
 
+export interface WorkingHoursRecord {
+  id: number;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  staffId: number;
+}
+
+export interface CreateWorkingHoursDto {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  staffId: number;
+}
+
+export interface UpdateWorkingHoursDto {
+  dayOfWeek?: number;
+  startTime?: string;
+  endTime?: string;
+  staffId?: number;
+}
+
 export interface FinanceOverviewSalaryRow {
   staffId: number;
   name: string;
@@ -285,6 +377,7 @@ export interface FinanceOverviewResponse {
   otherPaymentDetails: {
     total: number;
     byCategory: Array<{
+      expenseId: number;
       name: string;
       totalCost: number;
     }>;
@@ -341,6 +434,30 @@ export const salaryService = {
   },
   update: async (staffId: number, data: UpdateSalaryDto): Promise<SalaryRecord> => {
     const response = await api.patch<SalaryRecord>(`/salary/${staffId}`, data);
+    return response.data;
+  },
+};
+
+export const workingHoursService = {
+  getAll: async (filters?: { id?: number; dayOfWeek?: number; staffId?: number }): Promise<WorkingHoursRecord[]> => {
+    const params = new URLSearchParams();
+    if (filters?.id != null) params.append('id', String(filters.id));
+    if (filters?.dayOfWeek != null) params.append('dayOfWeek', String(filters.dayOfWeek));
+    if (filters?.staffId != null) params.append('staffId', String(filters.staffId));
+    const query = params.toString();
+    const response = await api.get<WorkingHoursRecord[]>(`/working-hours${query ? `?${query}` : ''}`);
+    return response.data;
+  },
+  create: async (payload: CreateWorkingHoursDto): Promise<WorkingHoursRecord> => {
+    const response = await api.post<WorkingHoursRecord>('/working-hours', payload);
+    return response.data;
+  },
+  update: async (id: number, payload: UpdateWorkingHoursDto): Promise<WorkingHoursRecord> => {
+    const response = await api.patch<WorkingHoursRecord>(`/working-hours/${id}`, payload);
+    return response.data;
+  },
+  delete: async (id: number): Promise<{ message: string }> => {
+    const response = await api.delete<{ message: string }>(`/working-hours/${id}`);
     return response.data;
   },
 };
@@ -528,6 +645,10 @@ export const medicineService = {
     const response = await api.patch(`/medicine/${id}`, medicine);
     return response.data;
   },
+  delete: async (id: number): Promise<{ message: string }> => {
+    const response = await api.delete(`/medicine/${id}`);
+    return response.data;
+  },
 };
 
 export const purchaseMedicineService = {
@@ -625,7 +746,7 @@ export interface ToothTreatment {
   feeSnapshot: number;
   dentist?: {
     id: number;
-    staff: { name: string; surname: string };
+    staff: { name: string; surname: string; role?: string | null };
   } | null;
   appointment: {
     id: number;
@@ -852,6 +973,12 @@ export interface Appointment {
     name: string;
     surname: string;
   };
+  dentist?: {
+    id: number;
+    name: string;
+    surname: string;
+  } | null;
+  treatmentPercentage?: number | null;
 }
 
 export interface AppointmentFilters {

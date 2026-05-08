@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
@@ -9,6 +10,7 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { GetAppointmentDto } from './dto/get-appointment.dto';
 import { LogWriter } from '../log-writer';
+import { isDirectorRole } from '../auth/role-guards';
 
 @Injectable()
 export class AppointmentService {
@@ -55,8 +57,23 @@ export class AppointmentService {
     }
   }
 
-  async patch(dentistId: number, id: number, dto: UpdateAppointmentDto) {
+  async patch(
+    dentistId: number,
+    id: number,
+    dto: UpdateAppointmentDto,
+    role?: string,
+  ) {
     try {
+      if (isDirectorRole(role)) {
+        const hasRestrictedFields =
+          dto.startDate !== undefined || dto.endDate !== undefined;
+        if (hasRestrictedFields) {
+          throw new ForbiddenException(
+            'Directors can only update charged fee for appointments',
+          );
+        }
+      }
+
       const updated = await this.repo.updateAppointmentEnsureOwnership(
         dentistId,
         id,
@@ -94,6 +111,9 @@ export class AppointmentService {
       }
       if (e?.message?.includes('Appointment not found'))
         throw new NotFoundException('Appointment not found');
+      if (e instanceof ForbiddenException) {
+        throw e;
+      }
       throw new BadRequestException('Failed to update appointment');
     }
   }
@@ -118,9 +138,9 @@ export class AppointmentService {
     }
   }
 
-  async findAll(dentistId: number, dto: GetAppointmentDto) {
+  async findAll(dentistId: number, dto: GetAppointmentDto, role?: string) {
     try {
-      const { appointments, total } =
+      const { appointments, total, appointmentsDentistMap } =
         await this.repo.findAppointmentsForDentist(dentistId, {
           id: dto.id,
           startDate: dto.startDate,
@@ -136,6 +156,7 @@ export class AppointmentService {
       const msg = `Dentist with id ${dentistId} retrieved ${appointments.length} appointment(s) out of ${total}`;
       this.logger.log(msg);
       LogWriter.append('log', AppointmentService.name, msg);
+      const dentistScopedView = (role ?? '').toLowerCase() === 'dentist';
       return {
         appointments: appointments.map((appointment) => {
           const startDate =
@@ -143,16 +164,20 @@ export class AppointmentService {
               ? appointment.startDate
               : new Date(appointment.startDate);
           const endDate = appointment.endDate
-            ? appointment.endDate instanceof Date
+            ? (appointment.endDate instanceof Date
               ? appointment.endDate
-              : new Date(appointment.endDate)
+              : new Date(appointment.endDate))
             : null;
+
+          const dentistInfo = appointmentsDentistMap?.get(appointment.id);
 
           return {
             id: appointment.id,
             startDate: startDate.toISOString().slice(0, 10),
             endDate: endDate ? endDate.toISOString().slice(0, 10) : null,
-            calculatedFee: appointment.calculatedFee,
+            calculatedFee: dentistScopedView
+              ? (dentistInfo?.dentistCalculatedFee ?? appointment.calculatedFee)
+              : appointment.calculatedFee,
             chargedFee: appointment.chargedFee,
             discountFee: appointment.discountFee,
             patient: {
@@ -172,6 +197,8 @@ export class AppointmentService {
                   ? appointment.patient.surname
                   : null,
             },
+            dentist: dentistInfo?.dentist || null,
+            treatmentPercentage: dentistInfo?.treatmentPercentage || null,
           };
         }),
         total,

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Mail, X, Send, Upload, Phone } from 'lucide-react';
-import Header from './Header';
 import { API_BASE_URL } from '../services/api';
 
 const Contact = () => {
@@ -105,8 +104,6 @@ const Contact = () => {
 
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
-      <Header />
-      
       <main className="min-h-0 flex-1 overflow-y-auto max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow-md p-8">
           <div className="mb-8">

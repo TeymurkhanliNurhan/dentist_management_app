@@ -1,4 +1,4 @@
-import { Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Entity, JoinColumn, ManyToOne, PrimaryColumn, Column } from 'typeorm';
 import { Dentist } from '../../dentist/entities/dentist.entity';
 import { Treatment } from '../../treatment/entities/treatment.entity';
 
@@ -9,6 +9,9 @@ export class DentistTreatment {
 
   @PrimaryColumn({ type: 'int', name: 'Dentist' })
   dentist: number;
+
+  @Column({ type: 'boolean', default: true })
+  active: boolean;
 
   @ManyToOne(() => Treatment, (treatment) => treatment.dentistTreatments, {
     nullable: false,

@@ -28,6 +28,26 @@ export const DIRECTOR_PORTAL_MENU: ClinicPortalMenuItem[] = [
   { label: 'Finance', icon: Wallet, path: '/finance' },
 ];
 
+/** Dentist portal: same clinic shell as director, without admin-only areas. */
+export const DENTIST_PORTAL_MENU: ClinicPortalMenuItem[] = [
+  { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+  { label: 'Patients', icon: UserRound, path: '/patients' },
+  { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
+  { label: 'Treatments', icon: Activity, path: '/treatments' },
+  { label: 'Course of Treatments', icon: ClipboardList, path: '/course-of-treatments' },
+  { label: 'Inventory', icon: Package, path: '/medicines' },
+  { label: 'Finance', icon: Wallet, path: '/finance' },
+];
+
+/** Reception portal: front-desk operations only. */
+export const FRONTDESK_PORTAL_MENU: ClinicPortalMenuItem[] = [
+  { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+  { label: 'Patients', icon: UserRound, path: '/patients' },
+  { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
+  { label: 'Inventory', icon: Package, path: '/medicines' },
+  { label: 'Finance', icon: Wallet, path: '/finance' },
+];
+
 export function isDirectorPortalNavActive(itemPath: string, pathname: string): boolean {
   if (itemPath === '/dashboard') return pathname === '/dashboard';
   return pathname === itemPath || pathname.startsWith(`${itemPath}/`);

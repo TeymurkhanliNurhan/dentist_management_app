@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, In } from 'typeorm';
 import { Appointment } from './entities/appointment.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
 import { Patient } from '../patient/entities/patient.entity';
+import { Salary } from '../salary/entities/salary.entity';
 import {
   calculateAppointmentCalculatedFee,
   calculateAppointmentDiscountFee,
@@ -130,14 +131,17 @@ export class AppointmentRepository {
       page?: number;
       limit?: number;
     },
-  ): Promise<{ appointments: Appointment[]; total: number }> {
+  ): Promise<{ appointments: Appointment[]; total: number; appointmentsDentistMap: Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null; dentistCalculatedFee: number }> }> {
     const clinicId = await this.getClinicIdForDentist(dentistId);
     const queryBuilder = this.repo
       .createQueryBuilder('appointment')
       .leftJoinAndSelect('appointment.patient', 'patient')
-      .innerJoin('appointment.toothTreatments', 'toothTreatment')
+      .leftJoin('appointment.toothTreatments', 'toothTreatment')
       .where('appointment.clinicId = :clinicId', { clinicId })
-      .andWhere('toothTreatment.dentist = :dentistId', { dentistId })
+      .andWhere(
+        '(toothTreatment.id IS NULL OR toothTreatment.dentist = :dentistId)',
+        { dentistId },
+      )
       .distinct(true);
 
     if (filters.id !== undefined) {
@@ -195,6 +199,82 @@ export class AppointmentRepository {
 
     const appointments = await queryBuilder.getMany();
 
-    return { appointments, total };
+    // Fetch dentist and salary information for each appointment
+    const appointmentsDentistMap = await this.fetchAppointmentsDentistAndSalary(appointments, dentistId);
+
+    return { appointments, total, appointmentsDentistMap };
+  }
+
+  private async fetchAppointmentsDentistAndSalary(
+    appointments: Appointment[],
+    dentistId: number,
+  ): Promise<Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null; dentistCalculatedFee: number }>> {
+    const resultMap = new Map<number, { dentist: { id: number; name: string; surname: string } | null; treatmentPercentage: number | null; dentistCalculatedFee: number }>();
+    
+    const dentistRepo = this.dataSource.getRepository(Dentist);
+    const salaryRepo = this.dataSource.getRepository(Salary);
+
+    const dentist = await dentistRepo.findOne({
+      where: { id: dentistId },
+      relations: ['staff'],
+    });
+
+    const salary = dentist?.staff ? await salaryRepo.findOne({
+      where: { staffId: dentist.staff.id },
+    }) : null;
+
+    const dentistInfo = dentist && dentist.staff ? {
+      id: dentist.id,
+      name: dentist.staff.name,
+      surname: dentist.staff.surname,
+    } : null;
+
+    // Fetch all appointments with their tooth treatments in one query using QueryBuilder
+    const appointmentIds = appointments.map(a => a.id);
+    if (appointmentIds.length === 0) {
+      return resultMap;
+    }
+
+    const appointmentsWithTreatments = await this.repo
+      .createQueryBuilder('appointment')
+      .leftJoinAndSelect('appointment.toothTreatments', 'toothTreatments')
+      .leftJoinAndSelect('toothTreatments.dentist', 'dentist')
+      .leftJoinAndSelect('toothTreatments.treatment', 'treatment')
+      .leftJoinAndSelect('toothTreatments.toothTreatmentMedicines', 'medicines')
+      .leftJoinAndSelect('medicines.medicineEntity', 'medicineEntity')
+      .where('appointment.id IN (:...appointmentIds)', { appointmentIds })
+      .getMany();
+
+    // Build a map for quick lookup
+    const appointmentMap = new Map<number, Appointment>();
+    appointmentsWithTreatments.forEach(apt => appointmentMap.set(apt.id, apt));
+
+    // Calculate fees for each appointment
+    for (const appointment of appointments) {
+      const appointmentWithTreatments = appointmentMap.get(appointment.id);
+      let dentistCalculatedFee = 0;
+
+      if (appointmentWithTreatments?.toothTreatments) {
+        dentistCalculatedFee = appointmentWithTreatments.toothTreatments
+          .filter(tt => tt.dentist.id === dentistId)
+          .reduce((total, toothTreatment) => {
+            const treatmentFee = toothTreatment.feeSnapshot ?? (toothTreatment.treatment?.price || 0);
+            const medicineFee = (toothTreatment.toothTreatmentMedicines ?? []).reduce((medicineTotal, medicine) => {
+              const unitPrice = medicine.medicinePriceSnapshot ?? (medicine.medicineEntity?.price || 0);
+              const quantity = Math.max(1, medicine.quantity || 1);
+              return medicineTotal + (unitPrice * quantity);
+            }, 0);
+            return total + treatmentFee + medicineFee;
+          }, 0);
+      }
+
+      resultMap.set(appointment.id, {
+        dentist: dentistInfo,
+        treatmentPercentage: salary?.treatmentPercentage ?? null,
+        dentistCalculatedFee,
+      });
+    }
+
+    return resultMap;
   }
 }

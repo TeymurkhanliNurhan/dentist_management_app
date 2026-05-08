@@ -4,6 +4,8 @@ import { DataSource, Repository } from 'typeorm';
 import { Medicine } from './entities/medicine.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
 import { Clinic } from '../clinic/entities/clinic.entity';
+import { ToothTreatmentMedicine } from '../tooth_treatment_medicine/entities/tooth_treatment_medicine.entity';
+import { PurchaseMedicine } from '../purchase_medicine/entities/purchase_medicine.entity';
 
 @Injectable()
 export class MedicineRepository {
@@ -95,5 +97,27 @@ export class MedicineRepository {
     }
 
     return await queryBuilder.getMany();
+  }
+
+  async deleteMedicineEnsureOwnership(
+    dentistId: number,
+    id: number,
+  ): Promise<{ deletedId: number }> {
+    const clinic = await this.getClinicForDentist(dentistId);
+    const med = await this.repo.findOne({
+      where: { id, clinic: { id: clinic.id } },
+    });
+    if (!med) throw new Error('Forbidden');
+
+    const ttmCount = await this.dataSource
+      .getRepository(ToothTreatmentMedicine)
+      .count({ where: { medicine: id } });
+    const pmCount = await this.dataSource
+      .getRepository(PurchaseMedicine)
+      .count({ where: { medicine: { id } } });
+    if (ttmCount > 0 || pmCount > 0) throw new Error('Referenced');
+
+    await this.repo.remove(med);
+    return { deletedId: id };
   }
 }

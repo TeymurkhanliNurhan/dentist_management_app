@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Search, Plus, X, Edit, Minus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { Search, Plus, X, Edit, Minus, Trash2 } from 'lucide-react';
 import ClinicManagementLayout from './ClinicManagementLayout';
 import { medicineService, purchaseMedicineService } from '../services/api';
 import type { Medicine, MedicineFilters } from '../services/api';
@@ -65,7 +64,11 @@ type EditMedicineForm = {
 
 const Medicines = () => {
   const { t } = useTranslation('medicines');
-  const navigate = useNavigate();
+  const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
+  const isDentist = role === 'dentist';
+  const isDirector = role === 'director';
+  const isReception = role === 'frontdesk';
+  const canAccessMedicines = isDentist || isDirector || isReception;
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [filters, setFilters] = useState<MedicineFilters>({
     name: '',
@@ -102,6 +105,8 @@ const Medicines = () => {
     price: 0,
     purchasePrice: 0,
   });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchMedicines = async (searchFilters?: MedicineFilters) => {
     setIsLoading(true);
@@ -157,6 +162,7 @@ const Medicines = () => {
   };
 
   const handleEditClick = (medicine: Medicine) => {
+    if (isDentist) return;
     setEditingMedicine(medicine);
     setUpdatedMedicine({
       name: medicine.name,
@@ -168,7 +174,52 @@ const Medicines = () => {
           ? ''
           : medicine.stockLimit,
     });
+    setShowDeleteConfirm(false);
     setShowEditModal(true);
+  };
+
+  const confirmDeleteMedicine = async () => {
+    const med = editingMedicine;
+    if (isDentist || !med) return;
+    setIsDeleting(true);
+    setError('');
+    try {
+      await medicineService.delete(med.id);
+      setShowDeleteConfirm(false);
+      setShowEditModal(false);
+      setEditingMedicine(null);
+      setUpdatedMedicine({
+        name: '',
+        description: '',
+        price: 0,
+        purchasePrice: 0,
+        stockLimit: '',
+      });
+      if (editingStockMedicineId === med.id) {
+        setEditingStockMedicineId(null);
+        setDraftStock(0);
+      }
+      await fetchMedicines(filters);
+    } catch (err: any) {
+      console.error('Failed to delete medicine:', err);
+      setError(err.response?.data?.message || 'Failed to delete medicine');
+      setShowDeleteConfirm(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setShowDeleteConfirm(false);
+    setEditingMedicine(null);
+    setUpdatedMedicine({
+      name: '',
+      description: '',
+      price: 0,
+      purchasePrice: 0,
+      stockLimit: '',
+    });
   };
 
   const handleUpdateMedicine = async (e: React.FormEvent) => {
@@ -188,15 +239,7 @@ const Medicines = () => {
             ? null
             : updatedMedicine.stockLimit,
       });
-      setShowEditModal(false);
-      setEditingMedicine(null);
-      setUpdatedMedicine({
-        name: '',
-        description: '',
-        price: 0,
-        purchasePrice: 0,
-        stockLimit: '',
-      });
+      closeEditModal();
       fetchMedicines();
     } catch (err: any) {
       console.error('Failed to update medicine:', err);
@@ -207,6 +250,7 @@ const Medicines = () => {
   };
 
   const updateStock = async (medicine: Medicine, stock: number) => {
+    if (isDentist) return;
     if (stock < 0) return;
     setError('');
     try {
@@ -219,6 +263,7 @@ const Medicines = () => {
   };
 
   const startStockEditing = (medicine: Medicine) => {
+    if (isDentist) return;
     setEditingStockMedicineId(medicine.id);
     setDraftStock(medicine.stock ?? 0);
   };
@@ -356,10 +401,10 @@ const Medicines = () => {
     }
   };
 
-  return (
+  return canAccessMedicines ? (
     <>
       <ClinicManagementLayout>
-      <main className="mx-auto w-full max-w-[1400px] py-2">
+      <main className="mx-auto w-full min-w-0 max-w-[1400px] py-2">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">{t('title')}</h1>
@@ -368,32 +413,29 @@ const Medicines = () => {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => navigate('/treatments')}
-              className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              Treatments
-            </button>
-            <button
-              type="button"
               className="rounded-md bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white"
             >
               Medicines
             </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="ml-2 flex items-center space-x-2 rounded-md bg-[#0066A6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#00588f]"
-            >
-              <Plus className="h-4 w-4" />
-              <span>{t('addNew')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={openPurchaseModal}
-              className="ml-2 flex items-center space-x-2 rounded-md border border-[#0066A6] bg-white px-5 py-2.5 text-sm font-semibold text-[#0066A6] transition hover:bg-slate-50"
-            >
-              <Plus className="h-4 w-4" />
-              <span>{t('newPurchase')}</span>
-            </button>
+            {!isDentist && (
+              <>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="ml-2 flex items-center space-x-2 rounded-md bg-[#0066A6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#00588f]"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>{t('addNew')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={openPurchaseModal}
+                  className="ml-2 flex items-center space-x-2 rounded-md border border-[#0066A6] bg-white px-5 py-2.5 text-sm font-semibold text-[#0066A6] transition hover:bg-slate-50"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>{t('newPurchase')}</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -443,44 +485,43 @@ const Medicines = () => {
               </div>
             </div>
           </form>
-
-          {error && (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
         </div>
 
-        <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+        <div className="rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
+            <table className="w-full max-w-full table-fixed border-collapse">
               <thead className="border-b border-slate-100 bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
+                  <th className={`${isDentist ? 'w-[34%]' : 'w-[22%]'} min-w-0 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider sm:px-4 sm:py-4`}>
                     {t('table.name')}
                   </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
-                    {t('table.description')}
-                  </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
+                  {!isDentist && (
+                    <th className="w-[20%] min-w-0 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider sm:px-4 sm:py-4">
+                      {t('table.description')}
+                    </th>
+                  )}
+                  <th className={`${isDentist ? 'w-[33%]' : 'w-[12%]'} min-w-0 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider sm:px-4 sm:py-4`}>
                     {t('table.price')}
                   </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
-                    {t('table.purchasePrice')}
-                  </th>
-                  <th className="w-32 min-w-[8rem] px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
+                  {!isDentist && (
+                    <th className="w-[12%] min-w-0 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider sm:px-4 sm:py-4">
+                      {t('table.purchasePrice')}
+                    </th>
+                  )}
+                  <th className={`${isDentist ? 'w-[33%]' : 'w-[14%]'} min-w-0 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider sm:px-4 sm:py-4`}>
                     {t('table.stock')}
                   </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider">
-                  </th>
+                  {!isDentist && (
+                    <th className="w-[20%] min-w-0 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider sm:px-4 sm:py-4">
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
                     <td
-                      colSpan={6}
-                      className="px-6 py-8 text-center text-sm text-slate-500"
+                      colSpan={isDentist ? 3 : 6}
+                      className="px-3 py-8 text-center text-sm text-slate-500 sm:px-6"
                     >
                       {t('loading')}
                     </td>
@@ -488,8 +529,8 @@ const Medicines = () => {
                 ) : medicines.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
-                      className="px-6 py-8 text-center text-sm text-slate-500"
+                      colSpan={isDentist ? 3 : 6}
+                      className="px-3 py-8 text-center text-sm text-slate-500 sm:px-6"
                     >
                       {t('empty')}
                     </td>
@@ -507,22 +548,26 @@ const Medicines = () => {
                       className={`transition-colors ${isBelowStockLimit ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}`}
                     >
                       <td
-                        className={`px-6 py-4 text-center text-sm font-semibold ${isBelowStockLimit ? 'text-red-700' : 'text-[#0066A6]'}`}
+                        className={`max-w-0 truncate px-3 py-3 text-center text-sm font-semibold sm:px-4 sm:py-4 ${isBelowStockLimit ? 'text-red-700' : 'text-[#0066A6]'}`}
                       >
                         {medicine.name}
                       </td>
-                      <td className="px-6 py-4 text-center text-sm text-slate-600">
-                        {medicine.description}
-                      </td>
-                      <td className="px-6 py-4 text-center text-sm font-medium text-slate-900">
+                      {!isDentist && (
+                        <td className="max-w-0 truncate px-3 py-3 text-center text-sm text-slate-600 sm:px-4 sm:py-4">
+                          {medicine.description}
+                        </td>
+                      )}
+                      <td className="whitespace-nowrap px-3 py-3 text-center text-sm font-medium text-slate-900 sm:px-4 sm:py-4">
                         {medicine.price.toFixed(2)} USD
                       </td>
-                      <td className="px-6 py-4 text-center text-sm font-medium text-slate-900">
-                        {(medicine.purchasePrice ?? 0).toFixed(2)} USD
-                      </td>
-                      <td className="w-32 min-w-[8rem] px-6 py-4 text-center text-sm align-middle">
-                        {editingStockMedicineId === medicine.id ? (
-                          <div className="mx-auto flex w-min min-w-[6.5rem] flex-col items-center gap-2">
+                      {!isDentist && (
+                        <td className="whitespace-nowrap px-3 py-3 text-center text-sm font-medium text-slate-900 sm:px-4 sm:py-4">
+                          {(medicine.purchasePrice ?? 0).toFixed(2)} USD
+                        </td>
+                      )}
+                      <td className="min-w-0 px-3 py-3 text-center text-sm align-middle sm:px-4 sm:py-4">
+                        {!isDentist && editingStockMedicineId === medicine.id ? (
+                          <div className="mx-auto flex max-w-full flex-col items-center gap-2">
                             <div className="inline-flex items-center gap-2 rounded border border-slate-200 px-2 py-1">
                               <button
                                 type="button"
@@ -561,34 +606,42 @@ const Medicines = () => {
                               </button>
                             </div>
                           </div>
-                        ) : (
-                          <div className="mx-auto flex w-min min-w-[6.5rem] justify-center">
+                        ) : !isDentist ? (
+                          <div className="mx-auto flex justify-center">
                             <button
                               type="button"
                               onClick={() => startStockEditing(medicine)}
-                              className={`rounded px-3 py-1 font-semibold transition ${isBelowStockLimit ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100' : 'border-slate-200 text-slate-900 hover:bg-slate-50'}`}
+                              className={`rounded px-2 py-1 text-sm font-semibold transition sm:px-3 ${isBelowStockLimit ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100' : 'border-slate-200 text-slate-900 hover:bg-slate-50'}`}
                             >
                               {medicine.stock ?? 0}
                             </button>
                           </div>
+                        ) : (
+                          <span
+                            className={`font-semibold ${isBelowStockLimit ? 'text-red-700' : 'text-slate-900'}`}
+                          >
+                            {medicine.stock ?? 0}
+                          </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-center text-sm">
-                        <button
-                          onClick={() => handleEditClick(medicine)}
-                          className="inline-flex items-center justify-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition hover:bg-[#00588f]"
-                        >
-                          <Edit className="w-4 h-4" />
-                          <span>{t('edit')}</span>
-                        </button>
-                      </td>
+                      {!isDentist && (
+                        <td className="min-w-0 px-3 py-3 text-center text-sm sm:px-4 sm:py-4">
+                          <button
+                            type="button"
+                            onClick={() => handleEditClick(medicine)}
+                            className="inline-flex max-w-full items-center justify-center gap-1 rounded-md bg-[#0066A6] px-2 py-1.5 text-xs font-semibold text-white transition hover:bg-[#00588f] sm:px-3 sm:text-sm"
+                          >
+                            <Edit className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                            <span className="truncate">{t('edit')}</span>
+                          </button>
+                        </td>
+                      )}
                     </tr>
                     );
                   })
                 )}
               </tbody>
             </table>
-          </div>
         </div>
       </main>
       </ClinicManagementLayout>
@@ -711,7 +764,8 @@ const Medicines = () => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-900">{t('editTitle')}</h2>
               <button
-                onClick={() => setShowEditModal(false)}
+                type="button"
+                onClick={closeEditModal}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="w-6 h-6" />
@@ -799,23 +853,83 @@ const Medicines = () => {
                 <p className="mt-1 text-xs text-gray-500">{t('form.stockLimitHint')}</p>
               </div>
 
+              <div className="border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={isSubmitting || isDeleting}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t('delete')}
+                </button>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isDeleting}
                   className="flex-1 py-2 bg-[#0066A6] text-white rounded-lg font-medium hover:bg-[#00588f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? t('updating') : t('update')}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                  onClick={closeEditModal}
+                  disabled={isDeleting}
+                  className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {t('cancel')}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation (above edit modal) */}
+      {showDeleteConfirm && editingMedicine && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900">{t('deleteModalTitle')}</h3>
+            <p className="mt-3 text-sm text-gray-600">
+              {t('deleteConfirm', { name: editingMedicine.name })}
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 rounded-lg bg-gray-200 py-2.5 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={confirmDeleteMedicine}
+                className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isDeleting ? t('deleting') : t('delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Centered notice for errors (replaces inline banner) */}
+      {!!error && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl ring-1 ring-slate-200">
+            <h3 className="text-lg font-bold text-gray-900">{t('noticeTitle')}</h3>
+            <p className="mt-3 whitespace-pre-wrap text-sm text-gray-700">{error}</p>
+            <button
+              type="button"
+              onClick={() => setError('')}
+              className="mt-6 w-full rounded-lg bg-[#0066A6] py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#00588f]"
+            >
+              {t('noticeOk')}
+            </button>
           </div>
         </div>
       )}
@@ -1120,6 +1234,10 @@ const Medicines = () => {
         </div>
       )}
     </>
+  ) : (
+    <div className="flex h-dvh items-center justify-center bg-[#f4f6f8] text-slate-700">
+      <p className="text-lg">You do not have permission to view this page.</p>
+    </div>
   );
 };
 

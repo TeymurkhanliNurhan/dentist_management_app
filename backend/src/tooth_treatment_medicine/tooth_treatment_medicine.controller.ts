@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -25,6 +26,7 @@ import { GetToothTreatmentMedicineDto } from './dto/get-tooth_treatment_medicine
 import { UpdateToothTreatmentMedicineDto } from './dto/update-tooth_treatment_medicine.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
+import { isDirectorRole } from '../auth/role-guards';
 
 @ApiTags('tooth-treatment-medicine')
 @Controller('tooth-treatment-medicine')
@@ -54,8 +56,13 @@ export class ToothTreatmentMedicineController {
     @User() user: any,
     @Body() dto: CreateToothTreatmentMedicineDto,
   ) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for tooth treatment medicines',
+      );
+    }
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.create(dentistId, dto);
+    return await this.service.create(dentistId, dto, user?.role);
   }
 
   @ApiBearerAuth('bearer')
@@ -70,12 +77,18 @@ export class ToothTreatmentMedicineController {
     @Param('medicine_id', ParseIntPipe) medicineId: number,
     @Body() dto: UpdateToothTreatmentMedicineDto,
   ) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for tooth treatment medicines',
+      );
+    }
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
     return await this.service.updateQuantity(
       dentistId,
       toothTreatmentId,
       medicineId,
       dto,
+      user?.role,
     );
   }
 
@@ -90,7 +103,17 @@ export class ToothTreatmentMedicineController {
     @Param('tooth_treatment_id', ParseIntPipe) toothTreatmentId: number,
     @Param('medicine_id', ParseIntPipe) medicineId: number,
   ) {
+    if (isDirectorRole(user?.role)) {
+      throw new ForbiddenException(
+        'Directors have read-only access for tooth treatment medicines',
+      );
+    }
     const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.delete(dentistId, toothTreatmentId, medicineId);
+    return await this.service.delete(
+      dentistId,
+      toothTreatmentId,
+      medicineId,
+      user?.role,
+    );
   }
 }

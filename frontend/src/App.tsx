@@ -3,7 +3,6 @@ import Login from './components/Login';
 import SignUp from './components/SignUp';
 import Dashboard from './components/Dashboard';
 import MainBoard from './components/MainBoard';
-import Appointments from './components/Appointments';
 import Finance from './components/Finance';
 import CourseOfTreatments from './components/CourseOfTreatments';
 import AppointmentDetail from './components/AppointmentDetail';
@@ -27,7 +26,6 @@ function App() {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/main" element={<MainBoard />} />
-        <Route path="/appointments" element={<Appointments />} />
         <Route path="/finance" element={<Finance />} />
         <Route path="/course-of-treatments" element={<CourseOfTreatments />} />
         <Route path="/appointments/:id" element={<AppointmentDetail />} />

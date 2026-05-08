@@ -58,7 +58,6 @@ export class AuthRepository {
     const staffRepository = this.getStaffRepository();
     const staff = await staffRepository.findOne({
       where: { gmail: email },
-      relations: ['dentist', 'director', 'frontDeskWorker', 'nurse'],
     });
     this.logger.debug('findStaffAuthByEmail executed');
     LogWriter.append(
@@ -67,6 +66,16 @@ export class AuthRepository {
       'findStaffAuthByEmail executed',
     );
     return staff;
+  }
+
+  async findDentistIdByStaffId(staffId: number): Promise<number | null> {
+    const dentistRepo = this.getDentistRepository();
+    const row = await dentistRepo
+      .createQueryBuilder('d')
+      .where('d.staffId = :staffId', { staffId })
+      .select('d.id', 'id')
+      .getRawOne<{ id: number }>();
+    return row?.id ?? null;
   }
 
   /**

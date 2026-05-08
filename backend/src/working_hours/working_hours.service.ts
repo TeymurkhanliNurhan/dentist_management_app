@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -16,7 +17,31 @@ export class WorkingHoursService {
 
   constructor(private readonly repo: WorkingHoursRepository) {}
 
-  async create(dentistId: number, dto: CreateWorkingHoursDto) {
+  private ensureDirectorRole(role?: string) {
+    if ((role ?? '').toLowerCase() !== 'director') {
+      throw new ForbiddenException('Only director can access working hours endpoints');
+    }
+  }
+
+  private parseNumericId(value: unknown): number {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : NaN;
+    }
+    return NaN;
+  }
+
+  private resolveStaffIdFromUser(user: any): number {
+    const staffId = this.parseNumericId(user?.staffId ?? user?.staff_id);
+    if (!Number.isFinite(staffId) || staffId <= 0) {
+      throw new ForbiddenException('Staff context missing');
+    }
+    return staffId;
+  }
+
+  async create(dentistId: number, role: string | undefined, dto: CreateWorkingHoursDto) {
+    this.ensureDirectorRole(role);
     try {
       const created = await this.repo.createForDentist(dentistId, dto);
       const msg = `Dentist with id ${dentistId} created WorkingHours with id ${created.id}`;
@@ -30,11 +55,28 @@ export class WorkingHoursService {
     }
   }
 
-  async findAll(dentistId: number, dto: GetWorkingHoursDto) {
-    return await this.repo.findForDentist(dentistId, dto);
+  async findAll(user: any, dto: GetWorkingHoursDto) {
+    const role = (user?.role ?? '').toLowerCase();
+
+    if (role === 'director' || role === 'frontdesk') {
+      const dentistId = this.parseNumericId(user?.userId ?? user?.sub ?? user?.dentistId);
+      if (!Number.isFinite(dentistId) || dentistId <= 0) {
+        throw new ForbiddenException('Director/frontdesk context missing');
+      }
+      return await this.repo.findForDentist(dentistId, dto);
+    }
+
+    const staffId = this.resolveStaffIdFromUser(user);
+    return await this.repo.findForStaff(staffId, dto);
   }
 
-  async patch(dentistId: number, id: number, dto: UpdateWorkingHoursDto) {
+  async patch(
+    dentistId: number,
+    role: string | undefined,
+    id: number,
+    dto: UpdateWorkingHoursDto,
+  ) {
+    this.ensureDirectorRole(role);
     try {
       const updated = await this.repo.updateForDentist(dentistId, id, dto);
       const msg = `Dentist with id ${dentistId} updated WorkingHours with id ${updated.id}`;
@@ -50,7 +92,8 @@ export class WorkingHoursService {
     }
   }
 
-  async delete(dentistId: number, id: number) {
+  async delete(dentistId: number, role: string | undefined, id: number) {
+    this.ensureDirectorRole(role);
     try {
       await this.repo.deleteForDentist(dentistId, id);
       const msg = `Dentist with id ${dentistId} deleted WorkingHours with id ${id}`;

@@ -22,6 +22,7 @@ import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
 import { CreateDentistDto } from './dto/create-dentist.dto';
 import { GetDentistDto } from './dto/get-dentist.dto';
+import { GetDentistFinanceDto } from './dto/get-dentist-finance.dto';
 
 @ApiTags('dentist')
 @Controller('dentist')
@@ -56,6 +57,16 @@ export class DentistController {
   findAll(@User() user: unknown, @Query() dto: GetDentistDto) {
     const requesterDentistId = this.getDentistId(user);
     return this.dentistService.findAll(requesterDentistId, dto);
+  }
+
+  @Get('dashboard/overview')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get dashboard overview for current dentist' })
+  @ApiBearerAuth('bearer')
+  getDashboardOverview(@User() user: unknown) {
+    const dentistId = this.getDentistId(user);
+    return this.dentistService.getDashboardOverview(dentistId);
   }
 
   @Get(':id')
@@ -105,5 +116,15 @@ export class DentistController {
   @ApiBearerAuth('bearer')
   delete(@Param('id', ParseIntPipe) id: number) {
     return this.dentistService.delete(id);
+  }
+
+  @Get('finance/overview')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get finance overview for a dentist' })
+  @ApiBearerAuth('bearer')
+  getFinanceOverview(@User() user: unknown, @Query() dto: GetDentistFinanceDto) {
+    const dentistId = this.getDentistId(user);
+    return this.dentistService.getFinanceOverview(dentistId, dto);
   }
 }

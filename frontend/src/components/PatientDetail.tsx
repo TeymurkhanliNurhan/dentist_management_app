@@ -11,14 +11,13 @@ import {
   CalendarDays,
   Trash2,
 } from 'lucide-react';
-import Header from './Header';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import TeethDiagram from './TeethDiagram';
-import { appointmentService, patientService, toothTreatmentService } from '../services/api';
+import { appointmentService, dentistService, patientService, toothTreatmentService } from '../services/api';
 import type { Appointment, Patient, PatientTooth, ToothTreatment } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { ClinicPortalShell } from './ClinicPortalShell';
-import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
+import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU, FRONTDESK_PORTAL_MENU } from '../lib/clinicPortalNav';
 
 const PatientDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +26,7 @@ const PatientDetail = () => {
   const { t, i18n } = useTranslation('patientDetail');
   const [patient, setPatient] = useState<Patient | null>(null);
   const [patientTeeth, setPatientTeeth] = useState<PatientTooth[]>([]);
+  const [diagramTreatments, setDiagramTreatments] = useState<ToothTreatment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -45,13 +45,26 @@ const PatientDetail = () => {
     'byAppointment',
   );
   const [dentistFilterId, setDentistFilterId] = useState(0);
+  const [appointmentDentistScope, setAppointmentDentistScope] = useState<'mine' | 'all'>('mine');
   const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
   const [patientTreatments, setPatientTreatments] = useState<ToothTreatment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [appointmentsError, setAppointmentsError] = useState<string | null>(null);
+  const [paymentAmountByAppointment, setPaymentAmountByAppointment] = useState<Record<number, string>>({});
+  const [paymentSubmittingByAppointment, setPaymentSubmittingByAppointment] = useState<Record<number, boolean>>({});
 
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
+  const isReception = role === 'frontdesk';
+  const isDentist = role === 'dentist';
+  const canEditPatient = isDirector || isDentist || isReception;
+  const canDeletePatient = isDirector || isDentist;
+  const loggedInDentistId = useMemo(() => {
+    const raw = localStorage.getItem('dentistId');
+    const n = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, []);
+  const [dentistPortalDisplayName, setDentistPortalDisplayName] = useState('');
 
   const FETCH_ERROR_KEY = '__fetch_error__';
   const UPDATE_ERROR_KEY = '__update_error__';
@@ -80,12 +93,15 @@ const PatientDetail = () => {
       setIsLoading(true);
       setFetchError(null);
       try {
-        const [patientData, teethData] = await Promise.all([
-          patientService.getById(parseInt(id)),
-          patientService.getPatientTeeth(parseInt(id)),
+        const pid = parseInt(id, 10);
+        const [patientData, teethData, diagramTt] = await Promise.all([
+          patientService.getById(pid),
+          patientService.getPatientTeeth(pid),
+          toothTreatmentService.getAll({ patient: pid }).catch(() => [] as ToothTreatment[]),
         ]);
         setPatient(patientData);
         setPatientTeeth(teethData);
+        setDiagramTreatments(Array.isArray(diagramTt) ? diagramTt : []);
         setFormError(null);
       } catch (err: any) {
         console.error('Failed to fetch patient data:', err);
@@ -97,6 +113,12 @@ const PatientDetail = () => {
 
     fetchPatientData();
   }, [id]);
+
+  useEffect(() => {
+    if (isReception && patientPanel !== 'appointments') {
+      setPatientPanel('appointments');
+    }
+  }, [isReception, patientPanel]);
 
   useEffect(() => {
     if (!patient || patientPanel !== 'appointments') return;
@@ -133,19 +155,52 @@ const PatientDetail = () => {
   }, [patient, patientPanel]);
 
   useEffect(() => {
-    setDentistFilterId(0);
-  }, [appointmentScope]);
+    if (isDirector) {
+      setDentistFilterId(0);
+    }
+  }, [appointmentScope, isDirector]);
+
+  useEffect(() => {
+    if (!isDentist) {
+      setDentistPortalDisplayName('');
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      if (loggedInDentistId <= 0) return;
+      try {
+        const profile = await dentistService.getById(loggedInDentistId);
+        const label = `${profile?.staff?.name ?? ''} ${profile?.staff?.surname ?? ''}`.trim();
+        if (!cancelled) setDentistPortalDisplayName(label || `Dentist #${loggedInDentistId}`);
+      } catch {
+        if (!cancelled) setDentistPortalDisplayName('');
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isDentist, loggedInDentistId]);
 
   const filteredAppointments = useMemo(() => {
-    const list = patientAppointments.filter((a) =>
-      appointmentScope === 'active' ? a.endDate == null : a.endDate != null,
-    );
-    return [...list].sort((a, b) => {
+    const list = isDentist
+      ? [...patientAppointments]
+      : patientAppointments.filter((a) =>
+          appointmentScope === 'active' ? a.endDate == null : a.endDate != null,
+        );
+    return list.sort((a, b) => {
       const ta = new Date(a.startDate).getTime();
       const tb = new Date(b.startDate).getTime();
       return tb - ta;
     });
-  }, [patientAppointments, appointmentScope]);
+  }, [patientAppointments, appointmentScope, isDentist]);
+
+  const effectiveDentistTreatmentFilter = useMemo(() => {
+    if (isDentist) {
+      return appointmentDentistScope === 'mine' ? loggedInDentistId : 0;
+    }
+    return dentistFilterId;
+  }, [appointmentDentistScope, dentistFilterId, isDentist, loggedInDentistId]);
 
   const appointmentScopeIds = useMemo(
     () => new Set(filteredAppointments.map((a) => a.id)),
@@ -162,8 +217,10 @@ const PatientDetail = () => {
 
   const visibleTreatments = useMemo(
     () =>
-      dentistFilterId > 0 ? scopeTreatments.filter((tt) => tt.dentist?.id === dentistFilterId) : scopeTreatments,
-    [scopeTreatments, dentistFilterId],
+      effectiveDentistTreatmentFilter > 0
+        ? scopeTreatments.filter((tt) => tt.dentist?.id === effectiveDentistTreatmentFilter)
+        : scopeTreatments,
+    [scopeTreatments, effectiveDentistTreatmentFilter],
   );
 
   const treatmentsByAppointmentId = useMemo(() => {
@@ -178,11 +235,31 @@ const PatientDetail = () => {
     return map;
   }, [visibleTreatments]);
 
+  const allTreatmentsByAppointmentId = useMemo(() => {
+    const map = new Map<number, ToothTreatment[]>();
+    for (const tt of patientTreatments) {
+      const aid = tt.appointment?.id;
+      if (aid == null) continue;
+      const list = map.get(aid) ?? [];
+      list.push(tt);
+      map.set(aid, list);
+    }
+    return map;
+  }, [patientTreatments]);
+
   const appointmentsToDisplay = useMemo(() => {
-    if (dentistFilterId === 0) return filteredAppointments;
+    if (effectiveDentistTreatmentFilter === 0) return filteredAppointments;
     const ids = new Set(visibleTreatments.map((tt) => tt.appointment!.id));
     return filteredAppointments.filter((a) => ids.has(a.id));
-  }, [filteredAppointments, dentistFilterId, visibleTreatments]);
+  }, [filteredAppointments, effectiveDentistTreatmentFilter, visibleTreatments]);
+
+  const receptionAppointments = useMemo(
+    () =>
+      [...patientAppointments].sort(
+        (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime(),
+      ),
+    [patientAppointments],
+  );
 
   const dentistFilterOptions = useMemo(() => {
     const m = new Map<number, string>();
@@ -247,6 +324,62 @@ const PatientDetail = () => {
     return `$${Number(fee).toFixed(2)}`;
   };
 
+  const getAppointmentDebt = (a: Appointment) => {
+    const calculated = Number(a.calculatedFee ?? 0);
+    const charged = Number(a.chargedFee ?? 0);
+    return Math.max(0, calculated - charged);
+  };
+
+  const formatMoney = (value: number) => `$${Number(value || 0).toFixed(2)}`;
+
+  const handlePaymentAmountChange = (appointmentId: number, value: string) => {
+    if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
+      setPaymentAmountByAppointment((prev) => ({ ...prev, [appointmentId]: value }));
+    }
+  };
+
+  const handleApplyPayment = async (appointmentId: number) => {
+    const target = patientAppointments.find((a) => a.id === appointmentId);
+    if (!target) return;
+
+    const debt = getAppointmentDebt(target);
+    if (debt <= 0) return;
+
+    const rawInput = paymentAmountByAppointment[appointmentId] ?? '';
+    const paymentValue = Number(rawInput);
+    if (!Number.isFinite(paymentValue) || paymentValue <= 0) {
+      setAppointmentsError('Enter a valid payment amount greater than 0.');
+      return;
+    }
+
+    const effectivePayment = Math.min(paymentValue, debt);
+    const currentCharged = Number(target.chargedFee ?? 0);
+    const nextCharged = Number((currentCharged + effectivePayment).toFixed(2));
+
+    setPaymentSubmittingByAppointment((prev) => ({ ...prev, [appointmentId]: true }));
+    setAppointmentsError(null);
+    try {
+      await appointmentService.update(appointmentId, {
+        startDate: target.startDate,
+        endDate: target.endDate,
+        chargedFee: nextCharged,
+      });
+      setPatientAppointments((prev) =>
+        prev.map((appt) => (appt.id === appointmentId ? { ...appt, chargedFee: nextCharged } : appt)),
+      );
+      setPaymentAmountByAppointment((prev) => ({ ...prev, [appointmentId]: '' }));
+    } catch (err: unknown) {
+      console.error('Failed to apply appointment payment:', err);
+      const message =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      setAppointmentsError(message || 'Failed to apply payment for this appointment.');
+    } finally {
+      setPaymentSubmittingByAppointment((prev) => ({ ...prev, [appointmentId]: false }));
+    }
+  };
+
   const formatToothList = (tt: ToothTreatment) => {
     const toothIds = (tt.toothTreatmentTeeth ?? [])
       .map((x) => x.toothId)
@@ -267,42 +400,40 @@ const PatientDetail = () => {
     `${formatToothList(tt)} — ${tt.treatment?.name ?? '—'}`;
 
   const wrapLayout = (children: ReactNode) => {
-    if (isDirector) {
+    if (isDirector || isDentist || isReception) {
       return (
         <>
-        <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
-          <ClinicPortalShell
-            brandTitle="Clinic Management"
-            userDisplayName=""
-            userSubtitle="Clinic Director"
-            menuItems={DIRECTOR_PORTAL_MENU}
-            pathname={location.pathname}
-            isSidebarOpen={isSidebarOpen}
-            setIsSidebarOpen={setIsSidebarOpen}
-            navigate={navigate}
-            onLogoutClick={() => setShowLogoutConfirm(true)}
-            showProfileStrip={false}
-          >
-            <main className="relative min-h-0 flex-1 bg-[#f9fafb] px-6 py-6">
-              {children}
-            </main>
-          </ClinicPortalShell>
-        </div>
-        <LogoutConfirmModal
-          open={showLogoutConfirm}
-          onCancel={() => setShowLogoutConfirm(false)}
-          onConfirm={() => {
-            performLogout(navigate);
-            setShowLogoutConfirm(false);
-          }}
-        />
+          <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
+            <ClinicPortalShell
+              brandTitle="Clinic Management"
+              portalBadge={isDirector ? undefined : isReception ? 'Reception Portal' : 'Dentist Portal'}
+              userDisplayName={isDentist ? dentistPortalDisplayName : ''}
+              userSubtitle={isDirector ? 'Clinic Director' : isReception ? 'Receptionist' : 'Dentist'}
+              menuItems={isDirector ? DIRECTOR_PORTAL_MENU : isReception ? FRONTDESK_PORTAL_MENU : DENTIST_PORTAL_MENU}
+              pathname={location.pathname}
+              isSidebarOpen={isSidebarOpen}
+              setIsSidebarOpen={setIsSidebarOpen}
+              navigate={navigate}
+              onLogoutClick={() => setShowLogoutConfirm(true)}
+              showProfileStrip={isDentist}
+            >
+              <main className="relative min-h-0 flex-1 bg-[#f9fafb] px-6 py-6">{children}</main>
+            </ClinicPortalShell>
+          </div>
+          <LogoutConfirmModal
+            open={showLogoutConfirm}
+            onCancel={() => setShowLogoutConfirm(false)}
+            onConfirm={() => {
+              performLogout(navigate);
+              setShowLogoutConfirm(false);
+            }}
+          />
         </>
       );
     }
 
     return (
       <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f4f6f8]">
-        <Header />
         <main className="relative mx-auto min-h-0 flex-1 max-w-7xl overflow-y-auto px-4 py-8 sm:px-6 lg:px-8">
           {children}
         </main>
@@ -404,6 +535,7 @@ const PatientDetail = () => {
               </h1>
             </div>
           </div>
+          {canEditPatient ? (
           <button
             onClick={() => {
               setEditFields({ name: patient.name, surname: patient.surname, birthDate: patient.birthDate });
@@ -415,6 +547,7 @@ const PatientDetail = () => {
             <Edit className="h-4 w-4" />
             <span>{t('edit')}</span>
           </button>
+          ) : null}
         </div>
 
         <div className="border-t border-slate-200 pt-6">
@@ -447,6 +580,7 @@ const PatientDetail = () => {
           <h2 className="text-xl font-semibold text-slate-900">
             {patientPanel === 'teeth' ? t('teethDiagram') : t('appointments')}
           </h2>
+          {!isReception ? (
           <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
@@ -475,78 +609,176 @@ const PatientDetail = () => {
               <CalendarDays className="h-5 w-5" />
             </button>
           </div>
+          ) : null}
         </div>
 
-        {patientPanel === 'teeth' ? (
-          <TeethDiagram patientId={patient.id} patientTeeth={patientTeeth} />
+        {isReception ? (
+          <div className="space-y-4">
+            {appointmentsLoading && <p className="py-6 text-center text-sm text-slate-500">{t('loading')}</p>}
+
+            {!appointmentsLoading && appointmentsError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {appointmentsError === 'appointmentsLoadError' ? t('appointmentsLoadError') : appointmentsError}
+              </div>
+            )}
+
+            {!appointmentsLoading && !appointmentsError && receptionAppointments.length === 0 && (
+              <p className="py-4 text-sm text-slate-500">{t('noAppointments')}</p>
+            )}
+
+            {!appointmentsLoading && !appointmentsError && receptionAppointments.length > 0 && (
+              <ul className="space-y-4">
+                {receptionAppointments.map((appt) => {
+                  const treatmentCount = (allTreatmentsByAppointmentId.get(appt.id) ?? []).length;
+                  return (
+                    <li key={appt.id} className="rounded-lg border border-slate-200 bg-slate-50/80 p-4">
+                      <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                        <div>
+                          <span className="mr-1 text-slate-500">{t('startDate')}:</span>
+                          <span className="font-medium text-slate-900">{appt.startDate || '—'}</span>
+                        </div>
+                        <div>
+                          <span className="mr-1 text-slate-500">End date:</span>
+                          <span className="font-medium text-slate-900">{appt.endDate || '—'}</span>
+                        </div>
+                        <div>
+                          <span className="mr-1 text-slate-500">Treatment count:</span>
+                          <span className="font-medium text-slate-900">{treatmentCount}</span>
+                        </div>
+                        <div>
+                          <span className="mr-1 text-slate-500">Debt:</span>
+                          <span
+                            className={`font-medium ${
+                              getAppointmentDebt(appt) > 0 ? 'text-red-600' : 'text-emerald-600'
+                            }`}
+                          >
+                            {formatMoney(getAppointmentDebt(appt))}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={paymentAmountByAppointment[appt.id] ?? ''}
+                          onChange={(e) => handlePaymentAmountChange(appt.id, e.target.value)}
+                          placeholder="Enter payment"
+                          className="w-36 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void handleApplyPayment(appt.id)}
+                          disabled={paymentSubmittingByAppointment[appt.id] || getAppointmentDebt(appt) <= 0}
+                          className="rounded-md bg-[#0066A6] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#00588f] disabled:cursor-not-allowed disabled:bg-slate-300"
+                        >
+                          {paymentSubmittingByAppointment[appt.id] ? 'Applying...' : 'Apply Payment'}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        ) : patientPanel === 'teeth' ? (
+          <TeethDiagram patientId={patient.id} patientTeeth={patientTeeth} toothTreatments={diagramTreatments} />
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setAppointmentScope('active')}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  appointmentScope === 'active'
-                    ? 'bg-[#0066A6] text-white hover:bg-[#00588f]'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {t('activeAppointments')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setAppointmentScope('past')}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  appointmentScope === 'past'
-                    ? 'bg-[#0066A6] text-white hover:bg-[#00588f]'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {t('pastAppointments')}
-              </button>
-              <span className="mx-1 hidden h-6 w-px bg-slate-200 sm:inline-block" aria-hidden />
-              <button
-                type="button"
-                onClick={() => setAppointmentTreatmentsView('byAppointment')}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  appointmentTreatmentsView === 'byAppointment'
-                    ? 'bg-[#0066A6] text-white hover:bg-[#00588f]'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {t('viewByAppointment')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setAppointmentTreatmentsView('byDoctor')}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  appointmentTreatmentsView === 'byDoctor'
-                    ? 'bg-[#0066A6] text-white hover:bg-[#00588f]'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {t('viewByDoctor')}
-              </button>
-            </div>
+            {isDentist ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAppointmentDentistScope('mine')}
+                  className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                    appointmentDentistScope === 'mine'
+                      ? 'bg-[#0066A6] text-white hover:bg-[#00588f]'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {t('appointmentsMine')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAppointmentDentistScope('all')}
+                  className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                    appointmentDentistScope === 'all'
+                      ? 'bg-[#0066A6] text-white hover:bg-[#00588f]'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {t('appointmentsAll')}
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAppointmentScope('active')}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                      appointmentScope === 'active'
+                        ? 'bg-[#0066A6] text-white hover:bg-[#00588f]'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {t('activeAppointments')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAppointmentScope('past')}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                      appointmentScope === 'past'
+                        ? 'bg-[#0066A6] text-white hover:bg-[#00588f]'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {t('pastAppointments')}
+                  </button>
+                  <span className="mx-1 hidden h-6 w-px bg-slate-200 sm:inline-block" aria-hidden />
+                  <button
+                    type="button"
+                    onClick={() => setAppointmentTreatmentsView('byAppointment')}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                      appointmentTreatmentsView === 'byAppointment'
+                        ? 'bg-[#0066A6] text-white hover:bg-[#00588f]'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {t('viewByAppointment')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAppointmentTreatmentsView('byDoctor')}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                      appointmentTreatmentsView === 'byDoctor'
+                        ? 'bg-[#0066A6] text-white hover:bg-[#00588f]'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {t('viewByDoctor')}
+                  </button>
+                </div>
 
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <label htmlFor="patient-appt-dentist-filter" className="text-sm font-medium text-slate-600">
-                {t('filterByDentist')}
-              </label>
-              <select
-                id="patient-appt-dentist-filter"
-                value={dentistFilterId || ''}
-                onChange={(e) => setDentistFilterId(Number(e.target.value) || 0)}
-                className="min-w-[12rem] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
-              >
-                <option value="">{t('allDentists')}</option>
-                {dentistFilterOptions.map(([did, label]) => (
-                  <option key={did} value={did}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <label htmlFor="patient-appt-dentist-filter" className="text-sm font-medium text-slate-600">
+                    {t('filterByDentist')}
+                  </label>
+                  <select
+                    id="patient-appt-dentist-filter"
+                    value={dentistFilterId || ''}
+                    onChange={(e) => setDentistFilterId(Number(e.target.value) || 0)}
+                    className="min-w-[12rem] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                  >
+                    <option value="">{t('allDentists')}</option>
+                    {dentistFilterOptions.map(([did, label]) => (
+                      <option key={did} value={did}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
 
             {appointmentsLoading && (
               <p className="py-6 text-center text-sm text-slate-500">{t('loading')}</p>
@@ -565,6 +797,7 @@ const PatientDetail = () => {
             {!appointmentsLoading &&
               !appointmentsError &&
               filteredAppointments.length > 0 &&
+              !isDentist &&
               appointmentTreatmentsView === 'byDoctor' && (
                 <div className="space-y-6 pt-2">
                   {treatmentsGroupedByDoctor.length === 0 ? (
@@ -587,7 +820,11 @@ const PatientDetail = () => {
                                   <li key={tt.id}>
                                     <Link
                                       to={`/appointments/${tt.appointment!.id}`}
-                                      state={{ fromPatientId: patient.id }}
+                                      state={{
+                                        fromPatientId: patient.id,
+                                        returnTo: `${location.pathname}${location.search}${location.hash}`,
+                                        returnLabel: 'Back to Patient',
+                                      }}
                                       className="text-sm text-slate-800 underline-offset-2 hover:text-[#0066A6] hover:underline"
                                     >
                                       {formatToothTreatmentLine(tt)}
@@ -607,7 +844,7 @@ const PatientDetail = () => {
             {!appointmentsLoading &&
               !appointmentsError &&
               appointmentsToDisplay.length > 0 &&
-              appointmentTreatmentsView === 'byAppointment' && (
+              (isDentist || appointmentTreatmentsView === 'byAppointment') && (
                 <ul className="space-y-4">
                   {appointmentsToDisplay.map((appt) => {
                     const treatments = treatmentsByAppointmentId.get(appt.id) ?? [];
@@ -615,7 +852,11 @@ const PatientDetail = () => {
                       <li key={appt.id}>
                         <Link
                           to={`/appointments/${appt.id}`}
-                          state={{ fromPatientId: patient.id }}
+                          state={{
+                            fromPatientId: patient.id,
+                            returnTo: `${location.pathname}${location.search}${location.hash}`,
+                            returnLabel: 'Back to Patient',
+                          }}
                           className="block rounded-lg border border-slate-200 bg-slate-50/80 p-4 transition-colors hover:border-[#0066A6] hover:bg-[#f0f7fc]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0066A6] focus-visible:ring-offset-2"
                         >
                           <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
@@ -623,11 +864,51 @@ const PatientDetail = () => {
                               <span className="mr-1 text-slate-500">{t('startDate')}:</span>
                               <span className="font-medium text-slate-900">{appt.startDate}</span>
                             </div>
-                            <div>
-                              <span className="mr-1 text-slate-500">{t('chargedPrice')}:</span>
-                              <span className="font-medium text-slate-900">{formatChargedPrice(appt)}</span>
-                            </div>
+                            {!isDentist ? (
+                              <div>
+                                <span className="mr-1 text-slate-500">{t('chargedPrice')}:</span>
+                                <span className="font-medium text-slate-900">{formatChargedPrice(appt)}</span>
+                              </div>
+                            ) : null}
+                            {!isDentist ? (
+                              <div>
+                                <span className="mr-1 text-slate-500">Debt:</span>
+                                <span
+                                  className={`font-medium ${
+                                    getAppointmentDebt(appt) > 0 ? 'text-red-600' : 'text-emerald-600'
+                                  }`}
+                                >
+                                  {formatMoney(getAppointmentDebt(appt))}
+                                </span>
+                              </div>
+                            ) : null}
                           </div>
+                          {!isDentist ? (
+                            <div
+                              className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3"
+                              onClick={(e) => e.preventDefault()}
+                            >
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={paymentAmountByAppointment[appt.id] ?? ''}
+                                onChange={(e) => handlePaymentAmountChange(appt.id, e.target.value)}
+                                placeholder="Enter payment"
+                                className="w-36 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  void handleApplyPayment(appt.id);
+                                }}
+                                disabled={paymentSubmittingByAppointment[appt.id] || getAppointmentDebt(appt) <= 0}
+                                className="rounded-md bg-[#0066A6] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#00588f] disabled:cursor-not-allowed disabled:bg-slate-300"
+                              >
+                                {paymentSubmittingByAppointment[appt.id] ? 'Applying...' : 'Apply Payment'}
+                              </button>
+                            </div>
+                          ) : null}
                           {treatments.length > 0 && (
                             <div className="mt-3 border-t border-slate-200 pt-3">
                               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -635,16 +916,26 @@ const PatientDetail = () => {
                               </p>
                               <ul className="space-y-2">
                                 {treatments.map((tt) => (
-                                  <li key={tt.id} className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-800">
-                                    <span className="font-medium">{tt.treatment?.name ?? '—'}</span>
-                                    <span className="text-slate-500">
-                                      {t('toothNumbers')}: {formatToothList(tt)}
-                                    </span>
-                                    {tt.dentist && (
+                                  <li key={tt.id} className="flex flex-col gap-1 text-sm text-slate-800">
+                                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                      <span className="font-medium">{tt.treatment?.name ?? '—'}</span>
                                       <span className="text-slate-500">
-                                        {t('dentist')}: {tt.dentist.staff.name} {tt.dentist.staff.surname}
+                                        {t('toothNumbers')}: {formatToothList(tt)}
                                       </span>
-                                    )}
+                                      <span className="text-slate-500">
+                                        {t('dentist')}:{' '}
+                                        {tt.dentist
+                                          ? `${tt.dentist.staff?.name ?? ''} ${tt.dentist.staff?.surname ?? ''}`.trim() ||
+                                            `#${tt.dentist.id}`
+                                          : t('unknownDentist')}
+                                      </span>
+                                    </div>
+                                    {tt.description?.trim() ? (
+                                      <p className="pl-0 text-xs text-slate-600">
+                                        <span className="font-semibold text-slate-500">{t('treatmentNotes')}: </span>
+                                        {tt.description.trim()}
+                                      </p>
+                                    ) : null}
                                   </li>
                                 ))}
                               </ul>
@@ -660,7 +951,7 @@ const PatientDetail = () => {
             {!appointmentsLoading &&
               !appointmentsError &&
               filteredAppointments.length > 0 &&
-              appointmentTreatmentsView === 'byAppointment' &&
+              (isDentist || appointmentTreatmentsView === 'byAppointment') &&
               appointmentsToDisplay.length === 0 && (
                 <p className="py-4 text-sm text-slate-500">{t('noTreatmentsForFilter')}</p>
               )}
@@ -777,36 +1068,38 @@ const PatientDetail = () => {
                   {t('cancel')}
                 </button>
               </div>
-              <button
-                type="button"
-                disabled={isSubmitting || isDeleting}
-                onClick={async () => {
-                  if (!id || !patient) return;
-                  const confirmed = window.confirm(
-                    t('confirmDelete', { name: `${patient.name} ${patient.surname}` }),
-                  );
-                  if (!confirmed) return;
+              {canDeletePatient ? (
+                <button
+                  type="button"
+                  disabled={isSubmitting || isDeleting}
+                  onClick={async () => {
+                    if (!id || !patient) return;
+                    const confirmed = window.confirm(
+                      t('confirmDelete', { name: `${patient.name} ${patient.surname}` }),
+                    );
+                    if (!confirmed) return;
 
-                  setIsDeleting(true);
-                  setFormError(null);
-                  try {
-                    await patientService.delete(parseInt(id));
-                    setShowEditModal(false);
-                    navigate('/patients');
-                  } catch (err: any) {
-                    console.error('Failed to delete patient:', err);
-                    setFormError(err.response?.data?.message || DELETE_ERROR_KEY);
-                  } finally {
-                    setIsDeleting(false);
-                  }
-                }}
-                className="w-full rounded-lg bg-red-500 py-2 font-medium text-white transition-colors hover:bg-red-600 disabled:opacity-50"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <Trash2 className="h-4 w-4" />
-                  {isDeleting ? t('deleting') : t('deletePatient')}
-                </span>
-              </button>
+                    setIsDeleting(true);
+                    setFormError(null);
+                    try {
+                      await patientService.delete(parseInt(id));
+                      setShowEditModal(false);
+                      navigate('/patients');
+                    } catch (err: any) {
+                      console.error('Failed to delete patient:', err);
+                      setFormError(err.response?.data?.message || DELETE_ERROR_KEY);
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  className="w-full rounded-lg bg-red-500 py-2 font-medium text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Trash2 className="h-4 w-4" />
+                    {isDeleting ? t('deleting') : t('deletePatient')}
+                  </span>
+                </button>
+              ) : null}
             </form>
           </div>
         </div>

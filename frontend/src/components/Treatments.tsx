@@ -11,13 +11,13 @@ import type {
   DentistProfile,
 } from '../services/api';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 
 const Treatments = () => {
   const { t } = useTranslation('treatments');
-  const navigate = useNavigate();
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isDentistUser = role === 'dentist';
+  const isDirectorUser = role === 'director';
+  const canAccessTreatments = isDentistUser || isDirectorUser;
   const dentistId = useMemo(() => Number(localStorage.getItem('dentistId') ?? 0), []);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [assignedTreatmentIds, setAssignedTreatmentIds] = useState<number[]>([]);
@@ -50,6 +50,11 @@ const Treatments = () => {
   const [selectedDentistIdToAdd, setSelectedDentistIdToAdd] = useState(0);
   const [isUpdatingDentists, setIsUpdatingDentists] = useState(false);
   const [isUpdatingDentistTreatments, setIsUpdatingDentistTreatments] = useState(false);
+  const [pendingDentistTreatment, setPendingDentistTreatment] = useState<{
+    action: 'add' | 'remove';
+    id: number;
+    name: string;
+  } | null>(null);
 
   const fetchTreatments = async (searchFilters?: TreatmentFilters) => {
     setIsLoading(true);
@@ -197,6 +202,17 @@ const Treatments = () => {
     }
   };
 
+  const confirmPendingDentistTreatment = async () => {
+    if (!pendingDentistTreatment) return;
+    const { action, id } = pendingDentistTreatment;
+    setPendingDentistTreatment(null);
+    if (action === 'add') {
+      await handleAddTreatmentForCurrentDentist(id);
+    } else {
+      await handleRemoveTreatmentForCurrentDentist(id);
+    }
+  };
+
   const handleAddTreatment = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -245,37 +261,49 @@ const Treatments = () => {
     }
   };
 
-  return (
+  return canAccessTreatments ? (
     <>
       <ClinicManagementLayout>
       <main className="mx-auto w-full max-w-[1400px] py-2">
         <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
+          <div className="min-w-0 flex-1 pr-4">
             <h1 className="text-3xl font-bold text-slate-900">{t('title')}</h1>
             <p className="mt-1 text-sm text-slate-500">{t('searchPlaceholder')}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded-md bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white"
-            >
-              Treatments
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/medicines')}
-              className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              Medicines
-            </button>
-            {isDentistUser && (
+          <div className="flex shrink-0 items-center gap-2">
+            {!isDentistUser && (
               <button
                 type="button"
-                onClick={() => setShowRestTreatments((prev) => !prev)}
-                className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                className="rounded-md bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white"
               >
-                {showRestTreatments ? 'My Treatments' : 'Rest Treatments'}
+                Treatments
               </button>
+            )}
+            {isDentistUser && (
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRestTreatments(false)}
+                  className={`rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
+                    !showRestTreatments
+                      ? 'border-[#0066A6] bg-[#0066A6] text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  My Treatments
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRestTreatments(true)}
+                  className={`rounded-md border-2 px-4 py-2 text-sm font-semibold transition ${
+                    showRestTreatments
+                      ? 'border-[#0066A6] bg-[#0066A6] text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  Rest Treatments
+                </button>
+              </div>
             )}
             {!isDentistUser && (
               <button
@@ -336,16 +364,30 @@ const Treatments = () => {
 
         <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-100">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table
+              className={`w-full ${isDentistUser ? 'table-fixed' : ''}`}
+            >
               <thead className="border-b border-slate-100 bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDentistUser ? 'w-[24%]' : ''
+                    }`}
+                  >
                     {t('table.name')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDentistUser ? 'w-[40%]' : ''
+                    }`}
+                  >
                     {t('table.description')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDentistUser ? 'w-[18%]' : ''
+                    }`}
+                  >
                     {t('table.price')}
                   </th>
                   {!isDentistUser && (
@@ -353,7 +395,11 @@ const Treatments = () => {
                       {t('table.dentists')}
                     </th>
                   )}
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+                  <th
+                    className={`px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider ${
+                      isDentistUser ? 'w-[18%]' : ''
+                    }`}
+                  >
                   </th>
                 </tr>
               </thead>
@@ -373,10 +419,20 @@ const Treatments = () => {
                 ) : (
                   visibleTreatments.map((treatment) => (
                     <tr key={treatment.id} className="transition-colors hover:bg-slate-50">
-                      <td className="px-6 py-4 text-sm font-semibold text-[#0066A6]">{treatment.name}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{treatment.description}</td>
-                      <td className="px-6 py-4 text-sm">
-                        <p className="font-medium text-slate-900">{treatment.price.toFixed(2)} USD</p>
+                      <td className="px-6 py-4 text-sm font-semibold text-[#0066A6]">
+                        <span className={`line-clamp-2 ${isDentistUser ? 'block min-w-0' : ''}`}>
+                          {treatment.name}
+                        </span>
+                      </td>
+                      <td className={`px-6 py-4 text-sm text-slate-600 ${isDentistUser ? 'min-w-0' : ''}`}>
+                        <span className={`${isDentistUser ? 'line-clamp-3 break-words' : ''}`}>
+                          {treatment.description}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm align-top">
+                        <p className="font-medium text-slate-900 whitespace-nowrap">
+                          {treatment.price.toFixed(2)} USD
+                        </p>
                         <p className="text-xs text-slate-500">{pricePerLabel(treatment.pricePer)}</p>
                       </td>
                       {!isDentistUser && (
@@ -394,26 +450,38 @@ const Treatments = () => {
                           </div>
                         </td>
                       )}
-                      <td className="px-6 py-4 text-sm">
+                      <td className={`px-6 py-4 text-sm ${isDentistUser ? 'align-top' : ''}`}>
                         {isDentistUser ? (
                           showRestTreatments ? (
                             <button
                               type="button"
                               disabled={isUpdatingDentistTreatments}
-                              onClick={() => handleAddTreatmentForCurrentDentist(treatment.id)}
-                              className="flex items-center gap-1 rounded-md border border-green-200 px-3 py-1.5 text-sm text-green-700 transition hover:bg-green-50 disabled:opacity-50"
+                              onClick={() =>
+                                setPendingDentistTreatment({
+                                  action: 'add',
+                                  id: treatment.id,
+                                  name: treatment.name,
+                                })
+                              }
+                              className="inline-flex min-w-[6.5rem] items-center justify-center gap-1 rounded-md border border-green-200 px-3 py-1.5 text-sm text-green-700 transition hover:bg-green-50 disabled:opacity-50"
                             >
-                              <Plus className="h-4 w-4" />
+                              <Plus className="h-4 w-4 shrink-0" />
                               Add
                             </button>
                           ) : (
                             <button
                               type="button"
                               disabled={isUpdatingDentistTreatments}
-                              onClick={() => handleRemoveTreatmentForCurrentDentist(treatment.id)}
-                              className="flex items-center gap-1 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                              onClick={() =>
+                                setPendingDentistTreatment({
+                                  action: 'remove',
+                                  id: treatment.id,
+                                  name: treatment.name,
+                                })
+                              }
+                              className="inline-flex min-w-[6.5rem] items-center justify-center gap-1 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                             >
-                              <UserMinus className="h-4 w-4" />
+                              <UserMinus className="h-4 w-4 shrink-0" />
                               Remove
                             </button>
                           )
@@ -436,6 +504,55 @@ const Treatments = () => {
         </div>
       </main>
       </ClinicManagementLayout>
+
+      {pendingDentistTreatment && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dentist-treatment-confirm-title"
+        >
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl ring-1 ring-slate-200">
+            <h2 id="dentist-treatment-confirm-title" className="text-lg font-semibold text-slate-900">
+              {pendingDentistTreatment.action === 'add' ? 'Add treatment' : 'Remove treatment'}
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              {pendingDentistTreatment.action === 'add' ? (
+                <>
+                  Are you sure you want to add{' '}
+                  <span className="font-medium text-slate-800">{pendingDentistTreatment.name}</span> to your treatments?
+                </>
+              ) : (
+                <>
+                  Are you sure you want to remove{' '}
+                  <span className="font-medium text-slate-800">{pendingDentistTreatment.name}</span> from your treatments?
+                </>
+              )}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingDentistTreatment(null)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isUpdatingDentistTreatments}
+                onClick={() => void confirmPendingDentistTreatment()}
+                className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50 ${
+                  pendingDentistTreatment.action === 'add'
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Treatment Modal */}
       {!isDentistUser && showAddModal && (
@@ -731,6 +848,10 @@ const Treatments = () => {
         </div>
       )}
     </>
+  ) : (
+    <div className="flex h-dvh items-center justify-center bg-[#f4f6f8] text-slate-700">
+      <p className="text-lg">You do not have permission to view this page.</p>
+    </div>
   );
 };
 

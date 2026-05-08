@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -62,5 +63,18 @@ export class MedicineController {
     @Body() dto: UpdateMedicineDto,
   ) {
     return await this.service.patch(user.userId, id, dto);
+  }
+
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete medicine by id' })
+  @ApiOkResponse({ description: 'Medicine deleted' })
+  async remove(
+    @User() user: any,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return await this.service.remove(user.userId, id);
   }
 }

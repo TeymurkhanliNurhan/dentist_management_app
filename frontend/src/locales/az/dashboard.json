@@ -4,6 +4,16 @@
   "patients": "Xəstələr",
   "treatments": "Müalicələr",
   "medicines": "Dərmanlar",
-  "schedule": "Cədvəl"
+  "schedule": "Cədvəl",
+  "dentistDashboardTitle": "Bu gunun icmali",
+  "dentistDashboardSubtitle": "Mualiceleriniz, geliriniz ve cedveliniz ucun qisa xulase.",
+  "dentistTodayTreatments": "Bu gun mualiceler",
+  "dentistTodayRevenue": "Bu gun gelir",
+  "dentistMonthRevenue": "Bu ay gelir",
+  "dentistTodayScheduleTimeline": "Bu gunun cedveli",
+  "dentistTodayRandevues": "Randevular",
+  "dentistTodayBlockingHours": "Blok saatlar",
+  "dentistScheduleEmpty": "Bu gun ucun qeyd yoxdur.",
+  "dentistDashboardRefreshing": "Dashboard melumatlari yenilenir..."
 }
 
