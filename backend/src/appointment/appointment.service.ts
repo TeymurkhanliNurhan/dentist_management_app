@@ -111,6 +111,14 @@ export class AppointmentService {
       }
       if (e?.message?.includes('Appointment not found'))
         throw new NotFoundException('Appointment not found');
+      if (
+        typeof e?.message === 'string' &&
+        e.message.includes('Dentist not found')
+      ) {
+        throw new BadRequestException(
+          'Could not resolve dentist profile for this session. Sign out and sign in again.',
+        );
+      }
       if (e instanceof ForbiddenException) {
         throw e;
       }

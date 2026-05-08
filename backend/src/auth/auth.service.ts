@@ -171,7 +171,7 @@ export class AuthService {
 
     const role = this.normalizeAuthRole(staff.role);
     const ownDentistId =
-      role === 'dentist'
+      role === 'dentist' || role === 'singleDentist'
         ? await this.authRepository.findDentistIdByStaffId(staff.id)
         : null;
 

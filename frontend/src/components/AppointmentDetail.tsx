@@ -1039,7 +1039,9 @@ const AppointmentDetail = () => {
     setError('');
     try {
       const currentCollected = appointment.chargedFee ?? 0;
-      const nextCharged = Math.min(appointment.calculatedFee, currentCollected + amount);
+      const outstanding = Math.max(0, appointment.calculatedFee - currentCollected);
+      const applied = Math.min(amount, outstanding);
+      const nextCharged = roundMoney(currentCollected + applied);
       await appointmentService.update(appointment.id, { chargedFee: nextCharged });
       setDebtPaymentInput('');
       const appointmentsData = await appointmentService.getAll();
@@ -1727,6 +1729,9 @@ const AppointmentDetail = () => {
 
   const appointmentOutstandingDebt = (a: Appointment) =>
     Math.max(0, a.calculatedFee - (a.chargedFee ?? 0));
+
+  const roundMoney = (value: number) =>
+    Math.round((value + Number.EPSILON) * 100) / 100;
 
   const totalTreatmentPages = Math.max(1, Math.ceil(availableTreatments.length / ITEMS_PER_PAGE));
   const paginatedTreatments = availableTreatments.slice((treatmentPage - 1) * ITEMS_PER_PAGE, treatmentPage * ITEMS_PER_PAGE);

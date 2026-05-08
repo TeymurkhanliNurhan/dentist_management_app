@@ -1,4 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { IsDateString, IsNumber, IsOptional, Min } from 'class-validator';
 
 export class UpdateAppointmentDto {
@@ -17,6 +18,12 @@ export class UpdateAppointmentDto {
     description: 'Amount charged by the dentist',
   })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === '') return undefined;
+    if (value === null) return null;
+    const n = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(n) ? n : value;
+  })
   @IsNumber()
   @Min(0)
   chargedFee?: number | null;

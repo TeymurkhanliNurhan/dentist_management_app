@@ -11,6 +11,7 @@ import {
   Patch,
   Post,
   Query,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -28,6 +29,15 @@ import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
 import { isDirectorRole } from '../auth/role-guards';
 
+function resolveDentistContextId(user: any): number {
+  const raw = user?.userId ?? user?.sub ?? user?.dentistId;
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+    return raw;
+  }
+  const parsed = Number.parseInt(String(raw ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
 @ApiTags('appointment')
 @Controller('appointment')
 export class AppointmentController {
@@ -40,7 +50,10 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Get appointments with optional filters' })
   @ApiOkResponse({ description: 'Appointments retrieved' })
   async findAll(@User() user: any, @Query() dto: GetAppointmentDto) {
-    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
+    const dentistId = resolveDentistContextId(user);
+    if (!dentistId) {
+      throw new UnauthorizedException('Invalid dentist context');
+    }
     const role =
       typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
     return await this.service.findAll(dentistId, dto, role);
@@ -58,7 +71,10 @@ export class AppointmentController {
         'Directors have read-only access for appointment creation',
       );
     }
-    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
+    const dentistId = resolveDentistContextId(user);
+    if (!dentistId) {
+      throw new UnauthorizedException('Invalid dentist context');
+    }
     return await this.service.create(dentistId, dto);
   }
 
@@ -73,7 +89,10 @@ export class AppointmentController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateAppointmentDto,
   ) {
-    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
+    const dentistId = resolveDentistContextId(user);
+    if (!dentistId) {
+      throw new UnauthorizedException('Invalid dentist context');
+    }
     return await this.service.patch(dentistId, id, dto, user?.role);
   }
 
@@ -89,7 +108,10 @@ export class AppointmentController {
         'Directors have read-only access for appointment deletion',
       );
     }
-    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
+    const dentistId = resolveDentistContextId(user);
+    if (!dentistId) {
+      throw new UnauthorizedException('Invalid dentist context');
+    }
     return await this.service.delete(dentistId, id);
   }
 }
