@@ -37,6 +37,36 @@ export class AuthService {
     return birthDate;
   }
 
+  private normalizeAuthRole(
+    role: string | null | undefined,
+  ): 'dentist' | 'director' | 'frontdesk' | 'nurse' | 'staff' {
+    const normalizedRole = (role ?? '').trim().toLowerCase();
+    if (
+      normalizedRole === 'dentist' ||
+      normalizedRole === 'singledentist' ||
+      normalizedRole === 'single_dentist' ||
+      normalizedRole === 'single-dentist'
+    ) {
+      return 'dentist';
+    }
+    if (normalizedRole === 'director') {
+      return 'director';
+    }
+    if (
+      normalizedRole === 'frontdesk' ||
+      normalizedRole === 'front_desk' ||
+      normalizedRole === 'front desk' ||
+      normalizedRole === 'reception' ||
+      normalizedRole === 'receptionist'
+    ) {
+      return 'frontdesk';
+    }
+    if (normalizedRole === 'nurse') {
+      return 'nurse';
+    }
+    return 'staff';
+  }
+
   async register(registerDto: RegisterDto): Promise<RegisterResponseDto> {
     const existingUser = await this.authRepository.findUserByEmail(
       registerDto.gmail,
@@ -137,16 +167,11 @@ export class AuthService {
       );
     }
 
-    const ownDentistId = staff.dentist?.id;
-    const role = staff.dentist
-      ? 'dentist'
-      : staff.director
-        ? 'director'
-        : staff.frontDeskWorker
-          ? 'frontdesk'
-          : staff.nurse
-            ? 'nurse'
-            : 'staff';
+    const role = this.normalizeAuthRole(staff.role);
+    const ownDentistId =
+      role === 'dentist'
+        ? await this.authRepository.findDentistIdByStaffId(staff.id)
+        : null;
 
     const contextDentistId =
       ownDentistId ??
