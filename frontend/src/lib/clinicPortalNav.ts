@@ -44,6 +44,7 @@ export const FRONTDESK_PORTAL_MENU: ClinicPortalMenuItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { label: 'Patients', icon: UserRound, path: '/patients' },
   { label: 'Schedule', icon: CalendarDays, path: '/schedule' },
+  { label: 'Inventory', icon: Package, path: '/medicines' },
   { label: 'Finance', icon: Wallet, path: '/finance' },
 ];
 

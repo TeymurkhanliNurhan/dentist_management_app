@@ -67,7 +67,8 @@ const Medicines = () => {
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isDentist = role === 'dentist';
   const isDirector = role === 'director';
-  const canAccessMedicines = isDentist || isDirector;
+  const isReception = role === 'frontdesk';
+  const canAccessMedicines = isDentist || isDirector || isReception;
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [filters, setFilters] = useState<MedicineFilters>({
     name: '',

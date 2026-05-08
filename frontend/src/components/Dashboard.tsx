@@ -1205,7 +1205,7 @@ const Dashboard = () => {
                     </div>
                   </div>
 
-                  {isDirector && (
+                  {isDirectorOrReception && (
                   <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
                     <h2 className="mb-2 text-lg font-semibold text-rose-800">Medicines to Purchase</h2>
                     <div className="space-y-2">
