@@ -23,7 +23,7 @@ const Patients = () => {
   const isDirector = role === 'director';
   const isReception = role === 'frontdesk';
   const isDirectorOrReception = isDirector || isReception;
-  const isDentist = role === 'dentist' || role === 'single dentist';
+  const isDentist = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
   const usePatientsPortalShell = isDirectorOrReception || isDentist;
   const [dentistPortalDisplayName, setDentistPortalDisplayName] = useState('');
   const [patients, setPatients] = useState<Patient[]>([]);
