@@ -18,15 +18,18 @@ export class PaymentDetailsService {
     return (role ?? '').toLowerCase().replace(/[_\s-]/g, '');
   }
 
-  private ensureDirectorOrReceptionist(role?: string) {
+  private ensureDirectorReceptionOrSingleDentist(role?: string) {
     const normalized = this.normalizeRole(role);
     const allowed =
       normalized === 'director' ||
       normalized === 'frontdesk' ||
-      normalized === 'receptionist';
+      normalized === 'receptionist' ||
+      normalized === 'frontdeskworker' ||
+      normalized === 'singledentist' ||
+      normalized === 'sinledentist';
     if (!allowed) {
       throw new ForbiddenException(
-        'Only director and receptionist can access payment details endpoints',
+        'Only director, receptionist, and single dentist can access payment details endpoints',
       );
     }
   }
@@ -52,7 +55,7 @@ export class PaymentDetailsService {
     role: string | undefined,
     dto: CreatePaymentDetailsDto,
   ) {
-    this.ensureDirectorOrReceptionist(role);
+    this.ensureDirectorReceptionOrSingleDentist(role);
     try {
       return await this.repo.createForDentist(dentistId, dto);
     } catch (e: any) {
@@ -71,7 +74,7 @@ export class PaymentDetailsService {
     role: string | undefined,
     dto: GetPaymentDetailsDto,
   ) {
-    this.ensureDirectorOrReceptionist(role);
+    this.ensureDirectorReceptionOrSingleDentist(role);
     return await this.repo.findForDentist(dentistId, dto);
   }
 
@@ -81,7 +84,7 @@ export class PaymentDetailsService {
     id: number,
     dto: UpdatePaymentDetailsDto,
   ) {
-    this.ensureDirectorOrReceptionist(role);
+    this.ensureDirectorReceptionOrSingleDentist(role);
     try {
       return await this.repo.updateForDentist(dentistId, id, dto);
     } catch (e: any) {
@@ -99,7 +102,7 @@ export class PaymentDetailsService {
   }
 
   async delete(dentistId: number, role: string | undefined, id: number) {
-    this.ensureDirectorOrReceptionist(role);
+    this.ensureDirectorReceptionOrSingleDentist(role);
     try {
       await this.repo.deleteForDentist(dentistId, id);
       return { message: 'PaymentDetails deleted' };

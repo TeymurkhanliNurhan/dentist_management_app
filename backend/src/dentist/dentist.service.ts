@@ -421,7 +421,20 @@ export class DentistService {
     };
   }
 
-  async getFinanceOverview(dentistId: number, dto: GetDentistFinanceDto) {
+  private normalizeAuthRoleToken(role?: string): string {
+    return (role ?? '').toLowerCase().replace(/[_\s-]/g, '');
+  }
+
+  private isSingleDentistRole(role?: string): boolean {
+    const n = this.normalizeAuthRoleToken(role);
+    return n === 'singledentist' || n === 'sinledentist';
+  }
+
+  async getFinanceOverview(
+    dentistId: number,
+    dto: GetDentistFinanceDto,
+    requesterRole?: string,
+  ) {
     const dentist = await this.dentistRepository.findById(dentistId);
     if (!dentist) throw new NotFoundException('Dentist not found');
 
@@ -431,7 +444,10 @@ export class DentistService {
     const salary = await this.dataSource.getRepository(Salary).findOne({
       where: { staffId: dentist.staffId },
     });
-    const commissionRate = salary?.treatmentPercentage ?? 0;
+    const clinicOwnerView = this.isSingleDentistRole(requesterRole);
+    const salaryCommissionRate = salary?.treatmentPercentage ?? 0;
+    const commissionRate = clinicOwnerView ? 100 : salaryCommissionRate;
+    const commissionFactor = clinicOwnerView ? 1 : salaryCommissionRate / 100;
 
     const baseCte = `
       WITH TreatmentEffectiveDates AS (
@@ -528,11 +544,11 @@ export class DentistService {
     monthStats.forEach((stat: any) => {
       const fee = Number(stat.total_fee);
       const count = Number(stat.count);
-      const comm = fee * (commissionRate / 100);
-      
+      const comm = fee * commissionFactor;
+
       monthlyCommission += comm;
       totalTreatments += count;
-      
+
       treatmentMix.push({
         name: stat.treatmentName,
         count,
@@ -566,21 +582,21 @@ export class DentistService {
       graphs: {
         daily: dailyGraph.map((d: any) => ({
           day: Number(d.day),
-          commission: Number(d.total_fee) * (commissionRate / 100)
+          commission: Number(d.total_fee) * commissionFactor,
         })),
         weekly: weeklyGraph.map((w: any) => ({
           week: Number(w.week),
-          commission: Number(w.total_fee) * (commissionRate / 100)
+          commission: Number(w.total_fee) * commissionFactor,
         })),
         monthly: monthlyGraph.map((m: any) => ({
           month: Number(m.month),
-          commission: Number(m.total_fee) * (commissionRate / 100)
-        }))
+          commission: Number(m.total_fee) * commissionFactor,
+        })),
       },
       recentOperatedTreatments: recentTreatments.map((r: any) => {
-        const trs = r.treatments as Array<{name: string, fee: number}>;
+        const trs = r.treatments as Array<{ name: string; fee: number }>;
         const totalFee = trs.reduce((acc, curr) => acc + curr.fee, 0);
-        const commission = totalFee * (commissionRate / 100);
+        const commission = totalFee * commissionFactor;
         
         const counts: Record<string, number> = {};
         trs.forEach(t => { counts[t.name] = (counts[t.name] || 0) + 1; });

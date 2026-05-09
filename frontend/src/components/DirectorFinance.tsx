@@ -9,6 +9,7 @@ import {
   type FinanceOverviewResponse,
 } from '../services/api';
 import { ClinicPortalShell } from './ClinicPortalShell';
+import { buildFinanceExpenseGroups } from '../lib/buildFinanceExpenseGroups';
 import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 
@@ -320,18 +321,7 @@ const DirectorFinance = () => {
         return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
       })
       .join(' ');
-  const expenseGroups = (financeOverview?.otherPaymentDetails?.byCategory ?? []).map((category) => {
-    const paymentDetails = (financeOverview?.otherPaymentDetails?.items ?? []).filter(
-      (item) => item.expenseId === category.expenseId,
-    );
-    return {
-      key: `${category.expenseId}-${category.name}`,
-      expenseName: category.name,
-      expenseId: category.expenseId,
-      totalCost: Number(category.totalCost ?? 0),
-      paymentDetails,
-    };
-  });
+  const expenseGroups = buildFinanceExpenseGroups(financeOverview);
 
   return (
     <>

@@ -312,12 +312,20 @@ export class PaymentDetailsRepository {
       .orderBy('expense.name', 'ASC')
       .getRawMany<{ id: number; name: string }>();
 
+    const medicineTotalForPaymentDetail = (pd: PaymentDetails): number =>
+      (pd.purchaseMedicineRecords ?? []).reduce(
+        (sum, row) => sum + Number(row.totalPrice ?? 0),
+        0,
+      );
+
     const otherPaymentsByCategory = new Map<string, number>();
     for (const paymentDetail of monthlyPaymentDetails) {
       const category = paymentDetail.expense?.name ?? 'Other';
+      const nonMedicineCost =
+        Number(paymentDetail.cost ?? 0) - medicineTotalForPaymentDetail(paymentDetail);
       otherPaymentsByCategory.set(
         category,
-        (otherPaymentsByCategory.get(category) ?? 0) + Number(paymentDetail.cost ?? 0),
+        (otherPaymentsByCategory.get(category) ?? 0) + nonMedicineCost,
       );
     }
 
@@ -334,12 +342,12 @@ export class PaymentDetailsRepository {
       );
     }
 
-    const totalOtherPaymentDetails = monthlyPaymentDetails.reduce(
-      (acc, item) => acc + Number(item.cost ?? 0),
-      0,
-    );
     const totalMedicinePurchases = purchaseMedicines.reduce(
       (acc, item) => acc + Number(item.totalPrice ?? 0),
+      0,
+    );
+    const totalOtherPaymentDetails = monthlyPaymentDetails.reduce(
+      (acc, item) => acc + (Number(item.cost ?? 0) - medicineTotalForPaymentDetail(item)),
       0,
     );
     const totalOutcome = totalSalaryOutcome + totalOtherPaymentDetails + totalMedicinePurchases;

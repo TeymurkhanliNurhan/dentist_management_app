@@ -125,6 +125,10 @@ export class DentistController {
   @ApiBearerAuth('bearer')
   getFinanceOverview(@User() user: unknown, @Query() dto: GetDentistFinanceDto) {
     const dentistId = this.getDentistId(user);
-    return this.dentistService.getFinanceOverview(dentistId, dto);
+    const role =
+      user && typeof user === 'object' && 'role' in user
+        ? String((user as { role?: string }).role ?? '')
+        : undefined;
+    return this.dentistService.getFinanceOverview(dentistId, dto, role);
   }
 }

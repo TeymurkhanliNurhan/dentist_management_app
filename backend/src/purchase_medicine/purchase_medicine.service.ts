@@ -14,14 +14,19 @@ import { CreatePurchaseSessionDto } from './dto/create-purchase-session.dto';
 export class PurchaseMedicineService {
   constructor(private readonly repo: PurchaseMedicineRepository) {}
 
+  private normalizeRole(role?: string): string {
+    return (role ?? '').toLowerCase().replace(/[_\s-]/g, '');
+  }
+
   private ensurePurchaseMedicineAccess(role?: string) {
-    const normalized = (role ?? '').toLowerCase();
+    const normalized = this.normalizeRole(role);
     const allowed =
       normalized === 'director' ||
       normalized === 'singledentist' ||
+      normalized === 'sinledentist' ||
       normalized === 'frontdesk' ||
       normalized === 'receptionist' ||
-      normalized === 'front_desk_worker';
+      normalized === 'frontdeskworker';
     if (!allowed) {
       throw new ForbiddenException(
         'Only director, single dentist, and receptionist can access purchase medicine endpoints',
