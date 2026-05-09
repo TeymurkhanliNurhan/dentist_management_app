@@ -5,6 +5,8 @@ import { medicineService, purchaseMedicineService } from '../services/api';
 import type { Medicine, MedicineFilters } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
+// noop: harmless diff for local commit workflow
+
 /** Lets users clear the field before typing (e.g. replace 0 with 5 without "05"). */
 type DraftNumber = number | '';
 
