@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
+import { labelForPortalNavPath } from '../lib/portalNavLabels';
+import { isSingleDentistRole } from '../lib/singleDentistRole';
 import { API_BASE_URL } from '../services/api';
+import { PortalLanguageSwitcher } from './PortalLanguageSwitcher';
 
 export default function ClinicManagementLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
@@ -14,6 +18,8 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
 
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
+  const showSingleDentistLanguage = useMemo(() => isSingleDentistRole(localStorage.getItem('role')), []);
+  const { t } = useTranslation('header');
 
   useEffect(() => {
     let cancelled = false;
@@ -63,8 +69,8 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f4f6f8] text-slate-700">
       <header className="h-16 shrink-0 border-b border-slate-200 bg-white px-6">
-        <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               onClick={() => setIsSidebarOpen((prev) => !prev)}
@@ -73,7 +79,10 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
             >
               {isSidebarOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
             </button>
-            <span className="text-sm font-semibold text-slate-900">Clinic Management</span>
+            <span className="truncate text-sm font-semibold text-slate-900">{t('clinicManagementTitle')}</span>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {showSingleDentistLanguage ? <PortalLanguageSwitcher /> : null}
           </div>
         </div>
       </header>
@@ -104,7 +113,9 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
                       </span>
                     )}
                   </span>
-                  {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
+                  {isSidebarOpen && (
+                    <span className="ml-3 truncate">{labelForPortalNavPath(item.path, item.label, t)}</span>
+                  )}
                 </button>
               ))}
             </nav>
@@ -115,7 +126,7 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
                 className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
               >
                 <LogOut size={16} />
-                {isSidebarOpen && <span className="ml-3 truncate">Logout</span>}
+                {isSidebarOpen && <span className="ml-3 truncate">{t('signOut')}</span>}
               </button>
             </div>
           </div>

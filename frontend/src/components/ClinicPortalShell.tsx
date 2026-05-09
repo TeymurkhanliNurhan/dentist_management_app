@@ -1,11 +1,43 @@
 import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import type { NavigateFunction } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, LogOut, Menu } from 'lucide-react';
 import type { ClinicPortalMenuItem } from '../lib/clinicPortalNav';
 import { isDirectorPortalNavActive } from '../lib/clinicPortalNav';
+import { labelForPortalNavPath } from '../lib/portalNavLabels';
+import { isSingleDentistRole } from '../lib/singleDentistRole';
 import { API_BASE_URL } from '../services/api';
+import { PortalLanguageSwitcher } from './PortalLanguageSwitcher';
 
 type CollapseToggleVariant = 'chevron' | 'menu';
+
+const PORTAL_BADGE_I18N_KEY: Record<string, string> = {
+  'Admin Portal': 'portalBadgeAdmin',
+  'Reception Portal': 'portalBadgeReception',
+  'Dentist Portal': 'portalBadgeDentist',
+};
+
+const PORTAL_ROLE_I18N_KEY: Record<string, string> = {
+  'Clinic Director': 'roleClinicDirector',
+  Receptionist: 'roleReceptionist',
+  Dentist: 'roleDentist',
+  'Solo Practitioner': 'roleSoloPractitioner',
+  'Single Dentist': 'roleSingleDentist',
+  'Clinic Dentist': 'roleClinicDentist',
+};
+
+function portalChromeLabel(
+  text: string,
+  t: (key: string) => string,
+  localize: boolean,
+): string {
+  if (!localize) return text;
+  const badgeKey = PORTAL_BADGE_I18N_KEY[text];
+  if (badgeKey) return t(badgeKey);
+  const roleKey = PORTAL_ROLE_I18N_KEY[text];
+  if (roleKey) return t(roleKey);
+  return text;
+}
 
 export type ClinicPortalShellProps = {
   brandTitle: string;
@@ -52,6 +84,8 @@ export function ClinicPortalShell({
   const collapseLabel = isSidebarOpen ? 'Collapse menu' : 'Expand menu';
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
+  const showSingleDentistLanguage = useMemo(() => isSingleDentistRole(localStorage.getItem('role')), []);
+  const { t } = useTranslation('header');
   const [globalScheduleNotificationCount, setGlobalScheduleNotificationCount] = useState(0);
 
   useEffect(() => {
@@ -116,7 +150,7 @@ export function ClinicPortalShell({
             <span className="truncate text-sm font-semibold text-slate-900">{brandTitle}</span>
             {portalBadge ? (
               <span className="hidden shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:inline">
-                {portalBadge}
+                {portalChromeLabel(portalBadge, t, showSingleDentistLanguage)}
               </span>
             ) : null}
           </div>
@@ -125,12 +159,15 @@ export function ClinicPortalShell({
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {headerActions}
+            {showSingleDentistLanguage ? <PortalLanguageSwitcher /> : null}
             {showProfileStrip ? (
               <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5">
                 <div className="h-7 w-7 shrink-0 rounded-full bg-slate-200" />
                 <div className="min-w-0 leading-tight">
                   <p className="truncate text-xs font-semibold text-slate-700">{userDisplayName || '-'}</p>
-                  <p className="truncate text-[10px] text-slate-400">{userSubtitle}</p>
+                  <p className="truncate text-[10px] text-slate-400">
+                    {portalChromeLabel(userSubtitle, t, showSingleDentistLanguage)}
+                  </p>
                 </div>
               </div>
             ) : null}
@@ -148,7 +185,7 @@ export function ClinicPortalShell({
             <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3">
               {menuItems.map((item) => (
                 <button
-                  key={item.label}
+                  key={item.path}
                   type="button"
                   onClick={() => navigate(item.path)}
                   className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition ${
@@ -173,7 +210,9 @@ export function ClinicPortalShell({
                   </span>
                     );
                   })()}
-                  {isSidebarOpen && <span className="ml-3 truncate">{item.label}</span>}
+                  {isSidebarOpen && (
+                    <span className="ml-3 truncate">{labelForPortalNavPath(item.path, item.label, t)}</span>
+                  )}
                 </button>
               ))}
             </nav>
@@ -185,7 +224,7 @@ export function ClinicPortalShell({
                 className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-slate-500 transition hover:bg-white/80"
               >
                 <LogOut size={16} className="shrink-0" />
-                {isSidebarOpen && <span className="ml-3 truncate">Logout</span>}
+                {isSidebarOpen && <span className="ml-3 truncate">{t('signOut')}</span>}
               </button>
             </div>
           </div>
