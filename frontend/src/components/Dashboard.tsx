@@ -959,6 +959,9 @@ const Dashboard = () => {
   };
 
   const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
+  const directorLikeMenuItems = isSingleDentist
+    ? DIRECTOR_PORTAL_MENU.filter((item) => item.path !== '/staff')
+    : DIRECTOR_PORTAL_MENU;
 
   const showDirectorFinanceAndChart = isDirector || isSingleDentist;
   const showRoomOccupancyCard = isDirectorOrReception && !isSingleDentist;
@@ -972,7 +975,7 @@ const Dashboard = () => {
           portalBadge={isDirector || isSingleDentist ? 'Admin Portal' : 'Reception Portal'}
           userDisplayName={directorDisplayName}
           userSubtitle={isDirector || isSingleDentist ? 'Clinic Director' : 'Receptionist'}
-          menuItems={isDirector || isSingleDentist ? DIRECTOR_PORTAL_MENU : FRONTDESK_PORTAL_MENU}
+          menuItems={isDirector || isSingleDentist ? directorLikeMenuItems : FRONTDESK_PORTAL_MENU}
           pathname={location.pathname}
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
@@ -980,7 +983,7 @@ const Dashboard = () => {
           onLogoutClick={() => setShowLogoutConfirm(true)}
           scheduleNotificationCount={awaitingBlockingCount}
           headerActions={
-            isDirector || isSingleDentist ? (
+            isDirector ? (
             <button
               type="button"
               onClick={() => navigate('/staff')}
