@@ -35,5 +35,11 @@
   "add": "Добавить лечение",
   "updating": "Обновление...",
   "update": "Обновить лечение",
-  "cancel": "Отмена"
+  "cancel": "Отмена",
+  "pagination": {
+    "showing": "Показано {{from}}-{{to}} из {{total}}",
+    "page": "Страница {{current}} / {{total}}",
+    "previous": "Назад",
+    "next": "Вперёд"
+  }
 }

@@ -13,7 +13,7 @@ import { buildFinanceExpenseGroups } from '../lib/buildFinanceExpenseGroups';
 import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { useTranslation } from 'react-i18next';
-import { appLocaleTag } from '../lib/localeHelpers';
+import { formatMonthLabelByIndex1 } from '../lib/localeHelpers';
 
 function formatCurrency(value: number): string {
   return `$${value.toLocaleString(undefined, {
@@ -46,9 +46,7 @@ const DirectorFinance = () => {
   const isDirector = role === 'director';
 
   const monthShortLabel = (monthIndex1: number) =>
-    new Date(2000, monthIndex1 - 1, 1).toLocaleDateString(appLocaleTag(i18n.language), {
-      month: 'short',
-    });
+    formatMonthLabelByIndex1(monthIndex1, i18n.language, 'short');
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);

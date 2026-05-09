@@ -118,5 +118,19 @@ i18n
     supportedLngs: ['en', 'az', 'ru'],
   });
 
+/**
+ * Keep <html lang> in sync with the active i18next language.
+ * Required for `text-transform: uppercase` to follow Azerbaijani case
+ * mapping (lowercase `i` → uppercase `İ`, dotless `ı` → `I`).
+ */
+const syncDocumentLang = (lng: string) => {
+  if (typeof document === 'undefined') return;
+  const base = lng.split('-')[0]?.toLowerCase() ?? 'en';
+  document.documentElement.lang = base;
+};
+
+syncDocumentLang(i18n.language || 'en');
+i18n.on('languageChanged', syncDocumentLang);
+
 export default i18n;
 

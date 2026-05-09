@@ -28,6 +28,12 @@ import {
   type UpdateRandevueDto,
 } from '../services/api';
 import { DENTIST_PORTAL_MENU, DIRECTOR_PORTAL_MENU, FRONTDESK_PORTAL_MENU } from '../lib/clinicPortalNav';
+import {
+  formatLongWeekdayDate,
+  formatMonthLabel,
+  formatWeekdayShort,
+  formatWeekdayWithDate,
+} from '../lib/localeHelpers';
 
 /** Visible schedule window (top->bottom): 08:00 ... 21:00 (end boundary 22:00). */
 const SCHEDULE_START_HOUR = 8;
@@ -716,7 +722,12 @@ const Schedule = () => {
 
   const days = useMemo(() => weekDays(weekAnchor), [weekAnchor]);
   const rangeLabel = useMemo(() => {
+    const isAz = i18n.language?.split('-')[0]?.toLowerCase() === 'az';
     if (useClinicScheduleUi && viewMode !== 'weekly') {
+      if (isAz) {
+        const weekday = formatWeekdayShort(dayAnchor, i18n.language);
+        return `${weekday}, ${dayAnchor.getDate()} ${formatMonthLabel(dayAnchor, i18n.language, 'short')} ${dayAnchor.getFullYear()}`;
+      }
       return dayAnchor.toLocaleDateString(i18n.language, {
         weekday: 'long',
         month: 'short',
@@ -726,9 +737,14 @@ const Schedule = () => {
     }
     const a = days[0];
     const b = days[6];
+    const yearsDiffer = a.getFullYear() !== b.getFullYear();
+    if (isAz) {
+      const left = `${a.getDate()} ${formatMonthLabel(a, i18n.language, 'short')}${yearsDiffer ? ` ${a.getFullYear()}` : ''}`;
+      const right = `${b.getDate()} ${formatMonthLabel(b, i18n.language, 'short')} ${b.getFullYear()}`;
+      return `${left} – ${right}`;
+    }
     const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
-    const y = a.getFullYear() !== b.getFullYear();
-    const left = a.toLocaleDateString(i18n.language, y ? { ...opts, year: 'numeric' } : opts);
+    const left = a.toLocaleDateString(i18n.language, yearsDiffer ? { ...opts, year: 'numeric' } : opts);
     const right = b.toLocaleDateString(i18n.language, { ...opts, year: 'numeric' });
     return `${left} – ${right}`;
   }, [dayAnchor, days, i18n.language, useClinicScheduleUi, viewMode]);
@@ -1513,11 +1529,7 @@ const Schedule = () => {
 
   const weeklyColumns = days.map((day) => ({
     key: day.toISOString(),
-    label: day.toLocaleDateString(i18n.language, {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-    }),
+    label: formatWeekdayWithDate(day, i18n.language),
     day,
     isToday: formatYmd(day) === formatYmd(new Date()),
   }));
@@ -2995,12 +3007,7 @@ const Schedule = () => {
                               </p>
                               <p>
                                 <span className="font-medium text-gray-700">{t('date')}:</span>{' '}
-                                {new Date(detailRandevue.date).toLocaleDateString(i18n.language, {
-                                  weekday: 'short',
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric',
-                                })}
+                                {formatLongWeekdayDate(new Date(detailRandevue.date), i18n.language)}
                               </p>
                               <p>
                                 <span className="font-medium text-gray-700">{t('time')}:</span>{' '}
@@ -3356,12 +3363,7 @@ const Schedule = () => {
               </p>
               <p className="text-gray-200 mt-1">
                 {t('tooltipStartDate')}:{' '}
-                {new Date(hoverTip.r.date).toLocaleDateString(i18n.language, {
-                  weekday: 'short',
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                })}
+                {formatLongWeekdayDate(new Date(hoverTip.r.date), i18n.language)}
               </p>
               <p className="text-gray-200">
                 {t('startTime')}: {localTimeHm(new Date(hoverTip.r.date))}

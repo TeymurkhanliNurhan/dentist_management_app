@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU, FRONTDESK_PORTAL_MENU } from '../lib/clinicPortalNav';
-import { appLocaleTag } from '../lib/localeHelpers';
+import { appLocaleTag, formatDateDdMmYyyy } from '../lib/localeHelpers';
 import { appointmentService, dentistService, patientService, toothTreatmentService } from '../services/api';
 import type { Patient, PatientFilters, CreatePatientDto, ToothTreatment } from '../services/api';
 import { useTranslation } from 'react-i18next';
@@ -171,11 +171,7 @@ const Patients = () => {
     if (Number.isNaN(parsed.getTime())) {
       return dateValue;
     }
-    return parsed.toLocaleDateString(appLocaleTag(i18n.language), {
-      month: 'short',
-      day: '2-digit',
-      year: 'numeric',
-    });
+    return formatDateDdMmYyyy(parsed);
   };
 
   const formatDebt = (debt: number) =>

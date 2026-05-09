@@ -526,8 +526,11 @@ const Treatments = () => {
           {!isLoading && visibleTreatments.length > 0 && (
             <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
               <p className="text-sm text-slate-500">
-                Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
-                {Math.min(currentPage * ITEMS_PER_PAGE, visibleTreatments.length)} of {visibleTreatments.length}
+                {t('pagination.showing', {
+                  from: (currentPage - 1) * ITEMS_PER_PAGE + 1,
+                  to: Math.min(currentPage * ITEMS_PER_PAGE, visibleTreatments.length),
+                  total: visibleTreatments.length,
+                })}
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -536,10 +539,10 @@ const Treatments = () => {
                   disabled={currentPage === 1}
                   className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Previous
+                  {t('pagination.previous')}
                 </button>
                 <span className="text-sm text-slate-600">
-                  Page {currentPage} / {totalPages}
+                  {t('pagination.page', { current: currentPage, total: totalPages })}
                 </span>
                 <button
                   type="button"
@@ -547,7 +550,7 @@ const Treatments = () => {
                   disabled={currentPage === totalPages}
                   className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Next
+                  {t('pagination.next')}
                 </button>
               </div>
             </div>

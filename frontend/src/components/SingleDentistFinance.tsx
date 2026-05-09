@@ -17,7 +17,7 @@ import { buildFinanceExpenseGroups } from '../lib/buildFinanceExpenseGroups';
 import { DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { useTranslation } from 'react-i18next';
-import { appLocaleTag } from '../lib/localeHelpers';
+import { appLocaleTag, formatMonthLabel, formatMonthLabelByIndex1 } from '../lib/localeHelpers';
 
 function formatCurrency(value: number): string {
   return `$${value.toLocaleString(undefined, {
@@ -61,7 +61,7 @@ const SingleDentistFinance = () => {
 
   const locale = appLocaleTag(i18n.language);
   const monthShortLabel = (monthIndex1: number) =>
-    new Date(2000, monthIndex1 - 1, 1).toLocaleDateString(locale, { month: 'short' });
+    formatMonthLabelByIndex1(monthIndex1, i18n.language, 'short');
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -803,11 +803,16 @@ const SingleDentistFinance = () => {
                                     {apt.patient.name} {apt.patient.surname}
                                   </td>
                                   <td className="px-5 py-4">
-                                    {new Date(apt.startDate).toLocaleDateString(locale, {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
-                                    })}
+                                    {(() => {
+                                      const d = new Date(apt.startDate);
+                                      return i18n.language?.split('-')[0]?.toLowerCase() === 'az'
+                                        ? `${d.getDate()} ${formatMonthLabel(d, i18n.language, 'short')} ${d.getFullYear()}`
+                                        : d.toLocaleDateString(locale, {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric',
+                                          });
+                                    })()}
                                   </td>
                                   <td className="px-5 py-4">{apt.treatmentCount ?? 0}</td>
                                   <td className="px-5 py-4 font-semibold text-sky-700">

@@ -35,5 +35,11 @@
   "add": "Müalicə əlavə et",
   "updating": "Yenilənir...",
   "update": "Müalicəni yenilə",
-  "cancel": "Ləğv et"
+  "cancel": "Ləğv et",
+  "pagination": {
+    "showing": "{{total}} qeyddən {{from}}-{{to}} göstərilir",
+    "page": "Səhifə {{current}} / {{total}}",
+    "previous": "Əvvəlki",
+    "next": "Növbəti"
+  }
 }

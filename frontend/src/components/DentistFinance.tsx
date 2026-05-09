@@ -5,7 +5,7 @@ import { dentistService, type DentistFinanceOverview } from '../services/api';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
 import { useTranslation } from 'react-i18next';
-import { appLocaleTag } from '../lib/localeHelpers';
+import { appLocaleTag, formatMonthLabel, formatMonthLabelByIndex1 } from '../lib/localeHelpers';
 
 function formatCurrency(value: number): string {
   return `$${value.toLocaleString(undefined, {
@@ -87,7 +87,7 @@ const DentistFinance = () => {
         const month = i + 1;
         const record = financeData.graphs.monthly.find((m) => m.month === month);
         return {
-          label: new Date(2000, month - 1, 1).toLocaleDateString(locale, { month: 'short' }),
+          label: formatMonthLabelByIndex1(month, i18n.language, 'short'),
           value: record?.commission ?? 0,
         };
       });
@@ -129,9 +129,7 @@ const DentistFinance = () => {
     })
     .join(' ');
 
-  const performanceMonthLabel = new Date(2000, selectedMonth - 1, 1).toLocaleDateString(locale, {
-    month: 'short',
-  });
+  const performanceMonthLabel = formatMonthLabelByIndex1(selectedMonth, i18n.language, 'short');
 
   return (
     <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
@@ -189,7 +187,7 @@ const DentistFinance = () => {
                   >
                     {Array.from({ length: 12 }, (_, i) => {
                       const mi = i + 1;
-                      const lbl = new Date(2000, i, 1).toLocaleDateString(locale, { month: 'short' });
+                      const lbl = formatMonthLabelByIndex1(mi, i18n.language, 'short');
                       return (
                         <option key={mi} value={mi}>{lbl}</option>
                       );
@@ -428,11 +426,16 @@ const DentistFinance = () => {
                               </span>
                             </td>
                             <td className="px-5 py-4">
-                              {new Date(row.date).toLocaleDateString(locale, {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                              })}
+                              {(() => {
+                                const d = new Date(row.date);
+                                return i18n.language?.split('-')[0]?.toLowerCase() === 'az'
+                                  ? `${d.getDate()} ${formatMonthLabel(d, i18n.language, 'short')} ${d.getFullYear()}`
+                                  : d.toLocaleDateString(locale, {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                    });
+                              })()}
                             </td>
                             <td className="px-5 py-4 font-bold text-sky-700">
                               {formatCurrency(row.commission)}

@@ -437,12 +437,6 @@ const Medicines = () => {
             <p className="mt-1 text-sm text-slate-500">{t('searchPlaceholder')}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded-md bg-[#0066A6] px-4 py-2 text-sm font-semibold text-white"
-            >
-              Medicines
-            </button>
             {!isDentist && (
               <>
                 <button
