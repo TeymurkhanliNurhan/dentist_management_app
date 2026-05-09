@@ -197,7 +197,7 @@ const SingleDentistFinance = () => {
     setFinanceSubmitError(null);
   };
 
-  const handleCreateExpenseAndPayment = async (e: FormEvent) => {
+  const handleCreateExpense = async (e: FormEvent) => {
     e.preventDefault();
     setFinanceSubmitError(null);
 
@@ -205,35 +205,20 @@ const SingleDentistFinance = () => {
       setFinanceSubmitError('Expense name is required.');
       return;
     }
-    if (!newPaymentDetail.date) {
-      setFinanceSubmitError('Payment date is required.');
-      return;
-    }
-    if (!Number.isFinite(newPaymentDetail.cost ?? NaN) || (newPaymentDetail.cost ?? 0) < 0) {
-      setFinanceSubmitError('Payment cost must be a valid non-negative number.');
-      return;
-    }
-
     setIsCreatingExpenseWithPayment(true);
     try {
-      const createdExpense = await expenseService.create({
+      await expenseService.create({
         name: newExpense.name.trim(),
         description: newExpense.description?.trim() || undefined,
         fixedCost: newExpense.fixedCost,
         dayOfMonth: newExpense.dayOfMonth,
       });
 
-      await paymentDetailsService.create({
-        date: newPaymentDetail.date,
-        cost: Number(newPaymentDetail.cost),
-        expenseId: createdExpense.id,
-      });
-
       setShowAddExpenseModal(false);
       resetFinanceCreateState();
       await fetchClinicOverview(selectedYear, selectedMonth);
     } catch (err: unknown) {
-      setFinanceSubmitError(getErrorMessage(err, 'Failed to create expense and payment detail.'));
+      setFinanceSubmitError(getErrorMessage(err, 'Failed to create expense.'));
     } finally {
       setIsCreatingExpenseWithPayment(false);
     }
@@ -1175,7 +1160,7 @@ const SingleDentistFinance = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">Add Expense + PaymentDetail</h3>
+              <h3 className="text-lg font-semibold text-slate-900">Add Expense</h3>
               <button
                 type="button"
                 onClick={() => {
@@ -1187,7 +1172,7 @@ const SingleDentistFinance = () => {
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={handleCreateExpenseAndPayment} className="space-y-3">
+            <form onSubmit={handleCreateExpense} className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs text-slate-600">Expense name</label>
                 <input
@@ -1237,35 +1222,6 @@ const SingleDentistFinance = () => {
                       }))
                     }
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs text-slate-600">Payment date</label>
-                  <input
-                    type="date"
-                    value={newPaymentDetail.date}
-                    onChange={(e) => setNewPaymentDetail((prev) => ({ ...prev, date: e.target.value }))}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-slate-600">Payment cost</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={newPaymentDetail.cost ?? ''}
-                    onChange={(e) =>
-                      setNewPaymentDetail((prev) => ({
-                        ...prev,
-                        cost: e.target.value === '' ? 0 : Number(e.target.value),
-                      }))
-                    }
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                    required
                   />
                 </div>
               </div>

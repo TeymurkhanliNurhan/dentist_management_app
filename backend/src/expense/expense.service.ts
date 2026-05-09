@@ -13,16 +13,22 @@ import { UpdateExpenseDto } from './dto/update-expense.dto';
 export class ExpenseService {
   constructor(private readonly repo: ExpenseRepository) {}
 
+  private normalizeRole(role?: string): string {
+    return (role ?? '').toLowerCase().replace(/[_\s-]/g, '');
+  }
+
   private ensureDirectorOrReceptionist(role?: string) {
-    const normalized = (role ?? '').toLowerCase();
+    const normalized = this.normalizeRole(role);
     const allowed =
       normalized === 'director' ||
       normalized === 'frontdesk' ||
       normalized === 'receptionist' ||
-      normalized === 'front_desk_worker';
+      normalized === 'frontdeskworker' ||
+      normalized === 'singledentist' ||
+      normalized === 'sinledentist';
     if (!allowed) {
       throw new ForbiddenException(
-        'Only director and receptionist can access expense endpoints',
+        'Only director, receptionist, and single dentist can access expense endpoints',
       );
     }
   }
