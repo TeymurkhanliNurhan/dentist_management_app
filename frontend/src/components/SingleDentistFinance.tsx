@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Activity, ChevronDown, ChevronUp, Settings, Wallet } from 'lucide-react';
+import { Activity, ChevronDown, ChevronUp, Plus, Settings, Wallet, X } from 'lucide-react';
 import {
   appointmentService,
   dentistService,
+  expenseService,
   paymentDetailsService,
   type Appointment,
+  type CreateExpenseDto,
+  type CreatePaymentDetailsDto,
   type DentistFinanceOverview,
   type FinanceOverviewResponse,
 } from '../services/api';
@@ -48,6 +51,10 @@ function endOfMonthIso(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+function buildDefaultPaymentDate(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-01`;
+}
+
 const SingleDentistFinance = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -76,6 +83,24 @@ const SingleDentistFinance = () => {
   const [annualOverview, setAnnualOverview] = useState<AnnualPoint[]>([]);
   const [expandedExpenses, setExpandedExpenses] = useState<Set<string>>(new Set());
   const [expandedPaymentDetails, setExpandedPaymentDetails] = useState<Set<number>>(new Set());
+  const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
+  const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
+  const [selectedExpenseForPayment, setSelectedExpenseForPayment] = useState<{
+    id: number | null;
+    name: string;
+  } | null>(null);
+  const [financeSubmitError, setFinanceSubmitError] = useState<string | null>(null);
+  const [isCreatingExpenseWithPayment, setIsCreatingExpenseWithPayment] = useState(false);
+  const [newExpense, setNewExpense] = useState<CreateExpenseDto>({
+    name: '',
+    description: '',
+    fixedCost: undefined,
+    dayOfMonth: undefined,
+  });
+  const [newPaymentDetail, setNewPaymentDetail] = useState<CreatePaymentDetailsDto>({
+    date: buildDefaultPaymentDate(new Date().getFullYear(), new Date().getMonth() + 1),
+    cost: 0,
+  });
   const [visibleSeries, setVisibleSeries] = useState<{
     income: boolean;
     outcome: boolean;
@@ -158,6 +183,101 @@ const SingleDentistFinance = () => {
     });
   };
 
+  const resetFinanceCreateState = () => {
+    setNewExpense({
+      name: '',
+      description: '',
+      fixedCost: undefined,
+      dayOfMonth: undefined,
+    });
+    setNewPaymentDetail({
+      date: buildDefaultPaymentDate(selectedYear, selectedMonth),
+      cost: 0,
+    });
+    setFinanceSubmitError(null);
+  };
+
+  const handleCreateExpenseAndPayment = async (e: FormEvent) => {
+    e.preventDefault();
+    setFinanceSubmitError(null);
+
+    if (!newExpense.name.trim()) {
+      setFinanceSubmitError('Expense name is required.');
+      return;
+    }
+    if (!newPaymentDetail.date) {
+      setFinanceSubmitError('Payment date is required.');
+      return;
+    }
+    if (!Number.isFinite(newPaymentDetail.cost ?? NaN) || (newPaymentDetail.cost ?? 0) < 0) {
+      setFinanceSubmitError('Payment cost must be a valid non-negative number.');
+      return;
+    }
+
+    setIsCreatingExpenseWithPayment(true);
+    try {
+      const createdExpense = await expenseService.create({
+        name: newExpense.name.trim(),
+        description: newExpense.description?.trim() || undefined,
+        fixedCost: newExpense.fixedCost,
+        dayOfMonth: newExpense.dayOfMonth,
+      });
+
+      await paymentDetailsService.create({
+        date: newPaymentDetail.date,
+        cost: Number(newPaymentDetail.cost),
+        expenseId: createdExpense.id,
+      });
+
+      setShowAddExpenseModal(false);
+      resetFinanceCreateState();
+      await fetchClinicOverview(selectedYear, selectedMonth);
+    } catch (err: unknown) {
+      setFinanceSubmitError(getErrorMessage(err, 'Failed to create expense and payment detail.'));
+    } finally {
+      setIsCreatingExpenseWithPayment(false);
+    }
+  };
+
+  const handleCreatePaymentForExpense = async (e: FormEvent) => {
+    e.preventDefault();
+    setFinanceSubmitError(null);
+
+    if (selectedExpenseForPayment?.id == null) {
+      setFinanceSubmitError('Please select an expense before adding a payment.');
+      return;
+    }
+    if (!newPaymentDetail.date) {
+      setFinanceSubmitError('Payment date is required.');
+      return;
+    }
+    if (!Number.isFinite(newPaymentDetail.cost ?? NaN) || (newPaymentDetail.cost ?? 0) < 0) {
+      setFinanceSubmitError('Payment cost must be a valid non-negative number.');
+      return;
+    }
+
+    setIsCreatingExpenseWithPayment(true);
+    try {
+      await paymentDetailsService.create({
+        date: newPaymentDetail.date,
+        cost: Number(newPaymentDetail.cost),
+        expenseId: selectedExpenseForPayment.id,
+      });
+      setShowAddPaymentModal(false);
+      setSelectedExpenseForPayment(null);
+      setFinanceSubmitError(null);
+      setNewPaymentDetail({
+        date: buildDefaultPaymentDate(selectedYear, selectedMonth),
+        cost: 0,
+      });
+      await fetchClinicOverview(selectedYear, selectedMonth);
+    } catch (err: unknown) {
+      setFinanceSubmitError(getErrorMessage(err, 'Failed to create payment detail.'));
+    } finally {
+      setIsCreatingExpenseWithPayment(false);
+    }
+  };
+
   const fetchMonthAppointments = async (year = selectedYear, month = selectedMonth) => {
     setAppointmentsLoading(true);
     setAppointmentsError(null);
@@ -194,6 +314,13 @@ const SingleDentistFinance = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear, selectedMonth, viewMode]);
+
+  useEffect(() => {
+    setNewPaymentDetail((prev) => ({
+      ...prev,
+      date: buildDefaultPaymentDate(selectedYear, selectedMonth),
+    }));
+  }, [selectedMonth, selectedYear]);
 
   const chartWidth = 760;
   const chartHeight = 300;
@@ -318,6 +445,7 @@ const SingleDentistFinance = () => {
     return {
       key: `${category.expenseId}-${category.name}`,
       expenseName: category.name,
+      expenseId: category.expenseId,
       totalCost: Number(category.totalCost ?? 0),
       paymentDetails,
     };
@@ -583,7 +711,20 @@ const SingleDentistFinance = () => {
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <h2 className="mb-3 text-lg font-semibold text-slate-900">Expenses</h2>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h2 className="text-lg font-semibold text-slate-900">Expenses</h2>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetFinanceCreateState();
+                      setShowAddExpenseModal(true);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
+                  >
+                    <Plus size={14} />
+                    Add Expense
+                  </button>
+                </div>
                 <div className="space-y-2 text-sm">
                   {expenseGroups.map((group) => {
                     const isExpenseExpanded = expandedExpenses.has(group.key);
@@ -592,6 +733,27 @@ const SingleDentistFinance = () => {
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-medium text-slate-800">{group.expenseName}</p>
                           <div className="flex items-center gap-3">
+                            {group.expenseId != null ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedExpenseForPayment({
+                                    id: group.expenseId,
+                                    name: group.expenseName,
+                                  });
+                                  setNewPaymentDetail({
+                                    date: buildDefaultPaymentDate(selectedYear, selectedMonth),
+                                    cost: 0,
+                                  });
+                                  setFinanceSubmitError(null);
+                                  setShowAddPaymentModal(true);
+                                }}
+                                className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                              >
+                                <Plus size={12} />
+                                Payment
+                              </button>
+                            ) : null}
                             <span className="font-semibold text-slate-900">-{formatCurrency(group.totalCost)}</span>
                             {group.paymentDetails.length > 0 ? (
                               <button
@@ -1009,6 +1171,205 @@ const SingleDentistFinance = () => {
           setShowLogoutConfirm(false);
         }}
       />
+      {showAddExpenseModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Add Expense + PaymentDetail</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddExpenseModal(false);
+                  setFinanceSubmitError(null);
+                }}
+                className="text-slate-500 hover:text-slate-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateExpenseAndPayment} className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs text-slate-600">Expense name</label>
+                <input
+                  type="text"
+                  value={newExpense.name}
+                  onChange={(e) => setNewExpense((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-slate-600">Description (optional)</label>
+                <textarea
+                  value={newExpense.description ?? ''}
+                  onChange={(e) => setNewExpense((prev) => ({ ...prev, description: e.target.value }))}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  rows={2}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs text-slate-600">Fixed cost (optional)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={newExpense.fixedCost ?? ''}
+                    onChange={(e) =>
+                      setNewExpense((prev) => ({
+                        ...prev,
+                        fixedCost: e.target.value === '' ? undefined : Number(e.target.value),
+                      }))
+                    }
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-600">Day of month (optional)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={newExpense.dayOfMonth ?? ''}
+                    onChange={(e) =>
+                      setNewExpense((prev) => ({
+                        ...prev,
+                        dayOfMonth: e.target.value === '' ? undefined : Number(e.target.value),
+                      }))
+                    }
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs text-slate-600">Payment date</label>
+                  <input
+                    type="date"
+                    value={newPaymentDetail.date}
+                    onChange={(e) => setNewPaymentDetail((prev) => ({ ...prev, date: e.target.value }))}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-600">Payment cost</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={newPaymentDetail.cost ?? ''}
+                    onChange={(e) =>
+                      setNewPaymentDetail((prev) => ({
+                        ...prev,
+                        cost: e.target.value === '' ? 0 : Number(e.target.value),
+                      }))
+                    }
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+              </div>
+              {financeSubmitError ? (
+                <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
+                  {financeSubmitError}
+                </p>
+              ) : null}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddExpenseModal(false)}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingExpenseWithPayment}
+                  className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
+                >
+                  {isCreatingExpenseWithPayment ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+      {showAddPaymentModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">
+                Add Payment for {selectedExpenseForPayment?.name ?? 'Expense'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddPaymentModal(false);
+                  setSelectedExpenseForPayment(null);
+                  setFinanceSubmitError(null);
+                }}
+                className="text-slate-500 hover:text-slate-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleCreatePaymentForExpense} className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs text-slate-600">Payment date</label>
+                <input
+                  type="date"
+                  value={newPaymentDetail.date}
+                  onChange={(e) => setNewPaymentDetail((prev) => ({ ...prev, date: e.target.value }))}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-slate-600">Payment cost</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={newPaymentDetail.cost ?? ''}
+                  onChange={(e) =>
+                    setNewPaymentDetail((prev) => ({
+                      ...prev,
+                      cost: e.target.value === '' ? 0 : Number(e.target.value),
+                    }))
+                  }
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              {financeSubmitError ? (
+                <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
+                  {financeSubmitError}
+                </p>
+              ) : null}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddPaymentModal(false);
+                    setSelectedExpenseForPayment(null);
+                    setFinanceSubmitError(null);
+                  }}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingExpenseWithPayment}
+                  className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
+                >
+                  {isCreatingExpenseWithPayment ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 };
