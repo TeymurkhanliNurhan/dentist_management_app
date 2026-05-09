@@ -12,6 +12,7 @@ const Finance = () => {
   }
 
   if (
+    role === 'sinledentist' ||
     role === 'singledentist' ||
     role === 'single dentist' ||
     role === 'single_dentist' ||

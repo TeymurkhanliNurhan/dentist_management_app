@@ -14,16 +14,35 @@ import { GetFinanceOverviewDto } from './dto/get-finance-overview.dto';
 export class PaymentDetailsService {
   constructor(private readonly repo: PaymentDetailsRepository) {}
 
+  private normalizeRole(role?: string): string {
+    return (role ?? '').toLowerCase().replace(/[_\s-]/g, '');
+  }
+
   private ensureDirectorOrReceptionist(role?: string) {
-    const normalized = (role ?? '').toLowerCase();
+    const normalized = this.normalizeRole(role);
+    const allowed =
+      normalized === 'director' ||
+      normalized === 'frontdesk' ||
+      normalized === 'receptionist';
+    if (!allowed) {
+      throw new ForbiddenException(
+        'Only director and receptionist can access payment details endpoints',
+      );
+    }
+  }
+
+  private ensureClinicFinanceReader(role?: string) {
+    const normalized = this.normalizeRole(role);
     const allowed =
       normalized === 'director' ||
       normalized === 'frontdesk' ||
       normalized === 'receptionist' ||
-      normalized === 'front_desk_worker';
+      normalized === 'frontdeskworker' ||
+      normalized === 'singledentist' ||
+      normalized === 'sinledentist';
     if (!allowed) {
       throw new ForbiddenException(
-        'Only director and receptionist can access payment details endpoints',
+        'Only director, receptionist, and single dentist can access finance overview',
       );
     }
   }
@@ -97,7 +116,7 @@ export class PaymentDetailsService {
     role: string | undefined,
     dto: GetFinanceOverviewDto,
   ) {
-    this.ensureDirectorOrReceptionist(role);
+    this.ensureClinicFinanceReader(role);
     return await this.repo.getFinanceOverviewForDentist(dentistId, dto);
   }
 }
