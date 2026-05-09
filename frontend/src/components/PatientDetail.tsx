@@ -469,52 +469,54 @@ const PatientDetail = () => {
 
   return wrapLayout(
     <>
-      <div className="absolute right-4 top-4 z-10" ref={languageMenuRef}>
-        <button
-          onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-          className="rounded-lg bg-white/90 p-2 shadow-sm transition-colors hover:bg-white"
-          aria-label="Change language"
-        >
-          <Globe className="h-5 w-5 text-slate-600" />
-        </button>
-        {showLanguageMenu && (
-          <div className="absolute right-0 top-12 z-50 min-w-[120px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-            <button
-              onClick={() => {
-                i18n.changeLanguage('en');
-                setShowLanguageMenu(false);
-              }}
-              className={`w-full px-4 py-2 text-left transition-colors hover:bg-slate-100 ${
-                i18n.language === 'en' ? 'bg-[#f0f7fc] font-semibold text-[#0066A6]' : 'text-slate-700'
-              }`}
-            >
-              English
-            </button>
-            <button
-              onClick={() => {
-                i18n.changeLanguage('az');
-                setShowLanguageMenu(false);
-              }}
-              className={`w-full px-4 py-2 text-left transition-colors hover:bg-slate-100 ${
-                i18n.language === 'az' ? 'bg-[#f0f7fc] font-semibold text-[#0066A6]' : 'text-slate-700'
-              }`}
-            >
-              Azərbaycan
-            </button>
-            <button
-              onClick={() => {
-                i18n.changeLanguage('ru');
-                setShowLanguageMenu(false);
-              }}
-              className={`w-full px-4 py-2 text-left transition-colors hover:bg-slate-100 ${
-                i18n.language === 'ru' ? 'bg-[#f0f7fc] font-semibold text-[#0066A6]' : 'text-slate-700'
-              }`}
-            >
-              Русский
-            </button>
-          </div>
-        )}
-      </div>
+      {!isSingleDentist ? (
+        <div className="absolute right-4 top-4 z-10" ref={languageMenuRef}>
+          <button
+            onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+            className="rounded-lg bg-white/90 p-2 shadow-sm transition-colors hover:bg-white"
+            aria-label="Change language"
+          >
+            <Globe className="h-5 w-5 text-slate-600" />
+          </button>
+          {showLanguageMenu && (
+            <div className="absolute right-0 top-12 z-50 min-w-[120px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+              <button
+                onClick={() => {
+                  i18n.changeLanguage('en');
+                  setShowLanguageMenu(false);
+                }}
+                className={`w-full px-4 py-2 text-left transition-colors hover:bg-slate-100 ${
+                  i18n.language === 'en' ? 'bg-[#f0f7fc] font-semibold text-[#0066A6]' : 'text-slate-700'
+                }`}
+              >
+                English
+              </button>
+              <button
+                onClick={() => {
+                  i18n.changeLanguage('az');
+                  setShowLanguageMenu(false);
+                }}
+                className={`w-full px-4 py-2 text-left transition-colors hover:bg-slate-100 ${
+                  i18n.language === 'az' ? 'bg-[#f0f7fc] font-semibold text-[#0066A6]' : 'text-slate-700'
+                }`}
+              >
+                Azərbaycan
+              </button>
+              <button
+                onClick={() => {
+                  i18n.changeLanguage('ru');
+                  setShowLanguageMenu(false);
+                }}
+                className={`w-full px-4 py-2 text-left transition-colors hover:bg-slate-100 ${
+                  i18n.language === 'ru' ? 'bg-[#f0f7fc] font-semibold text-[#0066A6]' : 'text-slate-700'
+                }`}
+              >
+                Русский
+              </button>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       <button
         onClick={() => navigate('/patients')}

@@ -3,6 +3,7 @@ import { Mail, Lock, Eye, EyeOff, ChevronLeft, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { authService, dentistService } from '../services/api';
+import { isSingleDentistRole } from '../lib/singleDentistRole';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -62,6 +63,7 @@ const Login = () => {
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('staffId', String(data.staffId));
       localStorage.setItem('role', data.role);
+      if (isSingleDentistRole(data.role)) void i18n.changeLanguage('en');
       localStorage.setItem('dentistId', data.dentistId.toString());
       try {
         const dentistProfile = await dentistService.getById(data.dentistId);

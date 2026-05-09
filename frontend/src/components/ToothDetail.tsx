@@ -393,7 +393,7 @@ const ToothDetail = () => {
 
   const inner = (
     <>
-      {languageMenu}
+      {!isSingleDentist ? languageMenu : null}
 
       <button
         type="button"
