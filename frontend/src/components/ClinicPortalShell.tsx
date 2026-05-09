@@ -5,7 +5,6 @@ import { ChevronLeft, ChevronRight, LogOut, Menu } from 'lucide-react';
 import type { ClinicPortalMenuItem } from '../lib/clinicPortalNav';
 import { isDirectorPortalNavActive } from '../lib/clinicPortalNav';
 import { labelForPortalNavPath } from '../lib/portalNavLabels';
-import { isSingleDentistRole } from '../lib/singleDentistRole';
 import { API_BASE_URL } from '../services/api';
 import { PortalLanguageSwitcher } from './PortalLanguageSwitcher';
 
@@ -26,12 +25,7 @@ const PORTAL_ROLE_I18N_KEY: Record<string, string> = {
   'Clinic Dentist': 'roleClinicDentist',
 };
 
-function portalChromeLabel(
-  text: string,
-  t: (key: string) => string,
-  localize: boolean,
-): string {
-  if (!localize) return text;
+function portalChromeLabel(text: string, t: (key: string) => string): string {
   const badgeKey = PORTAL_BADGE_I18N_KEY[text];
   if (badgeKey) return t(badgeKey);
   const roleKey = PORTAL_ROLE_I18N_KEY[text];
@@ -84,7 +78,6 @@ export function ClinicPortalShell({
   const collapseLabel = isSidebarOpen ? 'Collapse menu' : 'Expand menu';
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
-  const showSingleDentistLanguage = useMemo(() => isSingleDentistRole(localStorage.getItem('role')), []);
   const { t } = useTranslation('header');
   const [globalScheduleNotificationCount, setGlobalScheduleNotificationCount] = useState(0);
 
@@ -150,7 +143,7 @@ export function ClinicPortalShell({
             <span className="truncate text-sm font-semibold text-slate-900">{brandTitle}</span>
             {portalBadge ? (
               <span className="hidden shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:inline">
-                {portalChromeLabel(portalBadge, t, showSingleDentistLanguage)}
+                {portalChromeLabel(portalBadge, t)}
               </span>
             ) : null}
           </div>
@@ -159,14 +152,14 @@ export function ClinicPortalShell({
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {headerActions}
-            {showSingleDentistLanguage ? <PortalLanguageSwitcher /> : null}
+            <PortalLanguageSwitcher />
             {showProfileStrip ? (
               <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5">
                 <div className="h-7 w-7 shrink-0 rounded-full bg-slate-200" />
                 <div className="min-w-0 leading-tight">
                   <p className="truncate text-xs font-semibold text-slate-700">{userDisplayName || '-'}</p>
                   <p className="truncate text-[10px] text-slate-400">
-                    {portalChromeLabel(userSubtitle, t, showSingleDentistLanguage)}
+                    {portalChromeLabel(userSubtitle, t)}
                   </p>
                 </div>
               </div>

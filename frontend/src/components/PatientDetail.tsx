@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -6,7 +6,6 @@ import {
   Calendar,
   Edit,
   X,
-  Globe,
   Smile,
   CalendarDays,
   Trash2,
@@ -17,13 +16,14 @@ import { appointmentService, dentistService, patientService, toothTreatmentServi
 import type { Appointment, Patient, PatientTooth, ToothTreatment } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { ClinicPortalShell } from './ClinicPortalShell';
+import { PortalLanguageSwitcher } from './PortalLanguageSwitcher';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU, FRONTDESK_PORTAL_MENU } from '../lib/clinicPortalNav';
 
 const PatientDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { t, i18n } = useTranslation('patientDetail');
+  const { t } = useTranslation('patientDetail');
   const [patient, setPatient] = useState<Patient | null>(null);
   const [patientTeeth, setPatientTeeth] = useState<PatientTooth[]>([]);
   const [diagramTreatments, setDiagramTreatments] = useState<ToothTreatment[]>([]);
@@ -34,8 +34,6 @@ const PatientDetail = () => {
   const [editFields, setEditFields] = useState({ name: '', surname: '', birthDate: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
-  const languageMenuRef = useRef<HTMLDivElement>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -70,22 +68,6 @@ const PatientDetail = () => {
   const FETCH_ERROR_KEY = '__fetch_error__';
   const UPDATE_ERROR_KEY = '__update_error__';
   const DELETE_ERROR_KEY = '__delete_error__';
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (languageMenuRef.current && !languageMenuRef.current.contains(event.target as Node)) {
-        setShowLanguageMenu(false);
-      }
-    };
-
-    if (showLanguageMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showLanguageMenu]);
 
   useEffect(() => {
     const fetchPatientData = async () => {
@@ -435,6 +417,9 @@ const PatientDetail = () => {
 
     return (
       <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f4f6f8]">
+        <header className="flex shrink-0 justify-end border-b border-slate-200 bg-white px-4 py-2">
+          <PortalLanguageSwitcher />
+        </header>
         <main className="relative mx-auto min-h-0 flex-1 max-w-7xl overflow-y-auto px-4 py-8 sm:px-6 lg:px-8">
           {children}
         </main>
@@ -469,55 +454,6 @@ const PatientDetail = () => {
 
   return wrapLayout(
     <>
-      {!isSingleDentist ? (
-        <div className="absolute right-4 top-4 z-10" ref={languageMenuRef}>
-          <button
-            onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-            className="rounded-lg bg-white/90 p-2 shadow-sm transition-colors hover:bg-white"
-            aria-label="Change language"
-          >
-            <Globe className="h-5 w-5 text-slate-600" />
-          </button>
-          {showLanguageMenu && (
-            <div className="absolute right-0 top-12 z-50 min-w-[120px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-              <button
-                onClick={() => {
-                  i18n.changeLanguage('en');
-                  setShowLanguageMenu(false);
-                }}
-                className={`w-full px-4 py-2 text-left transition-colors hover:bg-slate-100 ${
-                  i18n.language === 'en' ? 'bg-[#f0f7fc] font-semibold text-[#0066A6]' : 'text-slate-700'
-                }`}
-              >
-                English
-              </button>
-              <button
-                onClick={() => {
-                  i18n.changeLanguage('az');
-                  setShowLanguageMenu(false);
-                }}
-                className={`w-full px-4 py-2 text-left transition-colors hover:bg-slate-100 ${
-                  i18n.language === 'az' ? 'bg-[#f0f7fc] font-semibold text-[#0066A6]' : 'text-slate-700'
-                }`}
-              >
-                Azərbaycan
-              </button>
-              <button
-                onClick={() => {
-                  i18n.changeLanguage('ru');
-                  setShowLanguageMenu(false);
-                }}
-                className={`w-full px-4 py-2 text-left transition-colors hover:bg-slate-100 ${
-                  i18n.language === 'ru' ? 'bg-[#f0f7fc] font-semibold text-[#0066A6]' : 'text-slate-700'
-                }`}
-              >
-                Русский
-              </button>
-            </div>
-          )}
-        </div>
-      ) : null}
-
       <button
         onClick={() => navigate('/patients')}
         className="mb-6 flex items-center space-x-2 font-medium text-[#0066A6] transition-colors hover:text-[#00588f]"

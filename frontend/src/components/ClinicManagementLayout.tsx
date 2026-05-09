@@ -5,7 +5,6 @@ import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
 import { labelForPortalNavPath } from '../lib/portalNavLabels';
-import { isSingleDentistRole } from '../lib/singleDentistRole';
 import { API_BASE_URL } from '../services/api';
 import { PortalLanguageSwitcher } from './PortalLanguageSwitcher';
 
@@ -18,7 +17,6 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
 
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
-  const showSingleDentistLanguage = useMemo(() => isSingleDentistRole(localStorage.getItem('role')), []);
   const { t } = useTranslation('header');
 
   useEffect(() => {
@@ -82,7 +80,7 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
             <span className="truncate text-sm font-semibold text-slate-900">{t('clinicManagementTitle')}</span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {showSingleDentistLanguage ? <PortalLanguageSwitcher /> : null}
+            <PortalLanguageSwitcher />
           </div>
         </div>
       </header>

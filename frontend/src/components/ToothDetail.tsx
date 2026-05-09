@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Calendar, FileText, DollarSign, Globe, X, User } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText, DollarSign, X, User } from 'lucide-react';
 import { toothTreatmentService, toothService, mediaService, dentistService } from '../services/api';
 import type { ToothTreatment, ToothInfo, Media } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { ClinicPortalShell } from './ClinicPortalShell';
+import { PortalLanguageSwitcher } from './PortalLanguageSwitcher';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
 
@@ -17,10 +18,8 @@ const ToothDetail = () => {
   const [treatments, setTreatments] = useState<ToothTreatment[]>([]);
   const [toothInfo, setToothInfo] = useState<ToothInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [treatmentMedias, setTreatmentMedias] = useState<Map<number, Media[]>>(new Map());
   const [previewMedia, setPreviewMedia] = useState<Media | null>(null);
-  const languageMenuRef = useRef<HTMLDivElement>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [dentistPortalDisplayName, setDentistPortalDisplayName] = useState('');
@@ -64,22 +63,6 @@ const ToothDetail = () => {
       cancelled = true;
     };
   }, [isDentist, loggedInDentistId]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (languageMenuRef.current && !languageMenuRef.current.contains(event.target as Node)) {
-        setShowLanguageMenu(false);
-      }
-    };
-
-    if (showLanguageMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showLanguageMenu]);
 
   useEffect(() => {
     if (!previewMedia) return;
@@ -148,50 +131,6 @@ const ToothDetail = () => {
   const textMain = isPortal ? 'text-slate-900' : 'text-gray-900';
   const textBody = isPortal ? 'text-slate-700' : 'text-gray-700';
   const borderSubtle = isPortal ? 'border-slate-200' : 'border-gray-200';
-
-  const languageMenu = (
-    <div className="absolute right-4 top-4 z-10" ref={languageMenuRef}>
-      <button
-        type="button"
-        onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-        className={`rounded-lg p-2 shadow-sm transition-colors ${
-          isPortal ? 'bg-white/90 hover:bg-white text-slate-600' : 'bg-white/90 hover:bg-white text-gray-700'
-        }`}
-        aria-label="Change language"
-      >
-        <Globe className="h-5 w-5" />
-      </button>
-      {showLanguageMenu && (
-        <div
-          className={`absolute right-0 top-12 z-50 min-w-[120px] overflow-hidden rounded-lg border shadow-lg ${
-            isPortal ? 'border-slate-200 bg-white' : 'border-gray-200 bg-white'
-          }`}
-        >
-          {(['en', 'az', 'ru'] as const).map((code) => (
-            <button
-              key={code}
-              type="button"
-              onClick={() => {
-                i18n.changeLanguage(code);
-                setShowLanguageMenu(false);
-              }}
-              className={`w-full px-4 py-2 text-left transition-colors hover:bg-slate-100 ${
-                i18n.language === code
-                  ? isPortal
-                    ? 'bg-[#f0f7fc] font-semibold text-[#0066A6]'
-                    : 'bg-teal-50 font-semibold text-teal-700'
-                  : isPortal
-                    ? 'text-slate-700'
-                    : 'text-gray-700'
-              }`}
-            >
-              {code === 'en' ? 'English' : code === 'az' ? 'Azərbaycan' : 'Русский'}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 
   const treatmentsSection =
     treatments.length === 0 ? (
@@ -382,6 +321,9 @@ const ToothDetail = () => {
     }
     return (
       <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
+        <header className="flex shrink-0 justify-end border-b border-blue-100 bg-white px-4 py-2">
+          <PortalLanguageSwitcher />
+        </header>
         <main className="mx-auto min-h-0 max-w-7xl flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8">
           <div className="py-12 text-center">
             <p className="text-gray-500">{t('loading')}</p>
@@ -393,8 +335,6 @@ const ToothDetail = () => {
 
   const inner = (
     <>
-      {!isSingleDentist ? languageMenu : null}
-
       <button
         type="button"
         onClick={() => navigate(`/patients/${patientId}`)}
@@ -468,6 +408,9 @@ const ToothDetail = () => {
 
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-blue-50">
+      <header className="flex shrink-0 justify-end border-b border-blue-100 bg-white px-4 py-2">
+        <PortalLanguageSwitcher />
+      </header>
       <main className="relative mx-auto min-h-0 max-w-7xl flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-8">{inner}</main>
     </div>
   );
