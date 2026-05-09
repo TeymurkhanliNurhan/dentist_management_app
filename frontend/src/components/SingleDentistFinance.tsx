@@ -33,7 +33,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-type FinanceViewMode = 'monthly' | 'annual';
 type AnnualPoint = {
   month: number;
   monthLabel: string;
@@ -65,10 +64,9 @@ const SingleDentistFinance = () => {
   const [financeData, setFinanceData] = useState<DentistFinanceOverview | null>(null);
   const [clinicFinanceOverview, setClinicFinanceOverview] = useState<FinanceOverviewResponse | null>(null);
   const [recentAppointments, setRecentAppointments] = useState<Appointment[]>([]);
-  const [viewMode, setViewMode] = useState<FinanceViewMode>('monthly');
   const [loading, setLoading] = useState(false);
   const [clinicLoading, setClinicLoading] = useState(false);
-  const [annualLoading, setAnnualLoading] = useState(false);
+  const [, setAnnualLoading] = useState(false);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clinicError, setClinicError] = useState<string | null>(null);
@@ -287,13 +285,14 @@ const SingleDentistFinance = () => {
   useEffect(() => {
     void fetchFinanceOverview(selectedYear, selectedMonth);
     void fetchMonthAppointments(selectedYear, selectedMonth);
-    if (viewMode === 'annual') {
-      void fetchAnnualOverview(selectedYear);
-    } else {
-      void fetchClinicOverview(selectedYear, selectedMonth);
-    }
+    void fetchClinicOverview(selectedYear, selectedMonth);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedYear, selectedMonth, viewMode]);
+  }, [selectedYear, selectedMonth]);
+
+  useEffect(() => {
+    void fetchAnnualOverview(selectedYear);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedYear]);
 
   useEffect(() => {
     setNewPaymentDetail((prev) => ({
@@ -304,9 +303,6 @@ const SingleDentistFinance = () => {
 
   const totalOutcome = clinicFinanceOverview?.outcome?.total ?? 0;
   const netProfit = (clinicFinanceOverview?.monthlyIncome ?? 0) - totalOutcome;
-  const annualIncomeTotal = annualOverview.reduce((acc, item) => acc + item.income, 0);
-  const annualProfitTotal = annualOverview.reduce((acc, item) => acc + item.profit, 0);
-  const annualDebtTotal = annualOverview.reduce((acc, item) => acc + item.debt, 0);
 
   const annualChartWidth = 760;
   const annualChartHeight = 300;
@@ -447,43 +443,25 @@ const SingleDentistFinance = () => {
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm text-slate-500">
-                    {viewMode === 'annual' ? 'Annual Income' : 'Monthly Income'}
-                  </p>
+                  <p className="text-sm text-slate-500">Monthly Income</p>
                   <p className="mt-2 text-3xl font-bold text-slate-900">
-                    {viewMode === 'annual'
-                      ? annualLoading
-                        ? '...'
-                        : formatCurrency(annualIncomeTotal)
-                      : clinicLoading
-                        ? '...'
-                        : formatCurrency(clinicFinanceOverview?.monthlyIncome ?? 0)}
+                    {clinicLoading
+                      ? '...'
+                      : formatCurrency(clinicFinanceOverview?.monthlyIncome ?? 0)}
                   </p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm text-slate-500">{viewMode === 'annual' ? 'Annual Debt' : 'Debt'}</p>
+                  <p className="text-sm text-slate-500">Debt</p>
                   <p className="mt-2 text-3xl font-bold text-slate-900">
-                    {viewMode === 'annual'
-                      ? annualLoading
-                        ? '...'
-                        : formatCurrency(annualDebtTotal)
-                      : clinicLoading
-                        ? '...'
-                        : formatCurrency(clinicFinanceOverview?.debt ?? 0)}
+                    {clinicLoading
+                      ? '...'
+                      : formatCurrency(clinicFinanceOverview?.debt ?? 0)}
                   </p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm text-slate-500">
-                    {viewMode === 'annual' ? 'Annual Profit' : 'Net Profit'}
-                  </p>
+                  <p className="text-sm text-slate-500">Net Profit</p>
                   <p className="mt-2 text-3xl font-bold text-emerald-700">
-                    {viewMode === 'annual'
-                      ? annualLoading
-                        ? '...'
-                        : formatCurrency(annualProfitTotal)
-                      : clinicLoading
-                        ? '...'
-                        : formatCurrency(netProfit)}
+                    {clinicLoading ? '...' : formatCurrency(netProfit)}
                   </p>
                 </div>
               </div>
@@ -496,23 +474,13 @@ const SingleDentistFinance = () => {
                       Monthly trend for income, outcome and profit in {selectedYear}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={viewMode}
-                      onChange={(e) => setViewMode(e.target.value as FinanceViewMode)}
-                      className="rounded-md border border-slate-300 px-2 py-2 text-sm"
-                    >
-                      <option value="monthly">Monthly</option>
-                      <option value="annual">Annual</option>
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setShowGraph((prev) => !prev)}
-                      className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      {showGraph ? 'Close graph' : 'See graph'}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowGraph((prev) => !prev)}
+                    className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    {showGraph ? 'Close graph' : 'See graph'}
+                  </button>
                 </div>
 
                 {showGraph ? (
@@ -616,40 +584,38 @@ const SingleDentistFinance = () => {
                 ) : null}
               </div>
 
-              {viewMode === 'monthly' ? (
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h2 className="text-lg font-semibold text-slate-900">Outcome Breakdown</h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Salaries, medicine purchases and other payment details
-                  </p>
-                  <div className="mt-4 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Total outcome</span>
-                      <span className="font-semibold">
-                        {formatCurrency(clinicFinanceOverview?.outcome?.total ?? 0)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Salaries</span>
-                      <span className="font-medium">
-                        {formatCurrency(clinicFinanceOverview?.outcome?.totalSalaries ?? 0)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Medicine purchases</span>
-                      <span className="font-medium">
-                        {formatCurrency(clinicFinanceOverview?.outcome?.totalMedicinePurchases ?? 0)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Other payment details</span>
-                      <span className="font-medium">
-                        {formatCurrency(clinicFinanceOverview?.outcome?.totalOtherPaymentDetails ?? 0)}
-                      </span>
-                    </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <h2 className="text-lg font-semibold text-slate-900">Outcome Breakdown</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Salaries, medicine purchases and other payment details
+                </p>
+                <div className="mt-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Total outcome</span>
+                    <span className="font-semibold">
+                      {formatCurrency(clinicFinanceOverview?.outcome?.total ?? 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Salaries</span>
+                    <span className="font-medium">
+                      {formatCurrency(clinicFinanceOverview?.outcome?.totalSalaries ?? 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Medicine purchases</span>
+                    <span className="font-medium">
+                      {formatCurrency(clinicFinanceOverview?.outcome?.totalMedicinePurchases ?? 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Other payment details</span>
+                    <span className="font-medium">
+                      {formatCurrency(clinicFinanceOverview?.outcome?.totalOtherPaymentDetails ?? 0)}
+                    </span>
                   </div>
                 </div>
-              ) : null}
+              </div>
 
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
