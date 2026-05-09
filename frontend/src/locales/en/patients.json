@@ -28,5 +28,20 @@
   },
   "adding": "Adding...",
   "add": "Add Patient",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "portalDirectoryTitle": "Patient Directory",
+  "portalSubtitle": "{{count}} total registered patients",
+  "portalSubtitleDentistExtra": " · Treatment counts reflect your procedures only; debt reflects the patient's balance across all appointments.",
+  "registerNewPatient": "+ Register New Patient",
+  "placeholderFirstName": "First name",
+  "placeholderSurname": "Surname",
+  "tablePatientName": "Patient Name",
+  "tableContact": "Contact",
+  "yourTreatments": "Your treatments",
+  "tableTreatments": "Treatments",
+  "tableDebtStatus": "Debt Status",
+  "showingRecords": "Showing {{shown}} of {{total}} records",
+  "fetchPatientsError": "Failed to fetch patients",
+  "createPatientError": "Failed to create patient",
+  "dentistNumber": "Dentist #{{id}}"
 }

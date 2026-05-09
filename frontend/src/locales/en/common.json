@@ -16,6 +16,7 @@
   "filter": "Filter",
   "actions": "Actions",
   "noData": "No data available",
-  "notSet": "Not set"
+  "notSet": "Not set",
+  "noPermissionPage": "You do not have permission to view this page."
 }
 

@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Settings, Wallet, Activity } from 'lucide-react';
 import { dentistService, type DentistFinanceOverview } from '../services/api';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
+import { useTranslation } from 'react-i18next';
+import { appLocaleTag } from '../lib/localeHelpers';
 
 function formatCurrency(value: number): string {
   return `$${value.toLocaleString(undefined, {
@@ -12,14 +14,14 @@ function formatCurrency(value: number): string {
   })}`;
 }
 
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
 type GraphMode = 'daily' | 'weekly' | 'monthly';
 
 const DentistFinance = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t, i18n } = useTranslation('finance');
+  const locale = appLocaleTag(i18n.language);
+  const janMondayAnchor = useMemo(() => new Date(2024, 0, 1, 12, 0, 0), []);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [dentistDisplayName, setDentistDisplayName] = useState('');
@@ -39,7 +41,7 @@ const DentistFinance = () => {
       const data = await dentistService.getFinanceOverview({ year, month });
       setFinanceData(data);
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Failed to fetch dentist finance overview');
+      setError(err?.response?.data?.message ?? t('dentist.errFetch'));
     } finally {
       setLoading(false);
     }
@@ -65,23 +67,29 @@ const DentistFinance = () => {
   if (financeData) {
     if (graphMode === 'daily') {
       graphData = Array.from({ length: 7 }, (_, i) => {
-        // Use a rolling 7-day window ending today (ISO day: 1=Mon..7=Sun).
         const day = ((todayIsoDay + i) % 7) + 1;
-        const record = financeData.graphs.daily.find(d => d.day === day);
-        return { label: DAY_LABELS[day - 1], value: record?.commission ?? 0 };
+        const d = new Date(janMondayAnchor);
+        d.setDate(janMondayAnchor.getDate() + (day - 1));
+        const record = financeData.graphs.daily.find((dv) => dv.day === day);
+        return {
+          label: d.toLocaleDateString(locale, { weekday: 'short' }),
+          value: record?.commission ?? 0,
+        };
       });
     } else if (graphMode === 'weekly') {
-      // Typically up to 5 weeks in a month
       graphData = Array.from({ length: 5 }, (_, i) => {
         const week = i + 1;
-        const record = financeData.graphs.weekly.find(w => w.week === week);
-        return { label: `Week ${week}`, value: record?.commission ?? 0 };
+        const record = financeData.graphs.weekly.find((w) => w.week === week);
+        return { label: t('dentist.weeklyLabel', { n: week }), value: record?.commission ?? 0 };
       });
     } else if (graphMode === 'monthly') {
       graphData = Array.from({ length: 12 }, (_, i) => {
         const month = i + 1;
-        const record = financeData.graphs.monthly.find(m => m.month === month);
-        return { label: MONTH_LABELS[i], value: record?.commission ?? 0 };
+        const record = financeData.graphs.monthly.find((m) => m.month === month);
+        return {
+          label: new Date(2000, month - 1, 1).toLocaleDateString(locale, { month: 'short' }),
+          value: record?.commission ?? 0,
+        };
       });
     }
   }
@@ -121,10 +129,14 @@ const DentistFinance = () => {
     })
     .join(' ');
 
+  const performanceMonthLabel = new Date(2000, selectedMonth - 1, 1).toLocaleDateString(locale, {
+    month: 'short',
+  });
+
   return (
     <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
       <ClinicPortalShell
-        brandTitle="ClinicalPrecision"
+        brandTitle={t('dentist.clinicalBrand')}
         portalBadge="Dentist Portal"
         userDisplayName={dentistDisplayName || '-'}
         userSubtitle="Clinic Dentist"
@@ -141,7 +153,7 @@ const DentistFinance = () => {
           <button
             type="button"
             className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100"
-            aria-label="Settings"
+            aria-label={t('dentist.settingsAria')}
           >
             <Settings size={16} />
           </button>
@@ -151,14 +163,14 @@ const DentistFinance = () => {
           <div className="mx-auto max-w-6xl space-y-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Financial Overview</h1>
+                <h1 className="text-2xl font-bold text-slate-900">{t('dentist.title')}</h1>
                 <p className="text-sm text-slate-500">
-                  {MONTH_LABELS[selectedMonth - 1]} {selectedYear} Performance Metrics
+                  {t('dentist.subtitlePerformance', { month: performanceMonthLabel, year: selectedYear })}
                 </p>
               </div>
               <div className="flex items-end gap-2">
                 <div>
-                  <label className="mb-1 block text-xs text-slate-500">Year</label>
+                  <label className="mb-1 block text-xs text-slate-500">{t('shared.year')}</label>
                   <input
                     type="number"
                     min={2000}
@@ -169,15 +181,19 @@ const DentistFinance = () => {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-slate-500">Month</label>
+                  <label className="mb-1 block text-xs text-slate-500">{t('shared.month')}</label>
                   <select
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(Number(e.target.value))}
                     className="rounded-md border border-slate-300 px-2 py-2 text-sm"
                   >
-                    {MONTH_LABELS.map((m, i) => (
-                      <option key={m} value={i + 1}>{m}</option>
-                    ))}
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const mi = i + 1;
+                      const lbl = new Date(2000, i, 1).toLocaleDateString(locale, { month: 'short' });
+                      return (
+                        <option key={mi} value={mi}>{lbl}</option>
+                      );
+                    })}
                   </select>
                 </div>
                 <button
@@ -185,7 +201,7 @@ const DentistFinance = () => {
                   onClick={() => fetchFinanceOverview(selectedYear, selectedMonth)}
                   className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
                 >
-                  Refresh
+                  {t('shared.refresh')}
                 </button>
               </div>
             </div>
@@ -197,14 +213,14 @@ const DentistFinance = () => {
             ) : null}
 
             {loading ? (
-              <div className="text-sm text-slate-500">Loading finance data...</div>
+              <div className="text-sm text-slate-500">{t('dentist.loading')}</div>
             ) : (
               <>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-xl border border-slate-200 bg-white p-5">
                     <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
                       <Wallet size={16} className="text-slate-400" />
-                      Monthly Commission ({financeData?.commissionRate ?? 0}%)
+                      {t('dentist.monthlyCommission', { pct: financeData?.commissionRate ?? 0 })}
                     </div>
                     <p className="mt-3 text-4xl font-bold text-sky-700">
                       {formatCurrency(financeData?.monthlyCommission ?? 0)}
@@ -214,16 +230,16 @@ const DentistFinance = () => {
                   <div className="rounded-xl border border-slate-200 bg-white p-5">
                     <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
                       <Activity size={16} className="text-slate-400" />
-                      Treatments Operated
+                      {t('dentist.treatmentsOperated')}
                     </div>
                     <p className="mt-3 text-4xl font-bold text-slate-900">
                       {financeData?.treatmentsOperated.total ?? 0}
                     </p>
                     <div className="mt-3 flex gap-4 text-xs">
-                      {(financeData?.treatmentsOperated.breakdown ?? []).map((t, idx) => (
+                      {(financeData?.treatmentsOperated.breakdown ?? []).map((row, idx) => (
                         <div key={idx}>
-                          <p className="font-medium text-slate-500 uppercase tracking-wider">{t.name}</p>
-                          <p className="text-sm font-bold text-sky-700">{t.count}</p>
+                          <p className="font-medium text-slate-500 uppercase tracking-wider">{row.name}</p>
+                          <p className="text-sm font-bold text-sky-700">{row.count}</p>
                         </div>
                       ))}
                     </div>
@@ -233,25 +249,25 @@ const DentistFinance = () => {
                 <div className="grid gap-4 lg:grid-cols-3">
                   <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h2 className="text-lg font-semibold text-slate-900">Income Trends</h2>
+                      <h2 className="text-lg font-semibold text-slate-900">{t('dentist.incomeTrends')}</h2>
                       <div className="flex rounded-md bg-slate-100 p-1">
                         <button
                           onClick={() => setGraphMode('daily')}
                           className={`rounded px-3 py-1 text-xs font-medium ${graphMode === 'daily' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
-                          Daily
+                          {t('dentist.daily')}
                         </button>
                         <button
                           onClick={() => setGraphMode('weekly')}
                           className={`rounded px-3 py-1 text-xs font-medium ${graphMode === 'weekly' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
-                          Weekly
+                          {t('dentist.weekly')}
                         </button>
                         <button
                           onClick={() => setGraphMode('monthly')}
                           className={`rounded px-3 py-1 text-xs font-medium ${graphMode === 'monthly' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
-                          Monthly
+                          {t('dentist.monthlyTrend')}
                         </button>
                       </div>
                     </div>
@@ -261,7 +277,7 @@ const DentistFinance = () => {
                         viewBox={`0 0 ${chartWidth} ${chartHeight}`}
                         className="h-auto w-full"
                         role="img"
-                        aria-label="Income trends graph"
+                        aria-label={t('dentist.chartAria')}
                       >
                         <line
                           x1={chartPadding.left}
@@ -353,27 +369,27 @@ const DentistFinance = () => {
                   </div>
 
                   <div className="rounded-xl border border-slate-200 bg-white p-5">
-                    <h2 className="text-lg font-semibold text-slate-900">Treatment Mix</h2>
+                    <h2 className="text-lg font-semibold text-slate-900">{t('dentist.treatmentMix')}</h2>
                     <div className="mt-6 space-y-6">
-                      {(financeData?.treatmentMix ?? []).map((t, idx) => (
+                      {(financeData?.treatmentMix ?? []).map((row, idx) => (
                         <div key={idx}>
                           <div className="flex justify-between text-sm font-medium mb-2">
-                            <span className="text-slate-700">{t.name}</span>
-                            <span className="text-sky-700">{t.percentage.toFixed(0)}%</span>
+                            <span className="text-slate-700">{row.name}</span>
+                            <span className="text-sky-700">{row.percentage.toFixed(0)}%</span>
                           </div>
                           <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
                             <div
                               className="h-full bg-slate-700 rounded-full"
-                              style={{ width: `${t.percentage}%` }}
+                              style={{ width: `${row.percentage}%` }}
                             />
                           </div>
                           <div className="mt-1 text-right text-xs text-slate-500">
-                            {formatCurrency(t.commission)} Comm.
+                            {formatCurrency(row.commission)} {t('dentist.commissionAbbr')}
                           </div>
                         </div>
                       ))}
                       {(financeData?.treatmentMix ?? []).length === 0 && (
-                        <p className="text-sm text-slate-500 text-center py-4">No treatments recorded.</p>
+                        <p className="text-sm text-slate-500 text-center py-4">{t('dentist.noTreatments')}</p>
                       )}
                     </div>
                   </div>
@@ -381,50 +397,52 @@ const DentistFinance = () => {
 
                 <div className="mt-6 rounded-xl border border-slate-200 bg-white">
                   <div className="border-b border-slate-200 px-5 py-4">
-                    <h2 className="text-lg font-semibold text-slate-900">Recent Operated Treatments</h2>
+                    <h2 className="text-lg font-semibold text-slate-900">{t('dentist.recentTreatmentsTitle')}</h2>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-slate-600">
                       <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                         <tr>
-                          <th className="px-5 py-3 font-medium">Patient</th>
-                          <th className="px-5 py-3 font-medium">Treatment</th>
-                          <th className="px-5 py-3 font-medium">Date</th>
-                          <th className="px-5 py-3 font-medium">Commission ({financeData?.commissionRate ?? 0}%)</th>
+                          <th className="px-5 py-3 font-medium">{t('dentist.colPatient')}</th>
+                          <th className="px-5 py-3 font-medium">{t('dentist.colTreatment')}</th>
+                          <th className="px-5 py-3 font-medium">{t('dentist.colDate')}</th>
+                          <th className="px-5 py-3 font-medium">
+                            {t('dentist.colCommission', { pct: financeData?.commissionRate ?? 0 })}
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {(financeData?.recentOperatedTreatments ?? []).slice(0, visibleRecentCount).map((t, idx) => (
+                        {(financeData?.recentOperatedTreatments ?? []).slice(0, visibleRecentCount).map((row, idx) => (
                           <tr key={idx} className="hover:bg-slate-50/50">
                             <td className="px-5 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-xs font-semibold text-sky-700">
-                                  {t.patientInitials}
+                                  {row.patientInitials}
                                 </div>
-                                <span className="font-medium text-slate-900">{t.patientName}</span>
+                                <span className="font-medium text-slate-900">{row.patientName}</span>
                               </div>
                             </td>
                             <td className="px-5 py-4">
                               <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
-                                {t.treatmentList}
+                                {row.treatmentList}
                               </span>
                             </td>
                             <td className="px-5 py-4">
-                              {new Date(t.date).toLocaleDateString(undefined, {
+                              {new Date(row.date).toLocaleDateString(locale, {
                                 year: 'numeric',
                                 month: 'short',
                                 day: 'numeric',
                               })}
                             </td>
                             <td className="px-5 py-4 font-bold text-sky-700">
-                              {formatCurrency(t.commission)}
+                              {formatCurrency(row.commission)}
                             </td>
                           </tr>
                         ))}
                         {(financeData?.recentOperatedTreatments ?? []).length === 0 && (
                           <tr>
                             <td colSpan={4} className="px-5 py-8 text-center text-slate-500">
-                              No recent treatments found.
+                              {t('dentist.noRecent')}
                             </td>
                           </tr>
                         )}
@@ -439,13 +457,13 @@ const DentistFinance = () => {
                           onClick={() => setVisibleRecentCount(prev => prev + 10)}
                           className="text-sm font-medium text-sky-700 hover:text-sky-800"
                         >
-                          View More
+                          {t('dentist.viewMore')}
                         </button>
                       ) : (
                         <div />
                       )}
                       <button className="text-sm font-medium text-slate-500 hover:text-slate-700">
-                        View all transactions
+                        {t('dentist.viewAllTransactions')}
                       </button>
                     </div>
                   )}

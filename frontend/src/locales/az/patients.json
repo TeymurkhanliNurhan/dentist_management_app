@@ -28,5 +28,20 @@
   },
   "adding": "Əlavə olunur...",
   "add": "Xəstə əlavə et",
-  "cancel": "Ləğv et"
+  "cancel": "Ləğv et",
+  "portalDirectoryTitle": "Pasiyentlər reyestri",
+  "portalSubtitle": "Ümumi {{count}} qeydiyyatlı pasiyent",
+  "portalSubtitleDentistExtra": " · Müalicə sayları yalnız sizin prosedurlarınızı göstərir; borc isə bütün qəbullar üzrə balansdır.",
+  "registerNewPatient": "+ Yeni pasiyent qeydiyyatı",
+  "placeholderFirstName": "Ad",
+  "placeholderSurname": "Soyad",
+  "tablePatientName": "Pasiyentin adı",
+  "tableContact": "Əlaqə",
+  "yourTreatments": "Sizin müalicələriniz",
+  "tableTreatments": "Müalicələr",
+  "tableDebtStatus": "Borc vəziyyəti",
+  "showingRecords": "{{total}} qeyddən {{shown}} göstərilir",
+  "fetchPatientsError": "Pasiyentlər alına bilmədi",
+  "createPatientError": "Pasiyent yaradıla bilmədi",
+  "dentistNumber": "Diş həkimi #{{id}}"
 }

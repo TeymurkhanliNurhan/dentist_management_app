@@ -42,6 +42,12 @@ import ruAppointments from '../locales/ru/appointments.json';
 import enSchedule from '../locales/en/schedule.json';
 import azSchedule from '../locales/az/schedule.json';
 import ruSchedule from '../locales/ru/schedule.json';
+import enCourseOfTreatments from '../locales/en/courseOfTreatments.json';
+import azCourseOfTreatments from '../locales/az/courseOfTreatments.json';
+import ruCourseOfTreatments from '../locales/ru/courseOfTreatments.json';
+import enFinance from '../locales/en/finance.json';
+import azFinance from '../locales/az/finance.json';
+import ruFinance from '../locales/ru/finance.json';
 
 i18n
   .use(LanguageDetector)
@@ -67,6 +73,8 @@ i18n
         toothDetail: enToothDetail,
         appointments: enAppointments,
         schedule: enSchedule,
+        courseOfTreatments: enCourseOfTreatments,
+        finance: enFinance,
       },
       az: {
         login: azLogin,
@@ -82,6 +90,8 @@ i18n
         toothDetail: azToothDetail,
         appointments: azAppointments,
         schedule: azSchedule,
+        courseOfTreatments: azCourseOfTreatments,
+        finance: azFinance,
       },
       ru: {
         login: ruLogin,
@@ -97,6 +107,8 @@ i18n
         toothDetail: ruToothDetail,
         appointments: ruAppointments,
         schedule: ruSchedule,
+        courseOfTreatments: ruCourseOfTreatments,
+        finance: ruFinance,
       },
     },
     detection: {

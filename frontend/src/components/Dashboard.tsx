@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { CalendarDays, DollarSign, MinusCircle, Settings, UserRound, Users } from 'lucide-react';
 import api, {
   API_BASE_URL,
@@ -11,6 +11,8 @@ import api, {
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU, FRONTDESK_PORTAL_MENU } from '../lib/clinicPortalNav';
+import { appLocaleTag } from '../lib/localeHelpers';
+import i18next from '../i18n/config';
 
 interface StaffSummary {
   name?: string;
@@ -135,8 +137,10 @@ function ymdFromApiDate(value: string | Date | null | undefined, fallback: strin
 
 function DirectorWeekIncomeOutcomeChart({
   data,
+  ariaLabel,
 }: {
   data: Array<{ dayLabel: string; ymd: string; income: number; outcome: number }>;
+  ariaLabel: string;
 }) {
   const w = 640;
   const h = 220;
@@ -176,7 +180,7 @@ function DirectorWeekIncomeOutcomeChart({
       viewBox={`0 0 ${w} ${h}`}
       className="h-52 w-full"
       role="img"
-      aria-label="This week income and outcome by day"
+      aria-label={ariaLabel}
     >
       {ticks.map(({ value, y }) => (
         <line
@@ -346,7 +350,9 @@ function getRandevueTimeStatus(
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useTranslation('dashboard');
+  const { t, i18n } = useTranslation('dashboard');
+  const { t: tHeader } = useTranslation('header');
+  const { t: tCommon } = useTranslation('common');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
@@ -418,7 +424,10 @@ const Dashboard = () => {
       try {
         const profile = await dentistService.getById(id);
         const label = `${profile?.staff?.name ?? ''} ${profile?.staff?.surname ?? ''}`.trim();
-        if (!cancelled) setDentistPortalDisplayName(label || `Dentist #${id}`);
+        if (!cancelled) {
+          const td = i18next.getFixedT(i18next.language, 'dashboard');
+          setDentistPortalDisplayName(label || td('dentistFallback', { id }));
+        }
       } catch {
         if (!cancelled) setDentistPortalDisplayName('');
       }
@@ -427,7 +436,7 @@ const Dashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [isDentistLike]);
+  }, [isDentistLike, i18n.language]);
 
   useEffect(() => {
     let disposed = false;
@@ -440,6 +449,7 @@ const Dashboard = () => {
 
       setLoadingDentistMetrics(true);
       try {
+        const tdD = i18next.getFixedT(i18n.language, 'dashboard');
         const today = new Date();
         const todayRange = localDayRangeIso(today);
         const [overview, todayRandevues] = await Promise.all([
@@ -452,7 +462,7 @@ const Dashboard = () => {
             id: Number(item.id),
             startTime: item.date,
             endTime: item.endTime,
-            patientName: `${item.patient?.name ?? ''} ${item.patient?.surname ?? ''}`.trim() || 'Unknown patient',
+            patientName: `${item.patient?.name ?? ''} ${item.patient?.surname ?? ''}`.trim() || tdD('unknownPatient'),
           }))
           .sort(
             (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
@@ -488,7 +498,7 @@ const Dashboard = () => {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [isDentistLike]);
+  }, [isDentistLike, i18n.language]);
 
   useEffect(() => {
     let cancelled = false;
@@ -546,6 +556,8 @@ const Dashboard = () => {
       const apiDayOfWeek = now.getDay() === 0 ? 7 : now.getDay();
 
       try {
+        const td = i18next.getFixedT(i18n.language, 'dashboard');
+        const weekDayLocale = appLocaleTag(i18n.language);
         const [
           appointmentsResponse,
           paymentDetailsResponse,
@@ -764,7 +776,7 @@ const Dashboard = () => {
         }
         const weeklyChart = ymdInWeek.map((ymd) => {
           const d = new Date(ymd + 'T12:00:00');
-          const dayLabel = d.toLocaleDateString('en-GB', { weekday: 'short' });
+          const dayLabel = d.toLocaleDateString(weekDayLocale, { weekday: 'short' });
           return {
             ymd,
             dayLabel,
@@ -799,8 +811,8 @@ const Dashboard = () => {
               id: item.id,
               staffName:
                 typeof item.staffId === 'number'
-                  ? (staffNameById.get(item.staffId) ?? `Staff #${item.staffId}`)
-                  : 'Unknown',
+                  ? (staffNameById.get(item.staffId) ?? td('staffNumber', { id: item.staffId }))
+                  : td('unknownStaff'),
               startTime: item.startTime ?? '',
               endTime: item.endTime ?? '',
               requestName: item.name ?? null,
@@ -829,14 +841,17 @@ const Dashboard = () => {
             salary?: { staff?: { name?: string; surname?: string } } | null;
             purchaseMedicineRecords?: unknown[];
           }) => {
+            const salaryFull = item.salary?.staff
+              ? `${item.salary.staff.name ?? ''} ${item.salary.staff.surname ?? ''}`.trim()
+              : '';
             const source =
               item.expense?.name ||
               (item.salary?.staff
-                ? `Salary: ${item.salary.staff.name ?? ''} ${item.salary.staff.surname ?? ''}`.trim()
+                ? td('outcomeSalaryPrefix', { name: salaryFull })
                 : Array.isArray(item.purchaseMedicineRecords) &&
                     item.purchaseMedicineRecords.length > 0
-                  ? 'Medicine purchase'
-                  : 'Other');
+                  ? td('outcomeMedicinePurchase')
+                  : td('outcomeOther'));
             return {
               id: item.id,
               source,
@@ -878,7 +893,7 @@ const Dashboard = () => {
             startTime: item.date,
             endTime: item.endTime,
             patientName:
-              `${item.patient?.name ?? ''} ${item.patient?.surname ?? ''}`.trim() || 'Unknown patient',
+              `${item.patient?.name ?? ''} ${item.patient?.surname ?? ''}`.trim() || td('unknownPatient'),
           }),
         );
         const todayRandevues = sortedTodayRandevues.slice(0, 8).map(
@@ -938,7 +953,7 @@ const Dashboard = () => {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [directorMetricsRefreshToken, usesDirectorDashboard]);
+  }, [directorMetricsRefreshToken, usesDirectorDashboard, i18n.language]);
 
   const handleBlockingRequestAction = async (id: number, action: 'approve' | 'reject') => {
     if (!usesDirectorDashboard) return;
@@ -952,11 +967,39 @@ const Dashboard = () => {
       if (!res.ok) throw new Error(`blocking ${action}`);
       setDirectorMetricsRefreshToken((x) => x + 1);
     } catch {
-      setRequestActionError('Failed to update blocking request. Please try again.');
+      setRequestActionError(t('blockingRequestUpdateError'));
     } finally {
       setRequestActionBusyId(null);
     }
   };
+
+  const staffStatusLabel = useCallback(
+    (status: StaffStatus) => {
+      switch (status) {
+        case 'on-site':
+          return t('staffOnSite');
+        case 'in-operation':
+          return t('staffInOperation');
+        case 'off-clock':
+          return t('staffOffClock');
+        case 'ooo':
+          return t('staffOoo');
+        default:
+          return String(status).replaceAll('-', ' ');
+      }
+    },
+    [t],
+  );
+
+  const randevueStatusLabel = useCallback(
+    (status: string) => {
+      if (status === 'coming up') return t('randevueComingUp');
+      if (status === 'ongoing') return t('randevueOngoing');
+      if (status === 'completed') return t('randevueCompleted');
+      return status;
+    },
+    [t],
+  );
 
   const directorDisplayName = `${directorStaff?.name ?? ''} ${directorStaff?.surname ?? ''}`.trim();
   const directorLikeMenuItems = isSingleDentist
@@ -971,7 +1014,7 @@ const Dashboard = () => {
       <>
       <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
-          brandTitle="Precision Dental"
+          brandTitle={tHeader('brandPrecisionDental')}
           portalBadge={isDirector || isSingleDentist ? 'Admin Portal' : 'Reception Portal'}
           userDisplayName={directorDisplayName}
           userSubtitle={isDirector || isSingleDentist ? 'Clinic Director' : 'Receptionist'}
@@ -988,7 +1031,7 @@ const Dashboard = () => {
               type="button"
               onClick={() => navigate('/staff')}
               className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100"
-              aria-label="Staff and doctors"
+              aria-label={t('staffSettingsAria')}
             >
               <Settings size={16} />
             </button>
@@ -998,9 +1041,9 @@ const Dashboard = () => {
           <main className="min-h-0 flex-1 overflow-y-auto bg-[#f9fafb] p-6">
             <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
               <section>
-                <h1 className="text-3xl font-semibold text-slate-800">Director&apos;s Overview</h1>
+                <h1 className="text-3xl font-semibold text-slate-800">{t('directorTitle')}</h1>
                 <p className="text-sm text-slate-500">
-                  Real-time and daily clinic performance snapshot.
+                  {t('directorSubtitle')}
                 </p>
               </section>
 
@@ -1013,7 +1056,7 @@ const Dashboard = () => {
                 >
                   <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <DollarSign className="h-4 w-4 text-emerald-600" />
-                    Daily Income
+                    {t('dailyIncome')}
                   </div>
                   <p className="text-2xl font-semibold text-slate-800">
                     ${Number(metrics?.dailyIncome ?? 0).toFixed(2)}
@@ -1028,7 +1071,7 @@ const Dashboard = () => {
                 >
                   <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <MinusCircle className="h-4 w-4 text-rose-600" />
-                    Daily Outcome
+                    {t('dailyOutcome')}
                   </div>
                   <p className="text-2xl font-semibold text-slate-800">
                     ${Number(metrics?.dailyOutcome ?? 0).toFixed(2)}
@@ -1042,7 +1085,7 @@ const Dashboard = () => {
                 >
                   <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <CalendarDays className="h-4 w-4 text-blue-600" />
-                    Appointments Today
+                    {t('appointmentsToday')}
                   </div>
                   <p className="text-2xl font-semibold text-slate-800">{metrics?.dailyAppointments ?? 0}</p>
                 </button>
@@ -1050,7 +1093,7 @@ const Dashboard = () => {
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <Users className="h-4 w-4 text-indigo-600" />
-                    Room Occupancy
+                    {t('roomOccupancy')}
                   </div>
                   <p className="text-2xl font-semibold text-slate-800">
                     {metrics?.occupiedRooms ?? 0} / {metrics?.totalRooms ?? 0}
@@ -1064,22 +1107,22 @@ const Dashboard = () => {
                 <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
                   <div>
                     <h2 className="text-lg font-semibold text-slate-800">
-                      This week: income and outcome by day
+                      {t('weekChartTitle')}
                     </h2>
-                    <p className="text-sm text-slate-500">Monday to Sunday, current calendar week</p>
+                    <p className="text-sm text-slate-500">{t('weekChartSubtitle')}</p>
                   </div>
                   <div className="flex gap-4 text-xs text-slate-600">
                     <span className="inline-flex items-center gap-1.5">
                       <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" />
-                      Income
+                      {t('chartIncome')}
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <span className="inline-block h-2.5 w-2.5 rounded-sm bg-rose-500" />
-                      Outcome
+                      {t('chartOutcome')}
                     </span>
                   </div>
                 </div>
-                <DirectorWeekIncomeOutcomeChart data={metrics?.weeklyChart ?? []} />
+                <DirectorWeekIncomeOutcomeChart ariaLabel={t('weekChartAria')} data={metrics?.weeklyChart ?? []} />
               </section>
               )}
 
@@ -1087,17 +1130,17 @@ const Dashboard = () => {
                 <section className="rounded-xl border border-slate-200 bg-white p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-slate-800">
-                      {activeDetailsPanel === 'income' && 'Daily Income Breakdown'}
-                      {activeDetailsPanel === 'outcome' && 'Daily Outcome Breakdown'}
-                      {activeDetailsPanel === 'appointments' && 'Today Appointments'}
-                      {activeDetailsPanel === 'requests' && 'Awaiting Blocking Requests'}
+                      {activeDetailsPanel === 'income' && t('panelIncomeBreakdown')}
+                      {activeDetailsPanel === 'outcome' && t('panelOutcomeBreakdown')}
+                      {activeDetailsPanel === 'appointments' && t('panelTodayAppointments')}
+                      {activeDetailsPanel === 'requests' && t('panelAwaitingBlocking')}
                     </h2>
                     <button
                       type="button"
                       onClick={() => setActiveDetailsPanel(null)}
                       className="text-sm font-medium text-slate-500 hover:text-slate-700"
                     >
-                      Close
+                      {t('close')}
                     </button>
                   </div>
                   <div className="space-y-2">
@@ -1140,7 +1183,7 @@ const Dashboard = () => {
                             </span>
                           </div>
                           <span className="text-xs font-semibold uppercase tracking-wide text-rose-700">
-                            {row.requestName || 'request'}
+                            {row.requestName || t('requestFallback')}
                           </span>
                           <div className="ml-3 flex items-center gap-2">
                             <button
@@ -1149,7 +1192,7 @@ const Dashboard = () => {
                               disabled={requestActionBusyId === row.id}
                               className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                              Approve
+                              {t('approve')}
                             </button>
                             <button
                               type="button"
@@ -1157,7 +1200,7 @@ const Dashboard = () => {
                               disabled={requestActionBusyId === row.id}
                               className="rounded border border-rose-300 bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                              Reject
+                              {t('reject')}
                             </button>
                           </div>
                         </div>
@@ -1172,13 +1215,13 @@ const Dashboard = () => {
               <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                 <div className="rounded-xl border border-slate-200 bg-white p-4 xl:col-span-2">
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-slate-800">Today&apos;s Randevues</h2>
+                    <h2 className="text-lg font-semibold text-slate-800">{t('todaysRandevues')}</h2>
                     <button
                       type="button"
                       onClick={() => navigate('/schedule')}
                       className="text-sm font-medium text-blue-600 hover:text-blue-700"
                     >
-                      Open schedule
+                      {t('openSchedule')}
                     </button>
                   </div>
                   {isSingleDentist ? (
@@ -1195,11 +1238,11 @@ const Dashboard = () => {
                     <table className="min-w-full text-sm">
                       <thead>
                         <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
-                          <th className="py-2 pr-3">Patient</th>
-                          <th className="py-2 pr-3">Dentist</th>
-                          <th className="py-2 pr-3">Time</th>
-                          <th className="py-2 pr-3">Status</th>
-                          <th className="py-2">Link</th>
+                          <th className="py-2 pr-3">{t('colPatient')}</th>
+                          <th className="py-2 pr-3">{t('colDentist')}</th>
+                          <th className="py-2 pr-3">{t('colTime')}</th>
+                          <th className="py-2 pr-3">{t('colStatus')}</th>
+                          <th className="py-2">{t('colLink')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1208,9 +1251,9 @@ const Dashboard = () => {
                             <td className="py-2 pr-3 font-medium text-slate-700">{row.patientName}</td>
                             <td className="py-2 pr-3 text-slate-600">{row.treatingDentist}</td>
                             <td className="py-2 pr-3 text-slate-600">{row.time}</td>
-                            <td className="py-2 pr-3 capitalize text-slate-600">{row.status}</td>
+                            <td className="py-2 pr-3 capitalize text-slate-600">{randevueStatusLabel(row.status)}</td>
                             <td className="py-2 text-slate-600">
-                              {row.linkedToAppointment ? 'Randevue + Appointment' : 'Randevue only'}
+                              {row.linkedToAppointment ? t('randevueLinkBoth') : t('randevueLinkOnly')}
                             </td>
                           </tr>
                         ))}
@@ -1224,13 +1267,13 @@ const Dashboard = () => {
                   {!isSingleDentist ? (
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <div className="mb-2 flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-slate-800">Staff Status</h2>
+                      <h2 className="text-lg font-semibold text-slate-800">{t('staffStatus')}</h2>
                       <button
                         type="button"
                         onClick={() => setActiveDetailsPanel('requests')}
                         className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
                       >
-                        {metrics?.blockingRequestsCount ?? 0} requests
+                        {t('blockingRequestsShort', { count: metrics?.blockingRequestsCount ?? 0 })}
                       </button>
                     </div>
                     <div className="space-y-2">
@@ -1243,7 +1286,7 @@ const Dashboard = () => {
                             </span>
                           </div>
                           <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-                            {staff.status.replace('-', ' ')}
+                            {staffStatusLabel(staff.status)}
                           </span>
                         </div>
                       ))}
@@ -1253,10 +1296,10 @@ const Dashboard = () => {
 
                   {(isDirectorOrReception || isSingleDentist) && (
                   <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
-                    <h2 className="mb-2 text-lg font-semibold text-rose-800">Medicines to Purchase</h2>
+                    <h2 className="mb-2 text-lg font-semibold text-rose-800">{t('medicinesToPurchase')}</h2>
                     <div className="space-y-2">
                       {(metrics?.lowStockMedicines ?? []).length === 0 ? (
-                        <p className="text-sm text-rose-700">No low-stock medicines right now.</p>
+                        <p className="text-sm text-rose-700">{t('noLowStockMedicines')}</p>
                       ) : (
                         (metrics?.lowStockMedicines ?? []).map((medicine) => (
                           <div key={medicine.id} className="flex items-center justify-between rounded-md bg-white px-3 py-2">
@@ -1274,7 +1317,7 @@ const Dashboard = () => {
               </section>
 
               {loadingMetrics && (
-                <p className="text-sm text-slate-500">Refreshing dashboard data...</p>
+                <p className="text-sm text-slate-500">{t('refreshingDashboard')}</p>
               )}
             </div>
           </main>
@@ -1297,7 +1340,7 @@ const Dashboard = () => {
       <>
         <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
           <ClinicPortalShell
-            brandTitle="Clinic Management"
+            brandTitle={tHeader('clinicManagementTitle')}
             portalBadge="Dentist Portal"
             userDisplayName={dentistPortalDisplayName}
             userSubtitle="Dentist"
@@ -1312,7 +1355,7 @@ const Dashboard = () => {
             <main className="min-h-0 flex-1 overflow-y-auto bg-[#f9fafb] p-6">
               <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
                 <section>
-                  <h1 className="text-3xl font-semibold text-slate-800">Today's Treatments</h1>
+                  <h1 className="text-3xl font-semibold text-slate-800">{t('todayTreatmentsHeading')}</h1>
                   <p className="mt-1 text-sm text-slate-500">{t('dentistDashboardSubtitle')}</p>
                 </section>
                 <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -1353,16 +1396,16 @@ const Dashboard = () => {
                 {/* Today's Treatments and Benefits */}
                 <section className="rounded-xl border border-slate-200 bg-white p-4">
                   <h2 className="mb-3 text-lg font-semibold text-slate-800">
-                    Today's treatments
+                    {t('todayTreatmentsSection')}
                   </h2>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead>
                         <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
-                          <th className="py-2 pr-3">Patient</th>
-                          <th className="py-2 pr-3">Treatment</th>
-                          <th className="py-2 pr-3">Your share</th>
-                          <th className="py-2 pr-3">Date</th>
+                          <th className="py-2 pr-3">{t('colPatient')}</th>
+                          <th className="py-2 pr-3">{t('colTreatment')}</th>
+                          <th className="py-2 pr-3">{t('colYourShare')}</th>
+                          <th className="py-2 pr-3">{t('colDate')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1374,12 +1417,12 @@ const Dashboard = () => {
                             <td className="py-2 pr-3 font-medium text-slate-700">{row.patientName}</td>
                             <td className="py-2 pr-3 text-slate-600">{row.treatmentName}</td>
                             <td className="py-2 pr-3 text-slate-600">${row.benefit.toFixed(2)}</td>
-                            <td className="py-2 pr-3 text-slate-600">{ymdFromApiDate(row.date, 'N/A')}</td>
+                            <td className="py-2 pr-3 text-slate-600">{ymdFromApiDate(row.date, t('notApplicable'))}</td>
                           </tr>
                         ))}
                         {(dentistMetrics?.todayTreatments?.length ?? 0) === 0 && (
                           <tr>
-                            <td colSpan={4} className="py-4 text-center text-slate-500">No treatments today.</td>
+                            <td colSpan={4} className="py-4 text-center text-slate-500">{t('noTreatmentsToday')}</td>
                           </tr>
                         )}
                       </tbody>
@@ -1417,7 +1460,7 @@ const Dashboard = () => {
 
   return (
     <div className="flex h-dvh items-center justify-center bg-[#f4f6f8] text-slate-700">
-      <p className="text-lg">You do not have permission to view this page.</p>
+      <p className="text-lg">{tCommon('noPermissionPage')}</p>
     </div>
   );
 };

@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU, FRONTDESK_PORTAL_MENU } from '../lib/clinicPortalNav';
+import { appLocaleTag } from '../lib/localeHelpers';
 import { appointmentService, dentistService, patientService, toothTreatmentService } from '../services/api';
 import type { Patient, PatientFilters, CreatePatientDto, ToothTreatment } from '../services/api';
 import { useTranslation } from 'react-i18next';
@@ -18,7 +19,8 @@ const DIRECTOR_PAGE_SIZE = 7;
 const Patients = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useTranslation('patients');
+  const { t, i18n } = useTranslation('patients');
+  const { t: tCommon } = useTranslation('common');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
   const isDirector = role === 'director';
   const isReception = role === 'frontdesk';
@@ -99,7 +101,7 @@ const Patients = () => {
       setCurrentPage(1);
     } catch (err: any) {
       console.error('Failed to fetch patients:', err);
-      setError(err.response?.data?.message || 'Failed to fetch patients');
+      setError(err.response?.data?.message || t('fetchPatientsError'));
     } finally {
       setIsLoading(false);
     }
@@ -122,7 +124,7 @@ const Patients = () => {
       try {
         const profile = await dentistService.getById(id);
         const label = `${profile?.staff?.name ?? ''} ${profile?.staff?.surname ?? ''}`.trim();
-        if (!cancelled) setDentistPortalDisplayName(label || `Dentist #${id}`);
+        if (!cancelled) setDentistPortalDisplayName(label || t('dentistNumber', { id }));
       } catch {
         if (!cancelled) setDentistPortalDisplayName('');
       }
@@ -131,7 +133,7 @@ const Patients = () => {
     return () => {
       cancelled = true;
     };
-  }, [isDentist]);
+  }, [isDentist, i18n.language, t]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,7 +160,7 @@ const Patients = () => {
       void fetchPatients();
     } catch (err: any) {
       console.error('Failed to create patient:', err);
-      setError(err.response?.data?.message || 'Failed to create patient');
+      setError(err.response?.data?.message || t('createPatientError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -169,7 +171,7 @@ const Patients = () => {
     if (Number.isNaN(parsed.getTime())) {
       return dateValue;
     }
-    return parsed.toLocaleDateString('en-US', {
+    return parsed.toLocaleDateString(appLocaleTag(i18n.language), {
       month: 'short',
       day: '2-digit',
       year: 'numeric',
@@ -177,7 +179,7 @@ const Patients = () => {
   };
 
   const formatDebt = (debt: number) =>
-    new Intl.NumberFormat('en-US', {
+    new Intl.NumberFormat(appLocaleTag(i18n.language), {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
@@ -223,17 +225,17 @@ const Patients = () => {
               onClick={() => setShowAddModal(true)}
               className="rounded-md bg-[#0066A6] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-[#00588f]"
             >
-              + Register New Patient
+              {t('registerNewPatient')}
             </button>
             ) : null
           }
         >
           <main className="min-h-0 flex-1 bg-[#f9fafb] px-6 py-6">
             <div className="mb-6">
-              <h1 className="text-4xl font-bold text-slate-900">Patient Directory</h1>
+              <h1 className="text-4xl font-bold text-slate-900">{t('portalDirectoryTitle')}</h1>
               <p className="mt-2 text-sm text-slate-500">
-                {patients.length.toLocaleString('en-US')} total registered patients
-                {isDentist ? ' · Treatment counts show your procedures only; debt is the patient’s balance across all appointments' : ''}
+                {t('portalSubtitle', { count: patients.length })}
+                {isDentist ? t('portalSubtitleDentistExtra') : ''}
               </p>
             </div>
 
@@ -244,14 +246,14 @@ const Patients = () => {
                   value={filters.name}
                   onChange={(e) => setFilters({ ...filters, name: e.target.value })}
                   className="rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  placeholder="First name"
+                  placeholder={t('placeholderFirstName')}
                 />
                 <input
                   type="text"
                   value={filters.surname}
                   onChange={(e) => setFilters({ ...filters, surname: e.target.value })}
                   className="rounded-md border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  placeholder="Surname"
+                  placeholder={t('placeholderSurname')}
                 />
                 <input
                   type="date"
@@ -266,14 +268,14 @@ const Patients = () => {
                     className="flex flex-1 items-center justify-center gap-2 rounded-md bg-[#0066A6] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#00588f] disabled:opacity-50"
                   >
                     <Search className="h-4 w-4" />
-                    Search
+                    {t('search')}
                   </button>
                   <button
                     type="button"
                     onClick={handleClearSearch}
                     className="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                   >
-                    Clear
+                    {t('clear')}
                   </button>
                 </div>
               </div>
@@ -289,25 +291,25 @@ const Patients = () => {
               <table className="w-full table-fixed">
                 <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-4 py-3 text-left">Patient Name</th>
-                    <th className="px-4 py-3 text-left">Surname</th>
-                    <th className="px-4 py-3 text-left">Birthdate</th>
-                    <th className="px-4 py-3 text-left">Contact</th>
-                    <th className="px-4 py-3 text-left">{isDentist ? 'Your treatments' : 'Treatments'}</th>
-                    {isDirectorOrReception || isDentist ? <th className="px-4 py-3 text-left">Debt Status</th> : null}
+                    <th className="px-4 py-3 text-left">{t('tablePatientName')}</th>
+                    <th className="px-4 py-3 text-left">{t('table.surname')}</th>
+                    <th className="px-4 py-3 text-left">{t('table.birthDate')}</th>
+                    <th className="px-4 py-3 text-left">{t('tableContact')}</th>
+                    <th className="px-4 py-3 text-left">{isDentist ? t('yourTreatments') : t('tableTreatments')}</th>
+                    {isDirectorOrReception || isDentist ? <th className="px-4 py-3 text-left">{t('tableDebtStatus')}</th> : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
                     <tr>
                       <td colSpan={isDirectorOrReception || isDentist ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-500">
-                        Loading patients...
+                        {t('loading')}
                       </td>
                     </tr>
                   ) : paginatedPortalRows.length === 0 ? (
                     <tr>
                       <td colSpan={isDirectorOrReception || isDentist ? 6 : 5} className="px-4 py-8 text-center text-sm text-slate-500">
-                        No patients found.
+                        {t('empty')}
                       </td>
                     </tr>
                   ) : (
@@ -340,7 +342,7 @@ const Patients = () => {
 
             <div className="mt-4 flex items-center justify-between text-xs uppercase tracking-wide text-slate-400">
               <span>
-                Showing {paginatedPortalRows.length} of {portalRows.length} records
+                {t('showingRecords', { shown: paginatedPortalRows.length, total: portalRows.length })}
               </span>
               <div className="flex items-center gap-1">
                 <button
@@ -468,7 +470,7 @@ const Patients = () => {
 
   return (
     <div className="flex h-dvh items-center justify-center bg-[#f4f6f8] text-slate-700">
-      <p className="text-lg">You do not have permission to view this page.</p>
+      <p className="text-lg">{tCommon('noPermissionPage')}</p>
     </div>
   );
 };

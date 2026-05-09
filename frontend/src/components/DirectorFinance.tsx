@@ -12,6 +12,8 @@ import { ClinicPortalShell } from './ClinicPortalShell';
 import { buildFinanceExpenseGroups } from '../lib/buildFinanceExpenseGroups';
 import { DIRECTOR_PORTAL_MENU } from '../lib/clinicPortalNav';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
+import { useTranslation } from 'react-i18next';
+import { appLocaleTag } from '../lib/localeHelpers';
 
 function formatCurrency(value: number): string {
   return `$${value.toLocaleString(undefined, {
@@ -23,8 +25,6 @@ function formatCurrency(value: number): string {
 function buildDefaultPaymentDate(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}-01`;
 }
-
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 type FinanceViewMode = 'monthly' | 'annual';
 
@@ -40,8 +40,15 @@ type AnnualPoint = {
 const DirectorFinance = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t, i18n } = useTranslation('finance');
+  const { t: tHeader } = useTranslation('header');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isDirector = role === 'director';
+
+  const monthShortLabel = (monthIndex1: number) =>
+    new Date(2000, monthIndex1 - 1, 1).toLocaleDateString(appLocaleTag(i18n.language), {
+      month: 'short',
+    });
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -92,7 +99,7 @@ const DirectorFinance = () => {
       const data = await paymentDetailsService.getFinanceOverview({ year, month });
       setFinanceOverview(data);
     } catch (err: any) {
-      setFinanceError(err?.response?.data?.message ?? 'Failed to fetch finance overview');
+      setFinanceError(err?.response?.data?.message ?? t('director.errFetchOverview'));
     } finally {
       setFinanceLoading(false);
     }
@@ -111,7 +118,7 @@ const DirectorFinance = () => {
         const income = Number(item?.monthlyIncome ?? 0);
         return {
           month: i + 1,
-          monthLabel: MONTH_LABELS[i],
+          monthLabel: monthShortLabel(i + 1),
           income,
           debt: Number(item?.debt ?? 0),
           outcome,
@@ -120,7 +127,7 @@ const DirectorFinance = () => {
       });
       setAnnualOverview(annualRows);
     } catch (err: any) {
-      setFinanceError(err?.response?.data?.message ?? 'Failed to fetch annual overview');
+      setFinanceError(err?.response?.data?.message ?? t('director.errFetchAnnual'));
     } finally {
       setAnnualLoading(false);
     }
@@ -163,15 +170,15 @@ const DirectorFinance = () => {
     setFinanceSubmitError(null);
 
     if (!newExpense.name.trim()) {
-      setFinanceSubmitError('Expense name is required.');
+      setFinanceSubmitError(t('director.errExpenseName'));
       return;
     }
     if (!newPaymentDetail.date) {
-      setFinanceSubmitError('Payment date is required.');
+      setFinanceSubmitError(t('director.errPaymentDate'));
       return;
     }
     if (!Number.isFinite(newPaymentDetail.cost ?? NaN) || (newPaymentDetail.cost ?? 0) < 0) {
-      setFinanceSubmitError('Payment cost must be a valid non-negative number.');
+      setFinanceSubmitError(t('director.errPaymentCost'));
       return;
     }
 
@@ -195,7 +202,7 @@ const DirectorFinance = () => {
       await fetchFinanceOverview(selectedYear, selectedMonth);
     } catch (err: any) {
       setFinanceSubmitError(
-        err?.response?.data?.message ?? 'Failed to create expense and payment detail.',
+        err?.response?.data?.message ?? t('director.errCreateExpensePayment'),
       );
     } finally {
       setIsCreatingExpenseWithPayment(false);
@@ -207,15 +214,15 @@ const DirectorFinance = () => {
     setFinanceSubmitError(null);
 
     if (selectedExpenseForPayment?.id == null) {
-      setFinanceSubmitError('Please select an expense before adding a payment.');
+      setFinanceSubmitError(t('director.errSelectExpense'));
       return;
     }
     if (!newPaymentDetail.date) {
-      setFinanceSubmitError('Payment date is required.');
+      setFinanceSubmitError(t('director.errPaymentDate'));
       return;
     }
     if (!Number.isFinite(newPaymentDetail.cost ?? NaN) || (newPaymentDetail.cost ?? 0) < 0) {
-      setFinanceSubmitError('Payment cost must be a valid non-negative number.');
+      setFinanceSubmitError(t('director.errPaymentCost'));
       return;
     }
 
@@ -235,7 +242,7 @@ const DirectorFinance = () => {
       });
       await fetchFinanceOverview(selectedYear, selectedMonth);
     } catch (err: any) {
-      setFinanceSubmitError(err?.response?.data?.message ?? 'Failed to create payment detail.');
+      setFinanceSubmitError(err?.response?.data?.message ?? t('director.errCreatePayment'));
     } finally {
       setIsCreatingExpenseWithPayment(false);
     }
@@ -327,7 +334,7 @@ const DirectorFinance = () => {
     <>
       <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
-          brandTitle="Precision Dental"
+          brandTitle={tHeader('brandPrecisionDental')}
           portalBadge="Admin Portal"
           userDisplayName={directorDisplayName || '-'}
           userSubtitle="Clinic Director"
@@ -342,7 +349,7 @@ const DirectorFinance = () => {
               type="button"
               onClick={() => navigate('/staff')}
               className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100"
-              aria-label="Staff and doctors"
+              aria-label={t('director.staffAria')}
             >
               <Settings size={16} />
             </button>
@@ -352,27 +359,27 @@ const DirectorFinance = () => {
             <div className="mx-auto max-w-6xl space-y-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900">Financial Overview</h1>
+                  <h1 className="text-2xl font-bold text-slate-900">{t('director.title')}</h1>
                   <p className="text-sm text-slate-500">
                     {viewMode === 'annual'
-                      ? 'Annual clinic finance review'
-                      : 'Monthly clinic finance snapshot'}
+                      ? t('director.subtitleAnnual')
+                      : t('director.subtitleMonthly')}
                   </p>
                 </div>
                 <div className="flex items-end gap-2">
                   <div>
-                    <label className="mb-1 block text-xs text-slate-500">Mode</label>
+                    <label className="mb-1 block text-xs text-slate-500">{t('shared.mode')}</label>
                     <select
                       value={viewMode}
                       onChange={(e) => setViewMode(e.target.value as FinanceViewMode)}
                       className="rounded-md border border-slate-300 px-2 py-2 text-sm"
                     >
-                      <option value="monthly">Monthly</option>
-                      <option value="annual">Annual</option>
+                      <option value="monthly">{t('shared.monthly')}</option>
+                      <option value="annual">{t('shared.annual')}</option>
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-slate-500">Year</label>
+                    <label className="mb-1 block text-xs text-slate-500">{t('shared.year')}</label>
                     <input
                       type="number"
                       min={2000}
@@ -384,7 +391,7 @@ const DirectorFinance = () => {
                   </div>
                   {viewMode === 'monthly' ? (
                     <div>
-                      <label className="mb-1 block text-xs text-slate-500">Month</label>
+                      <label className="mb-1 block text-xs text-slate-500">{t('shared.month')}</label>
                       <input
                         type="number"
                         min={1}
@@ -406,7 +413,7 @@ const DirectorFinance = () => {
                     }}
                     className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
                   >
-                    Refresh
+                    {t('shared.refresh')}
                   </button>
                 </div>
               </div>
@@ -420,7 +427,7 @@ const DirectorFinance = () => {
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <p className="text-sm text-slate-500">
-                    {viewMode === 'annual' ? 'Annual Income' : 'Monthly Income'}
+                    {viewMode === 'annual' ? t('director.annualIncome') : t('director.monthlyIncome')}
                   </p>
                   <p className="mt-2 text-3xl font-bold text-slate-900">
                     {viewMode === 'annual'
@@ -434,7 +441,7 @@ const DirectorFinance = () => {
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <p className="text-sm text-slate-500">
-                    {viewMode === 'annual' ? 'Annual Debt' : 'Debt'}
+                    {viewMode === 'annual' ? t('director.annualDebt') : t('director.debt')}
                   </p>
                   <p className="mt-2 text-3xl font-bold text-slate-900">
                     {viewMode === 'annual'
@@ -448,7 +455,7 @@ const DirectorFinance = () => {
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <p className="text-sm text-slate-500">
-                    {viewMode === 'annual' ? 'Annual Profit' : 'Net Profit'}
+                    {viewMode === 'annual' ? t('director.annualProfit') : t('director.netProfit')}
                   </p>
                   <p className="mt-2 text-3xl font-bold text-emerald-700">
                     {viewMode === 'annual'
@@ -465,9 +472,9 @@ const DirectorFinance = () => {
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Financial Statistics</h2>
+                    <h2 className="text-lg font-semibold text-slate-900">{t('director.statsTitle')}</h2>
                     <p className="text-sm text-slate-500">
-                      Monthly trend for income, outcome and profit in {selectedYear}
+                      {t('director.statsSubtitle', { year: selectedYear })}
                     </p>
                   </div>
                   <button
@@ -475,7 +482,7 @@ const DirectorFinance = () => {
                     onClick={() => setShowGraph((prev) => !prev)}
                     className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                   >
-                    {showGraph ? 'Close graph' : 'See graph'}
+                    {showGraph ? t('director.closeGraph') : t('director.seeGraph')}
                   </button>
                 </div>
 
@@ -490,7 +497,7 @@ const DirectorFinance = () => {
                             setVisibleSeries((prev) => ({ ...prev, income: e.target.checked }))
                           }
                         />
-                        <span className="font-medium" style={{ color: seriesColor.income }}>Income</span>
+                        <span className="font-medium" style={{ color: seriesColor.income }}>{t('director.income')}</span>
                       </label>
                       <label className="inline-flex items-center gap-2 text-slate-700">
                         <input
@@ -500,7 +507,7 @@ const DirectorFinance = () => {
                             setVisibleSeries((prev) => ({ ...prev, outcome: e.target.checked }))
                           }
                         />
-                        <span className="font-medium" style={{ color: seriesColor.outcome }}>Outcome</span>
+                        <span className="font-medium" style={{ color: seriesColor.outcome }}>{t('director.outcome')}</span>
                       </label>
                       <label className="inline-flex items-center gap-2 text-slate-700">
                         <input
@@ -510,7 +517,7 @@ const DirectorFinance = () => {
                             setVisibleSeries((prev) => ({ ...prev, profit: e.target.checked }))
                           }
                         />
-                        <span className="font-medium" style={{ color: seriesColor.profit }}>Profit</span>
+                        <span className="font-medium" style={{ color: seriesColor.profit }}>{t('director.profit')}</span>
                       </label>
                     </div>
                     <div className="mt-4 overflow-x-auto">
@@ -518,7 +525,7 @@ const DirectorFinance = () => {
                         viewBox={`0 0 ${chartWidth} ${chartHeight}`}
                         className="h-[320px] min-w-[760px] w-full"
                         role="img"
-                        aria-label="Financial statistics by month"
+                        aria-label={t('director.chartAriaMonthly')}
                       >
                         <line
                           x1={chartPadding.left}
@@ -587,8 +594,8 @@ const DirectorFinance = () => {
                 <>
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h2 className="text-lg font-semibold text-slate-900">Income Breakdown</h2>
-                  <p className="mt-1 text-sm text-slate-500">Income by dentists</p>
+                  <h2 className="text-lg font-semibold text-slate-900">{t('director.incomeBreakdownTitle')}</h2>
+                  <p className="mt-1 text-sm text-slate-500">{t('director.incomeByDentists')}</p>
                   <div className="mt-3 space-y-2 text-sm">
                     {(financeOverview?.incomeBreakdown?.byDentists ?? []).map((item) => (
                       <div key={item.staffId} className="flex justify-between">
@@ -597,37 +604,37 @@ const DirectorFinance = () => {
                       </div>
                     ))}
                     {(financeOverview?.incomeBreakdown?.byDentists ?? []).length === 0 ? (
-                      <p className="text-slate-500">No dentist income records for this month.</p>
+                      <p className="text-slate-500">{t('director.noDentistIncome')}</p>
                     ) : null}
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h2 className="text-lg font-semibold text-slate-900">Outcome Breakdown</h2>
+                  <h2 className="text-lg font-semibold text-slate-900">{t('director.outcomeBreakdownTitle')}</h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Salaries, medicine purchases and other payment details
+                    {t('director.outcomeBreakdownSubtitle')}
                   </p>
                   <div className="mt-4 space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Total outcome</span>
+                      <span className="text-slate-600">{t('director.totalOutcome')}</span>
                       <span className="font-semibold">
                         {formatCurrency(financeOverview?.outcome?.total ?? 0)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Salaries</span>
+                      <span className="text-slate-600">{t('director.salaries')}</span>
                       <span className="font-medium">
                         {formatCurrency(financeOverview?.outcome?.totalSalaries ?? 0)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Medicine purchases</span>
+                      <span className="text-slate-600">{t('director.medicinePurchases')}</span>
                       <span className="font-medium">
                         {formatCurrency(financeOverview?.outcome?.totalMedicinePurchases ?? 0)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Other payment details</span>
+                      <span className="text-slate-600">{t('director.otherPayments')}</span>
                       <span className="font-medium">
                         {formatCurrency(financeOverview?.outcome?.totalOtherPaymentDetails ?? 0)}
                       </span>
@@ -638,7 +645,7 @@ const DirectorFinance = () => {
 
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <h2 className="text-lg font-semibold text-slate-900">Salary Details</h2>
+                  <h2 className="text-lg font-semibold text-slate-900">{t('director.salaryDetailsTitle')}</h2>
                   <div className="mt-3 space-y-2 text-sm">
                     {(financeOverview?.outcome?.salaries ?? []).map((salary) => (
                       <div key={salary.staffId} className="rounded-md border border-slate-100 px-3 py-2">
@@ -651,21 +658,25 @@ const DirectorFinance = () => {
                           </span>
                         </div>
                         <p className="text-xs text-slate-500">
-                          {salary.role ?? 'staff'} | {salary.type === 'percentage'
-                            ? `${salary.percentage ?? 0}% of ${formatCurrency(salary.treatmentCost ?? 0)}`
-                            : 'fixed salary'}
+                          {salary.role ?? t('director.staffRoleFallback')} |{' '}
+                          {salary.type === 'percentage'
+                            ? t('director.salaryTypePercent', {
+                                pct: salary.percentage ?? 0,
+                                amount: formatCurrency(salary.treatmentCost ?? 0),
+                              })
+                            : t('director.salaryTypeFixed')}
                         </p>
                       </div>
                     ))}
                     {(financeOverview?.outcome?.salaries ?? []).length === 0 ? (
-                      <p className="text-slate-500">No salary records for this month.</p>
+                      <p className="text-slate-500">{t('director.noSalary')}</p>
                     ) : null}
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold text-slate-900">Expenses</h2>
+                    <h2 className="text-lg font-semibold text-slate-900">{t('director.expensesTitle')}</h2>
                     <button
                       type="button"
                       onClick={() => {
@@ -675,7 +686,7 @@ const DirectorFinance = () => {
                       className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
                     >
                       <Plus size={14} />
-                      Add Expense
+                      {t('director.addExpense')}
                     </button>
                   </div>
                   <div className="space-y-2 text-sm">
@@ -711,7 +722,7 @@ const DirectorFinance = () => {
                                   className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                                 >
                                   <Plus size={12} />
-                                  Payment
+                                  {t('director.payment')}
                                 </button>
                               ) : null}
                               <span className="font-semibold text-slate-900">
@@ -724,7 +735,7 @@ const DirectorFinance = () => {
                                   className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                                 >
                                   {isExpenseExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                  {isExpenseExpanded ? 'Hide payment details' : 'Show payment details'}
+                                  {isExpenseExpanded ? t('director.hidePayments') : t('director.showPayments')}
                                 </button>
                               ) : null}
                             </div>
@@ -756,7 +767,7 @@ const DirectorFinance = () => {
                                           className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                                         >
                                           {isPaymentExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                          {isPaymentExpanded ? 'Hide medicines' : 'Show medicines'}
+                                          {isPaymentExpanded ? t('director.hideMedicines') : t('director.showMedicines')}
                                         </button>
                                       ) : null}
                                     </div>
@@ -768,10 +779,13 @@ const DirectorFinance = () => {
                                             className="flex items-center justify-between border-b border-slate-200 py-1 text-xs last:border-b-0"
                                           >
                                             <span className="text-slate-700">
-                                              {purchase.medicineName ?? '-'} | number: {purchase.count}
+                                              {t('director.medicineLine', {
+                                                name: purchase.medicineName ?? '-',
+                                                count: purchase.count,
+                                              })}
                                             </span>
                                             <span className="font-medium text-slate-900">
-                                              totalCost: {formatCurrency(purchase.totalPrice)}
+                                              {t('director.totalCostPrefix')} {formatCurrency(purchase.totalPrice)}
                                             </span>
                                           </div>
                                         ))}
@@ -786,7 +800,7 @@ const DirectorFinance = () => {
                       );
                     })}
                     {expenseGroups.length === 0 ? (
-                      <p className="text-slate-500">No expenses for this month.</p>
+                      <p className="text-slate-500">{t('director.noExpenses')}</p>
                     ) : null}
                   </div>
                 </div>
@@ -801,7 +815,7 @@ const DirectorFinance = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">Add Expense + PaymentDetail</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{t('director.modalAddExpenseTitle')}</h3>
               <button
                 type="button"
                 onClick={() => {
@@ -815,7 +829,7 @@ const DirectorFinance = () => {
             </div>
             <form onSubmit={handleCreateExpenseAndPayment} className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs text-slate-600">Expense name</label>
+                <label className="mb-1 block text-xs text-slate-600">{t('director.expenseName')}</label>
                 <input
                   type="text"
                   value={newExpense.name}
@@ -825,7 +839,7 @@ const DirectorFinance = () => {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-slate-600">Description (optional)</label>
+                <label className="mb-1 block text-xs text-slate-600">{t('director.descriptionOptional')}</label>
                 <textarea
                   value={newExpense.description ?? ''}
                   onChange={(e) => setNewExpense((prev) => ({ ...prev, description: e.target.value }))}
@@ -835,7 +849,7 @@ const DirectorFinance = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs text-slate-600">Fixed cost (optional)</label>
+                  <label className="mb-1 block text-xs text-slate-600">{t('director.fixedCostOptional')}</label>
                   <input
                     type="number"
                     min={0}
@@ -850,7 +864,7 @@ const DirectorFinance = () => {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-slate-600">Day of month (optional)</label>
+                  <label className="mb-1 block text-xs text-slate-600">{t('director.dayOfMonthOptional')}</label>
                   <input
                     type="number"
                     min={1}
@@ -868,7 +882,7 @@ const DirectorFinance = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs text-slate-600">Payment date</label>
+                  <label className="mb-1 block text-xs text-slate-600">{t('director.paymentDate')}</label>
                   <input
                     type="date"
                     value={newPaymentDetail.date}
@@ -880,7 +894,7 @@ const DirectorFinance = () => {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-slate-600">Payment cost</label>
+                  <label className="mb-1 block text-xs text-slate-600">{t('director.paymentCost')}</label>
                   <input
                     type="number"
                     min={0}
@@ -908,14 +922,14 @@ const DirectorFinance = () => {
                   onClick={() => setShowAddExpenseModal(false)}
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  Cancel
+                  {t('shared.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isCreatingExpenseWithPayment}
                   className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
                 >
-                  {isCreatingExpenseWithPayment ? 'Saving...' : 'Save'}
+                  {isCreatingExpenseWithPayment ? t('shared.saving') : t('shared.save')}
                 </button>
               </div>
             </form>
@@ -927,7 +941,9 @@ const DirectorFinance = () => {
           <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-900">
-                Add Payment for {selectedExpenseForPayment?.name ?? 'Expense'}
+                {t('director.addPaymentTitle', {
+                  name: selectedExpenseForPayment?.name ?? t('director.expenseFallbackName'),
+                })}
               </h3>
               <button
                 type="button"
@@ -943,7 +959,7 @@ const DirectorFinance = () => {
             </div>
             <form onSubmit={handleCreatePaymentForExpense} className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs text-slate-600">Payment date</label>
+                <label className="mb-1 block text-xs text-slate-600">{t('director.paymentDate')}</label>
                 <input
                   type="date"
                   value={newPaymentDetail.date}
@@ -955,7 +971,7 @@ const DirectorFinance = () => {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-slate-600">Payment cost</label>
+                <label className="mb-1 block text-xs text-slate-600">{t('director.paymentCost')}</label>
                 <input
                   type="number"
                   min={0}
@@ -986,14 +1002,14 @@ const DirectorFinance = () => {
                   }}
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  Cancel
+                  {t('shared.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isCreatingExpenseWithPayment}
                   className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
                 >
-                  {isCreatingExpenseWithPayment ? 'Saving...' : 'Save'}
+                  {isCreatingExpenseWithPayment ? t('shared.saving') : t('shared.save')}
                 </button>
               </div>
             </form>

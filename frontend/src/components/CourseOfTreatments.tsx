@@ -5,6 +5,7 @@ import { appointmentService, type Appointment, type AppointmentFilters, patientS
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
+import { useTranslation } from 'react-i18next';
 
 const PAGE_SIZE = 12;
 
@@ -30,6 +31,7 @@ function filterAppointmentsByEnd(appointments: Appointment[], mode: AppointmentL
 export default function CourseOfTreatments() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation('courseOfTreatments');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const dentistId = useMemo(() => Number(localStorage.getItem('dentistId') ?? 0), []);
   const isDirector = role === 'director';
@@ -79,7 +81,7 @@ export default function CourseOfTreatments() {
       setRawAppointments(response.appointments ?? []);
       setCurrentPage(1);
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Failed to load appointments');
+      setError(err?.response?.data?.message ?? t('errLoadAppointments'));
     } finally {
       setIsLoading(false);
     }
@@ -109,7 +111,7 @@ export default function CourseOfTreatments() {
       const data = await patientService.getAll();
       setPatients(data);
     } catch (err: any) {
-      setCreateError('Failed to load patients');
+      setCreateError(t('errLoadPatients'));
     }
   };
 
@@ -171,7 +173,7 @@ export default function CourseOfTreatments() {
       setSelectedPatientId(created.id);
       setPatients([...patients, created]);
     } catch (err: any) {
-      setCreateError(err?.response?.data?.message ?? 'Failed to create patient');
+      setCreateError(err?.response?.data?.message ?? t('errCreatePatient'));
     } finally {
       setIsSubmittingPatient(false);
     }
@@ -183,7 +185,7 @@ export default function CourseOfTreatments() {
     setCreateError('');
     try {
       if (!courseForm.startDate || selectedPatientId === '') {
-        setCreateError('Start date and patient are required');
+        setCreateError(t('errRequiredStartPatient'));
         setIsSubmittingCourse(false);
         return;
       }
@@ -203,7 +205,7 @@ export default function CourseOfTreatments() {
       void fetchAppointments();
       void fetchDentistTreatmentAppointmentIds();
     } catch (err: any) {
-      setCreateError(err?.response?.data?.message ?? 'Failed to create course of treatment');
+      setCreateError(err?.response?.data?.message ?? t('errCreateCourse'));
     } finally {
       setIsSubmittingCourse(false);
     }
@@ -212,14 +214,23 @@ export default function CourseOfTreatments() {
   const menuItems = isDirector ? DIRECTOR_PORTAL_MENU : DENTIST_PORTAL_MENU;
   const portalBadge = isDirector ? 'Admin Portal' : 'Dentist Portal';
 
+  const subtitle =
+    isDirector ? t('subtitleDirector') : isSingleDentist ? t('subtitleSingleDentist') : t('subtitleDentist');
+
+  const userSubtitle = isDirector
+    ? t('userDirector')
+    : isSingleDentist
+      ? t('userSolo')
+      : t('userDentist');
+
   return (
     <>
       <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
-          brandTitle="Precision Dental"
+          brandTitle={t('brandTitle')}
           portalBadge={portalBadge}
           userDisplayName={directorDisplayName || '-'}
-          userSubtitle={isDirector ? 'Clinic Director' : isSingleDentist ? 'Solo Practitioner' : 'Dentist'}
+          userSubtitle={userSubtitle}
           menuItems={menuItems}
           pathname={location.pathname}
           isSidebarOpen={isSidebarOpen}
@@ -232,7 +243,7 @@ export default function CourseOfTreatments() {
                 type="button"
                 onClick={() => navigate('/staff')}
                 className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100"
-                aria-label="Staff and doctors"
+                aria-label={t('staffSettingsAria')}
               >
                 <Settings size={16} />
               </button>
@@ -243,14 +254,8 @@ export default function CourseOfTreatments() {
             <div className="mx-auto max-w-7xl space-y-5">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900">Course of Treatments</h1>
-                  <p className="text-sm text-slate-500">
-                    {isDirector
-                      ? 'Appointments across all dentists in your clinic'
-                      : isSingleDentist
-                        ? 'All treatment courses — fees and balances for your clinic'
-                        : 'Your treatment appointments'}
-                  </p>
+                  <h1 className="text-2xl font-bold text-slate-900">{t('title')}</h1>
+                  <p className="text-sm text-slate-500">{subtitle}</p>
                 </div>
                 <div className="flex gap-2">
                   {isDentist ? (
@@ -263,7 +268,7 @@ export default function CourseOfTreatments() {
                       className="inline-flex items-center gap-2 rounded-md bg-[#0066A6] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00588f]"
                     >
                       <Plus size={14} />
-                      Create Course
+                      {t('createCourse')}
                     </button>
                   ) : null}
                   <button
@@ -272,7 +277,7 @@ export default function CourseOfTreatments() {
                     className="inline-flex items-center gap-2 rounded-md bg-[#0066A6] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00588f]"
                   >
                     <CalendarRange size={14} />
-                    Refresh
+                    {t('refresh')}
                   </button>
                 </div>
               </div>
@@ -286,7 +291,7 @@ export default function CourseOfTreatments() {
               >
                 <div className="grid gap-3 md:grid-cols-4">
                   <div>
-                    <label className="mb-1 block text-xs text-slate-500">Date</label>
+                    <label className="mb-1 block text-xs text-slate-500">{t('date')}</label>
                     <input
                       type="date"
                       value={filters.startDate ?? ''}
@@ -300,7 +305,7 @@ export default function CourseOfTreatments() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-slate-500">Patient name</label>
+                    <label className="mb-1 block text-xs text-slate-500">{t('patientName')}</label>
                     <input
                       type="text"
                       value={filters.patientName ?? ''}
@@ -311,11 +316,11 @@ export default function CourseOfTreatments() {
                         }))
                       }
                       className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                      placeholder="Search by first name"
+                      placeholder={t('searchByFirstName')}
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-slate-500">Patient surname</label>
+                    <label className="mb-1 block text-xs text-slate-500">{t('patientSurname')}</label>
                     <input
                       type="text"
                       value={filters.patientSurname ?? ''}
@@ -326,7 +331,7 @@ export default function CourseOfTreatments() {
                         }))
                       }
                       className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                      placeholder="Search by surname"
+                      placeholder={t('searchBySurname')}
                     />
                   </div>
                   <div className="flex items-end gap-2">
@@ -335,7 +340,7 @@ export default function CourseOfTreatments() {
                       className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0066A6] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#00588f]"
                     >
                       <Search size={14} />
-                      Search
+                      {t('search')}
                     </button>
                     <button
                       type="button"
@@ -350,7 +355,7 @@ export default function CourseOfTreatments() {
                       }}
                       className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                     >
-                      Clear
+                      {t('clear')}
                     </button>
                   </div>
                 </div>
@@ -366,9 +371,9 @@ export default function CourseOfTreatments() {
                     }}
                     className="appearance-none rounded-md border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-800 hover:border-slate-400 focus:border-[#0066A6] focus:outline-none focus:ring-2 focus:ring-[#cce0f0]"
                   >
-                    <option value="open">Current</option>
-                    <option value="past">Past</option>
-                    <option value="all">All</option>
+                    <option value="open">{t('filterCurrent')}</option>
+                    <option value="past">{t('filterPast')}</option>
+                    <option value="all">{t('filterAll')}</option>
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-slate-500" />
                 </div>
@@ -383,8 +388,8 @@ export default function CourseOfTreatments() {
                       }}
                       className="appearance-none rounded-md border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-800 hover:border-slate-400 focus:border-[#0066A6] focus:outline-none focus:ring-2 focus:ring-[#cce0f0]"
                     >
-                      <option value="mine">Mine</option>
-                      <option value="all">All</option>
+                      <option value="mine">{t('filterMine')}</option>
+                      <option value="all">{t('filterAll')}</option>
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-slate-500" />
                   </div>
@@ -402,25 +407,25 @@ export default function CourseOfTreatments() {
                   <table className="min-w-full divide-y divide-slate-200 text-sm">
                     <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-500">
                       <tr>
-                        <th className="px-4 py-3 text-left">Start date</th>
-                        <th className="px-4 py-3 text-left">End date</th>
-                        <th className="px-4 py-3 text-left">Patient</th>
+                        <th className="px-4 py-3 text-left">{t('tableStartDate')}</th>
+                        <th className="px-4 py-3 text-left">{t('tableEndDate')}</th>
+                        <th className="px-4 py-3 text-left">{t('tablePatient')}</th>
                         {isDentist && !isSingleDentist ? (
                           <>
-                            <th className="px-4 py-3 text-right">Calculated Fee</th>
-                            <th className="px-4 py-3 text-right">Benefit</th>
+                            <th className="px-4 py-3 text-right">{t('calcFee')}</th>
+                            <th className="px-4 py-3 text-right">{t('benefit')}</th>
                           </>
                         ) : isSingleDentist ? (
                           <>
-                            <th className="px-4 py-3 text-right">Calculated</th>
-                            <th className="px-4 py-3 text-right">Debt</th>
-                            <th className="px-4 py-3 text-right">Treatments</th>
+                            <th className="px-4 py-3 text-right">{t('calculated')}</th>
+                            <th className="px-4 py-3 text-right">{t('debt')}</th>
+                            <th className="px-4 py-3 text-right">{t('treatments')}</th>
                           </>
                         ) : (
                           <>
-                            <th className="px-4 py-3 text-right">Calculated</th>
-                            <th className="px-4 py-3 text-right">Charged</th>
-                            <th className="px-4 py-3 text-right">Discount</th>
+                            <th className="px-4 py-3 text-right">{t('calculated')}</th>
+                            <th className="px-4 py-3 text-right">{t('charged')}</th>
+                            <th className="px-4 py-3 text-right">{t('discount')}</th>
                           </>
                         )}
                       </tr>
@@ -432,7 +437,7 @@ export default function CourseOfTreatments() {
                             colSpan={courseTableColSpan}
                             className="px-4 py-8 text-center text-slate-500"
                           >
-                            Loading appointments...
+                            {t('loadingAppointments')}
                           </td>
                         </tr>
                       ) : pagedAppointments.length === 0 ? (
@@ -441,7 +446,7 @@ export default function CourseOfTreatments() {
                             colSpan={courseTableColSpan}
                             className="px-4 py-8 text-center text-slate-500"
                           >
-                            No appointments found.
+                            {t('noAppointments')}
                           </td>
                         </tr>
                       ) : (
@@ -453,7 +458,7 @@ export default function CourseOfTreatments() {
                               navigate(`/appointments/${appointment.id}`, {
                                 state: {
                                   returnTo: `${location.pathname}${location.search}${location.hash}`,
-                                  returnLabel: 'Back to Course of Treatments',
+                                  returnLabel: t('backLabel'),
                                 },
                               })
                             }
@@ -512,8 +517,11 @@ export default function CourseOfTreatments() {
               {totalPages > 1 ? (
                 <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
                   <p className="text-slate-500">
-                    Showing {(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, totalFiltered)} of{' '}
-                    {totalFiltered}
+                    {t('paginationShowing', {
+                      from: (page - 1) * PAGE_SIZE + 1,
+                      to: Math.min(page * PAGE_SIZE, totalFiltered),
+                      total: totalFiltered,
+                    })}
                   </p>
                   <div className="flex items-center gap-2">
                     <button
@@ -522,10 +530,10 @@ export default function CourseOfTreatments() {
                       onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                       className="rounded-md border border-slate-300 px-3 py-1.5 text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Prev
+                      {t('prev')}
                     </button>
                     <span className="text-slate-600">
-                      Page {page} / {totalPages}
+                      {t('pageOf', { page, total: totalPages })}
                     </span>
                     <button
                       type="button"
@@ -533,7 +541,7 @@ export default function CourseOfTreatments() {
                       onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                       className="rounded-md border border-slate-300 px-3 py-1.5 text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Next
+                      {t('next')}
                     </button>
                   </div>
                 </div>
@@ -548,7 +556,7 @@ export default function CourseOfTreatments() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Create Course of Treatment</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{t('modalCreateTitle')}</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -575,7 +583,7 @@ export default function CourseOfTreatments() {
               {/* Patient Selection */}
               <div>
                 <label htmlFor="patient" className="mb-1 block text-sm font-medium text-gray-700">
-                  Patient *
+                  {t('patientRequired')}
                 </label>
                 {!showAddPatientForm ? (
                   <>
@@ -586,7 +594,7 @@ export default function CourseOfTreatments() {
                         onChange={(e) => setSelectedPatientId(e.target.value ? Number(e.target.value) : '')}
                         className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                       >
-                        <option value="">Select a patient...</option>
+                        <option value="">{t('selectPatient')}</option>
                         {patients.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.name} {p.surname}
@@ -598,7 +606,7 @@ export default function CourseOfTreatments() {
                         onClick={() => setShowAddPatientForm(true)}
                         className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                       >
-                        + Add New Patient
+                        {t('addNewPatient')}
                       </button>
                     </div>
                   </>
@@ -606,7 +614,7 @@ export default function CourseOfTreatments() {
                   <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                     <div>
                       <label htmlFor="newName" className="mb-1 block text-xs font-medium text-gray-700">
-                        First Name
+                        {t('firstName')}
                       </label>
                       <input
                         type="text"
@@ -615,12 +623,12 @@ export default function CourseOfTreatments() {
                         value={newPatient.name}
                         onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
                         className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/20"
-                        placeholder="First name"
+                        placeholder={t('searchByFirstName')}
                       />
                     </div>
                     <div>
                       <label htmlFor="newSurname" className="mb-1 block text-xs font-medium text-gray-700">
-                        Surname
+                        {t('surname')}
                       </label>
                       <input
                         type="text"
@@ -629,12 +637,12 @@ export default function CourseOfTreatments() {
                         value={newPatient.surname}
                         onChange={(e) => setNewPatient({ ...newPatient, surname: e.target.value })}
                         className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/20"
-                        placeholder="Surname"
+                        placeholder={t('searchBySurname')}
                       />
                     </div>
                     <div>
                       <label htmlFor="newBirthDate" className="mb-1 block text-xs font-medium text-gray-700">
-                        Birth Date
+                        {t('birthDate')}
                       </label>
                       <input
                         type="date"
@@ -652,7 +660,7 @@ export default function CourseOfTreatments() {
                         disabled={isSubmittingPatient}
                         className="flex-1 rounded-lg bg-[#0066A6] py-2 text-sm font-medium text-white transition-colors hover:bg-[#00588f] disabled:opacity-50"
                       >
-                        {isSubmittingPatient ? 'Adding...' : 'Add Patient'}
+                        {isSubmittingPatient ? t('addingPatient') : t('addPatientSubmit')}
                       </button>
                       <button
                         type="button"
@@ -662,7 +670,7 @@ export default function CourseOfTreatments() {
                         }}
                         className="flex-1 rounded-lg bg-gray-200 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-300"
                       >
-                        Cancel
+                        {t('cancel')}
                       </button>
                     </div>
                   </div>
@@ -672,7 +680,7 @@ export default function CourseOfTreatments() {
               {/* Course Details */}
               <div>
                 <label htmlFor="startDate" className="mb-1 block text-sm font-medium text-gray-700">
-                  Start Date *
+                  {t('startDateRequired')}
                 </label>
                 <input
                   type="date"
@@ -686,7 +694,7 @@ export default function CourseOfTreatments() {
 
               <div>
                 <label htmlFor="endDate" className="mb-1 block text-sm font-medium text-gray-700">
-                  End Date (Optional)
+                  {t('endDateOptional')}
                 </label>
                 <input
                   type="date"
@@ -699,7 +707,7 @@ export default function CourseOfTreatments() {
 
               <div>
                 <label htmlFor="chargedFee" className="mb-1 block text-sm font-medium text-gray-700">
-                  Charged Fee (Optional)
+                  {t('chargedFeeOptional')}
                 </label>
                 <input
                   type="number"
@@ -719,7 +727,7 @@ export default function CourseOfTreatments() {
                   disabled={isSubmittingCourse}
                   className="flex-1 rounded-lg bg-[#0066A6] py-2 font-medium text-white transition-colors hover:bg-[#00588f] disabled:opacity-50"
                 >
-                  {isSubmittingCourse ? 'Creating...' : 'Create Course'}
+                  {isSubmittingCourse ? t('creating') : t('createCourseSubmit')}
                 </button>
                 <button
                   type="button"
@@ -733,7 +741,7 @@ export default function CourseOfTreatments() {
                   }}
                   className="flex-1 rounded-lg bg-gray-200 py-2 font-medium text-gray-700 transition hover:bg-gray-300"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
               </div>
             </form>

@@ -16,6 +16,7 @@
   "filter": "Filtrlə",
   "actions": "Əməliyyatlar",
   "noData": "Məlumat yoxdur",
-  "notSet": "Təyin edilməyib"
+  "notSet": "Təyin edilməyib",
+  "noPermissionPage": "Bu səhifəyə baxmaq üçün icazəniz yoxdur."
 }
 

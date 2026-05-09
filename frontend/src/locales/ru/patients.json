@@ -28,5 +28,20 @@
   },
   "adding": "Добавление...",
   "add": "Добавить пациента",
-  "cancel": "Отмена"
+  "cancel": "Отмена",
+  "portalDirectoryTitle": "Справочник пациентов",
+  "portalSubtitle": "{{count}} зарегистрированных пациентов",
+  "portalSubtitleDentistExtra": " · Счётчики лечений — только ваши процедуры; долг отражает баланс пациента по всем записям.",
+  "registerNewPatient": "+ Зарегистрировать пациента",
+  "placeholderFirstName": "Имя",
+  "placeholderSurname": "Фамилия",
+  "tablePatientName": "Имя пациента",
+  "tableContact": "Контакт",
+  "yourTreatments": "Ваши лечения",
+  "tableTreatments": "Лечения",
+  "tableDebtStatus": "Задолженность",
+  "showingRecords": "Показано {{shown}} из {{total}} записей",
+  "fetchPatientsError": "Не удалось загрузить пациентов",
+  "createPatientError": "Не удалось создать пациента",
+  "dentistNumber": "Стоматолог №{{id}}"
 }

@@ -16,6 +16,8 @@ import { ClinicPortalShell } from './ClinicPortalShell';
 import { buildFinanceExpenseGroups } from '../lib/buildFinanceExpenseGroups';
 import { DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
+import { useTranslation } from 'react-i18next';
+import { appLocaleTag } from '../lib/localeHelpers';
 
 function formatCurrency(value: number): string {
   return `$${value.toLocaleString(undefined, {
@@ -32,7 +34,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 type AnnualPoint = {
   month: number;
   monthLabel: string;
@@ -55,6 +56,12 @@ function buildDefaultPaymentDate(year: number, month: number): string {
 const SingleDentistFinance = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t, i18n } = useTranslation('finance');
+  const { t: tHeader } = useTranslation('header');
+
+  const locale = appLocaleTag(i18n.language);
+  const monthShortLabel = (monthIndex1: number) =>
+    new Date(2000, monthIndex1 - 1, 1).toLocaleDateString(locale, { month: 'short' });
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -111,7 +118,7 @@ const SingleDentistFinance = () => {
       const data = await dentistService.getFinanceOverview({ year, month });
       setFinanceData(data);
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to fetch dentist finance overview'));
+      setError(getErrorMessage(err, t('single.errFetchPersonal')));
     } finally {
       setLoading(false);
     }
@@ -124,7 +131,7 @@ const SingleDentistFinance = () => {
       const data = await paymentDetailsService.getFinanceOverview({ year, month });
       setClinicFinanceOverview(data);
     } catch (err: unknown) {
-      setClinicError(getErrorMessage(err, 'Failed to fetch clinic finance overview'));
+      setClinicError(getErrorMessage(err, t('single.errFetchClinic')));
     } finally {
       setClinicLoading(false);
     }
@@ -143,7 +150,7 @@ const SingleDentistFinance = () => {
         const income = Number(item?.monthlyIncome ?? 0);
         return {
           month: i + 1,
-          monthLabel: MONTH_LABELS[i],
+          monthLabel: monthShortLabel(i + 1),
           income,
           debt: Number(item?.debt ?? 0),
           outcome,
@@ -152,7 +159,7 @@ const SingleDentistFinance = () => {
       });
       setAnnualOverview(annualRows);
     } catch (err: unknown) {
-      setClinicError(getErrorMessage(err, 'Failed to fetch annual clinic overview'));
+      setClinicError(getErrorMessage(err, t('single.errFetchAnnual')));
     } finally {
       setAnnualLoading(false);
     }
@@ -195,7 +202,7 @@ const SingleDentistFinance = () => {
     setFinanceSubmitError(null);
 
     if (!newExpense.name.trim()) {
-      setFinanceSubmitError('Expense name is required.');
+      setFinanceSubmitError(t('single.errExpenseNameShort'));
       return;
     }
     setIsCreatingExpenseWithPayment(true);
@@ -211,7 +218,7 @@ const SingleDentistFinance = () => {
       resetFinanceCreateState();
       await fetchClinicOverview(selectedYear, selectedMonth);
     } catch (err: unknown) {
-      setFinanceSubmitError(getErrorMessage(err, 'Failed to create expense.'));
+      setFinanceSubmitError(getErrorMessage(err, t('single.errCreateExpenseSimple')));
     } finally {
       setIsCreatingExpenseWithPayment(false);
     }
@@ -222,15 +229,15 @@ const SingleDentistFinance = () => {
     setFinanceSubmitError(null);
 
     if (selectedExpenseForPayment?.id == null) {
-      setFinanceSubmitError('Please select an expense before adding a payment.');
+      setFinanceSubmitError(t('director.errSelectExpense'));
       return;
     }
     if (!newPaymentDetail.date) {
-      setFinanceSubmitError('Payment date is required.');
+      setFinanceSubmitError(t('director.errPaymentDate'));
       return;
     }
     if (!Number.isFinite(newPaymentDetail.cost ?? NaN) || (newPaymentDetail.cost ?? 0) < 0) {
-      setFinanceSubmitError('Payment cost must be a valid non-negative number.');
+      setFinanceSubmitError(t('director.errPaymentCost'));
       return;
     }
 
@@ -250,7 +257,7 @@ const SingleDentistFinance = () => {
       });
       await fetchClinicOverview(selectedYear, selectedMonth);
     } catch (err: unknown) {
-      setFinanceSubmitError(getErrorMessage(err, 'Failed to create payment detail.'));
+      setFinanceSubmitError(getErrorMessage(err, t('director.errCreatePayment')));
     } finally {
       setIsCreatingExpenseWithPayment(false);
     }
@@ -270,7 +277,7 @@ const SingleDentistFinance = () => {
       });
       setRecentAppointments(appointments);
     } catch (err: unknown) {
-      setAppointmentsError(getErrorMessage(err, 'Failed to fetch appointments'));
+      setAppointmentsError(getErrorMessage(err, t('single.errRecentAppts')));
     } finally {
       setAppointmentsLoading(false);
     }
@@ -353,14 +360,16 @@ const SingleDentistFinance = () => {
     [clinicFinanceOverview],
   );
 
+  const perfMonthShort = monthShortLabel(selectedMonth);
+
   return (
     <>
       <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
-          brandTitle="ClinicalPrecision"
+          brandTitle={t('dentist.clinicalBrand')}
           portalBadge="Dentist Portal"
           userDisplayName={displayName || '-'}
-          userSubtitle="Single Dentist"
+          userSubtitle={tHeader('roleSingleDentist')}
           menuItems={DENTIST_PORTAL_MENU}
           pathname={location.pathname}
           isSidebarOpen={isSidebarOpen}
@@ -371,7 +380,7 @@ const SingleDentistFinance = () => {
             <button
               type="button"
               className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100"
-              aria-label="Settings"
+              aria-label={t('dentist.settingsAria')}
             >
               <Settings size={16} />
             </button>
@@ -381,14 +390,14 @@ const SingleDentistFinance = () => {
             <div className="mx-auto max-w-6xl space-y-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900">Financial Overview</h1>
+                  <h1 className="text-2xl font-bold text-slate-900">{t('single.title')}</h1>
                   <p className="text-sm text-slate-500">
-                    {MONTH_LABELS[selectedMonth - 1]} {selectedYear} — your practice metrics
+                    {t('single.practiceMetricsSubtitle', { month: perfMonthShort, year: selectedYear })}
                   </p>
                 </div>
                 <div className="flex items-end gap-2">
                   <div>
-                    <label className="mb-1 block text-xs text-slate-500">Year</label>
+                    <label className="mb-1 block text-xs text-slate-500">{t('shared.year')}</label>
                     <input
                       type="number"
                       min={2000}
@@ -399,15 +408,15 @@ const SingleDentistFinance = () => {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-slate-500">Month</label>
+                    <label className="mb-1 block text-xs text-slate-500">{t('shared.month')}</label>
                     <select
                       value={selectedMonth}
                       onChange={(e) => setSelectedMonth(Number(e.target.value))}
                       className="rounded-md border border-slate-300 px-2 py-2 text-sm"
                     >
-                      {MONTH_LABELS.map((m, i) => (
-                        <option key={m} value={i + 1}>
-                          {m}
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <option key={i + 1} value={i + 1}>
+                          {monthShortLabel(i + 1)}
                         </option>
                       ))}
                     </select>
@@ -420,7 +429,7 @@ const SingleDentistFinance = () => {
                     }}
                     className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
                   >
-                    Refresh
+                    {t('shared.refresh')}
                   </button>
                 </div>
               </div>
@@ -443,7 +452,7 @@ const SingleDentistFinance = () => {
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm text-slate-500">Monthly Income</p>
+                  <p className="text-sm text-slate-500">{t('single.monthlyIncome')}</p>
                   <p className="mt-2 text-3xl font-bold text-slate-900">
                     {clinicLoading
                       ? '...'
@@ -451,7 +460,7 @@ const SingleDentistFinance = () => {
                   </p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm text-slate-500">Debt</p>
+                  <p className="text-sm text-slate-500">{t('director.debt')}</p>
                   <p className="mt-2 text-3xl font-bold text-slate-900">
                     {clinicLoading
                       ? '...'
@@ -459,7 +468,7 @@ const SingleDentistFinance = () => {
                   </p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm text-slate-500">Net Profit</p>
+                  <p className="text-sm text-slate-500">{t('director.netProfit')}</p>
                   <p className="mt-2 text-3xl font-bold text-emerald-700">
                     {clinicLoading ? '...' : formatCurrency(netProfit)}
                   </p>
@@ -469,9 +478,9 @@ const SingleDentistFinance = () => {
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Financial Statistics</h2>
+                    <h2 className="text-lg font-semibold text-slate-900">{t('director.statsTitle')}</h2>
                     <p className="text-sm text-slate-500">
-                      Monthly trend for income, outcome and profit in {selectedYear}
+                      {t('single.statsSubtitleSingle', { year: selectedYear })}
                     </p>
                   </div>
                   <button
@@ -479,7 +488,7 @@ const SingleDentistFinance = () => {
                     onClick={() => setShowGraph((prev) => !prev)}
                     className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                   >
-                    {showGraph ? 'Close graph' : 'See graph'}
+                    {showGraph ? t('director.closeGraph') : t('director.seeGraph')}
                   </button>
                 </div>
 
@@ -494,7 +503,7 @@ const SingleDentistFinance = () => {
                             setVisibleSeries((prev) => ({ ...prev, income: e.target.checked }))
                           }
                         />
-                        <span className="font-medium" style={{ color: seriesColor.income }}>Income</span>
+                        <span className="font-medium" style={{ color: seriesColor.income }}>{t('director.income')}</span>
                       </label>
                       <label className="inline-flex items-center gap-2 text-slate-700">
                         <input
@@ -504,7 +513,7 @@ const SingleDentistFinance = () => {
                             setVisibleSeries((prev) => ({ ...prev, outcome: e.target.checked }))
                           }
                         />
-                        <span className="font-medium" style={{ color: seriesColor.outcome }}>Outcome</span>
+                        <span className="font-medium" style={{ color: seriesColor.outcome }}>{t('director.outcome')}</span>
                       </label>
                       <label className="inline-flex items-center gap-2 text-slate-700">
                         <input
@@ -514,7 +523,7 @@ const SingleDentistFinance = () => {
                             setVisibleSeries((prev) => ({ ...prev, profit: e.target.checked }))
                           }
                         />
-                        <span className="font-medium" style={{ color: seriesColor.profit }}>Profit</span>
+                        <span className="font-medium" style={{ color: seriesColor.profit }}>{t('director.profit')}</span>
                       </label>
                     </div>
                     <div className="mt-4 overflow-x-auto">
@@ -522,7 +531,7 @@ const SingleDentistFinance = () => {
                         viewBox={`0 0 ${annualChartWidth} ${annualChartHeight}`}
                         className="h-[320px] min-w-[760px] w-full"
                         role="img"
-                        aria-label="Financial statistics by month"
+                        aria-label={t('director.chartAriaMonthly')}
                       >
                         <line
                           x1={annualChartPadding.left}
@@ -585,31 +594,31 @@ const SingleDentistFinance = () => {
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <h2 className="text-lg font-semibold text-slate-900">Outcome Breakdown</h2>
+                <h2 className="text-lg font-semibold text-slate-900">{t('director.outcomeBreakdownTitle')}</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Salaries, medicine purchases and other payment details
+                  {t('director.outcomeBreakdownSubtitle')}
                 </p>
                 <div className="mt-4 space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Total outcome</span>
+                    <span className="text-slate-600">{t('director.totalOutcome')}</span>
                     <span className="font-semibold">
                       {formatCurrency(clinicFinanceOverview?.outcome?.total ?? 0)}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Salaries</span>
+                    <span className="text-slate-600">{t('director.salaries')}</span>
                     <span className="font-medium">
                       {formatCurrency(clinicFinanceOverview?.outcome?.totalSalaries ?? 0)}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Medicine purchases</span>
+                    <span className="text-slate-600">{t('director.medicinePurchases')}</span>
                     <span className="font-medium">
                       {formatCurrency(clinicFinanceOverview?.outcome?.totalMedicinePurchases ?? 0)}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Other payment details</span>
+                    <span className="text-slate-600">{t('director.otherPayments')}</span>
                     <span className="font-medium">
                       {formatCurrency(clinicFinanceOverview?.outcome?.totalOtherPaymentDetails ?? 0)}
                     </span>
@@ -619,7 +628,7 @@ const SingleDentistFinance = () => {
 
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="text-lg font-semibold text-slate-900">Expenses</h2>
+                  <h2 className="text-lg font-semibold text-slate-900">{t('director.expensesTitle')}</h2>
                   <button
                     type="button"
                     onClick={() => {
@@ -629,7 +638,7 @@ const SingleDentistFinance = () => {
                     className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
                   >
                     <Plus size={14} />
-                    Add Expense
+                    {t('director.addExpense')}
                   </button>
                 </div>
                 <div className="space-y-2 text-sm">
@@ -658,7 +667,7 @@ const SingleDentistFinance = () => {
                                 className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                               >
                                 <Plus size={12} />
-                                Payment
+                                {t('director.payment')}
                               </button>
                             ) : null}
                             <span className="font-semibold text-slate-900">-{formatCurrency(group.totalCost)}</span>
@@ -669,7 +678,7 @@ const SingleDentistFinance = () => {
                                 className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                               >
                                 {isExpenseExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                {isExpenseExpanded ? 'Hide payment details' : 'Show payment details'}
+                                {isExpenseExpanded ? t('director.hidePayments') : t('director.showPayments')}
                               </button>
                             ) : null}
                           </div>
@@ -692,7 +701,7 @@ const SingleDentistFinance = () => {
                                         className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                                       >
                                         {isPaymentExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                        {isPaymentExpanded ? 'Hide medicines' : 'Show medicines'}
+                                        {isPaymentExpanded ? t('director.hideMedicines') : t('director.showMedicines')}
                                       </button>
                                     ) : null}
                                   </div>
@@ -704,10 +713,13 @@ const SingleDentistFinance = () => {
                                           className="flex items-center justify-between border-b border-slate-200 py-1 text-xs last:border-b-0"
                                         >
                                           <span className="text-slate-700">
-                                            {purchase.medicineName ?? '-'} | number: {purchase.count}
+                                            {t('director.medicineLine', {
+                                              name: purchase.medicineName ?? '-',
+                                              count: purchase.count,
+                                            })}
                                           </span>
                                           <span className="font-medium text-slate-900">
-                                            totalCost: {formatCurrency(purchase.totalPrice)}
+                                            {t('director.totalCostPrefix')} {formatCurrency(purchase.totalPrice)}
                                           </span>
                                         </div>
                                       ))}
@@ -721,65 +733,65 @@ const SingleDentistFinance = () => {
                       </div>
                     );
                   })}
-                  {expenseGroups.length === 0 ? <p className="text-slate-500">No expenses for this month.</p> : null}
+                  {expenseGroups.length === 0 ? <p className="text-slate-500">{t('director.noExpenses')}</p> : null}
                 </div>
               </div>
 
               {loading ? (
-                <div className="text-sm text-slate-500">Loading finance data...</div>
+                <div className="text-sm text-slate-500">{t('single.loadingPersonal')}</div>
               ) : (
                 <>
                   <div className="rounded-xl border border-slate-200 bg-white p-5">
-                    <h2 className="text-lg font-semibold text-slate-900">Treatment Mix</h2>
+                    <h2 className="text-lg font-semibold text-slate-900">{t('dentist.treatmentMix')}</h2>
                     <p className="mt-1 text-sm text-slate-500">
-                      Share of your treatment fees this month (100% practice revenue as clinic owner).
+                      {t('single.treatmentMixClinicOwner')}
                     </p>
                     <div className="mt-6 max-w-2xl space-y-6">
-                      {(financeData?.treatmentMix ?? []).map((t, idx) => (
+                      {(financeData?.treatmentMix ?? []).map((row, idx) => (
                         <div key={idx}>
                           <div className="mb-2 flex justify-between text-sm font-medium">
-                            <span className="text-slate-700">{t.name}</span>
-                            <span className="text-sky-700">{t.percentage.toFixed(0)}%</span>
+                            <span className="text-slate-700">{row.name}</span>
+                            <span className="text-sky-700">{row.percentage.toFixed(0)}%</span>
                           </div>
                           <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
                             <div
                               className="h-full rounded-full bg-slate-700"
-                              style={{ width: `${t.percentage}%` }}
+                              style={{ width: `${row.percentage}%` }}
                             />
                           </div>
                           <div className="mt-1 text-right text-xs text-slate-500">
-                            {formatCurrency(t.commission)} (100% practice revenue)
+                            {formatCurrency(row.commission)} {t('single.commissionFullPractice')}
                           </div>
                         </div>
                       ))}
                       {(financeData?.treatmentMix ?? []).length === 0 ? (
-                        <p className="py-4 text-center text-sm text-slate-500">No treatments recorded.</p>
+                        <p className="py-4 text-center text-sm text-slate-500">{t('dentist.noTreatments')}</p>
                       ) : null}
                     </div>
                   </div>
 
                   <div className="rounded-xl border border-slate-200 bg-white">
                     <div className="border-b border-slate-200 px-5 py-4">
-                      <h2 className="text-lg font-semibold text-slate-900">Recent Operations (Appointments)</h2>
+                      <h2 className="text-lg font-semibold text-slate-900">{t('single.recentOperationsTitle')}</h2>
                       <p className="text-sm text-slate-500">
-                        Your appointments in {MONTH_LABELS[selectedMonth - 1]} {selectedYear}
+                        {t('single.appointmentsSubtitle', { month: perfMonthShort, year: selectedYear })}
                       </p>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-sm text-slate-600">
                         <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                           <tr>
-                            <th className="px-5 py-3 font-medium">Patient</th>
-                            <th className="px-5 py-3 font-medium">Date</th>
-                            <th className="px-5 py-3 font-medium">Treatments</th>
-                            <th className="px-5 py-3 font-medium">Fee</th>
+                            <th className="px-5 py-3 font-medium">{t('dentist.colPatient')}</th>
+                            <th className="px-5 py-3 font-medium">{t('dentist.colDate')}</th>
+                            <th className="px-5 py-3 font-medium">{t('single.colTreatmentsSimple')}</th>
+                            <th className="px-5 py-3 font-medium">{t('single.colFee')}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {appointmentsLoading ? (
                             <tr>
                               <td colSpan={4} className="px-5 py-8 text-center text-slate-500">
-                                Loading appointments…
+                                {t('single.loadingAppointmentsShort')}
                               </td>
                             </tr>
                           ) : (
@@ -791,7 +803,7 @@ const SingleDentistFinance = () => {
                                     {apt.patient.name} {apt.patient.surname}
                                   </td>
                                   <td className="px-5 py-4">
-                                    {new Date(apt.startDate).toLocaleDateString(undefined, {
+                                    {new Date(apt.startDate).toLocaleDateString(locale, {
                                       year: 'numeric',
                                       month: 'short',
                                       day: 'numeric',
@@ -807,7 +819,7 @@ const SingleDentistFinance = () => {
                           {!appointmentsLoading && recentAppointments.length === 0 ? (
                             <tr>
                               <td colSpan={4} className="px-5 py-8 text-center text-slate-500">
-                                No appointments in this month.
+                                {t('single.noAppointmentsMonth')}
                               </td>
                             </tr>
                           ) : null}
@@ -821,7 +833,7 @@ const SingleDentistFinance = () => {
                           onClick={() => setVisibleAppointmentCount((c) => c + 10)}
                           className="text-sm font-medium text-sky-700 hover:text-sky-800"
                         >
-                          View more
+                          {t('single.viewMoreLower')}
                         </button>
                       </div>
                     ) : null}
@@ -844,7 +856,7 @@ const SingleDentistFinance = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">Add Expense</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{t('single.modalAddExpenseOnly')}</h3>
               <button
                 type="button"
                 onClick={() => {
@@ -858,7 +870,7 @@ const SingleDentistFinance = () => {
             </div>
             <form onSubmit={handleCreateExpense} className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs text-slate-600">Expense name</label>
+                <label className="mb-1 block text-xs text-slate-600">{t('director.expenseName')}</label>
                 <input
                   type="text"
                   value={newExpense.name}
@@ -868,7 +880,7 @@ const SingleDentistFinance = () => {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-slate-600">Description (optional)</label>
+                <label className="mb-1 block text-xs text-slate-600">{t('director.descriptionOptional')}</label>
                 <textarea
                   value={newExpense.description ?? ''}
                   onChange={(e) => setNewExpense((prev) => ({ ...prev, description: e.target.value }))}
@@ -878,7 +890,7 @@ const SingleDentistFinance = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs text-slate-600">Fixed cost (optional)</label>
+                  <label className="mb-1 block text-xs text-slate-600">{t('director.fixedCostOptional')}</label>
                   <input
                     type="number"
                     min={0}
@@ -893,7 +905,7 @@ const SingleDentistFinance = () => {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-slate-600">Day of month (optional)</label>
+                  <label className="mb-1 block text-xs text-slate-600">{t('director.dayOfMonthOptional')}</label>
                   <input
                     type="number"
                     min={1}
@@ -920,14 +932,14 @@ const SingleDentistFinance = () => {
                   onClick={() => setShowAddExpenseModal(false)}
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  Cancel
+                  {t('shared.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isCreatingExpenseWithPayment}
                   className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
                 >
-                  {isCreatingExpenseWithPayment ? 'Saving...' : 'Save'}
+                  {isCreatingExpenseWithPayment ? t('shared.saving') : t('shared.save')}
                 </button>
               </div>
             </form>
@@ -939,7 +951,9 @@ const SingleDentistFinance = () => {
           <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-900">
-                Add Payment for {selectedExpenseForPayment?.name ?? 'Expense'}
+                {t('director.addPaymentTitle', {
+                  name: selectedExpenseForPayment?.name ?? t('director.expenseFallbackName'),
+                })}
               </h3>
               <button
                 type="button"
@@ -955,7 +969,7 @@ const SingleDentistFinance = () => {
             </div>
             <form onSubmit={handleCreatePaymentForExpense} className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs text-slate-600">Payment date</label>
+                <label className="mb-1 block text-xs text-slate-600">{t('director.paymentDate')}</label>
                 <input
                   type="date"
                   value={newPaymentDetail.date}
@@ -965,7 +979,7 @@ const SingleDentistFinance = () => {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-slate-600">Payment cost</label>
+                <label className="mb-1 block text-xs text-slate-600">{t('director.paymentCost')}</label>
                 <input
                   type="number"
                   min={0}
@@ -996,14 +1010,14 @@ const SingleDentistFinance = () => {
                   }}
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  Cancel
+                  {t('shared.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isCreatingExpenseWithPayment}
                   className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
                 >
-                  {isCreatingExpenseWithPayment ? 'Saving...' : 'Save'}
+                  {isCreatingExpenseWithPayment ? t('shared.saving') : t('shared.save')}
                 </button>
               </div>
             </form>

@@ -11,6 +11,7 @@ import {
 import { ClinicPortalShell } from './ClinicPortalShell';
 import { FRONTDESK_PORTAL_MENU } from '../lib/clinicPortalNav';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
+import { useTranslation } from 'react-i18next';
 
 function formatCurrency(value: number): string {
   return `$${value.toLocaleString(undefined, {
@@ -26,6 +27,8 @@ function buildDefaultPaymentDate(year: number, month: number): string {
 const ReceptionFinance = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation('finance');
+  const { t: tHeader } = useTranslation('header');
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
   const isReception = role === 'frontdesk';
 
@@ -62,7 +65,7 @@ const ReceptionFinance = () => {
       const data = await paymentDetailsService.getFinanceOverview({ year, month });
       setFinanceOverview(data);
     } catch (err: any) {
-      setFinanceError(err?.response?.data?.message ?? 'Failed to fetch finance overview');
+      setFinanceError(err?.response?.data?.message ?? t('reception.errFetch'));
     } finally {
       setFinanceLoading(false);
     }
@@ -87,7 +90,7 @@ const ReceptionFinance = () => {
     setFinanceSubmitError(null);
 
     if (!newExpense.name.trim()) {
-      setFinanceSubmitError('Cost name is required.');
+      setFinanceSubmitError(t('reception.costNameRequired'));
       return;
     }
 
@@ -105,7 +108,7 @@ const ReceptionFinance = () => {
       await fetchFinanceOverview(selectedYear, selectedMonth);
     } catch (err: any) {
       setFinanceSubmitError(
-        err?.response?.data?.message ?? 'Failed to create expense.',
+        err?.response?.data?.message ?? t('reception.errCreateExpense'),
       );
     } finally {
       setIsCreatingExpenseWithPayment(false);
@@ -117,15 +120,15 @@ const ReceptionFinance = () => {
     setFinanceSubmitError(null);
 
     if (selectedExpenseForPayment?.id == null) {
-      setFinanceSubmitError('Please select an expense before adding payment detail.');
+      setFinanceSubmitError(t('reception.pleaseSelectExpense'));
       return;
     }
     if (!newPaymentDetail.date) {
-      setFinanceSubmitError('Payment detail date is required.');
+      setFinanceSubmitError(t('reception.errPaymentDate'));
       return;
     }
     if (!Number.isFinite(newPaymentDetail.cost ?? NaN) || (newPaymentDetail.cost ?? 0) < 0) {
-      setFinanceSubmitError('Payment detail amount must be a valid non-negative number.');
+      setFinanceSubmitError(t('reception.errPaymentAmount'));
       return;
     }
 
@@ -146,7 +149,7 @@ const ReceptionFinance = () => {
       await fetchFinanceOverview(selectedYear, selectedMonth);
     } catch (err: any) {
       setFinanceSubmitError(
-        err?.response?.data?.message ?? 'Failed to add payment detail.',
+        err?.response?.data?.message ?? t('reception.errAddPayment'),
       );
     } finally {
       setIsCreatingExpenseWithPayment(false);
@@ -187,7 +190,7 @@ const ReceptionFinance = () => {
     <>
       <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
         <ClinicPortalShell
-          brandTitle="Clinic Management"
+          brandTitle={tHeader('clinicManagementTitle')}
           portalBadge="Reception Portal"
           userDisplayName=""
           userSubtitle="Receptionist"
@@ -202,12 +205,12 @@ const ReceptionFinance = () => {
             <div className="mx-auto max-w-5xl space-y-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900">Costs</h1>
-                  <p className="text-sm text-slate-500">Track monthly clinic costs</p>
+                  <h1 className="text-2xl font-bold text-slate-900">{t('reception.title')}</h1>
+                  <p className="text-sm text-slate-500">{t('reception.subtitle')}</p>
                 </div>
                 <div className="flex items-end gap-2">
                   <div>
-                    <label className="mb-1 block text-xs text-slate-500">Year</label>
+                    <label className="mb-1 block text-xs text-slate-500">{t('shared.year')}</label>
                     <input
                       type="number"
                       min={2000}
@@ -218,7 +221,7 @@ const ReceptionFinance = () => {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-slate-500">Month</label>
+                    <label className="mb-1 block text-xs text-slate-500">{t('shared.month')}</label>
                     <input
                       type="number"
                       min={1}
@@ -233,7 +236,7 @@ const ReceptionFinance = () => {
                     onClick={() => void fetchFinanceOverview(selectedYear, selectedMonth)}
                     className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
                   >
-                    Refresh
+                    {t('shared.refresh')}
                   </button>
                 </div>
               </div>
@@ -246,7 +249,7 @@ const ReceptionFinance = () => {
 
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="text-lg font-semibold text-slate-900">Cost Categories</h2>
+                  <h2 className="text-lg font-semibold text-slate-900">{t('reception.costCategories')}</h2>
                   <button
                     type="button"
                     onClick={() => {
@@ -256,16 +259,16 @@ const ReceptionFinance = () => {
                     className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
                   >
                     <Plus size={14} />
-                    Add Cost
+                    {t('reception.addCost')}
                   </button>
                 </div>
 
-                {financeLoading ? <p className="text-sm text-slate-500">Loading costs...</p> : null}
+                {financeLoading ? <p className="text-sm text-slate-500">{t('reception.loading')}</p> : null}
 
                 {!financeLoading ? (
                   <div className="space-y-3 text-sm">
                     <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                      <span className="font-medium text-slate-700">Total monthly costs</span>
+                      <span className="font-medium text-slate-700">{t('reception.totalMonthlyCosts')}</span>
                       <span className="font-semibold text-slate-900">
                         {formatCurrency(financeOverview?.otherPaymentDetails?.total ?? 0)}
                       </span>
@@ -292,7 +295,7 @@ const ReceptionFinance = () => {
                               className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
                             >
                               <Plus size={12} />
-                              Payment Detail
+                              {t('reception.paymentDetail')}
                             </button>
                             <span className="font-semibold text-slate-900">{formatCurrency(group.totalCost)}</span>
                           </div>
@@ -315,7 +318,7 @@ const ReceptionFinance = () => {
                       </div>
                     ))}
                     {expenseGroups.length === 0 ? (
-                      <p className="text-slate-500">No costs for this month.</p>
+                      <p className="text-slate-500">{t('reception.noCosts')}</p>
                     ) : null}
                   </div>
                 ) : null}
@@ -329,7 +332,7 @@ const ReceptionFinance = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">Add Cost</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{t('reception.addCost')}</h3>
               <button
                 type="button"
                 onClick={() => {
@@ -343,7 +346,7 @@ const ReceptionFinance = () => {
             </div>
             <form onSubmit={handleCreateExpense} className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs text-slate-600">Cost name</label>
+                <label className="mb-1 block text-xs text-slate-600">{t('reception.costName')}</label>
                 <input
                   type="text"
                   value={newExpense.name}
@@ -353,7 +356,7 @@ const ReceptionFinance = () => {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-slate-600">Description (optional)</label>
+                <label className="mb-1 block text-xs text-slate-600">{t('director.descriptionOptional')}</label>
                 <textarea
                   value={newExpense.description ?? ''}
                   onChange={(e) => setNewExpense((prev) => ({ ...prev, description: e.target.value }))}
@@ -363,7 +366,7 @@ const ReceptionFinance = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs text-slate-600">Fixed cost (optional)</label>
+                  <label className="mb-1 block text-xs text-slate-600">{t('director.fixedCostOptional')}</label>
                   <input
                     type="number"
                     min={0}
@@ -378,7 +381,7 @@ const ReceptionFinance = () => {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-slate-600">Day of month (optional)</label>
+                  <label className="mb-1 block text-xs text-slate-600">{t('director.dayOfMonthOptional')}</label>
                   <input
                     type="number"
                     min={1}
@@ -405,14 +408,14 @@ const ReceptionFinance = () => {
                   onClick={() => setShowAddExpenseModal(false)}
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  Cancel
+                  {t('shared.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isCreatingExpenseWithPayment}
                   className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
                 >
-                  {isCreatingExpenseWithPayment ? 'Saving...' : 'Save'}
+                  {isCreatingExpenseWithPayment ? t('shared.saving') : t('shared.save')}
                 </button>
               </div>
             </form>
@@ -424,7 +427,9 @@ const ReceptionFinance = () => {
           <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-900">
-                Add Payment Detail for {selectedExpenseForPayment?.name ?? 'Expense'}
+                {t('reception.addPaymentDetailFor', {
+                  name: selectedExpenseForPayment?.name ?? t('director.expenseFallbackName'),
+                })}
               </h3>
               <button
                 type="button"
@@ -440,7 +445,7 @@ const ReceptionFinance = () => {
             </div>
             <form onSubmit={handleCreatePaymentForExpense} className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs text-slate-600">Payment detail date</label>
+                <label className="mb-1 block text-xs text-slate-600">{t('reception.paymentDetailDate')}</label>
                 <input
                   type="date"
                   value={newPaymentDetail.date}
@@ -452,7 +457,7 @@ const ReceptionFinance = () => {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-slate-600">Amount</label>
+                <label className="mb-1 block text-xs text-slate-600">{t('reception.amount')}</label>
                 <input
                   type="number"
                   min={0}
@@ -483,14 +488,14 @@ const ReceptionFinance = () => {
                   }}
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  Cancel
+                  {t('shared.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isCreatingExpenseWithPayment}
                   className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
                 >
-                  {isCreatingExpenseWithPayment ? 'Saving...' : 'Save'}
+                  {isCreatingExpenseWithPayment ? t('shared.saving') : t('shared.save')}
                 </button>
               </div>
             </form>
