@@ -432,7 +432,8 @@ const Schedule = () => {
   const isDirector = role === 'director';
   const isReception = role === 'frontdesk';
   const isDirectorOrReception = isDirector || isReception;
-  const isDentistUser = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
+  const isSingleDentist = role === 'singledentist' || role === 'single dentist';
+  const isDentistUser = role === 'dentist' || isSingleDentist;
   // "singleDentist" should reuse the dentist schedule UI, but must not manage blocking time.
   const isDentistBlockingManager = role === 'dentist';
   const canManageBlockingTime = isDirectorOrReception || isDentistBlockingManager;
@@ -2640,12 +2641,20 @@ const Schedule = () => {
                                                     }
                                                     onMouseLeave={() => setHoverTip(null)}
                                                 >
-                                                  <p className="leading-tight truncate">
-                                                    {roomTitleById.get(r.room?.id ?? 0) || t('roomUnknown')}
-                                                  </p>
-                                                  <p className="leading-tight truncate">
-                                                    {`Dr. ${dentistSurnameById.get(r.dentist?.id ?? 0) || t('dentistUnknown')}`}
-                                                  </p>
+                                                  {isSingleDentist ? (
+                                                      <p className="leading-tight truncate font-semibold">
+                                                        {`${r.patient?.name ?? ''} ${r.patient?.surname ?? ''}`.trim()}
+                                                      </p>
+                                                  ) : (
+                                                      <>
+                                                        <p className="leading-tight truncate">
+                                                          {roomTitleById.get(r.room?.id ?? 0) || t('roomUnknown')}
+                                                        </p>
+                                                        <p className="leading-tight truncate">
+                                                          {`Dr. ${dentistSurnameById.get(r.dentist?.id ?? 0) || t('dentistUnknown')}`}
+                                                        </p>
+                                                      </>
+                                                  )}
                                                 </div>
                                             ));
                                           });
