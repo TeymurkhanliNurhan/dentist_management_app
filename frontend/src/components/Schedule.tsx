@@ -510,6 +510,8 @@ const Schedule = () => {
   const [editNote, setEditNote] = useState('');
   const [detailBusy, setDetailBusy] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [randevueDeleteConfirmOpen, setRandevueDeleteConfirmOpen] = useState(false);
+  const [randevueDeleteBusy, setRandevueDeleteBusy] = useState(false);
   const [detailAppointmentChoice, setDetailAppointmentChoice] = useState<AppointmentChoice>('none');
   const [detailOpenAppointments, setDetailOpenAppointments] = useState<Appointment[]>([]);
   const [detailApptsLoading, setDetailApptsLoading] = useState(false);
@@ -1379,6 +1381,23 @@ const Schedule = () => {
       setDetailError(t('updateError'));
     } finally {
       setDetailBusy(false);
+    }
+  };
+
+  const handleDeleteDetail = async () => {
+    if (detailId == null) return;
+    setDetailError(null);
+    setRandevueDeleteBusy(true);
+    try {
+      await randevueService.delete(detailId);
+      setRandevueDeleteConfirmOpen(false);
+      setRandevueDetailEditMode(false);
+      setDetailId(null);
+      void fetchSchedule();
+    } catch {
+      setDetailError(t('deleteRandevueError'));
+    } finally {
+      setRandevueDeleteBusy(false);
     }
   };
 
@@ -2859,6 +2878,7 @@ const Schedule = () => {
                             setDetailId(null);
                             setBlockingDetailId(null);
                             setRandevueDetailEditMode(false);
+                            setRandevueDeleteConfirmOpen(false);
                           }}
                           className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800"
                           aria-label={t('closeDetail')}
@@ -3063,6 +3083,9 @@ const Schedule = () => {
                                 {detailRandevue.note?.trim() ? detailRandevue.note : t('noNote')}
                               </p>
                             </div>
+                            {detailError && (
+                                <p className="text-sm text-red-600">{detailError}</p>
+                            )}
                             <div className="flex flex-wrap gap-2 pt-4">
                               {detailRandevue.appointment?.id != null && (
                                   <button
@@ -3087,7 +3110,43 @@ const Schedule = () => {
                               >
                                 {t('editDetails')}
                               </button>
+                              <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDetailError(null);
+                                    setRandevueDeleteConfirmOpen(true);
+                                  }}
+                                  disabled={randevueDeleteBusy}
+                                  className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                              >
+                                {t('deleteRandevue')}
+                              </button>
                             </div>
+                            {randevueDeleteConfirmOpen && (
+                                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
+                                  <p className="text-sm text-red-800">
+                                    {t('deleteRandevueConfirm')}
+                                  </p>
+                                  <div className="mt-3 flex flex-wrap justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setRandevueDeleteConfirmOpen(false)}
+                                        disabled={randevueDeleteBusy}
+                                        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                      {t('cancel')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleDeleteDetail()}
+                                        disabled={randevueDeleteBusy}
+                                        className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                                    >
+                                      {randevueDeleteBusy ? t('deleting') : t('deleteRandevue')}
+                                    </button>
+                                  </div>
+                                </div>
+                            )}
                           </>
                       ) : (
                           <>

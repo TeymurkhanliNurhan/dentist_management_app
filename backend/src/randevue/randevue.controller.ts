@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -77,5 +78,19 @@ export class RandevueController {
     const role =
       typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
     return await this.service.update(dentistId, id, dto, role);
+  }
+
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a randevue' })
+  @ApiOkResponse({ description: 'Randevue deleted' })
+  async delete(@User() user: any, @Param('id', ParseIntPipe) id: number) {
+    const raw = user?.userId ?? user?.sub ?? user?.dentistId;
+    const dentistId = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
+    const role =
+      typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
+    return await this.service.delete(dentistId, id, role);
   }
 }

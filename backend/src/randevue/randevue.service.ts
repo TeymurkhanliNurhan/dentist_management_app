@@ -563,4 +563,28 @@ export class RandevueService {
       throw new BadRequestException('Failed to update randevue');
     }
   }
+
+  async delete(dentistId: number, id: number, userRole?: string) {
+    if (!Number.isFinite(dentistId) || dentistId < 1) {
+      throw new BadRequestException('Invalid dentist context');
+    }
+    const role = (userRole ?? '').toLowerCase();
+    const hasClinicWideScope =
+      role === 'director' || role === 'admin' || role === 'frontdesk';
+    const row = hasClinicWideScope
+      ? await this.repo.findByIdInClinic(dentistId, id)
+      : await this.repo.findByIdForDentist(dentistId, id);
+    if (!row) throw new NotFoundException('Randevue not found');
+
+    try {
+      await this.repo.deleteById(id);
+      const msg = `Dentist ${dentistId} deleted Randevue ${id}`;
+      this.logger.log(msg);
+      LogWriter.append('log', RandevueService.name, msg);
+      return { id };
+    } catch (e: any) {
+      this.logger.error(e?.stack || e?.message);
+      throw new BadRequestException('Failed to delete randevue');
+    }
+  }
 }

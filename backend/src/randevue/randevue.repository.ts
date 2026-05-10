@@ -403,6 +403,10 @@ export class RandevueRepository {
     return this.repo.save(entity);
   }
 
+  async deleteById(id: number): Promise<void> {
+    await this.repo.delete(id);
+  }
+
   async linkToothTreatmentsToRandevue(input: {
     treatmentIds: number[];
     appointmentId: number;

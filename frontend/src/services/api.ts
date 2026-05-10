@@ -1080,6 +1080,10 @@ export const randevueService = {
     const response = await api.patch<Randevue>(`/randevue/${id}`, dto);
     return response.data;
   },
+  delete: async (id: number): Promise<{ id: number }> => {
+    const response = await api.delete<{ id: number }>(`/randevue/${id}`);
+    return response.data;
+  },
 };
 
 export const appointmentService = {
