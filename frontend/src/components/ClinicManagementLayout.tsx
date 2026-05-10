@@ -67,7 +67,7 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f4f6f8] text-slate-700">
       <header className="h-16 shrink-0 border-b border-slate-200 bg-white px-6">
-        <div className="mx-auto flex h-full max-w-[1600px] items-center justify-between gap-4">
+        <div className="flex h-full w-full items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -84,7 +84,7 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
           </div>
         </div>
       </header>
-      <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 overflow-hidden">
+      <div className="flex min-h-0 w-full flex-1 overflow-hidden">
         <aside
           className={`relative shrink-0 border-r border-slate-200 bg-[#f0f3f7] transition-all duration-300 ${
             isSidebarOpen ? 'w-64' : 'w-20'
