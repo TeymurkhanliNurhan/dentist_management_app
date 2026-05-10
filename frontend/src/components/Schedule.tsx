@@ -2456,8 +2456,8 @@ const Schedule = () => {
                     <p className="text-red-600">{loadError}</p>
                 ) : (
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
-                      <div className="flex min-w-[720px]">
-                        <div className="w-14 flex-shrink-0 border-r border-gray-200 bg-gray-50">
+                      <div className="flex min-w-[680px]">
+                        <div className="w-12 flex-shrink-0 border-r border-gray-200 bg-gray-50">
                           <div className="h-12 border-b border-gray-200" />
                           {DISPLAY_HOURS.map((h, slot) => (
                               <div
@@ -2488,7 +2488,7 @@ const Schedule = () => {
                             }
 
                             return (
-                                <div key={column.key} className="flex-1 min-w-[150px] border-r border-gray-200 last:border-r-0">
+                                <div key={column.key} className="flex-1 min-w-[120px] border-r border-gray-200 last:border-r-0 xl:min-w-[130px]">
                                   <div
                                       className={`h-12 border-b border-gray-200 flex items-center justify-center text-sm font-medium px-2 text-center ${
                                           isToday ? 'text-violet-700 bg-violet-50' : 'text-gray-800'
