@@ -373,6 +373,79 @@ type TreatmentDraft = {
   pendingMedia: { key: string; name: string; description: string; file: File }[];
 };
 
+function emptyTreatmentDraftForMerge(): TreatmentDraft {
+  return {
+    selectedTreatmentIds: [],
+    tooth_ids: [],
+    description: '',
+    selectedMedicineQuantities: {},
+    randevueId: '',
+    toothSelectionMode: 'multiple',
+    pendingMedia: [],
+  };
+}
+
+function mergeTreatmentDraftsForSubmit(
+  treatmentDrafts: TreatmentDraft[],
+  activeTreatmentDraftIndex: number,
+  selectedTreatmentIds: number[],
+  toothIds: number[],
+  description: string,
+  selectedMedicineQuantities: Record<number, MedicineUsageInput>,
+  randevueId: number | '',
+  toothSelectionMode: TeethSelectionMode,
+  pendingMedia: { key: string; name: string; description: string; file: File }[],
+): TreatmentDraft[] {
+  const base =
+    treatmentDrafts.length > 0 ? treatmentDrafts : [emptyTreatmentDraftForMerge()];
+  return base.map((draft, index) =>
+    index === activeTreatmentDraftIndex
+      ? {
+          ...draft,
+          selectedTreatmentIds,
+          tooth_ids: toothIds,
+          description,
+          selectedMedicineQuantities,
+          randevueId,
+          toothSelectionMode,
+          pendingMedia,
+        }
+      : draft,
+  );
+}
+
+function buildTreatmentCatalogMap(
+  availableTreatments: Treatment[],
+  allTreatments: Treatment[],
+): Map<number, Treatment> {
+  const m = new Map<number, Treatment>();
+  for (const t of allTreatments) m.set(t.id, t);
+  for (const t of availableTreatments) m.set(t.id, t);
+  return m;
+}
+
+/** One persisted tooth-treatment row per treatment when priced per chin/mouth; else one row per tooth. */
+function isSingleRowPerTreatmentSelection(
+  catalog: Map<number, Treatment>,
+  treatmentId: number,
+): boolean {
+  const pp = catalog.get(treatmentId)?.pricePer;
+  return pp === 'chin' || pp === 'mouth';
+}
+
+function countToothTreatmentRowsForDrafts(
+  drafts: TreatmentDraft[],
+  catalog: Map<number, Treatment>,
+): number {
+  let n = 0;
+  for (const draft of drafts) {
+    for (const tid of draft.selectedTreatmentIds) {
+      n += isSingleRowPerTreatmentSelection(catalog, tid) ? 1 : draft.tooth_ids.length;
+    }
+  }
+  return n;
+}
+
 const resolveInternalReturnPath = (candidate: unknown): string | undefined => {
   if (typeof candidate !== 'string') return undefined;
   const trimmed = candidate.trim();
@@ -542,6 +615,37 @@ const AppointmentDetail = () => {
   const [treatmentOwnershipFilter, setTreatmentOwnershipFilter] = useState<TreatmentOwnershipFilter>(
     isDirector || isSingleDentist ? 'all' : 'mine',
   );
+
+  const treatmentCatalogMap = useMemo(
+    () => buildTreatmentCatalogMap(availableTreatments, allTreatments),
+    [availableTreatments, allTreatments],
+  );
+
+  const pendingTreatmentRowCount = useMemo(() => {
+    const drafts = mergeTreatmentDraftsForSubmit(
+      treatmentDrafts,
+      activeTreatmentDraftIndex,
+      selectedTreatmentIds,
+      newTreatment.tooth_ids,
+      newTreatment.description ?? '',
+      selectedMedicineQuantities,
+      newTreatmentRandevueId,
+      toothSelectionMode,
+      pendingMediaForNewTreatment,
+    );
+    return countToothTreatmentRowsForDrafts(drafts, treatmentCatalogMap);
+  }, [
+    treatmentDrafts,
+    activeTreatmentDraftIndex,
+    selectedTreatmentIds,
+    newTreatment.tooth_ids,
+    newTreatment.description,
+    selectedMedicineQuantities,
+    newTreatmentRandevueId,
+    toothSelectionMode,
+    pendingMediaForNewTreatment,
+    treatmentCatalogMap,
+  ]);
 
   const hydrateTreatmentDraft = useCallback(
     (draft: TreatmentDraft) => {
@@ -1237,19 +1341,16 @@ const AppointmentDetail = () => {
     setIsAddingTreatment(true);
     setError('');
     try {
-      const draftsToSubmit = (treatmentDrafts.length > 0 ? treatmentDrafts : [createEmptyTreatmentDraft()]).map(
-        (draft, index) =>
-          index === activeTreatmentDraftIndex
-            ? {
-                selectedTreatmentIds,
-                tooth_ids: newTreatment.tooth_ids,
-                description: newTreatment.description ?? '',
-                selectedMedicineQuantities,
-                randevueId: newTreatmentRandevueId,
-                toothSelectionMode,
-                pendingMedia: pendingMediaForNewTreatment,
-              }
-            : draft,
+      const draftsToSubmit = mergeTreatmentDraftsForSubmit(
+        treatmentDrafts,
+        activeTreatmentDraftIndex,
+        selectedTreatmentIds,
+        newTreatment.tooth_ids,
+        newTreatment.description ?? '',
+        selectedMedicineQuantities,
+        newTreatmentRandevueId,
+        toothSelectionMode,
+        pendingMediaForNewTreatment,
       );
 
       const stockByMedicineId = new Map(
@@ -1310,17 +1411,30 @@ const AppointmentDetail = () => {
           .filter(({ quantity }) => quantity > 0);
 
         for (const tid of draft.selectedTreatmentIds) {
-          for (const toothId of draft.tooth_ids) {
+          if (isSingleRowPerTreatmentSelection(treatmentCatalogMap, tid)) {
             const created = await toothTreatmentService.create({
               ...newTreatment,
               treatment_id: tid,
-              tooth_ids: [toothId],
+              tooth_ids: draft.tooth_ids,
               description: draft.description,
             });
             if (created?.id) {
               createdTreatmentIds.push(created.id);
             }
             await attachMedicinesAndMedia(created?.id, selectedMedicines, draft.pendingMedia);
+          } else {
+            for (const toothId of draft.tooth_ids) {
+              const created = await toothTreatmentService.create({
+                ...newTreatment,
+                treatment_id: tid,
+                tooth_ids: [toothId],
+                description: draft.description,
+              });
+              if (created?.id) {
+                createdTreatmentIds.push(created.id);
+              }
+              await attachMedicinesAndMedia(created?.id, selectedMedicines, draft.pendingMedia);
+            }
           }
         }
         if (draft.randevueId !== '' && createdTreatmentIds.length > 0) {
@@ -2632,19 +2746,7 @@ const AppointmentDetail = () => {
                     >
                       {isAddingTreatment
                         ? 'Adding...'
-                        : `Add ${
-                            treatmentDrafts.reduce(
-                              (sum, draft) => sum + draft.selectedTreatmentIds.length * draft.tooth_ids.length,
-                              0,
-                            )
-                          } row${
-                            treatmentDrafts.reduce(
-                              (sum, draft) => sum + draft.selectedTreatmentIds.length * draft.tooth_ids.length,
-                              0,
-                            ) === 1
-                              ? ''
-                              : 's'
-                          }`}
+                        : `Add ${pendingTreatmentRowCount} row${pendingTreatmentRowCount === 1 ? '' : 's'}`}
                     </button>
                     <button
                       onClick={() => {
