@@ -215,7 +215,7 @@ const Patients = () => {
           onLogoutClick={() => setShowLogoutConfirm(true)}
           showProfileStrip={isDentist}
           headerActions={
-            isDirectorOrReception ? (
+            isDirectorOrReception || isDentist ? (
             <button
               type="button"
               onClick={() => setShowAddModal(true)}
@@ -376,7 +376,7 @@ const Patients = () => {
           </main>
         </ClinicPortalShell>
 
-        {isDirectorOrReception && showAddModal && (
+        {(isDirectorOrReception || isDentist) && showAddModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
             <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
