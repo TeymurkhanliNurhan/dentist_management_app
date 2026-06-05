@@ -1,5 +1,13 @@
 import axios from 'axios';
-import type { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from '../types/auth';
+import type {
+  LoginRequest,
+  LoginResponse,
+  PatientAuthResponse,
+  PatientSigninRequest,
+  PatientSignupRequest,
+  RegisterRequest,
+  RegisterResponse,
+} from '../types/auth';
 
 /**
  * Nest uses global prefix `/api`. Production often sets `VITE_API_BASE_URL` to the
@@ -34,6 +42,8 @@ const PUBLIC_AUTH_PATHS = new Set([
   '/Auth/password-reset/code-request',
   '/Auth/password-resets/code-verification',
   '/Auth/password-resets',
+  '/patient-auth/signin',
+  '/patient-auth/signup',
 ]);
 
 function isPublicAuthRequest(url: string | undefined): boolean {
@@ -116,6 +126,26 @@ export const authService = {
     return response.data;
   },
 };
+
+export const patientAuthService = {
+  signin: async (credentials: PatientSigninRequest): Promise<PatientAuthResponse> => {
+    const response = await api.post<PatientAuthResponse>('/patient-auth/signin', credentials);
+    return response.data;
+  },
+  signup: async (data: PatientSignupRequest): Promise<PatientAuthResponse> => {
+    const response = await api.post<PatientAuthResponse>('/patient-auth/signup', data);
+    return response.data;
+  },
+};
+
+export function persistPatientSession(data: PatientAuthResponse): void {
+  localStorage.setItem('access_token', data.access_token);
+  localStorage.setItem('role', data.role);
+  localStorage.setItem('patientId', String(data.patientId));
+  localStorage.setItem('clinicId', String(data.clinicId));
+  localStorage.removeItem('dentistId');
+  localStorage.removeItem('staffId');
+}
 
 export const dentistService = {
   getAll: async (): Promise<DentistProfile[]> => {

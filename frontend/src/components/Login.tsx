@@ -334,7 +334,7 @@ const Login = () => {
         </form>
 
         
-        <div className="mt-6 text-center relative" style={{ zIndex: 10 }}>
+        <div className="mt-6 text-center relative space-y-2" style={{ zIndex: 10 }}>
           <p className="text-gray-600 text-sm">
             {t('noAccount')}{' '}
             <button
@@ -342,6 +342,14 @@ const Login = () => {
               className="text-teal-600 font-semibold hover:text-teal-700 hover:underline transition-colors"
             >
               {t('signUp')}
+            </button>
+          </p>
+          <p className="text-gray-600 text-sm">
+            <button
+              onClick={() => navigate('/patient/login')}
+              className="text-teal-600 font-semibold hover:text-teal-700 hover:underline transition-colors"
+            >
+              {t('patientPortal')}
             </button>
           </p>
         </div>

@@ -31,6 +31,7 @@
   "failedToSend": "Не удалось отправить код сброса",
   "failedToVerify": "Не удалось подтвердить код",
   "failedToReset": "Не удалось сбросить пароль",
-  "networkError": "Не удалось подключиться к API. Локально: VITE_API_BASE_URL=/api (прокси Vite) или бэкенд на http://localhost:3000. Продакшен: полный URL API с префиксом /api."
+  "networkError": "Не удалось подключиться к API. Локально: VITE_API_BASE_URL=/api (прокси Vite) или бэкенд на http://localhost:3000. Продакшен: полный URL API с префиксом /api.",
+  "patientPortal": "Портал пациента"
 }
 

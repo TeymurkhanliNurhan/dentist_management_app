@@ -5,6 +5,7 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 // Import translation files
 import enLogin from '../locales/en/login.json';
 import enSignup from '../locales/en/signup.json';
+import enPatientAuth from '../locales/en/patientAuth.json';
 import enCommon from '../locales/en/common.json';
 import enDashboard from '../locales/en/dashboard.json';
 import enHeader from '../locales/en/header.json';
@@ -17,6 +18,7 @@ import enToothDetail from '../locales/en/toothDetail.json';
 import enAppointments from '../locales/en/appointments.json';
 import azLogin from '../locales/az/login.json';
 import azSignup from '../locales/az/signup.json';
+import azPatientAuth from '../locales/az/patientAuth.json';
 import azCommon from '../locales/az/common.json';
 import azDashboard from '../locales/az/dashboard.json';
 import azHeader from '../locales/az/header.json';
@@ -29,6 +31,7 @@ import azToothDetail from '../locales/az/toothDetail.json';
 import azAppointments from '../locales/az/appointments.json';
 import ruLogin from '../locales/ru/login.json';
 import ruSignup from '../locales/ru/signup.json';
+import ruPatientAuth from '../locales/ru/patientAuth.json';
 import ruCommon from '../locales/ru/common.json';
 import ruDashboard from '../locales/ru/dashboard.json';
 import ruHeader from '../locales/ru/header.json';
@@ -62,6 +65,7 @@ i18n
       en: {
         login: enLogin,
         signup: enSignup,
+        patientAuth: enPatientAuth,
         common: enCommon,
         dashboard: enDashboard,
         header: enHeader,
@@ -79,6 +83,7 @@ i18n
       az: {
         login: azLogin,
         signup: azSignup,
+        patientAuth: azPatientAuth,
         common: azCommon,
         dashboard: azDashboard,
         header: azHeader,
@@ -96,6 +101,7 @@ i18n
       ru: {
         login: ruLogin,
         signup: ruSignup,
+        patientAuth: ruPatientAuth,
         common: ruCommon,
         dashboard: ruDashboard,
         header: ruHeader,

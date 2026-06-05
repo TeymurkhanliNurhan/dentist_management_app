@@ -6,6 +6,7 @@ export function performLogout(navigate: NavigateFunction) {
   localStorage.removeItem('access_token');
   localStorage.removeItem('dentistId');
   localStorage.removeItem('staffId');
+  localStorage.removeItem('patientId');
   localStorage.removeItem('clinicId');
   localStorage.removeItem('role');
   navigate('/login');

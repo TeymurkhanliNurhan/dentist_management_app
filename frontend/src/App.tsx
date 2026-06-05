@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './components/Login';
 import SignUp from './components/SignUp';
+import PatientLogin from './components/PatientLogin';
+import PatientSignUp from './components/PatientSignUp';
 import Dashboard from './components/Dashboard';
 import MainBoard from './components/MainBoard';
 import Finance from './components/Finance';
@@ -24,6 +26,8 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/patient/login" element={<PatientLogin />} />
+        <Route path="/patient/signup" element={<PatientSignUp />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/main" element={<MainBoard />} />
         <Route path="/finance" element={<Finance />} />
