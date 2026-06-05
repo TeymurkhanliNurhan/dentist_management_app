@@ -1,23 +1,21 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(configService: ConfigService) {
+    const secret =
+      configService.get<string>('JWT_SECRET') || 'dev_secret_change_me';
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'dev_secret_change_me',
+      secretOrKey: secret,
     });
-    console.log(
-      '[JwtStrategy] Initialized with secret:',
-      process.env.JWT_SECRET ? 'env secret' : 'default secret',
-    );
   }
 
   async validate(payload: any) {
-    console.log('[JwtStrategy] Validating payload:', payload);
     return {
       userId: payload.sub,
       gmail: payload.gmail,

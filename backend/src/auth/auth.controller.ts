@@ -45,7 +45,11 @@ export class AuthController {
 
   @Post('SignIn')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Sign in and retrieve JWT' })
+  @ApiOperation({
+    summary: 'Sign in and retrieve JWT',
+    description:
+      'Use the access_token value in Swagger Authorize (top right). Paste the token only — do not add "Bearer ".',
+  })
   @ApiResponse({ status: 200, description: 'JWT token returned' })
   @ApiResponse({
     status: 401,
