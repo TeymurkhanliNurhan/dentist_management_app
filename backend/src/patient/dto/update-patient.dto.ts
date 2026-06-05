@@ -1,20 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsDateString,
-  IsInt,
-  IsOptional,
-  IsString,
-  Min,
-  MinLength,
-} from 'class-validator';
+import { IsDateString, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpdatePatientDto {
-  @ApiPropertyOptional({ example: 1, description: 'Clinic id' })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  clinic_id?: number;
-
   @ApiPropertyOptional({ example: 'Jane' })
   @IsOptional()
   @IsString()
@@ -31,4 +18,16 @@ export class UpdatePatientDto {
   @IsOptional()
   @IsDateString()
   birthDate?: string;
+
+  @ApiPropertyOptional({ example: '+1234567890' })
+  @IsOptional()
+  @IsString()
+  @MinLength(7)
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 'newPassword123' })
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  password?: string;
 }

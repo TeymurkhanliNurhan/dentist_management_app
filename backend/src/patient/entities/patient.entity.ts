@@ -22,6 +22,12 @@ export class Patient {
   @Column({ type: 'varchar', length: 25 })
   surname: string;
 
+  @Column({ type: 'varchar', length: 20, nullable: true, unique: true })
+  phone?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  password?: string;
+
   @Column({ type: 'date' })
   birthDate: Date;
 

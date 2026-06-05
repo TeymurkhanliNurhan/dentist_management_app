@@ -12,4 +12,7 @@ export class PatientUpdateResponseDto {
 
   @ApiProperty({ example: '2000-05-10' })
   birthDate: string;
+
+  @ApiProperty({ example: '+994501234567', nullable: true })
+  number: string | null;
 }
