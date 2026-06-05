@@ -137,8 +137,9 @@ export class PatientRepository {
   async createPatientWithAuth(input: {
     name: string;
     surname: string;
-    phone: string;
+    phone?: string;
     password: string;
+    birthDate: Date;
     clinicId: number;
   }): Promise<Patient> {
     const clinic = await this.dataSource.getRepository(Clinic).findOne({
@@ -149,11 +150,27 @@ export class PatientRepository {
     return await this.patientRepo.save({
       name: input.name,
       surname: input.surname,
-      phone: input.phone,
+      phone: input.phone ?? null,
       password: input.password,
-      birthDate: new Date(), // Default to today
+      birthDate: input.birthDate,
       clinic,
     } as Partial<Patient>);
+  }
+
+  async activatePatientAccount(
+    patientId: number,
+    clinicId: number,
+    input: { phone?: string; password: string },
+  ): Promise<Patient | null> {
+    const patient = await this.patientRepo.findOne({
+      where: { id: patientId, clinic: { id: clinicId } },
+    });
+    if (!patient) return null;
+    if (input.phone !== undefined) {
+      patient.phone = input.phone;
+    }
+    patient.password = input.password;
+    return await this.patientRepo.save(patient);
   }
 
   async updatePatientPassword(
@@ -185,14 +202,18 @@ export class PatientRepository {
     birthDate: Date | string,
     clinicId: number,
   ): Promise<Patient | null> {
-    return await this.patientRepo.findOne({
-      where: {
-        name,
-        surname,
-        birthDate: birthDate instanceof Date ? birthDate : new Date(birthDate),
-        clinic: { id: clinicId },
-      },
-      relations: ['clinic'],
-    });
+    const birthDateValue =
+      birthDate instanceof Date
+        ? birthDate.toISOString().slice(0, 10)
+        : String(birthDate).slice(0, 10);
+
+    return await this.patientRepo
+      .createQueryBuilder('patient')
+      .leftJoinAndSelect('patient.clinic', 'clinic')
+      .where('patient.name = :name', { name })
+      .andWhere('patient.surname = :surname', { surname })
+      .andWhere('patient.clinicId = :clinicId', { clinicId })
+      .andWhere('patient.birthDate = :birthDate', { birthDate: birthDateValue })
+      .getOne();
   }
 }

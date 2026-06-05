@@ -5,12 +5,19 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { Clinic } from '../../clinic/entities/clinic.entity';
 import { PatientTooth } from '../../patient_tooth/entities/patient_tooth.entity';
 import { Appointment } from '../../appointment/entities/appointment.entity';
 import { Randevue } from '../../randevue/entities/randevue.entity';
 
+@Unique('UQ_Patient_clinic_identity', [
+  'clinic',
+  'name',
+  'surname',
+  'birthDate',
+])
 @Entity({ name: 'Patient' })
 export class Patient {
   @PrimaryGeneratedColumn()
@@ -22,7 +29,7 @@ export class Patient {
   @Column({ type: 'varchar', length: 25 })
   surname: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true, unique: true })
+  @Column({ type: 'varchar', length: 20, nullable: true })
   phone?: string;
 
   @Column({ type: 'varchar', nullable: true })

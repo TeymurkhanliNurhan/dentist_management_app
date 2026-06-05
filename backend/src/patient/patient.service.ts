@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
@@ -64,6 +65,11 @@ export class PatientService {
         clinic: { id: clinicId },
       };
     } catch (e: any) {
+      if (e?.code === '23505') {
+        throw new ConflictException(
+          'A patient with this name, surname, and birth date already exists in this clinic.',
+        );
+      }
       if (e?.message?.includes('Dentist not found'))
         throw new BadRequestException('Dentist not found');
       throw e;
@@ -99,6 +105,11 @@ export class PatientService {
       LogWriter.append('log', PatientService.name, msg);
       return this.toPatientResponse(updated);
     } catch (e: any) {
+      if (e?.code === '23505') {
+        throw new ConflictException(
+          'A patient with this name, surname, and birth date already exists in this clinic.',
+        );
+      }
       if (e?.message?.includes('Patient not found'))
         throw new NotFoundException('Patient not found');
       if (e?.message?.includes('Forbidden'))
