@@ -21,6 +21,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       gmail: payload.gmail,
       role: typeof payload.role === 'string' ? payload.role : undefined,
       staffId: payload.staffId ?? payload.staff_id,
+      patientId: payload.patientId ?? payload.patient_id,
+      clinicId: payload.clinicId ?? payload.clinic_id,
     };
   }
 }

@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, MinLength, IsPhoneNumber, IsInt, Min, IsDateString } from 'class-validator';
+import {
+  IsString,
+  MinLength,
+  IsInt,
+  Min,
+  IsDateString,
+  IsOptional,
+} from 'class-validator';
 
 export class PatientSignupDto {
   @ApiProperty({ example: 'John', description: 'Patient first name' })
@@ -23,11 +30,13 @@ export class PatientSignupDto {
 
   @ApiProperty({
     example: '+1234567890',
-    description: 'Phone number',
+    description: 'Optional contact phone (not unique)',
+    required: false,
   })
+  @IsOptional()
   @IsString()
   @MinLength(7)
-  phone: string;
+  phone?: string;
 
   @ApiProperty({
     example: 'password123',

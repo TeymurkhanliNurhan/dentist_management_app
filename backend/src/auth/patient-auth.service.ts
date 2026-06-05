@@ -23,42 +23,62 @@ export class PatientAuthService {
   ) {}
 
   async signup(signupDto: PatientSignupDto): Promise<PatientAuthResponseDto> {
-    // Check if patient with this phone already exists in this clinic
-    const existingPatient =
-      await this.patientRepository.findPatientByPhoneAndClinic(
-        signupDto.phone,
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(signupDto.password, saltRounds);
+    const birthDate = new Date(signupDto.birthDate);
+
+    const existingByIdentity =
+      await this.patientRepository.findPatientByIdentity(
+        signupDto.name,
+        signupDto.surname,
+        signupDto.birthDate,
         signupDto.clinicId,
       );
 
-    if (existingPatient) {
-      this.logger.warn(
-        `Patient signup failed: phone ${signupDto.phone} already exists in clinic ${signupDto.clinicId}`,
-      );
-      LogWriter.append(
-        'warn',
-        PatientAuthService.name,
-        `Patient signup failed: phone ${signupDto.phone} already exists in clinic ${signupDto.clinicId}`,
-      );
-      throw new ConflictException(
-        'A patient with this phone number already exists in this clinic',
-      );
-    }
-
-    // Hash password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(signupDto.password, saltRounds);
-
     try {
-      // Create patient with auth fields
-      const patient = await this.patientRepository.createPatientWithAuth({
-        name: signupDto.name,
-        surname: signupDto.surname,
-        phone: signupDto.phone,
-        password: hashedPassword,
-        clinicId: signupDto.clinicId,
-      });
+      let patient: Awaited<
+        ReturnType<PatientRepository['createPatientWithAuth']>
+      >;
 
-      // Generate JWT token
+      if (existingByIdentity) {
+        if (existingByIdentity.password) {
+          throw new ConflictException(
+            'A patient account with this identity already exists. Please sign in instead.',
+          );
+        }
+
+        const activated = await this.patientRepository.activatePatientAccount(
+          existingByIdentity.id,
+          signupDto.clinicId,
+          { phone: signupDto.phone, password: hashedPassword },
+        );
+        if (!activated) {
+          throw new BadRequestException('Failed to activate patient account');
+        }
+        patient = activated;
+        this.logger.log(`Patient ${patient.id} account activated via signup`);
+        LogWriter.append(
+          'log',
+          PatientAuthService.name,
+          `Patient ${patient.id} account activated via signup`,
+        );
+      } else {
+        patient = await this.patientRepository.createPatientWithAuth({
+          name: signupDto.name,
+          surname: signupDto.surname,
+          phone: signupDto.phone,
+          password: hashedPassword,
+          birthDate,
+          clinicId: signupDto.clinicId,
+        });
+        this.logger.log(`Patient ${patient.id} signed up successfully`);
+        LogWriter.append(
+          'log',
+          PatientAuthService.name,
+          `Patient ${patient.id} signed up successfully`,
+        );
+      }
+
       const payload = {
         sub: patient.id,
         patientId: patient.id,
@@ -66,13 +86,6 @@ export class PatientAuthService {
         role: 'patient',
       };
       const access_token = await this.jwtService.signAsync(payload);
-
-      this.logger.log(`Patient ${patient.id} signed up successfully`);
-      LogWriter.append(
-        'log',
-        PatientAuthService.name,
-        `Patient ${patient.id} signed up successfully`,
-      );
 
       return {
         access_token,
@@ -87,8 +100,19 @@ export class PatientAuthService {
         },
       };
     } catch (error: any) {
+      if (
+        error instanceof ConflictException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
       if (error?.message === 'Clinic not found') {
         throw new BadRequestException('Invalid clinic ID');
+      }
+      if (error?.code === '23505') {
+        throw new ConflictException(
+          'A patient with this name, surname, and birth date already exists in this clinic.',
+        );
       }
       this.logger.error(`Patient signup failed: ${error?.message}`);
       throw new BadRequestException('Failed to create patient account');
