@@ -57,6 +57,8 @@ import { TreatmentRandevue } from './treatment_randevue/entities/treatment_rande
 import { ExpenseModule } from './expense/expense.module';
 import { PaymentDetailsModule } from './payment_details/payment_details.module';
 import { PurchaseMedicineModule } from './purchase_medicine/purchase_medicine.module';
+import { ClinicModule } from './clinic/clinic.module';
+import { WhatsappModule } from './whatsapp/whatsapp.module';
 
 @Module({
   imports: [
@@ -222,6 +224,8 @@ import { PurchaseMedicineModule } from './purchase_medicine/purchase_medicine.mo
     ExpenseModule,
     PaymentDetailsModule,
     PurchaseMedicineModule,
+    ClinicModule,
+    WhatsappModule,
   ],
   controllers: [AppController],
   providers: [AppService],

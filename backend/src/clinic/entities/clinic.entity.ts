@@ -17,6 +17,21 @@ export class Clinic {
   @Column({ type: 'varchar', length: 127 })
   address: string;
 
+  @Column({ type: 'boolean', default: false })
+  whatsappEnabled: boolean;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  whatsappPhoneNumberId: string | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  whatsappBusinessAccountId: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  whatsappAccessToken: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  whatsappDisplayPhone: string | null;
+
   @OneToMany(() => Staff, (staff) => staff.clinic)
   staffMembers: Staff[];
 
