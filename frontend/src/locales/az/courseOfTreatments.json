@@ -59,5 +59,12 @@
   "errLoadPatients": "Pasiyentlər yüklənmədi",
   "errCreatePatient": "Pasiyent yaradıla bilmədi",
   "errRequiredStartPatient": "Başlama tarixi və pasiyent mütləqdir",
-  "errCreateCourse": "Müalicə kursu yaradıla bilmədi"
+  "errCreateCourse": "Müalicə kursu yaradıla bilmədi",
+  "subtitlePatient": "Müalicə kurslarınız və haqqlar",
+  "tableDentist": "Diş həkimi",
+  "courseDetailTitle": "Kurs detalları",
+  "courseNotFound": "Kurs tapılmadı və ya giriş icazəniz yoxdur.",
+  "errLoadCourseDetail": "Kurs detalları yüklənmədi",
+  "loadingCourseDetail": "Kurs detalları yüklənir...",
+  "noTreatmentsInCourse": "Bu kursda hələ müalicə qeyd edilməyib."
 }

@@ -1013,6 +1013,7 @@ export interface Appointment {
 }
 
 export interface AppointmentFilters {
+  id?: number;
   startDate?: string;
   startDateFrom?: string;
   startDateTo?: string;
@@ -1119,6 +1120,7 @@ export const randevueService = {
 export const appointmentService = {
   getAll: async (filters?: AppointmentFilters): Promise<PaginatedAppointments> => {
     const params = new URLSearchParams();
+    if (filters?.id !== undefined) params.append('id', filters.id.toString());
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.startDateFrom) params.append('startDateFrom', filters.startDateFrom);
     if (filters?.startDateTo) params.append('startDateTo', filters.startDateTo);

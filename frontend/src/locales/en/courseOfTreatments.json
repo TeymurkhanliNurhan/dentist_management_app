@@ -59,5 +59,12 @@
   "errLoadPatients": "Failed to load patients",
   "errCreatePatient": "Failed to create patient",
   "errRequiredStartPatient": "Start date and patient are required",
-  "errCreateCourse": "Failed to create course of treatment"
+  "errCreateCourse": "Failed to create course of treatment",
+  "subtitlePatient": "Your treatment courses and fees",
+  "tableDentist": "Dentist",
+  "courseDetailTitle": "Course details",
+  "courseNotFound": "Course not found or you do not have access.",
+  "errLoadCourseDetail": "Failed to load course details",
+  "loadingCourseDetail": "Loading course details...",
+  "noTreatmentsInCourse": "No treatments recorded for this course yet."
 }
