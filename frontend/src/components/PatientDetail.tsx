@@ -16,8 +16,10 @@ import { appointmentService, dentistService, patientService, toothTreatmentServi
 import type { Appointment, Patient, PatientTooth, ToothTreatment } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { ClinicPortalShell } from './ClinicPortalShell';
+import { PatientPortalShell } from './PatientPortalShell';
 import { PortalLanguageSwitcher } from './PortalLanguageSwitcher';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU, FRONTDESK_PORTAL_MENU } from '../lib/clinicPortalNav';
+import { isPatientSession } from '../lib/patientSession';
 
 const PatientDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -52,12 +54,15 @@ const PatientDetail = () => {
   const [paymentSubmittingByAppointment, setPaymentSubmittingByAppointment] = useState<Record<number, boolean>>({});
 
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
+  const isPatient = isPatientSession();
   const isDirector = role === 'director';
   const isReception = role === 'frontdesk';
   const isSingleDentist = role === 'singledentist' || role === 'single dentist';
   const isDentist = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
-  const canEditPatient = isDirector || isDentist || isReception;
-  const canDeletePatient = isDirector || isDentist;
+  const canEditPatient = !isPatient && (isDirector || isDentist || isReception);
+  const canDeletePatient = !isPatient && (isDirector || isDentist);
+  const canApplyPayment = !isPatient && (isDirector || isReception);
+  const canOpenAppointmentDetail = !isPatient;
   const loggedInDentistId = useMemo(() => {
     const raw = localStorage.getItem('dentistId');
     const n = raw ? parseInt(raw, 10) : NaN;
@@ -383,6 +388,34 @@ const PatientDetail = () => {
     `${formatToothList(tt)} — ${tt.treatment?.name ?? '—'}`;
 
   const wrapLayout = (children: ReactNode) => {
+    if (isPatient) {
+      const displayName = patient ? `${patient.name} ${patient.surname}`.trim() : '';
+      return (
+        <>
+          <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
+            <PatientPortalShell
+              userDisplayName={displayName}
+              pathname={location.pathname}
+              isSidebarOpen={isSidebarOpen}
+              setIsSidebarOpen={setIsSidebarOpen}
+              navigate={navigate}
+              onLogoutClick={() => setShowLogoutConfirm(true)}
+            >
+              <main className="relative min-h-0 flex-1 bg-[#f9fafb] px-6 py-6">{children}</main>
+            </PatientPortalShell>
+          </div>
+          <LogoutConfirmModal
+            open={showLogoutConfirm}
+            onCancel={() => setShowLogoutConfirm(false)}
+            onConfirm={() => {
+              performLogout(navigate);
+              setShowLogoutConfirm(false);
+            }}
+          />
+        </>
+      );
+    }
+
     if (isDirector || isDentist || isReception) {
       return (
         <>
@@ -438,13 +471,15 @@ const PatientDetail = () => {
   if (!patient) {
     return wrapLayout(
       <>
-        <button
-          onClick={() => navigate('/patients')}
-          className="mb-6 flex items-center space-x-2 text-[#0066A6] transition-colors hover:text-[#00588f]"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          <span>{t('back')}</span>
-        </button>
+        {!isPatient ? (
+          <button
+            onClick={() => navigate('/patients')}
+            className="mb-6 flex items-center space-x-2 text-[#0066A6] transition-colors hover:text-[#00588f]"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span>{t('back')}</span>
+          </button>
+        ) : null}
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
           {fetchError ? (fetchError === FETCH_ERROR_KEY ? t('fetchError') : fetchError) : t('notFound')}
         </div>
@@ -454,13 +489,15 @@ const PatientDetail = () => {
 
   return wrapLayout(
     <>
-      <button
-        onClick={() => navigate('/patients')}
-        className="mb-6 flex items-center space-x-2 font-medium text-[#0066A6] transition-colors hover:text-[#00588f]"
-      >
-        <ArrowLeft className="h-5 w-5" />
-        <span>{t('back')}</span>
-      </button>
+      {!isPatient ? (
+        <button
+          onClick={() => navigate('/patients')}
+          className="mb-6 flex items-center space-x-2 font-medium text-[#0066A6] transition-colors hover:text-[#00588f]"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span>{t('back')}</span>
+        </button>
+      ) : null}
 
       <div className="mb-8 rounded-xl bg-white p-8 shadow-sm ring-1 ring-slate-100">
         <div className="mb-8 flex items-center justify-between">
@@ -596,22 +633,26 @@ const PatientDetail = () => {
                         </div>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={paymentAmountByAppointment[appt.id] ?? ''}
-                          onChange={(e) => handlePaymentAmountChange(appt.id, e.target.value)}
-                          placeholder="Enter payment"
-                          className="w-36 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => void handleApplyPayment(appt.id)}
-                          disabled={paymentSubmittingByAppointment[appt.id] || getAppointmentDebt(appt) <= 0}
-                          className="rounded-md bg-[#0066A6] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#00588f] disabled:cursor-not-allowed disabled:bg-slate-300"
-                        >
-                          {paymentSubmittingByAppointment[appt.id] ? 'Applying...' : 'Apply Payment'}
-                        </button>
+                        {canApplyPayment ? (
+                          <>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={paymentAmountByAppointment[appt.id] ?? ''}
+                              onChange={(e) => handlePaymentAmountChange(appt.id, e.target.value)}
+                              placeholder="Enter payment"
+                              className="w-36 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0066A6]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void handleApplyPayment(appt.id)}
+                              disabled={paymentSubmittingByAppointment[appt.id] || getAppointmentDebt(appt) <= 0}
+                              className="rounded-md bg-[#0066A6] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#00588f] disabled:cursor-not-allowed disabled:bg-slate-300"
+                            >
+                              {paymentSubmittingByAppointment[appt.id] ? 'Applying...' : 'Apply Payment'}
+                            </button>
+                          </>
+                        ) : null}
                       </div>
                     </li>
                   );
@@ -757,17 +798,21 @@ const PatientDetail = () => {
                               <ul className="space-y-1.5 border-l-2 border-[#cce0f0] pl-3">
                                 {row.items.map((tt) => (
                                   <li key={tt.id}>
-                                    <Link
-                                      to={`/appointments/${tt.appointment!.id}`}
-                                      state={{
-                                        fromPatientId: patient.id,
-                                        returnTo: `${location.pathname}${location.search}${location.hash}`,
-                                        returnLabel: 'Back to Patient',
-                                      }}
-                                      className="text-sm text-slate-800 underline-offset-2 hover:text-[#0066A6] hover:underline"
-                                    >
-                                      {formatToothTreatmentLine(tt)}
-                                    </Link>
+                                    {canOpenAppointmentDetail ? (
+                                      <Link
+                                        to={`/appointments/${tt.appointment!.id}`}
+                                        state={{
+                                          fromPatientId: patient.id,
+                                          returnTo: `${location.pathname}${location.search}${location.hash}`,
+                                          returnLabel: 'Back to Patient',
+                                        }}
+                                        className="text-sm text-slate-800 underline-offset-2 hover:text-[#0066A6] hover:underline"
+                                      >
+                                        {formatToothTreatmentLine(tt)}
+                                      </Link>
+                                    ) : (
+                                      <span className="text-sm text-slate-800">{formatToothTreatmentLine(tt)}</span>
+                                    )}
                                   </li>
                                 ))}
                               </ul>
@@ -787,17 +832,11 @@ const PatientDetail = () => {
                 <ul className="space-y-4">
                   {appointmentsToDisplay.map((appt) => {
                     const treatments = treatmentsByAppointmentId.get(appt.id) ?? [];
-                    return (
-                      <li key={appt.id}>
-                        <Link
-                          to={`/appointments/${appt.id}`}
-                          state={{
-                            fromPatientId: patient.id,
-                            returnTo: `${location.pathname}${location.search}${location.hash}`,
-                            returnLabel: 'Back to Patient',
-                          }}
-                          className="block rounded-lg border border-slate-200 bg-slate-50/80 p-4 transition-colors hover:border-[#0066A6] hover:bg-[#f0f7fc]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0066A6] focus-visible:ring-offset-2"
-                        >
+                    const cardClassName = canOpenAppointmentDetail
+                      ? 'block rounded-lg border border-slate-200 bg-slate-50/80 p-4 transition-colors hover:border-[#0066A6] hover:bg-[#f0f7fc]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0066A6] focus-visible:ring-offset-2'
+                      : 'block rounded-lg border border-slate-200 bg-slate-50/80 p-4';
+                    const cardBody = (
+                      <>
                           <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
                             <div>
                               <span className="mr-1 text-slate-500">{t('startDate')}:</span>
@@ -822,7 +861,7 @@ const PatientDetail = () => {
                               </div>
                             ) : null}
                           </div>
-                          {!isDentist ? (
+                          {canApplyPayment ? (
                             <div
                               className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3"
                               onClick={(e) => e.preventDefault()}
@@ -880,7 +919,26 @@ const PatientDetail = () => {
                               </ul>
                             </div>
                           )}
-                        </Link>
+                      </>
+                    );
+
+                    return (
+                      <li key={appt.id}>
+                        {canOpenAppointmentDetail ? (
+                          <Link
+                            to={`/appointments/${appt.id}`}
+                            state={{
+                              fromPatientId: patient.id,
+                              returnTo: `${location.pathname}${location.search}${location.hash}`,
+                              returnLabel: 'Back to Patient',
+                            }}
+                            className={cardClassName}
+                          >
+                            {cardBody}
+                          </Link>
+                        ) : (
+                          <div className={cardClassName}>{cardBody}</div>
+                        )}
                       </li>
                     );
                   })}

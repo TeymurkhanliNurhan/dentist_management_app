@@ -1,7 +1,9 @@
 import type { NavigateFunction } from 'react-router-dom';
+import { isPatientSession } from '../lib/patientSession';
 import { resetCachedDentistProfile } from '../services/api';
 
 export function performLogout(navigate: NavigateFunction) {
+  const wasPatient = isPatientSession();
   resetCachedDentistProfile();
   localStorage.removeItem('access_token');
   localStorage.removeItem('dentistId');
@@ -9,7 +11,7 @@ export function performLogout(navigate: NavigateFunction) {
   localStorage.removeItem('patientId');
   localStorage.removeItem('clinicId');
   localStorage.removeItem('role');
-  navigate('/login');
+  navigate(wasPatient ? '/patient/login' : '/login');
 }
 
 type LogoutConfirmModalProps = {

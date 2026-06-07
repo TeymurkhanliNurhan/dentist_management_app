@@ -17,6 +17,7 @@ import Schedule from './components/Schedule';
 import Contact from './components/Contact';
 import Settings from './components/Settings';
 import ClinicStaffDirectory from './components/ClinicStaffDirectory';
+import { PatientAuthRedirect, PatientRecordGuard, StaffRouteGuard } from './components/RouteGuards';
 import './App.css';
 
 function App() {
@@ -26,22 +27,134 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
-        <Route path="/patient/login" element={<PatientLogin />} />
-        <Route path="/patient/signup" element={<PatientSignUp />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/main" element={<MainBoard />} />
-        <Route path="/finance" element={<Finance />} />
-        <Route path="/course-of-treatments" element={<CourseOfTreatments />} />
-        <Route path="/appointments/:id" element={<AppointmentDetail />} />
-        <Route path="/patients" element={<Patients />} />
-        <Route path="/patients/:id" element={<PatientDetail />} />
-        <Route path="/patients/:patientId/teeth/:toothId" element={<ToothDetail />} />
-        <Route path="/medicines" element={<Medicines />} />
-        <Route path="/treatments" element={<Treatments />} />
-        <Route path="/schedule" element={<Schedule />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/staff" element={<ClinicStaffDirectory />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route
+          path="/patient/login"
+          element={
+            <PatientAuthRedirect>
+              <PatientLogin />
+            </PatientAuthRedirect>
+          }
+        />
+        <Route
+          path="/patient/signup"
+          element={
+            <PatientAuthRedirect>
+              <PatientSignUp />
+            </PatientAuthRedirect>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <StaffRouteGuard>
+              <Dashboard />
+            </StaffRouteGuard>
+          }
+        />
+        <Route
+          path="/main"
+          element={
+            <StaffRouteGuard>
+              <MainBoard />
+            </StaffRouteGuard>
+          }
+        />
+        <Route
+          path="/finance"
+          element={
+            <StaffRouteGuard>
+              <Finance />
+            </StaffRouteGuard>
+          }
+        />
+        <Route
+          path="/course-of-treatments"
+          element={
+            <StaffRouteGuard>
+              <CourseOfTreatments />
+            </StaffRouteGuard>
+          }
+        />
+        <Route
+          path="/appointments/:id"
+          element={
+            <StaffRouteGuard>
+              <AppointmentDetail />
+            </StaffRouteGuard>
+          }
+        />
+        <Route
+          path="/patients"
+          element={
+            <StaffRouteGuard>
+              <Patients />
+            </StaffRouteGuard>
+          }
+        />
+        <Route
+          path="/patients/:id"
+          element={
+            <PatientRecordGuard>
+              <PatientDetail />
+            </PatientRecordGuard>
+          }
+        />
+        <Route
+          path="/patients/:patientId/teeth/:toothId"
+          element={
+            <PatientRecordGuard>
+              <ToothDetail />
+            </PatientRecordGuard>
+          }
+        />
+        <Route
+          path="/medicines"
+          element={
+            <StaffRouteGuard>
+              <Medicines />
+            </StaffRouteGuard>
+          }
+        />
+        <Route
+          path="/treatments"
+          element={
+            <StaffRouteGuard>
+              <Treatments />
+            </StaffRouteGuard>
+          }
+        />
+        <Route
+          path="/schedule"
+          element={
+            <StaffRouteGuard>
+              <Schedule />
+            </StaffRouteGuard>
+          }
+        />
+        <Route
+          path="/contact"
+          element={
+            <StaffRouteGuard>
+              <Contact />
+            </StaffRouteGuard>
+          }
+        />
+        <Route
+          path="/staff"
+          element={
+            <StaffRouteGuard>
+              <ClinicStaffDirectory />
+            </StaffRouteGuard>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <StaffRouteGuard>
+              <Settings />
+            </StaffRouteGuard>
+          }
+        />
       </Routes>
     </Router>
   );

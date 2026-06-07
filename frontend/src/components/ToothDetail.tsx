@@ -1,13 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Calendar, FileText, DollarSign, X, User } from 'lucide-react';
-import { toothTreatmentService, toothService, mediaService, dentistService } from '../services/api';
+import { toothTreatmentService, toothService, mediaService, dentistService, patientService } from '../services/api';
 import type { ToothTreatment, ToothInfo, Media } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import { ClinicPortalShell } from './ClinicPortalShell';
+import { PatientPortalShell } from './PatientPortalShell';
 import { PortalLanguageSwitcher } from './PortalLanguageSwitcher';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU } from '../lib/clinicPortalNav';
+import { isPatientSession } from '../lib/patientSession';
 
 const ToothDetail = () => {
   const { patientId, toothId } = useParams<{ patientId: string; toothId: string }>();
@@ -23,8 +25,10 @@ const ToothDetail = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [dentistPortalDisplayName, setDentistPortalDisplayName] = useState('');
+  const [patientPortalDisplayName, setPatientPortalDisplayName] = useState('');
 
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase(), []);
+  const isPatient = isPatientSession();
   const isDirector = role === 'director';
   const isSingleDentist = role === 'singledentist' || role === 'single dentist';
   const isDentist = role === 'dentist' || role === 'singledentist' || role === 'single dentist';
@@ -63,6 +67,27 @@ const ToothDetail = () => {
       cancelled = true;
     };
   }, [isDentist, loggedInDentistId]);
+
+  useEffect(() => {
+    if (!isPatient || !patientId) {
+      setPatientPortalDisplayName('');
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const profile = await patientService.getById(parseInt(patientId, 10));
+        const label = `${profile?.name ?? ''} ${profile?.surname ?? ''}`.trim();
+        if (!cancelled) setPatientPortalDisplayName(label);
+      } catch {
+        if (!cancelled) setPatientPortalDisplayName('');
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isPatient, patientId]);
 
   useEffect(() => {
     if (!previewMedia) return;
@@ -285,7 +310,35 @@ const ToothDetail = () => {
     </div>
   ) : null;
 
+  const patientShell = (content: ReactNode) => (
+    <>
+      <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
+        <PatientPortalShell
+          userDisplayName={patientPortalDisplayName}
+          pathname={location.pathname}
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          navigate={navigate}
+          onLogoutClick={() => setShowLogoutConfirm(true)}
+        >
+          <main className="relative min-h-0 flex-1 overflow-y-auto bg-[#f9fafb] px-6 py-6">{content}</main>
+        </PatientPortalShell>
+      </div>
+      <LogoutConfirmModal
+        open={showLogoutConfirm}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          performLogout(navigate);
+          setShowLogoutConfirm(false);
+        }}
+      />
+    </>
+  );
+
   if (isLoading) {
+    if (isPatient) {
+      return patientShell(<p className="py-12 text-center text-slate-500">{t('loading')}</p>);
+    }
     if (isPortal) {
       return (
         <>
@@ -346,7 +399,7 @@ const ToothDetail = () => {
 
       <div
         className={
-          isPortal
+          isPortal || isPatient
             ? 'mb-6 rounded-xl bg-white p-8 shadow-sm ring-1 ring-slate-100'
             : 'mb-6 rounded-lg bg-white p-8 shadow-md'
         }
@@ -404,6 +457,10 @@ const ToothDetail = () => {
         />
       </>
     );
+  }
+
+  if (isPatient) {
+    return patientShell(inner);
   }
 
   return (
