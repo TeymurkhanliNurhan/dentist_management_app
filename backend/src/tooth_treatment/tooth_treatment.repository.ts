@@ -278,6 +278,101 @@ export class ToothTreatmentRepository {
     await this.refreshAppointmentFees(appointmentId);
   }
 
+  async patientOwnsToothTreatment(
+    patientId: number,
+    clinicId: number,
+    toothTreatmentId: number,
+  ): Promise<boolean> {
+    const toothTreatment = await this.repo.findOne({
+      where: { id: toothTreatmentId },
+      relations: ['appointment'],
+    });
+    if (!toothTreatment) {
+      return false;
+    }
+    return (
+      toothTreatment.patient === patientId &&
+      toothTreatment.appointment?.clinicId === clinicId
+    );
+  }
+
+  async findToothTreatmentsForPatient(
+    patientId: number,
+    clinicId: number,
+    filters: {
+      id?: number;
+      appointment?: number;
+      tooth?: number;
+      patient?: number;
+      treatment?: number;
+      dentist?: number;
+    },
+  ): Promise<ToothTreatment[]> {
+    const queryBuilder = this.repo
+      .createQueryBuilder('toothTreatment')
+      .leftJoinAndSelect('toothTreatment.appointment', 'appointment')
+      .leftJoinAndSelect('toothTreatment.treatment', 'treatment')
+      .leftJoinAndSelect('toothTreatment.dentist', 'dentist')
+      .leftJoinAndSelect('dentist.staff', 'dentistStaff')
+      .leftJoinAndSelect('toothTreatment.patientTooth', 'patientTooth')
+      .leftJoinAndSelect(
+        'toothTreatment.toothTreatmentTeeth',
+        'toothTreatmentTeeth',
+      )
+      .leftJoinAndSelect('toothTreatmentTeeth.patientTooth', 'tttPatientTooth')
+      .leftJoinAndSelect(
+        'toothTreatmentTeeth.treatmentRandevues',
+        'treatmentRandevues',
+      )
+      .leftJoinAndSelect('treatmentRandevues.randevue', 'linkedRandevue')
+      .leftJoinAndSelect('linkedRandevue.room', 'linkedRandevueRoom')
+      .leftJoinAndSelect('linkedRandevue.nurse', 'linkedRandevueNurse')
+      .leftJoinAndSelect(
+        'linkedRandevueNurse.staff',
+        'linkedRandevueNurseStaff',
+      )
+      .leftJoinAndSelect('linkedRandevue.dentist', 'linkedRandevueDentist')
+      .leftJoinAndSelect(
+        'linkedRandevueDentist.staff',
+        'linkedRandevueDentistStaff',
+      )
+      .leftJoinAndSelect('appointment.patient', 'appointmentPatient')
+      .where('appointment.clinicId = :clinicId', { clinicId })
+      .andWhere('toothTreatment.patient = :patientId', { patientId });
+
+    if (filters.id !== undefined) {
+      queryBuilder.andWhere('toothTreatment.id = :id', { id: filters.id });
+    }
+    if (filters.appointment !== undefined) {
+      queryBuilder.andWhere('toothTreatment.appointment = :appointment', {
+        appointment: filters.appointment,
+      });
+    }
+    if (filters.tooth !== undefined) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('toothTreatment.tooth = :tooth', {
+            tooth: filters.tooth,
+          }).orWhere('tttPatientTooth.tooth = :tooth', {
+            tooth: filters.tooth,
+          });
+        }),
+      );
+    }
+    if (filters.treatment !== undefined) {
+      queryBuilder.andWhere('toothTreatment.treatment = :treatment', {
+        treatment: filters.treatment,
+      });
+    }
+    if (filters.dentist !== undefined) {
+      queryBuilder.andWhere('toothTreatment.dentist = :filterDentist', {
+        filterDentist: filters.dentist,
+      });
+    }
+
+    return await queryBuilder.getMany();
+  }
+
   async findToothTreatmentsForDentist(
     dentistId: number,
     filters: {

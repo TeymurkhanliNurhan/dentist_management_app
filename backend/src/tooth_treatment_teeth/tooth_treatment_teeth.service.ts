@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
@@ -8,6 +9,7 @@ import { ToothTreatmentTeethRepository } from './tooth_treatment_teeth.repositor
 import { CreateToothTreatmentTeethDto } from './dto/create-tooth_treatment_teeth.dto';
 import { GetToothTreatmentTeethDto } from './dto/get-tooth_treatment_teeth.dto';
 import { LogWriter } from '../log-writer';
+import { PatientAuthContext } from '../auth/patient-access';
 
 @Injectable()
 export class ToothTreatmentTeethService {
@@ -104,6 +106,38 @@ export class ToothTreatmentTeethService {
         );
       }
       throw new BadRequestException('Failed to retrieve teeth for treatment');
+    }
+  }
+
+  async findAllForPatient(
+    context: PatientAuthContext,
+    dto: GetToothTreatmentTeethDto,
+  ) {
+    try {
+      const records = await this.repo.findAllForPatient(
+      context.patientId,
+      context.clinicId,
+      {
+        id: dto.id,
+        toothTreatmentId: dto.tooth_treatment_id,
+        toothId: dto.tooth_id,
+        patientId: dto.patient_id ?? context.patientId,
+      },
+    );
+    const msg = `Patient with id ${context.patientId} retrieved ${records.length} tooth treatment teeth record(s)`;
+    this.logger.log(msg);
+    LogWriter.append('log', ToothTreatmentTeethService.name, msg);
+      return records.map((record) => ({
+        id: record.id,
+        tooth_treatment_id: record.toothTreatment?.id,
+        tooth_id: record.patientTooth?.tooth,
+        patient_id: record.patientTooth?.patient,
+      }));
+    } catch (e: any) {
+      if (e?.message?.includes('Forbidden')) {
+        throw new ForbiddenException('Access denied');
+      }
+      throw e;
     }
   }
 

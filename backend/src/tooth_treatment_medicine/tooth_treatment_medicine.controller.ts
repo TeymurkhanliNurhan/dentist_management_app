@@ -27,6 +27,12 @@ import { UpdateToothTreatmentMedicineDto } from './dto/update-tooth_treatment_me
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
 import { isDirectorRole } from '../auth/role-guards';
+import {
+  assertPatientMutationForbidden,
+  assertPatientOwnsToothTreatment,
+  requireStaffContext,
+  resolveAuthContext,
+} from '../auth/patient-access';
 
 @ApiTags('tooth-treatment-medicine')
 @Controller('tooth-treatment-medicine')
@@ -42,8 +48,21 @@ export class ToothTreatmentMedicineController {
   })
   @ApiOkResponse({ description: 'Tooth treatment medicines retrieved' })
   async findAll(@User() user: any, @Query() dto: GetToothTreatmentMedicineDto) {
-    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.findAll(dentistId, dto);
+    const context = resolveAuthContext(user);
+    if (context.kind === 'patient') {
+      await assertPatientOwnsToothTreatment(
+        context,
+        dto.tooth_treatment,
+        (patientId, clinicId, toothTreatmentId) =>
+          this.service.patientOwnsToothTreatment(
+            patientId,
+            clinicId,
+            toothTreatmentId,
+          ),
+      );
+      return await this.service.findAllForPatient(context, dto);
+    }
+    return await this.service.findAll(context.dentistId, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -56,13 +75,14 @@ export class ToothTreatmentMedicineController {
     @User() user: any,
     @Body() dto: CreateToothTreatmentMedicineDto,
   ) {
+    assertPatientMutationForbidden(user?.role);
     if (isDirectorRole(user?.role)) {
       throw new ForbiddenException(
         'Directors have read-only access for tooth treatment medicines',
       );
     }
-    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.create(dentistId, dto, user?.role);
+    const context = requireStaffContext(resolveAuthContext(user));
+    return await this.service.create(context.dentistId, dto, context.role);
   }
 
   @ApiBearerAuth('bearer')
@@ -77,18 +97,19 @@ export class ToothTreatmentMedicineController {
     @Param('medicine_id', ParseIntPipe) medicineId: number,
     @Body() dto: UpdateToothTreatmentMedicineDto,
   ) {
+    assertPatientMutationForbidden(user?.role);
     if (isDirectorRole(user?.role)) {
       throw new ForbiddenException(
         'Directors have read-only access for tooth treatment medicines',
       );
     }
-    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
+    const context = requireStaffContext(resolveAuthContext(user));
     return await this.service.updateQuantity(
-      dentistId,
+      context.dentistId,
       toothTreatmentId,
       medicineId,
       dto,
-      user?.role,
+      context.role,
     );
   }
 
@@ -103,17 +124,18 @@ export class ToothTreatmentMedicineController {
     @Param('tooth_treatment_id', ParseIntPipe) toothTreatmentId: number,
     @Param('medicine_id', ParseIntPipe) medicineId: number,
   ) {
+    assertPatientMutationForbidden(user?.role);
     if (isDirectorRole(user?.role)) {
       throw new ForbiddenException(
         'Directors have read-only access for tooth treatment medicines',
       );
     }
-    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
+    const context = requireStaffContext(resolveAuthContext(user));
     return await this.service.delete(
-      dentistId,
+      context.dentistId,
       toothTreatmentId,
       medicineId,
-      user?.role,
+      context.role,
     );
   }
 }

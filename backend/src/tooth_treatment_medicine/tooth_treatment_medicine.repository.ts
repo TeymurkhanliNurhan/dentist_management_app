@@ -201,6 +201,53 @@ export class ToothTreatmentMedicineRepository {
     });
   }
 
+  async patientOwnsToothTreatment(
+    patientId: number,
+    clinicId: number,
+    toothTreatmentId: number,
+  ): Promise<boolean> {
+    const toothTreatment = await this.dataSource
+      .getRepository(ToothTreatment)
+      .findOne({
+        where: { id: toothTreatmentId },
+        relations: ['appointment'],
+      });
+    if (!toothTreatment) {
+      return false;
+    }
+    return (
+      toothTreatment.patient === patientId &&
+      toothTreatment.appointment?.clinicId === clinicId
+    );
+  }
+
+  async findToothTreatmentMedicinesForPatient(
+    patientId: number,
+    clinicId: number,
+    filters: { medicine?: number; toothTreatment?: number },
+  ): Promise<ToothTreatmentMedicine[]> {
+    const queryBuilder = this.repo
+      .createQueryBuilder('ttm')
+      .leftJoinAndSelect('ttm.medicineEntity', 'medicine')
+      .leftJoinAndSelect('ttm.toothTreatmentEntity', 'toothTreatment')
+      .leftJoinAndSelect('toothTreatment.appointment', 'appointment')
+      .where('appointment.clinicId = :clinicId', { clinicId })
+      .andWhere('toothTreatment.patient = :patientId', { patientId });
+
+    if (filters.medicine !== undefined) {
+      queryBuilder.andWhere('ttm.medicine = :medicine', {
+        medicine: filters.medicine,
+      });
+    }
+    if (filters.toothTreatment !== undefined) {
+      queryBuilder.andWhere('ttm.toothTreatment = :toothTreatment', {
+        toothTreatment: filters.toothTreatment,
+      });
+    }
+
+    return await queryBuilder.getMany();
+  }
+
   async findToothTreatmentMedicinesForDentist(
     dentistId: number,
     filters: { medicine?: number; toothTreatment?: number },

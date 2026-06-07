@@ -9,6 +9,7 @@ import { CreateToothTreatmentMedicineDto } from './dto/create-tooth_treatment_me
 import { GetToothTreatmentMedicineDto } from './dto/get-tooth_treatment_medicine.dto';
 import { UpdateToothTreatmentMedicineDto } from './dto/update-tooth_treatment_medicine.dto';
 import { LogWriter } from '../log-writer';
+import { PatientAuthContext } from '../auth/patient-access';
 
 @Injectable()
 export class ToothTreatmentMedicineService {
@@ -141,6 +142,46 @@ export class ToothTreatmentMedicineService {
         'Failed to update tooth treatment medicine quantity',
       );
     }
+  }
+
+  patientOwnsToothTreatment(
+    patientId: number,
+    clinicId: number,
+    toothTreatmentId: number,
+  ): Promise<boolean> {
+    return this.repo.patientOwnsToothTreatment(
+      patientId,
+      clinicId,
+      toothTreatmentId,
+    );
+  }
+
+  async findAllForPatient(
+    context: PatientAuthContext,
+    dto: GetToothTreatmentMedicineDto,
+  ) {
+    const toothTreatmentMedicines =
+      await this.repo.findToothTreatmentMedicinesForPatient(
+        context.patientId,
+        context.clinicId,
+        {
+          medicine: dto.medicine,
+          toothTreatment: dto.tooth_treatment,
+        },
+      );
+    const msg = `Patient with id ${context.patientId} retrieved ${toothTreatmentMedicines.length} tooth treatment medicine(s)`;
+    this.logger.log(msg);
+    LogWriter.append('log', ToothTreatmentMedicineService.name, msg);
+    return toothTreatmentMedicines.map((ttm) => ({
+      medicine: {
+        id: ttm.medicineEntity?.id || ttm.medicine,
+        name: ttm.medicineEntity?.name || null,
+        description: ttm.medicineEntity?.description || null,
+        price: ttm.medicineEntity?.price || null,
+      },
+      tooth_treatment: ttm.toothTreatment,
+      quantity: ttm.quantity,
+    }));
   }
 
   async findAll(dentistId: number, dto: GetToothTreatmentMedicineDto) {
