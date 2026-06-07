@@ -83,7 +83,13 @@ export class TreatmentRepository {
       .getRepository(Dentist)
       .findOne({ where: { id: dentistId }, relations: ['staff'] });
     if (!dentist?.staff) throw new Error('Dentist not found');
-    const clinicId = dentist.staff.clinicId;
+    return this.findTreatmentsForClinic(dentist.staff.clinicId, filters);
+  }
+
+  async findTreatmentsForClinic(
+    clinicId: number,
+    filters: { id?: number; name?: string },
+  ): Promise<Array<Treatment & { dentistCount: number }>> {
     const queryBuilder = this.repo
       .createQueryBuilder('treatment')
       .leftJoin('treatment.dentistTreatments', 'dentistTreatment')

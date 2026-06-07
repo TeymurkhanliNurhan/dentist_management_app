@@ -26,6 +26,11 @@ import { GetTreatmentDto } from './dto/get-treatment.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
 import { isDirectorRole } from '../auth/role-guards';
+import {
+  assertPatientMutationForbidden,
+  requireStaffContext,
+  resolveAuthContext,
+} from '../auth/patient-access';
 
 @ApiTags('treatment')
 @Controller('treatment')
@@ -39,8 +44,11 @@ export class TreatmentController {
   @ApiOperation({ summary: 'Get treatments with optional filters' })
   @ApiOkResponse({ description: 'Treatments retrieved' })
   async findAll(@User() user: any, @Query() dto: GetTreatmentDto) {
-    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.findAll(dentistId, dto);
+    const context = resolveAuthContext(user);
+    if (context.kind === 'patient') {
+      return await this.service.findAllForPatient(context, dto);
+    }
+    return await this.service.findAll(context.dentistId, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -50,13 +58,14 @@ export class TreatmentController {
   @ApiOperation({ summary: 'Create treatment' })
   @ApiResponse({ status: 201, description: 'Treatment created' })
   async create(@User() user: any, @Body() dto: CreateTreatmentDto) {
+    assertPatientMutationForbidden(user?.role);
     if (isDirectorRole(user?.role)) {
       throw new ForbiddenException(
         'Directors have read-only access for treatments',
       );
     }
-    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.create(dentistId, dto);
+    const context = requireStaffContext(resolveAuthContext(user));
+    return await this.service.create(context.dentistId, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -70,12 +79,13 @@ export class TreatmentController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateTreatmentDto,
   ) {
+    assertPatientMutationForbidden(user?.role);
     if (isDirectorRole(user?.role)) {
       throw new ForbiddenException(
         'Directors have read-only access for treatments',
       );
     }
-    const dentistId = user?.userId ?? user?.sub ?? user?.dentistId;
-    return await this.service.patch(dentistId, id, dto);
+    const context = requireStaffContext(resolveAuthContext(user));
+    return await this.service.patch(context.dentistId, id, dto);
   }
 }

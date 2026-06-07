@@ -9,6 +9,7 @@ import { CreateTreatmentDto } from './dto/create-treatment.dto';
 import { UpdateTreatmentDto } from './dto/update-treatment.dto';
 import { GetTreatmentDto } from './dto/get-treatment.dto';
 import { LogWriter } from '../log-writer';
+import type { PatientAuthContext } from '../auth/patient-access';
 
 @Injectable()
 export class TreatmentService {
@@ -85,16 +86,35 @@ export class TreatmentService {
       const msg = `Dentist with id ${dentistId} retrieved ${treatments.length} treatment(s)`;
       this.logger.log(msg);
       LogWriter.append('log', TreatmentService.name, msg);
-      return treatments.map((treatment) => ({
-        id: treatment.id,
-        name: treatment.name,
-        price: treatment.price,
-        description: treatment.description,
-        pricePer: treatment.pricePer,
-        dentistCount: treatment.dentistCount,
-      }));
+      return this.mapTreatmentsResponse(treatments);
     } catch (e: any) {
       throw e;
     }
+  }
+
+  async findAllForPatient(context: PatientAuthContext, dto: GetTreatmentDto) {
+    const treatments = await this.repo.findTreatmentsForClinic(context.clinicId, {
+      id: dto.id,
+      name: dto.name,
+    });
+    const msg = `Patient with id ${context.patientId} retrieved ${treatments.length} treatment(s)`;
+    this.logger.log(msg);
+    LogWriter.append('log', TreatmentService.name, msg);
+    return this.mapTreatmentsResponse(treatments, { includeDentistCount: false });
+  }
+
+  private mapTreatmentsResponse(
+    treatments: Awaited<ReturnType<TreatmentRepository['findTreatmentsForClinic']>>,
+    options?: { includeDentistCount?: boolean },
+  ) {
+    const includeDentistCount = options?.includeDentistCount !== false;
+    return treatments.map((treatment) => ({
+      id: treatment.id,
+      name: treatment.name,
+      price: treatment.price,
+      description: treatment.description,
+      pricePer: treatment.pricePer,
+      ...(includeDentistCount ? { dentistCount: treatment.dentistCount } : {}),
+    }));
   }
 }
