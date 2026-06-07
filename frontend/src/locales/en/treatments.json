@@ -1,5 +1,6 @@
 {
   "title": "Treatments",
+  "subtitlePatient": "Treatment catalog and prices at your clinic",
   "searchLabel": "Treatment Name",
   "searchPlaceholder": "Search by treatment name",
   "search": "Search",
@@ -12,6 +13,7 @@
     "dentists": "Dentists"
   },
   "loading": "Loading treatments...",
+  "loadError": "Failed to load treatments",
   "empty": "No treatments found",
   "edit": "Edit",
   "addNew": "Add New Treatment",

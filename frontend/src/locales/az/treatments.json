@@ -1,5 +1,6 @@
 {
   "title": "Müalicələr",
+  "subtitlePatient": "Klinikadakı müalicə kataloqu və qiymətlər",
   "searchLabel": "Müalicənin adı",
   "searchPlaceholder": "Müalicə adına görə axtar",
   "search": "Axtar",
@@ -12,6 +13,7 @@
     "dentists": "Diş həkimləri"
   },
   "loading": "Müalicələr yüklənir...",
+  "loadError": "Müalicələr yüklənmədi",
   "empty": "Müalicə tapılmadı",
   "edit": "Redaktə et",
   "addNew": "Yeni müalicə əlavə et",
