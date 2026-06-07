@@ -6,13 +6,13 @@ import PatientSignUp from './components/PatientSignUp';
 import Dashboard from './components/Dashboard';
 import MainBoard from './components/MainBoard';
 import Finance from './components/Finance';
-import CourseOfTreatments from './components/CourseOfTreatments';
+import { CourseOfTreatmentsDetailRoute, CourseOfTreatmentsRoute } from './components/CourseOfTreatmentsRoutes';
 import AppointmentDetail from './components/AppointmentDetail';
 import Patients from './components/Patients';
 import PatientDetail from './components/PatientDetail';
 import ToothDetail from './components/ToothDetail';
 import Medicines from './components/Medicines';
-import Treatments from './components/Treatments';
+import { TreatmentsRoute } from './components/TreatmentsRoute';
 import Schedule from './components/Schedule';
 import Contact from './components/Contact';
 import Settings from './components/Settings';
@@ -67,14 +67,8 @@ function App() {
             </StaffRouteGuard>
           }
         />
-        <Route
-          path="/course-of-treatments"
-          element={
-            <StaffRouteGuard>
-              <CourseOfTreatments />
-            </StaffRouteGuard>
-          }
-        />
+        <Route path="/course-of-treatments" element={<CourseOfTreatmentsRoute />} />
+        <Route path="/course-of-treatments/:id" element={<CourseOfTreatmentsDetailRoute />} />
         <Route
           path="/appointments/:id"
           element={
@@ -115,14 +109,7 @@ function App() {
             </StaffRouteGuard>
           }
         />
-        <Route
-          path="/treatments"
-          element={
-            <StaffRouteGuard>
-              <Treatments />
-            </StaffRouteGuard>
-          }
-        />
+        <Route path="/treatments" element={<TreatmentsRoute />} />
         <Route
           path="/schedule"
           element={

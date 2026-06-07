@@ -1,7 +1,7 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import type { NavigateFunction } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, ChevronRight, FileText, LogOut } from 'lucide-react';
+import { CalendarRange, ChevronLeft, ChevronRight, FileText, LogOut, Stethoscope } from 'lucide-react';
 import { PortalLanguageSwitcher } from './PortalLanguageSwitcher';
 import { getPatientHomePath } from '../lib/patientSession';
 
@@ -26,8 +26,17 @@ export function PatientPortalShell({
 }: PatientPortalShellProps) {
   const { t } = useTranslation('header');
   const homePath = getPatientHomePath() ?? pathname;
+  const coursesPath = '/course-of-treatments';
+  const treatmentsPath = '/treatments';
   const collapseLabel = isSidebarOpen ? 'Collapse menu' : 'Expand menu';
-  const isMyRecordsActive = pathname === homePath || pathname.startsWith(`${homePath}/`);
+  const isMyRecordsActive =
+    (pathname === homePath || pathname.startsWith(`${homePath}/`)) &&
+    !pathname.startsWith(coursesPath) &&
+    !pathname.startsWith(treatmentsPath);
+  const isCoursesActive =
+    pathname === coursesPath || pathname.startsWith(`${coursesPath}/`);
+  const isTreatmentsActive =
+    pathname === treatmentsPath || pathname.startsWith(`${treatmentsPath}/`);
 
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden">
@@ -80,6 +89,34 @@ export function PatientPortalShell({
               >
                 <FileText size={16} className="shrink-0" />
                 {isSidebarOpen ? <span className="ml-3 truncate">{t('navMyRecords')}</span> : null}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(coursesPath)}
+                className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition ${
+                  isCoursesActive
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-500 hover:bg-white/80'
+                }`}
+              >
+                <CalendarRange size={16} className="shrink-0" />
+                {isSidebarOpen ? (
+                  <span className="ml-3 truncate">{t('navCourseOfTreatments')}</span>
+                ) : null}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(treatmentsPath)}
+                className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition ${
+                  isTreatmentsActive
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-500 hover:bg-white/80'
+                }`}
+              >
+                <Stethoscope size={16} className="shrink-0" />
+                {isSidebarOpen ? (
+                  <span className="ml-3 truncate">{t('navTreatments')}</span>
+                ) : null}
               </button>
             </nav>
 
