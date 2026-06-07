@@ -11,7 +11,6 @@ import {
   Patch,
   Post,
   Query,
-  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -28,15 +27,12 @@ import { GetAppointmentDto } from './dto/get-appointment.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
 import { isDirectorRole } from '../auth/role-guards';
-
-function resolveDentistContextId(user: any): number {
-  const raw = user?.userId ?? user?.sub ?? user?.dentistId;
-  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
-    return raw;
-  }
-  const parsed = Number.parseInt(String(raw ?? ''), 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
+import {
+  assertPatientMutationForbidden,
+  assertPatientOwnsPatientId,
+  requireStaffContext,
+  resolveAuthContext,
+} from '../auth/patient-access';
 
 @ApiTags('appointment')
 @Controller('appointment')
@@ -50,13 +46,14 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Get appointments with optional filters' })
   @ApiOkResponse({ description: 'Appointments retrieved' })
   async findAll(@User() user: any, @Query() dto: GetAppointmentDto) {
-    const dentistId = resolveDentistContextId(user);
-    if (!dentistId) {
-      throw new UnauthorizedException('Invalid dentist context');
+    const context = resolveAuthContext(user);
+    if (context.kind === 'patient') {
+      assertPatientOwnsPatientId(context, dto.patient);
+      return await this.service.findAllForPatient(context, dto);
     }
     const role =
-      typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
-    return await this.service.findAll(dentistId, dto, role);
+      typeof context.role === 'string' ? context.role.toLowerCase() : undefined;
+    return await this.service.findAll(context.dentistId, dto, role);
   }
 
   @ApiBearerAuth('bearer')
@@ -66,16 +63,14 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Create appointment' })
   @ApiResponse({ status: 201, description: 'Appointment created' })
   async create(@User() user: any, @Body() dto: CreateAppointmentDto) {
+    assertPatientMutationForbidden(user?.role);
     if (isDirectorRole(user?.role)) {
       throw new ForbiddenException(
         'Directors have read-only access for appointment creation',
       );
     }
-    const dentistId = resolveDentistContextId(user);
-    if (!dentistId) {
-      throw new UnauthorizedException('Invalid dentist context');
-    }
-    return await this.service.create(dentistId, dto);
+    const context = requireStaffContext(resolveAuthContext(user));
+    return await this.service.create(context.dentistId, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -89,11 +84,14 @@ export class AppointmentController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateAppointmentDto,
   ) {
-    const dentistId = resolveDentistContextId(user);
-    if (!dentistId) {
-      throw new UnauthorizedException('Invalid dentist context');
-    }
-    return await this.service.patch(dentistId, id, dto, user?.role);
+    assertPatientMutationForbidden(user?.role);
+    const context = requireStaffContext(resolveAuthContext(user));
+    return await this.service.patch(
+      context.dentistId,
+      id,
+      dto,
+      context.role,
+    );
   }
 
   @ApiBearerAuth('bearer')
@@ -103,15 +101,13 @@ export class AppointmentController {
   @ApiOperation({ summary: 'Delete appointment by id' })
   @ApiOkResponse({ description: 'Appointment deleted' })
   async delete(@User() user: any, @Param('id', ParseIntPipe) id: number) {
+    assertPatientMutationForbidden(user?.role);
     if (isDirectorRole(user?.role)) {
       throw new ForbiddenException(
         'Directors have read-only access for appointment deletion',
       );
     }
-    const dentistId = resolveDentistContextId(user);
-    if (!dentistId) {
-      throw new UnauthorizedException('Invalid dentist context');
-    }
-    return await this.service.delete(dentistId, id);
+    const context = requireStaffContext(resolveAuthContext(user));
+    return await this.service.delete(context.dentistId, id);
   }
 }

@@ -117,6 +117,160 @@ export class AppointmentRepository {
     await this.repo.remove(appointment);
   }
 
+  async findAppointmentsForPatient(
+    patientId: number,
+    clinicId: number,
+    filters: {
+      id?: number;
+      startDate?: string;
+      startDateFrom?: string;
+      startDateTo?: string;
+      endDate?: string;
+      patient?: number;
+      patientName?: string;
+      patientSurname?: string;
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{
+    appointments: Appointment[];
+    total: number;
+    appointmentsDentistMap: Map<
+      number,
+      {
+        dentist: { id: number; name: string; surname: string } | null;
+        treatmentPercentage: number | null;
+        dentistCalculatedFee: number;
+        treatmentCount: number;
+      }
+    >;
+  }> {
+    const queryBuilder = this.repo
+      .createQueryBuilder('appointment')
+      .leftJoinAndSelect('appointment.patient', 'patient')
+      .where('appointment.clinicId = :clinicId', { clinicId })
+      .andWhere('appointment.patient = :patientId', { patientId });
+
+    if (filters.id !== undefined) {
+      queryBuilder.andWhere('appointment.id = :id', { id: filters.id });
+    }
+    if (filters.startDate !== undefined) {
+      queryBuilder.andWhere('appointment.startDate = :startDate', {
+        startDate: filters.startDate,
+      });
+    } else {
+      if (filters.startDateFrom !== undefined) {
+        queryBuilder.andWhere('appointment.startDate >= :startDateFrom', {
+          startDateFrom: filters.startDateFrom,
+        });
+      }
+      if (filters.startDateTo !== undefined) {
+        queryBuilder.andWhere('appointment.startDate <= :startDateTo', {
+          startDateTo: filters.startDateTo,
+        });
+      }
+    }
+    if (filters.endDate !== undefined) {
+      queryBuilder.andWhere('appointment.endDate = :endDate', {
+        endDate: filters.endDate,
+      });
+    }
+    if (filters.patientName !== undefined) {
+      queryBuilder.andWhere('LOWER(patient.name) LIKE LOWER(:patientName)', {
+        patientName: `${filters.patientName}%`,
+      });
+    }
+    if (filters.patientSurname !== undefined) {
+      queryBuilder.andWhere(
+        'LOWER(patient.surname) LIKE LOWER(:patientSurname)',
+        { patientSurname: `${filters.patientSurname}%` },
+      );
+    }
+
+    queryBuilder.orderBy('appointment.startDate', 'DESC');
+
+    const total = await queryBuilder.getCount();
+
+    if (filters.page !== undefined && filters.limit !== undefined) {
+      const offset = (filters.page - 1) * filters.limit;
+      queryBuilder.skip(offset).take(filters.limit);
+    }
+
+    const appointments = await queryBuilder.getMany();
+    const appointmentsDentistMap =
+      await this.fetchAppointmentsDentistInfoFromTreatments(appointments);
+
+    return { appointments, total, appointmentsDentistMap };
+  }
+
+  private async fetchAppointmentsDentistInfoFromTreatments(
+    appointments: Appointment[],
+  ): Promise<
+    Map<
+      number,
+      {
+        dentist: { id: number; name: string; surname: string } | null;
+        treatmentPercentage: number | null;
+        dentistCalculatedFee: number;
+        treatmentCount: number;
+      }
+    >
+  > {
+    const resultMap = new Map<
+      number,
+      {
+        dentist: { id: number; name: string; surname: string } | null;
+        treatmentPercentage: number | null;
+        dentistCalculatedFee: number;
+        treatmentCount: number;
+      }
+    >();
+
+    const appointmentIds = appointments.map((a) => a.id);
+    if (appointmentIds.length === 0) {
+      return resultMap;
+    }
+
+    const appointmentsWithTreatments = await this.repo
+      .createQueryBuilder('appointment')
+      .leftJoinAndSelect('appointment.toothTreatments', 'toothTreatments')
+      .leftJoinAndSelect('toothTreatments.dentist', 'dentist')
+      .leftJoinAndSelect('dentist.staff', 'dentistStaff')
+      .leftJoinAndSelect('toothTreatments.treatment', 'treatment')
+      .leftJoinAndSelect('toothTreatments.toothTreatmentMedicines', 'medicines')
+      .leftJoinAndSelect('medicines.medicineEntity', 'medicineEntity')
+      .where('appointment.id IN (:...appointmentIds)', { appointmentIds })
+      .getMany();
+
+    const appointmentMap = new Map<number, Appointment>();
+    appointmentsWithTreatments.forEach((apt) =>
+      appointmentMap.set(apt.id, apt),
+    );
+
+    for (const appointment of appointments) {
+      const appointmentWithTreatments = appointmentMap.get(appointment.id);
+      const toothTreatments = appointmentWithTreatments?.toothTreatments ?? [];
+      const primaryTreatment = toothTreatments[0];
+      const dentistInfo =
+        primaryTreatment?.dentist && primaryTreatment.dentist.staff
+          ? {
+              id: primaryTreatment.dentist.id,
+              name: primaryTreatment.dentist.staff.name,
+              surname: primaryTreatment.dentist.staff.surname,
+            }
+          : null;
+
+      resultMap.set(appointment.id, {
+        dentist: dentistInfo,
+        treatmentPercentage: null,
+        dentistCalculatedFee: appointment.calculatedFee,
+        treatmentCount: toothTreatments.length,
+      });
+    }
+
+    return resultMap;
+  }
+
   async findAppointmentsForDentist(
     dentistId: number,
     filters: {

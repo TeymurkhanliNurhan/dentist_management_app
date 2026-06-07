@@ -11,6 +11,7 @@ import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { GetAppointmentDto } from './dto/get-appointment.dto';
 import { LogWriter } from '../log-writer';
 import { isDirectorRole } from '../auth/role-guards';
+import { PatientAuthContext } from '../auth/patient-access';
 
 @Injectable()
 export class AppointmentService {
@@ -154,6 +155,100 @@ export class AppointmentService {
     }
   }
 
+  private mapAppointmentsResponse(
+    appointments: Awaited<
+      ReturnType<AppointmentRepository['findAppointmentsForDentist']>
+    >['appointments'],
+    total: number,
+    appointmentsDentistMap: Awaited<
+      ReturnType<AppointmentRepository['findAppointmentsForDentist']>
+    >['appointmentsDentistMap'],
+    dto: GetAppointmentDto,
+    role?: string,
+  ) {
+    const r = (role ?? '').toLowerCase();
+    const dentistScopedView = r === 'dentist' || r === 'singledentist';
+    return {
+      appointments: appointments.map((appointment) => {
+        const startDate =
+          appointment.startDate instanceof Date
+            ? appointment.startDate
+            : new Date(appointment.startDate);
+        const endDate = appointment.endDate
+          ? appointment.endDate instanceof Date
+            ? appointment.endDate
+            : new Date(appointment.endDate)
+          : null;
+
+        const dentistInfo = appointmentsDentistMap?.get(appointment.id);
+
+        return {
+          id: appointment.id,
+          startDate: startDate.toISOString().slice(0, 10),
+          endDate: endDate ? endDate.toISOString().slice(0, 10) : null,
+          calculatedFee: dentistScopedView
+            ? (dentistInfo?.dentistCalculatedFee ?? appointment.calculatedFee)
+            : appointment.calculatedFee,
+          chargedFee: appointment.chargedFee,
+          discountFee: appointment.discountFee,
+          patient: {
+            id:
+              typeof appointment.patient === 'object' &&
+              appointment.patient?.id
+                ? appointment.patient.id
+                : appointment.patient,
+            name:
+              typeof appointment.patient === 'object' &&
+              appointment.patient?.name
+                ? appointment.patient.name
+                : null,
+            surname:
+              typeof appointment.patient === 'object' &&
+              appointment.patient?.surname
+                ? appointment.patient.surname
+                : null,
+          },
+          dentist: dentistInfo?.dentist || null,
+          treatmentPercentage: dentistInfo?.treatmentPercentage || null,
+          treatmentCount: dentistInfo?.treatmentCount ?? 0,
+        };
+      }),
+      total,
+      page: dto.page || 1,
+      limit: dto.limit || total,
+      totalPages: dto.limit ? Math.ceil(total / dto.limit) : 1,
+    };
+  }
+
+  async findAllForPatient(context: PatientAuthContext, dto: GetAppointmentDto) {
+    const { appointments, total, appointmentsDentistMap } =
+      await this.repo.findAppointmentsForPatient(
+        context.patientId,
+        context.clinicId,
+        {
+          id: dto.id,
+          startDate: dto.startDate,
+          startDateFrom: dto.startDateFrom,
+          startDateTo: dto.startDateTo,
+          endDate: dto.endDate,
+          patientName: dto.patientName,
+          patientSurname: dto.patientSurname,
+          page: dto.page,
+          limit: dto.limit,
+        },
+      );
+    const msg = `Patient with id ${context.patientId} retrieved ${appointments.length} appointment(s) out of ${total}`;
+    this.logger.log(msg);
+    LogWriter.append('log', AppointmentService.name, msg);
+    return this.mapAppointmentsResponse(
+      appointments,
+      total,
+      appointmentsDentistMap,
+      dto,
+      context.role,
+    );
+  }
+
   async findAll(dentistId: number, dto: GetAppointmentDto, role?: string) {
     try {
       const { appointments, total, appointmentsDentistMap } =
@@ -172,58 +267,13 @@ export class AppointmentService {
       const msg = `Dentist with id ${dentistId} retrieved ${appointments.length} appointment(s) out of ${total}`;
       this.logger.log(msg);
       LogWriter.append('log', AppointmentService.name, msg);
-      const r = (role ?? '').toLowerCase();
-      const dentistScopedView = r === 'dentist' || r === 'singledentist';
-      return {
-        appointments: appointments.map((appointment) => {
-          const startDate =
-            appointment.startDate instanceof Date
-              ? appointment.startDate
-              : new Date(appointment.startDate);
-          const endDate = appointment.endDate
-            ? (appointment.endDate instanceof Date
-              ? appointment.endDate
-              : new Date(appointment.endDate))
-            : null;
-
-          const dentistInfo = appointmentsDentistMap?.get(appointment.id);
-
-          return {
-            id: appointment.id,
-            startDate: startDate.toISOString().slice(0, 10),
-            endDate: endDate ? endDate.toISOString().slice(0, 10) : null,
-            calculatedFee: dentistScopedView
-              ? (dentistInfo?.dentistCalculatedFee ?? appointment.calculatedFee)
-              : appointment.calculatedFee,
-            chargedFee: appointment.chargedFee,
-            discountFee: appointment.discountFee,
-            patient: {
-              id:
-                typeof appointment.patient === 'object' &&
-                appointment.patient?.id
-                  ? appointment.patient.id
-                  : appointment.patient,
-              name:
-                typeof appointment.patient === 'object' &&
-                appointment.patient?.name
-                  ? appointment.patient.name
-                  : null,
-              surname:
-                typeof appointment.patient === 'object' &&
-                appointment.patient?.surname
-                  ? appointment.patient.surname
-                  : null,
-            },
-            dentist: dentistInfo?.dentist || null,
-            treatmentPercentage: dentistInfo?.treatmentPercentage || null,
-            treatmentCount: dentistInfo?.treatmentCount ?? 0,
-          };
-        }),
+      return this.mapAppointmentsResponse(
+        appointments,
         total,
-        page: dto.page || 1,
-        limit: dto.limit || total,
-        totalPages: dto.limit ? Math.ceil(total / dto.limit) : 1,
-      };
+        appointmentsDentistMap,
+        dto,
+        role,
+      );
     } catch (e: any) {
       throw e;
     }
