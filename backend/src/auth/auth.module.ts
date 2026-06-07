@@ -12,6 +12,7 @@ import { RedisClientProvider } from '../redis.provider';
 import { PatientAuthController } from './patient-auth.controller';
 import { PatientAuthService } from './patient-auth.service';
 import { PatientModule } from '../patient/patient.module';
+import { WhatsappModule } from '../whatsapp/whatsapp.module';
 
 function resolveJwtSecret(configService: ConfigService): string {
   return configService.get<string>('JWT_SECRET') || 'dev_secret_change_me';
@@ -30,6 +31,7 @@ function resolveJwtSecret(configService: ConfigService): string {
     TypeOrmModule.forFeature([PasswordReset]),
     EmailModule,
     PatientModule,
+    WhatsappModule,
   ],
   controllers: [AuthController, PatientAuthController],
   providers: [AuthService, AuthRepository, JwtStrategy, RedisClientProvider, PatientAuthService],

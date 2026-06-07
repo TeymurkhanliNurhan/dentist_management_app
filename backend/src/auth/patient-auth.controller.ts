@@ -14,6 +14,9 @@ import { PatientAuthService } from './patient-auth.service';
 import { PatientSignupDto } from './dto/patient-signup.dto';
 import { PatientSigninDto } from './dto/patient-signin.dto';
 import { PatientAuthResponseDto } from './dto/patient-auth-response.dto';
+import { PatientForgotPasswordDto } from './dto/patient-forgot-password.dto';
+import { PatientVerifyResetCodeDto } from './dto/patient-verify-reset-code.dto';
+import { PatientResetPasswordDto } from './dto/patient-reset-password.dto';
 import { LogWriter } from '../log-writer';
 import { Logger } from '@nestjs/common';
 
@@ -66,6 +69,33 @@ export class PatientAuthController {
       'Patient signin endpoint called',
     );
     return await this.patientAuthService.signin(signinDto);
+  }
+
+  @Post('password-reset/code-request')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request patient password reset code via WhatsApp' })
+  async forgotPassword(
+    @Body() dto: PatientForgotPasswordDto,
+  ): Promise<{ message: string }> {
+    return await this.patientAuthService.forgotPassword(dto);
+  }
+
+  @Post('password-resets/code-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify patient password reset code' })
+  async verifyResetCode(
+    @Body() dto: PatientVerifyResetCodeDto,
+  ): Promise<{ valid: boolean }> {
+    return await this.patientAuthService.verifyResetCode(dto);
+  }
+
+  @Post('password-resets')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset patient password after code verification' })
+  async resetPassword(
+    @Body() dto: PatientResetPasswordDto,
+  ): Promise<{ success: boolean; message: string }> {
+    return await this.patientAuthService.resetPassword(dto);
   }
 }
 
