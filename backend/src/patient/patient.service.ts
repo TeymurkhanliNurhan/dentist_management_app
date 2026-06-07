@@ -14,6 +14,7 @@ import { PatientCreateResponseDto } from './dto/patient-create-response.dto';
 import { PatientUpdateResponseDto } from './dto/patient-update-response.dto';
 import { LogWriter } from '../log-writer';
 import { Patient } from './entities/patient.entity';
+import { PatientAuthContext } from '../auth/patient-access';
 
 @Injectable()
 export class PatientService {
@@ -142,6 +143,27 @@ export class PatientService {
     } catch (e: any) {
       throw e;
     }
+  }
+
+  async findAllForPatient(
+    context: PatientAuthContext,
+    dto: GetPatientDto,
+  ): Promise<PatientUpdateResponseDto[]> {
+    const patients = await this.patientRepository.findPatientsForPatient(
+      context.patientId,
+      context.clinicId,
+      {
+        id: dto.id ?? context.patientId,
+        name: dto.name,
+        surname: dto.surname,
+        birthdate: dto.birthdate,
+        number: dto.number,
+      },
+    );
+    const msg = `Patient with id ${context.patientId} retrieved ${patients.length} patient record(s)`;
+    this.logger.log(msg);
+    LogWriter.append('log', PatientService.name, msg);
+    return patients.map((patient) => this.toPatientResponse(patient));
   }
 
   async delete(dentistId: number, id: number): Promise<{ message: string }> {

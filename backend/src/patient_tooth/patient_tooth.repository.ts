@@ -17,6 +17,36 @@ export class PatientToothRepository {
     return this.dataSource.getRepository(Patient);
   }
 
+  async findPatientTeethForPatient(
+    patientId: number,
+    clinicId: number,
+    filters: { patient: number; tooth?: number },
+  ): Promise<PatientTooth[]> {
+    if (filters.patient !== patientId) {
+      throw new Error('Forbidden');
+    }
+
+    const patient = await this.patientRepo.findOne({
+      where: { id: patientId, clinic: { id: clinicId } },
+    });
+    if (!patient) {
+      throw new Error('Patient not found or Forbidden');
+    }
+
+    const queryBuilder = this.patientToothRepo
+      .createQueryBuilder('patientTooth')
+      .leftJoinAndSelect('patientTooth.toothEntity', 'tooth')
+      .where('patientTooth.patient = :patient', { patient: filters.patient });
+
+    if (filters.tooth !== undefined) {
+      queryBuilder.andWhere('patientTooth.tooth = :tooth', {
+        tooth: filters.tooth,
+      });
+    }
+
+    return await queryBuilder.getMany();
+  }
+
   async findPatientTeethForDentist(
     dentistId: number,
     filters: { patient: number; tooth?: number },

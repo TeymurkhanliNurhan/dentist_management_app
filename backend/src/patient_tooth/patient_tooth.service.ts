@@ -7,6 +7,7 @@ import {
 import { PatientToothRepository } from './patient_tooth.repository';
 import { GetPatientToothDto } from './dto/get-patient_tooth.dto';
 import { LogWriter } from '../log-writer';
+import { PatientAuthContext } from '../auth/patient-access';
 
 @Injectable()
 export class PatientToothService {
@@ -27,6 +28,39 @@ export class PatientToothService {
           },
         );
       const msg = `Dentist with id ${dentistId} retrieved ${patientTeeth.length} patient tooth/teeth for patient ${dto.patient}${dto.tooth ? ` and tooth ${dto.tooth}` : ''}`;
+      this.logger.log(msg);
+      LogWriter.append('log', PatientToothService.name, msg);
+      return patientTeeth.map((pt) => ({
+        patient: pt.patient,
+        tooth: pt.tooth,
+        toothNumber: pt.toothEntity?.number,
+        permanent: pt.toothEntity?.permanent ? 'permanent' : 'childish',
+      }));
+    } catch (e: any) {
+      if (e?.message?.includes('Patient not found')) {
+        throw new BadRequestException('Patient not found');
+      }
+      if (e?.message?.includes('Forbidden')) {
+        throw new ForbiddenException(
+          "You don't have access to this patient's data",
+        );
+      }
+      throw e;
+    }
+  }
+
+  async findAllForPatient(context: PatientAuthContext, dto: GetPatientToothDto) {
+    try {
+      const patientTeeth =
+        await this.patientToothRepository.findPatientTeethForPatient(
+          context.patientId,
+          context.clinicId,
+          {
+            patient: dto.patient,
+            tooth: dto.tooth,
+          },
+        );
+      const msg = `Patient with id ${context.patientId} retrieved ${patientTeeth.length} patient tooth/teeth`;
       this.logger.log(msg);
       LogWriter.append('log', PatientToothService.name, msg);
       return patientTeeth.map((pt) => ({

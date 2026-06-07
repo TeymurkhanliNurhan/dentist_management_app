@@ -26,6 +26,12 @@ import { GetPatientDto } from './dto/get-patient.dto';
 import { PatientUpdateResponseDto } from './dto/patient-update-response.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
+import {
+  assertPatientMutationForbidden,
+  assertPatientOwnsPatientId,
+  requireStaffContext,
+  resolveAuthContext,
+} from '../auth/patient-access';
 
 @ApiTags('patient')
 @Controller('patient')
@@ -42,8 +48,12 @@ export class PatientController {
     type: [PatientUpdateResponseDto],
   })
   async findAll(@User() user: any, @Query() dto: GetPatientDto) {
-    console.log('[PatientController] findAll() user:', user, 'filters:', dto);
-    return await this.patientService.findAll(user.userId, dto);
+    const context = resolveAuthContext(user);
+    if (context.kind === 'patient') {
+      assertPatientOwnsPatientId(context, dto.id);
+      return await this.patientService.findAllForPatient(context, dto);
+    }
+    return await this.patientService.findAll(context.dentistId, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -53,8 +63,9 @@ export class PatientController {
   @ApiOperation({ summary: 'Create patient' })
   @ApiResponse({ status: 201, description: 'Patient created' })
   async create(@User() user: any, @Body() dto: CreatePatientDto) {
-    console.log('[PatientController] create() user:', user);
-    return await this.patientService.create(user.userId, dto);
+    assertPatientMutationForbidden(user?.role);
+    const context = requireStaffContext(resolveAuthContext(user));
+    return await this.patientService.create(context.dentistId, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -68,8 +79,9 @@ export class PatientController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePatientDto,
   ) {
-    console.log('[PatientController] patch() user:', user, 'id:', id);
-    return await this.patientService.patch(user.userId, id, dto);
+    assertPatientMutationForbidden(user?.role);
+    const context = requireStaffContext(resolveAuthContext(user));
+    return await this.patientService.patch(context.dentistId, id, dto);
   }
 
   @ApiBearerAuth('bearer')
@@ -79,7 +91,8 @@ export class PatientController {
   @ApiOperation({ summary: 'Delete patient by id' })
   @ApiOkResponse({ description: 'Patient deleted' })
   async delete(@User() user: any, @Param('id', ParseIntPipe) id: number) {
-    console.log('[PatientController] delete() user:', user, 'id:', id);
-    return await this.patientService.delete(user.userId, id);
+    assertPatientMutationForbidden(user?.role);
+    const context = requireStaffContext(resolveAuthContext(user));
+    return await this.patientService.delete(context.dentistId, id);
   }
 }
