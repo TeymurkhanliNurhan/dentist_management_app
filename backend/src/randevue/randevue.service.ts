@@ -16,6 +16,7 @@ import { Patient } from '../patient/entities/patient.entity';
 import { Dentist } from '../dentist/entities/dentist.entity';
 import { Room } from '../room/entities/room.entity';
 import { Nurse } from '../nurse/entities/nurse.entity';
+import { WhatsappNotificationService } from '../whatsapp/whatsapp-notification.service';
 
 @Injectable()
 export class RandevueService {
@@ -24,6 +25,7 @@ export class RandevueService {
   constructor(
     private readonly repo: RandevueRepository,
     private readonly appointmentService: AppointmentService,
+    private readonly whatsappNotifications: WhatsappNotificationService,
   ) {}
 
   private async resolveRoomForPatient(
@@ -41,6 +43,13 @@ export class RandevueService {
       );
     }
     return fallback;
+  }
+
+  private async notifyIfBooked(randevue: Randevue | null): Promise<void> {
+    if (!randevue || randevue.status !== 'booked') {
+      return;
+    }
+    await this.whatsappNotifications.sendAppointmentConfirmed(randevue);
   }
 
   private formatAppointmentDate(d: Date | string | null | undefined): string | null {
@@ -264,6 +273,7 @@ export class RandevueService {
       const msg = `Dentist ${dentistId} created Randevue ${saved.id}`;
       this.logger.log(msg);
       LogWriter.append('log', RandevueService.name, msg);
+      await this.notifyIfBooked(reloaded);
       return this.toResponse(reloaded);
     } catch (e: any) {
       if (e?.message?.includes('Forbidden patient')) {
@@ -357,6 +367,8 @@ export class RandevueService {
       ? await this.repo.findByIdInClinic(dentistId, id)
       : await this.repo.findByIdForDentist(dentistId, id);
     if (!row) throw new NotFoundException('Randevue not found');
+
+    const previousStatus = row.status;
 
     if (role === 'dentist' && dto.dentist_id != null && dto.dentist_id !== dentistId) {
       throw new BadRequestException('You can only assign randevues to yourself');
@@ -526,6 +538,9 @@ export class RandevueService {
       const msg = `Dentist ${dentistId} updated Randevue ${id}`;
       this.logger.log(msg);
       LogWriter.append('log', RandevueService.name, msg);
+      if (previousStatus !== 'booked' && reloaded.status === 'booked') {
+        await this.notifyIfBooked(reloaded);
+      }
       return this.toResponse(reloaded);
     } catch (e: any) {
       if (e?.message?.includes('Forbidden patient')) {

@@ -361,8 +361,43 @@ export class RandevueRepository {
   async findByIdWithRelations(id: number): Promise<Randevue | null> {
     return this.repo.findOne({
       where: { id },
-      relations: ['patient', 'appointment', 'room', 'nurse', 'dentist'],
+      relations: [
+        'patient',
+        'patient.clinic',
+        'appointment',
+        'room',
+        'nurse',
+        'dentist',
+        'dentist.staff',
+      ],
     });
+  }
+
+  async findTodayBookedRandevuesForReminders(): Promise<Randevue[]> {
+    const offsetMin = this.clinicTimezoneOffsetMinutes;
+    const clinicNow = this.toClinicLocal(new Date());
+    const y = clinicNow.getUTCFullYear();
+    const m = clinicNow.getUTCMonth();
+    const d = clinicNow.getUTCDate();
+    const dayStartUtc = new Date(
+      Date.UTC(y, m, d, 0, 0, 0, 0) - offsetMin * 60_000,
+    );
+    const dayEndUtc = new Date(
+      Date.UTC(y, m, d, 23, 59, 59, 999) - offsetMin * 60_000,
+    );
+
+    return this.repo
+      .createQueryBuilder('r')
+      .innerJoinAndSelect('r.patient', 'patient')
+      .innerJoinAndSelect('patient.clinic', 'clinic')
+      .leftJoinAndSelect('r.dentist', 'dentist')
+      .leftJoinAndSelect('dentist.staff', 'dentistStaff')
+      .where('r.status = :status', { status: 'booked' })
+      .andWhere('patient.phone IS NOT NULL')
+      .andWhere("TRIM(patient.phone) <> ''")
+      .andWhere('r.date >= :dayStart', { dayStart: dayStartUtc })
+      .andWhere('r.date <= :dayEnd', { dayEnd: dayEndUtc })
+      .getMany();
   }
 
   async findByIdForDentist(
@@ -378,6 +413,7 @@ export class RandevueRepository {
       .leftJoinAndSelect('r.room', 'rm')
       .leftJoinAndSelect('r.nurse', 'nv')
       .leftJoinAndSelect('r.dentist', 'rdentist')
+      .leftJoinAndSelect('rdentist.staff', 'rdentistStaff')
       .where('r.id = :id', { id })
       .andWhere('r.dentist = :dentistId', { dentistId })
       .getOne();
@@ -394,6 +430,7 @@ export class RandevueRepository {
       .leftJoinAndSelect('r.room', 'rm')
       .leftJoinAndSelect('r.nurse', 'nv')
       .leftJoinAndSelect('r.dentist', 'rdentist')
+      .leftJoinAndSelect('rdentist.staff', 'rdentistStaff')
       .where('r.id = :id', { id })
       .andWhere('ptclinic.id = :clinicId', { clinicId })
       .getOne();
