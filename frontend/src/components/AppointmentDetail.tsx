@@ -1,9 +1,13 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash, ChevronDown } from 'lucide-react';
 import ClinicManagementLayout from './ClinicManagementLayout';
+import { PatientPortalShell } from './PatientPortalShell';
+import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { API_BASE_URL, appointmentService, dentistService, randevueService, toothTreatmentService, toothService, toothTreatmentMedicineService, treatmentService, patientService, medicineService, mediaService } from '../services/api';
 import type { Appointment, Randevue, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, Media, TreatmentPricePer, DentistProfile } from '../services/api';
+import { getPatientId, isPatientSession } from '../lib/patientSession';
+import type { PatientCourseListMode } from '../lib/patientCourseListMode';
 
 function combineLocalDateAndTime(dateYmd: string, timeHm: string): Date {
   const [y, m, d] = dateYmd.split('-').map(Number);
@@ -358,6 +362,7 @@ type AppointmentLocationState = {
   fromPatientId?: number;
   returnTo?: string;
   returnLabel?: string;
+  listMode?: PatientCourseListMode;
 };
 
 type TreatmentTimeFilter = 'current' | 'past' | 'all';
@@ -480,30 +485,43 @@ const AppointmentDetail = () => {
       ? returnLabelRaw.trim()
       : undefined;
   const role = useMemo(() => localStorage.getItem('role')?.toLowerCase() ?? '', []);
+  const isPatient = isPatientSession();
   const isAdminLike = role === 'director' || role === 'admin';
   const isDirector = role === 'director';
   const isSingleDentist = role === 'singledentist' || role === 'single dentist';
   const isDentist = role === 'dentist' || isSingleDentist;
+  const canStaffMutate = !isDirector && !isPatient;
   const loggedInDentistId = useMemo(() => {
     const raw = localStorage.getItem('dentistId');
     const n = raw ? parseInt(raw, 10) : NaN;
     return Number.isFinite(n) && n > 0 ? n : 0;
   }, []);
   const canSeeTreatmentFees = (t: ToothTreatment) =>
-    !isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId);
+    isPatient || !isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId);
   const canMutateTreatment = (t: ToothTreatment) =>
-    !isDirector &&
-    (!isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId));
+    canStaffMutate && (!isDentist || (loggedInDentistId > 0 && t.dentist?.id === loggedInDentistId));
   const backPath =
     returnTo ??
-    (fromPatientId != null ? `/patients/${fromPatientId}` : isAdminLike ? '/schedule' : '/course-of-treatments');
+    (isPatient
+      ? '/course-of-treatments'
+      : fromPatientId != null
+        ? `/patients/${fromPatientId}`
+        : isAdminLike
+          ? '/schedule'
+          : '/course-of-treatments');
   const backButtonLabel =
     returnLabel ??
-    (fromPatientId != null
-      ? 'Back to Patient'
-      : isAdminLike
-        ? 'Back to Schedule'
-        : 'Back to Course of Treatments');
+    (isPatient
+      ? 'Back to Course of Treatments'
+      : fromPatientId != null
+        ? 'Back to Patient'
+        : isAdminLike
+          ? 'Back to Schedule'
+          : 'Back to Course of Treatments');
+  const listModeFromState = locationState?.listMode;
+  const [patientSidebarOpen, setPatientSidebarOpen] = useState(true);
+  const [patientShowLogout, setPatientShowLogout] = useState(false);
+  const [patientDisplayName, setPatientDisplayName] = useState('');
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [treatments, setTreatments] = useState<ToothTreatment[]>([]);
   const [teethInfo, setTeethInfo] = useState<Map<number, ToothInfo>>(new Map());
@@ -1013,18 +1031,33 @@ const AppointmentDetail = () => {
   }, [randevueTreatmentChoices]);
 
   useEffect(() => {
+    if (!isPatient) return;
+    const pid = getPatientId();
+    if (!pid) return;
+    void patientService
+      .getById(pid)
+      .then((p) => setPatientDisplayName(`${p.name} ${p.surname}`.trim()))
+      .catch(() => setPatientDisplayName(''));
+  }, [isPatient]);
+
+  useEffect(() => {
     const fetchAppointmentData = async () => {
       if (!id) return;
       
       setIsLoading(true);
       setError('');
       try {
+        const appointmentId = parseInt(id, 10);
         const [appointmentsData, treatmentsData] = await Promise.all([
-          appointmentService.getAll(),
-          toothTreatmentService.getAll({ appointment: parseInt(id) }),
+          isPatient
+            ? appointmentService.getAll({ id: appointmentId })
+            : appointmentService.getAll(),
+          toothTreatmentService.getAll({ appointment: appointmentId }),
         ]);
         
-        const appointmentData = appointmentsData.appointments.find(a => a.id === parseInt(id));
+        const appointmentData = isPatient
+          ? appointmentsData.appointments?.[0]
+          : appointmentsData.appointments.find((a) => a.id === appointmentId);
         if (!appointmentData) {
           setError('Appointment not found');
         } else {
@@ -1094,7 +1127,7 @@ const AppointmentDetail = () => {
     };
 
     fetchAppointmentData();
-  }, [id]);
+  }, [id, isPatient]);
 
   const handleEditAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1776,12 +1809,46 @@ const AppointmentDetail = () => {
   };
 
   const handleBack = useCallback(() => {
+    if (isPatient && listModeFromState) {
+      navigate(backPath, { state: { listMode: listModeFromState } });
+      return;
+    }
     navigate(backPath);
-  }, [backPath, navigate]);
+  }, [backPath, isPatient, listModeFromState, navigate]);
+
+  const DetailPageLayout = ({ children }: { children: ReactNode }) => {
+    if (!isPatient) {
+      return <ClinicManagementLayout>{children}</ClinicManagementLayout>;
+    }
+    return (
+      <>
+        <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
+          <PatientPortalShell
+            userDisplayName={patientDisplayName}
+            pathname={location.pathname}
+            isSidebarOpen={patientSidebarOpen}
+            setIsSidebarOpen={setPatientSidebarOpen}
+            navigate={navigate}
+            onLogoutClick={() => setPatientShowLogout(true)}
+          >
+            <main className="min-h-0 flex-1 overflow-y-auto bg-[#f9fafb] px-6 py-6">{children}</main>
+          </PatientPortalShell>
+        </div>
+        <LogoutConfirmModal
+          open={patientShowLogout}
+          onCancel={() => setPatientShowLogout(false)}
+          onConfirm={() => {
+            performLogout(navigate);
+            setPatientShowLogout(false);
+          }}
+        />
+      </>
+    );
+  };
 
   if (isLoading) {
     return (
-      <ClinicManagementLayout>
+      <DetailPageLayout>
         <div className="mx-auto max-w-7xl">
           <button
             type="button"
@@ -1795,13 +1862,13 @@ const AppointmentDetail = () => {
             Loading appointment details...
           </div>
         </div>
-      </ClinicManagementLayout>
+      </DetailPageLayout>
     );
   }
 
   if (error) {
     return (
-      <ClinicManagementLayout>
+      <DetailPageLayout>
         <div className="mx-auto max-w-7xl">
           <button
             type="button"
@@ -1813,13 +1880,13 @@ const AppointmentDetail = () => {
           </button>
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center text-red-700">{error}</div>
         </div>
-      </ClinicManagementLayout>
+      </DetailPageLayout>
     );
   }
 
   if (!appointment) {
     return (
-      <ClinicManagementLayout>
+      <DetailPageLayout>
         <div className="mx-auto max-w-7xl">
           <button
             type="button"
@@ -1831,7 +1898,7 @@ const AppointmentDetail = () => {
           </button>
           <div className="rounded-lg bg-white p-8 text-center text-gray-600 shadow-md">Appointment not found.</div>
         </div>
-      </ClinicManagementLayout>
+      </DetailPageLayout>
     );
   }
 
@@ -1875,6 +1942,7 @@ const AppointmentDetail = () => {
           : !isTreatmentCurrent(treatment);
     const passesOwnership =
       isDirector ||
+      isPatient ||
       isSingleDentist ||
       treatmentOwnershipFilter === 'all' ||
       loggedInDentistId <= 0 ||
@@ -1883,7 +1951,7 @@ const AppointmentDetail = () => {
   });
 
   return (
-    <ClinicManagementLayout>
+    <DetailPageLayout>
       <div className="mx-auto max-w-7xl">
         <button
           type="button"
@@ -1900,7 +1968,7 @@ const AppointmentDetail = () => {
               Appointment Details
             </h1>
             <div className="flex flex-col items-end gap-2">
-              {!isDirector ? (
+              {canStaffMutate ? (
                 <button
                   onClick={() => setShowEditAppointment(true)}
                   className="flex min-w-[96px] items-center justify-center space-x-1 rounded-md bg-[#0066A6] px-3 py-1.5 text-white transition-colors hover:bg-[#00588f]"
@@ -1918,7 +1986,7 @@ const AppointmentDetail = () => {
                 <span>Delete</span>
               </button>
               ) : null}
-              {!isDirector ? (
+              {canStaffMutate ? (
                 <button
                   type="button"
                   onClick={openNewRandevuePanel}
@@ -2121,7 +2189,7 @@ const AppointmentDetail = () => {
         <div className="bg-white rounded-lg shadow-md p-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Treatments</h2>
-            {!isDirector ? (
+            {canStaffMutate ? (
               <button
                 onClick={handleOpenAddTreatment}
                 className="flex items-center space-x-2 rounded-md bg-[#0f766e] px-4 py-2 text-white transition-colors hover:bg-[#0d5f59]"
@@ -2132,7 +2200,7 @@ const AppointmentDetail = () => {
             ) : null}
           </div>
 
-          {!isDirector && showAddTreatment && appointment && (
+          {canStaffMutate && showAddTreatment && appointment && (
             <div className="mb-8 border border-[#cce0f0] rounded-lg p-6 bg-[#f0f7fc]/40">
               <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-[#cce0f0] pb-4">
                 {treatmentDrafts.map((_, index) => (
@@ -2787,7 +2855,7 @@ const AppointmentDetail = () => {
                 <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
               </div>
             ) : null}
-            {!isDirector && !isSingleDentist ? (
+            {canStaffMutate && !isSingleDentist ? (
               <div className="relative">
                 <select
                   value={treatmentOwnershipFilter}
@@ -3886,7 +3954,7 @@ const AppointmentDetail = () => {
 
         {/* Inline form replaces modal above; modal removed */}
       </div>
-    </ClinicManagementLayout>
+    </DetailPageLayout>
   );
 };
 

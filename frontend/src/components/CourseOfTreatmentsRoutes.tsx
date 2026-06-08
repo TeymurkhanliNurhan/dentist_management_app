@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { isPatientSession } from '../lib/patientSession';
-import PatientCourseDetail from './PatientCourseDetail';
+import AppointmentDetail from './AppointmentDetail';
 import PatientCourseOfTreatments from './PatientCourseOfTreatments';
 import CourseOfTreatments from './CourseOfTreatments';
 import { StaffRouteGuard } from './RouteGuards';
@@ -19,7 +19,7 @@ export function CourseOfTreatmentsRoute() {
 
 export function CourseOfTreatmentsDetailRoute() {
   if (isPatientSession()) {
-    return <PatientCourseDetail />;
+    return <AppointmentDetail />;
   }
   return (
     <StaffRouteGuard>
