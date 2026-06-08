@@ -42,5 +42,8 @@
   "confirmDelete": "{{name}} və əlaqəli bütün qeydlər silinsin? Bu əməliyyat geri qaytarıla bilməz.",
   "cancel": "Ləğv et",
   "updateError": "Xəstə yenilənmədi",
-  "deleteError": "Xəstə silinmədi"
+  "deleteError": "Xəstə silinmədi",
+  "totalTreatmentCount": "Toplam müalicə sayı",
+  "totalPaidAmount": "Toplam ödənilmiş məbləğ",
+  "totalDebt": "Toplam borc"
 }

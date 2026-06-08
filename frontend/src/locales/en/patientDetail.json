@@ -42,5 +42,8 @@
   "confirmDelete": "Delete {{name}} and all related records? This action cannot be undone.",
   "cancel": "Cancel",
   "updateError": "Failed to update patient",
-  "deleteError": "Failed to delete patient"
+  "deleteError": "Failed to delete patient",
+  "totalTreatmentCount": "Total treatments",
+  "totalPaidAmount": "Total paid",
+  "totalDebt": "Total debt"
 }

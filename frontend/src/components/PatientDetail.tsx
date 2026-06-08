@@ -109,7 +109,8 @@ const PatientDetail = () => {
   }, [isReception, patientPanel]);
 
   useEffect(() => {
-    if (!patient || patientPanel !== 'appointments') return;
+    if (!patient) return;
+    if (!isPatient && patientPanel !== 'appointments') return;
 
     let cancelled = false;
     const load = async () => {
@@ -140,7 +141,7 @@ const PatientDetail = () => {
     return () => {
       cancelled = true;
     };
-  }, [patient, patientPanel]);
+  }, [patient, patientPanel, isPatient]);
 
   useEffect(() => {
     if (isDirector) {
@@ -319,6 +320,24 @@ const PatientDetail = () => {
   };
 
   const formatMoney = (value: number) => `$${Number(value || 0).toFixed(2)}`;
+
+  const patientFinancialSummary = useMemo(() => {
+    if (!isPatient) return null;
+    let totalTreatments = patientTreatments.length;
+    let totalPaid = 0;
+    let totalDebt = 0;
+    for (const appt of patientAppointments) {
+      totalPaid += Number(appt.chargedFee ?? 0);
+      totalDebt += getAppointmentDebt(appt);
+    }
+    if (totalTreatments === 0) {
+      totalTreatments = patientAppointments.reduce(
+        (sum, appt) => sum + (appt.treatmentCount ?? 0),
+        0,
+      );
+    }
+    return { totalTreatments, totalPaid, totalDebt };
+  }, [isPatient, patientAppointments, patientTreatments]);
 
   const handlePaymentAmountChange = (appointmentId: number, value: string) => {
     if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
@@ -548,6 +567,35 @@ const PatientDetail = () => {
               </div>
             </div>
           </div>
+
+          {isPatient && patientFinancialSummary ? (
+            <div className="mt-6 border-t border-slate-200 pt-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                <div>
+                  <p className="text-sm font-medium text-slate-500">{t('totalTreatmentCount')}</p>
+                  <p className="text-lg font-semibold text-slate-900">
+                    {patientFinancialSummary.totalTreatments}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500">{t('totalPaidAmount')}</p>
+                  <p className="text-lg font-semibold text-slate-900">
+                    {formatMoney(patientFinancialSummary.totalPaid)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500">{t('totalDebt')}</p>
+                  <p
+                    className={`text-lg font-semibold ${
+                      patientFinancialSummary.totalDebt > 0 ? 'text-red-600' : 'text-emerald-600'
+                    }`}
+                  >
+                    {formatMoney(patientFinancialSummary.totalDebt)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
