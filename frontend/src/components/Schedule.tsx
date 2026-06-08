@@ -169,13 +169,6 @@ function toHourMinute(value: string): string {
   return match?.[1] ?? value;
 }
 
-const BACK_TO_BACK_MAX_GAP_MS = 60_000;
-
-function isBackToBack(prevEnd: Date, nextStart: Date): boolean {
-  const d = nextStart.getTime() - prevEnd.getTime();
-  return d >= 0 && d <= BACK_TO_BACK_MAX_GAP_MS;
-}
-
 function localTimeHm(d: Date): string {
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
@@ -757,32 +750,6 @@ const Schedule = () => {
     const right = b.toLocaleDateString(i18n.language, { ...opts, year: 'numeric' });
     return `${left} – ${right}`;
   }, [dayAnchor, days, i18n.language, useClinicScheduleUi, viewMode]);
-
-  const randevueShadeByDayAndId = useMemo(() => {
-    if (useClinicScheduleUi) return new Map<string, 0 | 1>();
-    const map = new Map<string, 0 | 1>();
-    for (const day of days) {
-      const items: { r: Randevue; s: Date; e: Date }[] = [];
-      for (const r of randevues) {
-        const s = new Date(r.date);
-        const e = new Date(r.endTime);
-        if (layoutSegments(day, s, e).length > 0) items.push({ r, s, e });
-      }
-      items.sort((a, b) => a.s.getTime() - b.s.getTime());
-      let shade: 0 | 1 = 0;
-      let prevEnd: Date | null = null;
-      for (const { r, s, e } of items) {
-        if (prevEnd && isBackToBack(prevEnd, s)) {
-          shade = shade === 0 ? 1 : 0;
-        } else {
-          shade = 0;
-        }
-        map.set(`${day.getTime()}-${r.id}`, shade);
-        prevEnd = e;
-      }
-    }
-    return map;
-  }, [days, randevues, useClinicScheduleUi]);
 
   const fetchSchedule = useCallback(async () => {
     if (isDirectorOrReception && viewMode === 'weekly' && scheduleScrollRef.current) {
