@@ -21,6 +21,7 @@ const VISIBLE_HOURS = SCHEDULE_END_HOUR - SCHEDULE_START_HOUR;
 const DISPLAY_HOURS = Array.from({ length: VISIBLE_HOURS }, (_, i) => SCHEDULE_START_HOUR + i);
 const HOUR_PX = 56;
 const DAY_PX = VISIBLE_HOURS * HOUR_PX;
+const PATIENT_OCCUPIED_BG = 'bg-slate-500/90';
 
 type AppointmentChoice = 'none' | 'new' | number;
 
@@ -412,16 +413,12 @@ const PatientSchedule = () => {
 
               <div className="mb-3 flex flex-wrap gap-4 text-xs text-gray-600">
                 <span className="inline-flex items-center gap-2">
-                  <span className="inline-block h-3 w-3 rounded bg-slate-400" />
+                  <span className={`inline-block h-3 w-3 rounded ${PATIENT_OCCUPIED_BG}`} />
                   {t('patientOccupied')}
                 </span>
                 <span className="inline-flex items-center gap-2">
                   <span className="inline-block h-3 w-3 rounded border border-gray-200 bg-white" />
                   {t('patientFree')}
-                </span>
-                <span className="inline-flex items-center gap-2">
-                  <span className="inline-block h-3 w-3 rounded bg-slate-300/85" />
-                  {t('slotOutsideWorkingHours')}
                 </span>
               </div>
 
@@ -475,9 +472,9 @@ const PatientSchedule = () => {
                                 return (
                                   <div
                                     key={`${column.key}-${slot}-off`}
-                                    className="pointer-events-none absolute inset-x-0 z-[5] cursor-default border-b border-gray-300/80 bg-slate-300/85"
+                                    className={`pointer-events-auto absolute inset-x-0 z-[5] cursor-not-allowed border-b border-gray-300/80 ${PATIENT_OCCUPIED_BG}`}
                                     style={{ top: slot * HOUR_PX, height: HOUR_PX }}
-                                    title={t('slotOutsideWorkingHours')}
+                                    title={t('patientOccupied')}
                                     aria-hidden
                                   />
                                 );
@@ -513,7 +510,7 @@ const PatientSchedule = () => {
                                 return segs.map((seg, segIdx) => (
                                   <div
                                     key={`occ-${column.key}-${slot.date}-${segIdx}`}
-                                    className="pointer-events-auto absolute inset-x-1 z-[15] cursor-not-allowed rounded-md bg-slate-500/90 px-1 py-0.5 text-[10px] text-white shadow-sm"
+                                    className={`pointer-events-auto absolute inset-x-1 z-[15] cursor-not-allowed rounded-md ${PATIENT_OCCUPIED_BG} px-1 py-0.5 text-[10px] text-white shadow-sm`}
                                     style={{
                                       top: seg.top + 1,
                                       height: Math.max(seg.height - 2, 6),
@@ -544,7 +541,7 @@ const PatientSchedule = () => {
                                 return segs.map((seg, segIdx) => (
                                   <div
                                     key={`blk-${column.key}-${bh.id}-${segIdx}`}
-                                    className="pointer-events-auto absolute inset-x-1 z-[14] cursor-not-allowed rounded-md bg-slate-600/90 px-1 py-0.5 text-[10px] text-white shadow-sm"
+                                    className={`pointer-events-auto absolute inset-x-1 z-[14] cursor-not-allowed rounded-md ${PATIENT_OCCUPIED_BG} px-1 py-0.5 text-[10px] text-white shadow-sm`}
                                     style={{
                                       top: seg.top + 1,
                                       height: Math.max(seg.height - 2, 6),
