@@ -22,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { RandevueService } from './randevue.service';
 import { GetRandevueQueryDto } from './dto/get-randevue-query.dto';
+import { ApproveRandevueDto } from './dto/approve-randevue.dto';
 import { CreateRandevueDto } from './dto/create-randevue.dto';
 import { UpdateRandevueDto } from './dto/update-randevue.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
@@ -93,6 +94,38 @@ export class RandevueController {
     const role =
       typeof staff.role === 'string' ? staff.role.toLowerCase() : undefined;
     return await this.service.create(staff.dentistId, dto, role);
+  }
+
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/approve')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Approve a patient-requested randevue' })
+  @ApiOkResponse({ description: 'Randevue approved' })
+  async approve(
+    @User() user: any,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ApproveRandevueDto,
+  ) {
+    assertPatientMutationForbidden(user?.role);
+    const context = requireStaffContext(resolveAuthContext(user));
+    const role =
+      typeof context.role === 'string' ? context.role.toLowerCase() : undefined;
+    return await this.service.approve(context.dentistId, id, dto, role);
+  }
+
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reject a patient-requested randevue' })
+  @ApiOkResponse({ description: 'Randevue rejected' })
+  async reject(@User() user: any, @Param('id', ParseIntPipe) id: number) {
+    assertPatientMutationForbidden(user?.role);
+    const context = requireStaffContext(resolveAuthContext(user));
+    const role =
+      typeof context.role === 'string' ? context.role.toLowerCase() : undefined;
+    return await this.service.reject(context.dentistId, id, role);
   }
 
   @ApiBearerAuth('bearer')

@@ -166,6 +166,7 @@ export class RandevueRepository {
       .where('pt.clinicId = :clinicId', { clinicId })
       .andWhere('r.date < :toBound', { toBound: to })
       .andWhere('r.endTime > :fromBound', { fromBound: from })
+      .andWhere("r.status <> 'rejected'")
       .select('r.date', 'date')
       .addSelect('r.endTime', 'endTime')
       .addSelect('d.id', 'dentistId')
@@ -423,6 +424,7 @@ export class RandevueRepository {
           .where('rm.id = :roomId', { roomId: input.room.id })
           .andWhere('r.date < :endTime', { endTime: input.endTime })
           .andWhere('r.endTime > :startTime', { startTime: input.date })
+          .andWhere("r.status <> 'rejected'")
           .getOne();
         if (overlappingRoomRandevue) {
           throw new Error('Room already has randevue in this time range');
@@ -436,6 +438,7 @@ export class RandevueRepository {
           .where('d.id = :dentistId', { dentistId: input.dentistId })
           .andWhere('r.date < :endTime', { endTime: input.endTime })
           .andWhere('r.endTime > :startTime', { startTime: input.date })
+          .andWhere("r.status <> 'rejected'")
           .getOne();
         if (overlappingDentistRandevue) {
           throw new Error('Dentist already has randevue in this time range');
@@ -449,6 +452,7 @@ export class RandevueRepository {
           .where('n.id = :nurseId', { nurseId: input.nurse.id })
           .andWhere('r.date < :endTime', { endTime: input.endTime })
           .andWhere('r.endTime > :startTime', { startTime: input.date })
+          .andWhere("r.status <> 'rejected'")
           .getOne();
         if (overlappingNurseRandevue) {
           throw new Error('Nurse already has randevue in this time range');
@@ -472,6 +476,162 @@ export class RandevueRepository {
       const saved = await manager.getRepository(Randevue).save(row);
 
       return saved;
+    });
+  }
+
+  async confirmRequestedRandevue(input: {
+    randevueId: number;
+    date: Date;
+    endTime: Date;
+    status: string;
+    note: string | null;
+    patient: Patient;
+    appointment: Appointment | null;
+    room: Room;
+    nurse: Nurse | null;
+    dentistId: number;
+  }): Promise<Randevue> {
+    return await this.dataSource.transaction(async (manager) => {
+      const dayOfWeek = this.toApiDayOfWeek(input.date);
+      const startTime = this.toTimeString(input.date);
+      const endTime = this.toTimeString(input.endTime);
+      const excludeId = input.randevueId;
+
+      const assignedDentist = await manager.getRepository(Dentist).findOne({
+        where: { id: input.dentistId },
+      });
+      if (!assignedDentist) {
+        throw new Error('Invalid dentist');
+      }
+      const dentistStaffId = assignedDentist.staffId;
+
+      const hasDentistWorkingHours = await manager
+        .getRepository(WorkingHours)
+        .createQueryBuilder('wh')
+        .where('wh.staffId = :staffId', { staffId: dentistStaffId })
+        .andWhere('wh.dayOfWeek = :dayOfWeek', { dayOfWeek })
+        .andWhere('wh.startTime <= :startTime', { startTime })
+        .andWhere('wh.endTime >= :endTime', { endTime })
+        .getExists();
+      if (!hasDentistWorkingHours) {
+        throw new Error('Dentist is not working in this time range');
+      }
+
+      if (input.nurse != null) {
+        const assignedNurse = await manager.getRepository(Nurse).findOne({
+          where: { id: input.nurse.id },
+        });
+        if (!assignedNurse) {
+          throw new Error('Invalid nurse');
+        }
+
+        const hasNurseWorkingHours = await manager
+          .getRepository(WorkingHours)
+          .createQueryBuilder('wh')
+          .where('wh.staffId = :staffId', { staffId: assignedNurse.staffId })
+          .andWhere('wh.dayOfWeek = :dayOfWeek', { dayOfWeek })
+          .andWhere('wh.startTime <= :startTime', { startTime })
+          .andWhere('wh.endTime >= :endTime', { endTime })
+          .getExists();
+        if (!hasNurseWorkingHours) {
+          throw new Error('Nurse is not working in this time range');
+        }
+      }
+
+      const blockingRepo = manager.getRepository(BlockingHours);
+      const roomBlockingOverlap = await blockingRepo
+        .createQueryBuilder('bh')
+        .where('bh.roomId = :roomId', { roomId: input.room.id })
+        .andWhere('bh.startTime < :endTime', { endTime: input.endTime })
+        .andWhere('bh.endTime > :startTime', { startTime: input.date })
+        .getOne();
+      if (roomBlockingOverlap) {
+        throw new Error('Room already blocked');
+      }
+
+      const dentistBlockingOverlap = await blockingRepo
+        .createQueryBuilder('bh')
+        .where('bh.staffId = :staffId', { staffId: dentistStaffId })
+        .andWhere('bh.startTime < :endTime', { endTime: input.endTime })
+        .andWhere('bh.endTime > :startTime', { startTime: input.date })
+        .getOne();
+      if (dentistBlockingOverlap) {
+        throw new Error('Dentist already blocked');
+      }
+
+      if (input.nurse != null) {
+        const nurseBlockingOverlap = await blockingRepo
+          .createQueryBuilder('bh')
+          .where('bh.staffId = :staffId', { staffId: input.nurse.staffId })
+          .andWhere('bh.startTime < :endTime', { endTime: input.endTime })
+          .andWhere('bh.endTime > :startTime', { startTime: input.date })
+          .getOne();
+        if (nurseBlockingOverlap) {
+          throw new Error('Nurse already blocked');
+        }
+      }
+
+      const randevueRepo = manager.getRepository(Randevue);
+      const overlappingRoomRandevue = await randevueRepo
+        .createQueryBuilder('r')
+        .innerJoin('r.room', 'rm')
+        .where('rm.id = :roomId', { roomId: input.room.id })
+        .andWhere('r.id <> :excludeId', { excludeId })
+        .andWhere('r.date < :endTime', { endTime: input.endTime })
+        .andWhere('r.endTime > :startTime', { startTime: input.date })
+        .andWhere("r.status <> 'rejected'")
+        .getOne();
+      if (overlappingRoomRandevue) {
+        throw new Error('Room already has randevue in this time range');
+      }
+
+      const overlappingDentistRandevue = await randevueRepo
+        .createQueryBuilder('r')
+        .innerJoin('r.dentist', 'd')
+        .where('d.id = :dentistId', { dentistId: input.dentistId })
+        .andWhere('r.id <> :excludeId', { excludeId })
+        .andWhere('r.date < :endTime', { endTime: input.endTime })
+        .andWhere('r.endTime > :startTime', { startTime: input.date })
+        .andWhere("r.status <> 'rejected'")
+        .getOne();
+      if (overlappingDentistRandevue) {
+        throw new Error('Dentist already has randevue in this time range');
+      }
+
+      if (input.nurse != null) {
+        const overlappingNurseRandevue = await randevueRepo
+          .createQueryBuilder('r')
+          .innerJoin('r.nurse', 'n')
+          .where('n.id = :nurseId', { nurseId: input.nurse.id })
+          .andWhere('r.id <> :excludeId', { excludeId })
+          .andWhere('r.date < :endTime', { endTime: input.endTime })
+          .andWhere('r.endTime > :startTime', { startTime: input.date })
+          .andWhere("r.status <> 'rejected'")
+          .getOne();
+        if (overlappingNurseRandevue) {
+          throw new Error('Nurse already has randevue in this time range');
+        }
+      }
+
+      const existing = await randevueRepo.findOne({
+        where: { id: input.randevueId },
+        relations: ['patient', 'appointment', 'dentist'],
+      });
+      if (!existing) {
+        throw new Error('Randevue not found');
+      }
+
+      existing.date = input.date;
+      existing.endTime = input.endTime;
+      existing.status = input.status;
+      existing.note = input.note;
+      existing.patient = input.patient;
+      existing.appointment = input.appointment;
+      existing.room = input.room;
+      existing.nurse = input.nurse;
+      existing.dentist = { id: input.dentistId } as Dentist;
+
+      return await randevueRepo.save(existing);
     });
   }
 

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { RandevueRepository } from './randevue.repository';
+import { ApproveRandevueDto } from './dto/approve-randevue.dto';
 import { CreateRandevueDto } from './dto/create-randevue.dto';
 import { UpdateRandevueDto } from './dto/update-randevue.dto';
 import { GetRandevueQueryDto } from './dto/get-randevue-query.dto';
@@ -780,6 +781,140 @@ export class RandevueService {
       }
       this.logger.error(e?.stack || e?.message);
       throw new BadRequestException('Failed to update randevue');
+    }
+  }
+
+  async approve(
+    dentistId: number,
+    id: number,
+    dto: ApproveRandevueDto,
+    userRole?: string,
+  ) {
+    if (!Number.isFinite(dentistId) || dentistId < 1) {
+      throw new BadRequestException('Invalid dentist context');
+    }
+    const role = (userRole ?? '').toLowerCase();
+    const isAdminLikeRole = role === 'director' || role === 'admin';
+    const row = isAdminLikeRole
+      ? await this.repo.findByIdInClinic(dentistId, id)
+      : await this.repo.findByIdForDentist(dentistId, id);
+    if (!row) throw new NotFoundException('Randevue not found');
+    if (row.status !== 'requested') {
+      throw new BadRequestException('Only requested randevues can be approved');
+    }
+    if (!row.dentist?.id) {
+      throw new BadRequestException('Dentist is required to approve this randevue');
+    }
+
+    const clinicId = row.patient.clinic.id;
+    const room = await this.resolveRoomForPatient(
+      row.patient,
+      dto.room_id ?? row.room?.id,
+    );
+    let nurse: Nurse | null = row.nurse;
+    if (dto.nurse_id != null) {
+      nurse = await this.repo.assertNurseBelongsToClinic(dto.nurse_id, clinicId);
+    }
+
+    const nextStatus = row.appointment != null ? 'booked' : 'scheduled';
+
+    try {
+      const saved = await this.repo.confirmRequestedRandevue({
+        randevueId: row.id,
+        date:
+          row.date instanceof Date
+            ? row.date
+            : new Date(row.date as unknown as string),
+        endTime:
+          row.endTime instanceof Date
+            ? row.endTime
+            : new Date(row.endTime as unknown as string),
+        status: nextStatus,
+        note: row.note,
+        patient: row.patient,
+        appointment: row.appointment,
+        room,
+        nurse,
+        dentistId: row.dentist.id,
+      });
+
+      const reloaded = await this.repo.findByIdWithRelations(saved.id);
+      if (!reloaded) throw new Error('Failed to load randevue');
+
+      const msg = `Staff ${dentistId} approved Randevue ${id}`;
+      this.logger.log(msg);
+      LogWriter.append('log', RandevueService.name, msg);
+      await this.notifyIfBooked(reloaded);
+      return this.toResponse(reloaded);
+    } catch (e: any) {
+      if (e?.message === 'Invalid room') {
+        throw new BadRequestException('Room is not in this clinic');
+      }
+      if (e?.message === 'Invalid dentist') {
+        throw new BadRequestException('Dentist is not in this clinic');
+      }
+      if (e?.message === 'Invalid nurse') {
+        throw new BadRequestException('Nurse is not in this clinic');
+      }
+      if (e?.message === 'Dentist is not working in this time range') {
+        throw new BadRequestException(
+          'Selected dentist is outside working hours for this time range',
+        );
+      }
+      if (e?.message === 'Room already blocked') {
+        throw new BadRequestException(
+          'Room already has a blocking interval for this time range',
+        );
+      }
+      if (e?.message === 'Dentist already blocked') {
+        throw new BadRequestException(
+          'Selected dentist has blocking hours for this time range',
+        );
+      }
+      if (e?.message === 'Room already has randevue in this time range') {
+        throw new BadRequestException(
+          'Selected room already has a randevue in this time range',
+        );
+      }
+      if (e?.message === 'Dentist already has randevue in this time range') {
+        throw new BadRequestException(
+          'Selected dentist already has a randevue in this time range',
+        );
+      }
+      this.logger.error(e?.stack || e?.message);
+      throw new BadRequestException('Failed to approve randevue');
+    }
+  }
+
+  async reject(dentistId: number, id: number, userRole?: string) {
+    if (!Number.isFinite(dentistId) || dentistId < 1) {
+      throw new BadRequestException('Invalid dentist context');
+    }
+    const role = (userRole ?? '').toLowerCase();
+    const isAdminLikeRole = role === 'director' || role === 'admin';
+    const row = isAdminLikeRole
+      ? await this.repo.findByIdInClinic(dentistId, id)
+      : await this.repo.findByIdForDentist(dentistId, id);
+    if (!row) throw new NotFoundException('Randevue not found');
+    if (row.status !== 'requested') {
+      throw new BadRequestException('Only requested randevues can be rejected');
+    }
+
+    row.status = 'rejected';
+    try {
+      await this.repo.saveEntity(row);
+      const reloaded = isAdminLikeRole
+        ? await this.repo.findByIdInClinic(dentistId, id)
+        : await this.repo.findByIdForDentist(dentistId, id);
+      if (!reloaded) throw new Error('Failed to reload randevue');
+
+      const msg = `Staff ${dentistId} rejected Randevue ${id}`;
+      this.logger.log(msg);
+      LogWriter.append('log', RandevueService.name, msg);
+      return this.toResponse(reloaded);
+    } catch (e: any) {
+      this.logger.error(e?.stack || e?.message);
+      throw new BadRequestException('Failed to reject randevue');
     }
   }
 

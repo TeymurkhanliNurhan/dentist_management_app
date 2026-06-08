@@ -107,5 +107,16 @@
   "patientRequestError": "Could not send appointment request.",
   "patientNotePlaceholder": "Add a note for the clinic (optional)",
   "pickDoctorError": "Please select a doctor.",
-  "patientSessionError": "Your session has expired. Please sign in again."
+  "patientSessionError": "Your session has expired. Please sign in again.",
+  "randevueStatusRequested": "Requested",
+  "randevueStatusScheduled": "Scheduled",
+  "randevueStatusBooked": "Booked",
+  "randevueStatusApproved": "Approved",
+  "randevueStatusRejected": "Rejected",
+  "randevueStatusConfirmed": "Confirmed",
+  "randevueStatusOther": "Other",
+  "randevueApprove": "Approve",
+  "randevueReject": "Reject",
+  "randevueApproveError": "Could not approve randevue.",
+  "randevueRejectError": "Could not reject randevue."
 }

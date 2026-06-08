@@ -107,5 +107,16 @@
   "patientRequestError": "Не удалось отправить запрос на приём.",
   "patientNotePlaceholder": "Добавьте заметку для клиники (необязательно)",
   "pickDoctorError": "Пожалуйста, выберите врача.",
-  "patientSessionError": "Сеанс истёк. Пожалуйста, войдите снова."
+  "patientSessionError": "Сеанс истёк. Пожалуйста, войдите снова.",
+  "randevueStatusRequested": "Запрошено",
+  "randevueStatusScheduled": "Запланировано",
+  "randevueStatusBooked": "Подтверждено",
+  "randevueStatusApproved": "Одобрено",
+  "randevueStatusRejected": "Отклонено",
+  "randevueStatusConfirmed": "Подтверждённые",
+  "randevueStatusOther": "Другое",
+  "randevueApprove": "Одобрить",
+  "randevueReject": "Отклонить",
+  "randevueApproveError": "Не удалось одобрить приём.",
+  "randevueRejectError": "Не удалось отклонить приём."
 }

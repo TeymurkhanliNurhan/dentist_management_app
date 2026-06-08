@@ -1128,6 +1128,17 @@ export const randevueService = {
     const response = await api.delete<{ id: number }>(`/randevue/${id}`);
     return response.data;
   },
+  approve: async (
+    id: number,
+    dto?: { room_id?: number; nurse_id?: number },
+  ): Promise<Randevue> => {
+    const response = await api.patch<Randevue>(`/randevue/${id}/approve`, dto ?? {});
+    return response.data;
+  },
+  reject: async (id: number): Promise<Randevue> => {
+    const response = await api.patch<Randevue>(`/randevue/${id}/reject`);
+    return response.data;
+  },
 };
 
 export const appointmentService = {

@@ -34,6 +34,11 @@ import {
   formatWeekdayShort,
   formatWeekdayWithDate,
 } from '../lib/localeHelpers';
+import {
+  randevueStatusCellClass,
+  randevueStatusLabelKey,
+  randevueStatusLegendClass,
+} from '../lib/randevueStatus';
 
 /** Visible schedule window (top->bottom): 08:00 ... 21:00 (end boundary 22:00). */
 const SCHEDULE_START_HOUR = 8;
@@ -512,6 +517,7 @@ const Schedule = () => {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [randevueDeleteConfirmOpen, setRandevueDeleteConfirmOpen] = useState(false);
   const [randevueDeleteBusy, setRandevueDeleteBusy] = useState(false);
+  const [requestActionBusy, setRequestActionBusy] = useState(false);
   const [detailAppointmentChoice, setDetailAppointmentChoice] = useState<AppointmentChoice>('none');
   const [detailOpenAppointments, setDetailOpenAppointments] = useState<Appointment[]>([]);
   const [detailApptsLoading, setDetailApptsLoading] = useState(false);
@@ -1401,6 +1407,61 @@ const Schedule = () => {
     }
   };
 
+  const handleApproveRandevue = async () => {
+    if (detailId == null) return;
+    const row = randevues.find((x) => x.id === detailId);
+    setDetailError(null);
+    setRequestActionBusy(true);
+    try {
+      const body: { room_id?: number; nurse_id?: number } = {};
+      if (useClinicScheduleUi && detailRoomId > 0) body.room_id = detailRoomId;
+      else if (row?.room?.id) body.room_id = row.room.id;
+      if ((isDirectorOrReception || isDentistUser) && detailNurseId > 0) {
+        body.nurse_id = detailNurseId;
+      }
+      await randevueService.approve(detailId, body);
+      setDetailId(null);
+      void fetchSchedule();
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string | string[] } } })?.response?.data
+          ?.message;
+      setDetailError(
+        typeof message === 'string'
+          ? message
+          : Array.isArray(message)
+            ? message.join(', ')
+            : t('randevueApproveError'),
+      );
+    } finally {
+      setRequestActionBusy(false);
+    }
+  };
+
+  const handleRejectRandevue = async () => {
+    if (detailId == null) return;
+    setDetailError(null);
+    setRequestActionBusy(true);
+    try {
+      await randevueService.reject(detailId);
+      setDetailId(null);
+      void fetchSchedule();
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string | string[] } } })?.response?.data
+          ?.message;
+      setDetailError(
+        typeof message === 'string'
+          ? message
+          : Array.isArray(message)
+            ? message.join(', ')
+            : t('randevueRejectError'),
+      );
+    } finally {
+      setRequestActionBusy(false);
+    }
+  };
+
   const detailRandevue = detailId != null ? randevues.find((x) => x.id === detailId) : undefined;
 
   const dentistSurnameById = useMemo(() => {
@@ -2281,6 +2342,21 @@ const Schedule = () => {
                   </div>
                 </div>
 
+                <div className="mb-3 flex flex-wrap gap-4 text-xs text-gray-600">
+                  <span className="inline-flex items-center gap-2">
+                    <span className={`inline-block h-3 w-3 rounded ${randevueStatusLegendClass('requested')}`} />
+                    {t('randevueStatusRequested')}
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <span className={`inline-block h-3 w-3 rounded ${randevueStatusLegendClass('scheduled')}`} />
+                    {t('randevueStatusConfirmed')}
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <span className={`inline-block h-3 w-3 rounded ${randevueStatusLegendClass('rejected')}`} />
+                    {t('randevueStatusRejected')}
+                  </span>
+                </div>
+
                 {isDirectorOrReception && showDirectorRequests && (
                     <div className="mb-4 rounded-xl border border-violet-200 bg-violet-50/60 p-3">
                       <div className="mb-2 flex items-center justify-between">
@@ -2605,15 +2681,7 @@ const Schedule = () => {
                                             const segs = layoutSegments(day, s, e);
                                             if (segs.length === 0) return [];
 
-                                            const weeklyHex =
-                                                isDirectorOrReception &&
-                                                (viewMode === 'weekly' || viewMode === 'dailyRooms' || viewMode === 'dailyDentists')
-                                                    ? dentistWeeklyHexByDentistId.get(r.dentist?.id ?? 0) ?? '#64748b'
-                                                    : null;
-
-                                            const baseClass = weeklyHex
-                                                ? 'bg-slate-500 hover:brightness-95'
-                                                : 'bg-emerald-600 hover:bg-emerald-700';
+                                            const baseClass = randevueStatusCellClass(r.status);
 
                                             const widthPct = 100 / Math.max(1, laneCount);
                                             const leftPct = (lane / Math.max(1, laneCount)) * 100;
@@ -2625,13 +2693,12 @@ const Schedule = () => {
                                                     key={`clinic-r-${r.id}-${column.key}-${day.toISOString()}-${segIdx}`}
                                                     role="button"
                                                     tabIndex={0}
-                                                    className={`absolute rounded-md ${baseClass} text-white text-[10px] px-1 py-0.5 shadow-sm overflow-hidden z-[15] cursor-pointer pointer-events-auto transition-colors focus:outline-none focus:ring-2 focus:ring-white/60 focus:ring-offset-1`}
+                                                    className={`absolute rounded-md ${baseClass} text-[10px] px-1 py-0.5 shadow-sm overflow-hidden z-[15] cursor-pointer pointer-events-auto transition-colors focus:outline-none focus:ring-2 focus:ring-white/60 focus:ring-offset-1`}
                                                     style={{
                                                       top: seg.top + V_PAD_PX,
                                                       height: Math.max(seg.height - V_PAD_PX * 2, 6),
                                                       left: `calc(${leftPct}% + ${leftPxAdd}px)`,
                                                       width: `calc(${widthPct}% - ${totalPxSubtract}px)`,
-                                                      backgroundColor: weeklyHex ?? undefined,
                                                     }}
                                                     onClick={(ev) => {
                                                       ev.stopPropagation();
@@ -2795,9 +2862,8 @@ const Schedule = () => {
                                           const e = new Date(r.endTime);
                                           const segs = layoutSegments(weeklyColumn.day, s, e);
                                           if (segs.length === 0) return [];
-                                          const shade = randevueShadeByDayAndId.get(`${weeklyColumn.day.getTime()}-${r.id}`) ?? 0;
-                                          const toneClass = shade === 0 ? 'bg-violet-600 hover:bg-violet-700' : 'bg-emerald-600 hover:bg-emerald-700';
-                                          const focusRingClass = shade === 0 ? 'focus:ring-violet-300' : 'focus:ring-emerald-300';
+                                          const toneClass = randevueStatusCellClass(r.status);
+                                          const focusRingClass = 'focus:ring-white/60';
                                           return segs.map((seg, segIdx) => (
                                               <div
                                                   key={`${r.id}-${weeklyColumn.day.toISOString()}-${segIdx}`}
@@ -3067,7 +3133,7 @@ const Schedule = () => {
                               )}
                               <p>
                                 <span className="font-medium text-gray-700">{t('status')}:</span>{' '}
-                                {detailRandevue.status}
+                                {t(randevueStatusLabelKey(detailRandevue.status))}
                               </p>
                               {detailRandevue.appointment && (
                                   <p>
@@ -3087,6 +3153,26 @@ const Schedule = () => {
                                 <p className="text-sm text-red-600">{detailError}</p>
                             )}
                             <div className="flex flex-wrap gap-2 pt-4">
+                              {detailRandevue.status === 'requested' && useClinicScheduleUi ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={requestActionBusy || randevueDeleteBusy}
+                                    onClick={() => void handleRejectRandevue()}
+                                    className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                  >
+                                    {requestActionBusy ? t('saving') : t('randevueReject')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={requestActionBusy || randevueDeleteBusy}
+                                    onClick={() => void handleApproveRandevue()}
+                                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                                  >
+                                    {requestActionBusy ? t('saving') : t('randevueApprove')}
+                                  </button>
+                                </>
+                              ) : null}
                               {detailRandevue.appointment?.id != null && (
                                   <button
                                       type="button"

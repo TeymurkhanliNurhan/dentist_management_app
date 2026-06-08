@@ -107,5 +107,16 @@
   "patientRequestError": "Randevu sorğusu göndərilmədi.",
   "patientNotePlaceholder": "Klinika üçün qeyd əlavə edin (istəyə bağlı)",
   "pickDoctorError": "Zəhmət olmasa həkim seçin.",
-  "patientSessionError": "Sessiyanız bitib. Zəhmət olmasa yenidən daxil olun."
+  "patientSessionError": "Sessiyanız bitib. Zəhmət olmasa yenidən daxil olun.",
+  "randevueStatusRequested": "Sorğu göndərilib",
+  "randevueStatusScheduled": "Planlaşdırılıb",
+  "randevueStatusBooked": "Təsdiqlənib",
+  "randevueStatusApproved": "Təsdiqlənib",
+  "randevueStatusRejected": "Rədd edilib",
+  "randevueStatusConfirmed": "Təsdiqlənmiş",
+  "randevueStatusOther": "Digər",
+  "randevueApprove": "Təsdiqlə",
+  "randevueReject": "Rədd et",
+  "randevueApproveError": "Randevu təsdiqlənmədi.",
+  "randevueRejectError": "Randevu rədd edilmədi."
 }

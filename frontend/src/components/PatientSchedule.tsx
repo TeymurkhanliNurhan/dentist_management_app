@@ -11,8 +11,15 @@ import {
   type Appointment,
   type ClinicOccupancySlot,
   type CreateRandevueDto,
+  type Randevue,
 } from '../services/api';
 import { getPatientId } from '../lib/patientSession';
+import {
+  randevueOverlapsOccupancySlot,
+  randevueStatusCellClass,
+  randevueStatusLabelKey,
+  randevueStatusLegendClass,
+} from '../lib/randevueStatus';
 import { formatMonthLabel, formatWeekdayShort } from '../lib/localeHelpers';
 
 const SCHEDULE_START_HOUR = 8;
@@ -175,6 +182,7 @@ const PatientSchedule = () => {
   });
   const [dentists, setDentists] = useState<DentistColumn[]>([]);
   const [occupancy, setOccupancy] = useState<ClinicOccupancySlot[]>([]);
+  const [myRandevues, setMyRandevues] = useState<Randevue[]>([]);
   const [blockingHours, setBlockingHours] = useState<BlockingHourRow[]>([]);
   const [workingHours, setWorkingHours] = useState<WorkingHourRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -248,12 +256,14 @@ const PatientSchedule = () => {
       let workingUrl = `${API_BASE_URL}/working-hours?dayOfWeek=${dow}`;
       if (dow === 7) workingUrl = `${API_BASE_URL}/working-hours`;
 
-      const [occupancyData, dentistsRes, blockingRes, workingRes] = await Promise.all([
-        randevueService.getClinicOccupancy(range.from, range.to),
-        fetch(`${API_BASE_URL}/dentist`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_BASE_URL}/blocking-hours`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(workingUrl, { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
+      const [occupancyData, myRandevueData, dentistsRes, blockingRes, workingRes] =
+        await Promise.all([
+          randevueService.getClinicOccupancy(range.from, range.to),
+          patientId ? randevueService.getForRange(range.from, range.to) : Promise.resolve([]),
+          fetch(`${API_BASE_URL}/dentist`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_BASE_URL}/blocking-hours`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(workingUrl, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
 
       const dentistsData = dentistsRes.ok ? ((await dentistsRes.json()) as DentistColumn[]) : [];
       const blockingData = blockingRes.ok ? ((await blockingRes.json()) as BlockingHourRow[]) : [];
@@ -264,19 +274,21 @@ const PatientSchedule = () => {
       }
 
       setOccupancy(Array.isArray(occupancyData) ? occupancyData : []);
+      setMyRandevues(Array.isArray(myRandevueData) ? myRandevueData : []);
       setDentists(Array.isArray(dentistsData) ? dentistsData : []);
       setBlockingHours(Array.isArray(blockingData) ? blockingData : []);
       setWorkingHours(normalizeWorkingHourRows(Array.isArray(workingData) ? workingData : []));
     } catch {
       setLoadError(t('loadError'));
       setOccupancy([]);
+      setMyRandevues([]);
       setDentists([]);
       setBlockingHours([]);
       setWorkingHours([]);
     } finally {
       setLoading(false);
     }
-  }, [dayAnchor, t]);
+  }, [dayAnchor, patientId, t]);
 
   useEffect(() => {
     void fetchSchedule();
@@ -434,6 +446,18 @@ const PatientSchedule = () => {
                   <span className="inline-block h-3 w-3 rounded border border-gray-200 bg-white" />
                   {t('patientFree')}
                 </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className={`inline-block h-3 w-3 ${randevueStatusLegendClass('requested')}`} />
+                  {t('randevueStatusRequested')}
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className={`inline-block h-3 w-3 ${randevueStatusLegendClass('scheduled')}`} />
+                  {t('randevueStatusConfirmed')}
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className={`inline-block h-3 w-3 ${randevueStatusLegendClass('rejected')}`} />
+                  {t('randevueStatusRejected')}
+                </span>
               </div>
 
               {loading ? (
@@ -513,6 +537,9 @@ const PatientSchedule = () => {
                                     new Date(slot.date),
                                     new Date(slot.endTime),
                                     dayAnchor,
+                                  ) &&
+                                  !myRandevues.some((r) =>
+                                    randevueOverlapsOccupancySlot(r, slot),
                                   ),
                               )
                               .flatMap((slot) => {
@@ -557,6 +584,36 @@ const PatientSchedule = () => {
                                     title={t('patientOccupied')}
                                     aria-hidden
                                   />
+                                ));
+                              })}
+
+                            {myRandevues
+                              .filter(
+                                (r) =>
+                                  (r.dentist?.id ?? 0) === column.dentistId &&
+                                  overlapsLocalDay(
+                                    new Date(r.date),
+                                    new Date(r.endTime),
+                                    dayAnchor,
+                                  ),
+                              )
+                              .flatMap((r) => {
+                                const segs = layoutSegments(
+                                  dayAnchor,
+                                  new Date(r.date),
+                                  new Date(r.endTime),
+                                );
+                                return segs.map((seg, segIdx) => (
+                                  <div
+                                    key={`mine-${column.key}-${r.id}-${segIdx}`}
+                                    className={`pointer-events-none absolute inset-x-0 z-[20] px-1 py-0.5 text-[10px] font-semibold shadow-sm ${randevueStatusCellClass(r.status)}`}
+                                    style={{ top: seg.top, height: seg.height }}
+                                    title={t(randevueStatusLabelKey(r.status))}
+                                  >
+                                    <span className="block truncate leading-tight">
+                                      {t(randevueStatusLabelKey(r.status))}
+                                    </span>
+                                  </div>
                                 ));
                               })}
                           </div>
