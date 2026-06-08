@@ -148,6 +148,73 @@ export class RandevueRepository {
     return qb.orderBy('r.date', 'ASC').getMany();
   }
 
+  async findOccupancyForClinic(
+    clinicId: number,
+    from: Date,
+    to: Date,
+  ): Promise<
+    Array<{
+      date: Date;
+      endTime: Date;
+      dentistId: number | null;
+    }>
+  > {
+    const rows = await this.repo
+      .createQueryBuilder('r')
+      .innerJoin('r.patient', 'pt')
+      .leftJoin('r.dentist', 'd')
+      .where('pt.clinicId = :clinicId', { clinicId })
+      .andWhere('r.date < :toBound', { toBound: to })
+      .andWhere('r.endTime > :fromBound', { fromBound: from })
+      .select('r.date', 'date')
+      .addSelect('r.endTime', 'endTime')
+      .addSelect('d.id', 'dentistId')
+      .orderBy('r.date', 'ASC')
+      .getRawMany<{ date: Date; endTime: Date; dentistId: number | null }>();
+
+    return rows.map((row) => ({
+      date: row.date instanceof Date ? row.date : new Date(row.date),
+      endTime: row.endTime instanceof Date ? row.endTime : new Date(row.endTime),
+      dentistId:
+        row.dentistId != null && Number.isFinite(Number(row.dentistId))
+          ? Number(row.dentistId)
+          : null,
+    }));
+  }
+
+  async assertPatientInClinic(
+    patientId: number,
+    clinicId: number,
+  ): Promise<Patient> {
+    const patientRepo = this.dataSource.getRepository(Patient);
+    const patient = await patientRepo.findOne({
+      where: { id: patientId, clinic: { id: clinicId } },
+      relations: ['clinic'],
+    });
+    if (!patient?.clinic) throw new Error('Patient not found');
+    return patient;
+  }
+
+  async assertOpenAppointmentForPatientInClinic(
+    appointmentId: number,
+    patientId: number,
+    clinicId: number,
+  ): Promise<Appointment> {
+    const apptRepo = this.dataSource.getRepository(Appointment);
+    const appointment = await apptRepo.findOne({
+      where: {
+        id: appointmentId,
+        clinicId,
+        patient: { id: patientId },
+      },
+      relations: ['patient'],
+    });
+    if (!appointment) throw new Error('Appointment not found');
+    if (appointment.endDate != null)
+      throw new Error('Appointment already closed');
+    return appointment;
+  }
+
   async findForPatientOverlappingRange(
     patientId: number,
     clinicId: number,

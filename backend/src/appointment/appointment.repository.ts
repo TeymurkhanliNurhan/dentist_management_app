@@ -37,6 +37,27 @@ export class AppointmentRepository {
     return dentist.staff.clinicId;
   }
 
+  async createAppointmentForPatientClinic(
+    clinicId: number,
+    patientId: number,
+    input: { startDate: Date; endDate: Date | null; chargedFee: number | null },
+  ): Promise<Appointment> {
+    const patientRepo = this.dataSource.getRepository(Patient);
+    const patient = await patientRepo.findOne({
+      where: { id: patientId, clinic: { id: clinicId } },
+      relations: ['clinic'],
+    });
+    if (!patient?.clinic) throw new Error('Patient not found');
+    const appointment = this.repo.create({
+      ...input,
+      calculatedFee: 0,
+      discountFee: calculateAppointmentDiscountFee(0, input.chargedFee),
+      clinicId,
+      patient,
+    });
+    return await this.repo.save(appointment);
+  }
+
   async createAppointmentForDentistAndPatient(
     dentistId: number,
     patientId: number,

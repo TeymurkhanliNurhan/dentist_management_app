@@ -165,6 +165,174 @@ export class RandevueService {
     return list.map((r) => this.toResponse(r));
   }
 
+  async findClinicOccupancyForPatient(
+    context: PatientAuthContext,
+    dto: GetRandevueQueryDto,
+  ) {
+    const from = new Date(dto.from);
+    const to = new Date(dto.to);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      throw new BadRequestException('Invalid date range');
+    }
+    if (to <= from) {
+      throw new BadRequestException('"to" must be after "from"');
+    }
+    const rows = await this.repo.findOccupancyForClinic(
+      context.clinicId,
+      from,
+      to,
+    );
+    const msg = `Patient ${context.patientId} listed ${rows.length} clinic occupancy slot(s)`;
+    this.logger.log(msg);
+    LogWriter.append('log', RandevueService.name, msg);
+    return rows.map((row) => ({
+      date:
+        row.date instanceof Date
+          ? row.date.toISOString()
+          : new Date(row.date).toISOString(),
+      endTime:
+        row.endTime instanceof Date
+          ? row.endTime.toISOString()
+          : new Date(row.endTime).toISOString(),
+      dentistId: row.dentistId,
+    }));
+  }
+
+  async createForPatient(
+    context: PatientAuthContext,
+    dto: CreateRandevueDto,
+  ) {
+    const start = new Date(dto.startDateTime);
+    const end = new Date(dto.endDateTime);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      throw new BadRequestException('Invalid start or end datetime');
+    }
+    if (end <= start) {
+      throw new BadRequestException('End time must be after start time');
+    }
+    if (dto.dentist_id == null) {
+      throw new BadRequestException('Dentist is required');
+    }
+    if (dto.create_new_appointment && dto.appointment_id != null) {
+      throw new BadRequestException(
+        'Cannot set both create_new_appointment and appointment_id',
+      );
+    }
+    if (dto.create_new_appointment === true && !dto.appointment_start_date) {
+      throw new BadRequestException(
+        'appointment_start_date is required when creating a new appointment',
+      );
+    }
+    if (dto.patient_id != null && dto.patient_id !== context.patientId) {
+      throw new BadRequestException('Invalid patient');
+    }
+    if (dto.nurse_id != null) {
+      throw new BadRequestException('Nurse cannot be set by patients');
+    }
+    if (dto.tooth_treatment_ids?.length) {
+      throw new BadRequestException(
+        'Patients cannot link treatments when requesting a randevue',
+      );
+    }
+
+    const patient = await this.repo.assertPatientInClinic(
+      context.patientId,
+      context.clinicId,
+    );
+
+    let linkedAppointmentId: number | null = null;
+    if (dto.create_new_appointment === true) {
+      const created = await this.appointmentService.createForPatientClinic(
+        context.clinicId,
+        {
+          startDate: dto.appointment_start_date!,
+          patient_id: context.patientId,
+        },
+      );
+      linkedAppointmentId = created.id;
+    } else if (dto.appointment_id != null) {
+      await this.repo.assertOpenAppointmentForPatientInClinic(
+        dto.appointment_id,
+        context.patientId,
+        context.clinicId,
+      );
+      linkedAppointmentId = dto.appointment_id;
+    }
+
+    const assignedDentist = await this.repo.assertDentistBelongsToClinic(
+      dto.dentist_id,
+      context.clinicId,
+    );
+    const room = await this.resolveRoomForPatient(patient, dto.room_id);
+    const note =
+      dto.note != null && dto.note.trim() !== '' ? dto.note.trim() : null;
+
+    try {
+      const appointmentEntity =
+        linkedAppointmentId != null
+          ? ({ id: linkedAppointmentId } as Appointment)
+          : null;
+
+      const saved = await this.repo.saveRandevueWithRoomBlocking({
+        date: start,
+        endTime: end,
+        status: 'requested',
+        note,
+        patient,
+        appointment: appointmentEntity,
+        room,
+        nurse: null,
+        dentistId: assignedDentist.id,
+      });
+
+      const reloaded = await this.repo.findByIdWithRelations(saved.id);
+      if (!reloaded) throw new Error('Failed to load randevue');
+
+      const msg = `Patient ${context.patientId} requested Randevue ${saved.id}`;
+      this.logger.log(msg);
+      LogWriter.append('log', RandevueService.name, msg);
+      return this.toResponse(reloaded);
+    } catch (e: any) {
+      if (e?.message === 'Patient not found')
+        throw new NotFoundException('Patient not found');
+      if (e?.message === 'Appointment not found')
+        throw new NotFoundException('Appointment not found');
+      if (e?.message === 'Appointment already closed') {
+        throw new BadRequestException(
+          'That appointment is already closed (has an end date)',
+        );
+      }
+      if (e?.message === 'Invalid room') {
+        throw new BadRequestException('Room is not in this clinic');
+      }
+      if (e?.message === 'Invalid dentist') {
+        throw new BadRequestException('Dentist is not in this clinic');
+      }
+      if (e?.message === 'Dentist is not working in this time range') {
+        throw new BadRequestException(
+          'Selected dentist is outside working hours for this time range',
+        );
+      }
+      if (e?.message === 'Dentist already blocked') {
+        throw new BadRequestException(
+          'Selected dentist has blocking hours for this time range',
+        );
+      }
+      if (e?.message === 'Dentist already has randevue in this time range') {
+        throw new BadRequestException(
+          'Selected dentist already has a randevue in this time range',
+        );
+      }
+      if (e?.message === 'Room already has randevue in this time range') {
+        throw new BadRequestException(
+          'Selected room already has a randevue in this time range',
+        );
+      }
+      this.logger.error(e?.stack || e?.message);
+      throw new BadRequestException('Failed to request randevue');
+    }
+  }
+
   async create(dentistId: number, dto: CreateRandevueDto, userRole?: string) {
     if (!Number.isFinite(dentistId) || dentistId < 1) {
       throw new BadRequestException('Invalid dentist context');

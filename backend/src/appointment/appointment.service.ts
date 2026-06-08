@@ -31,6 +31,38 @@ export class AppointmentService {
     return null;
   }
 
+  async createForPatientClinic(
+    clinicId: number,
+    dto: Pick<CreateAppointmentDto, 'startDate' | 'patient_id'>,
+  ) {
+    try {
+      const created = await this.repo.createAppointmentForPatientClinic(
+        clinicId,
+        dto.patient_id,
+        {
+          startDate: new Date(dto.startDate),
+          endDate: null,
+          chargedFee: 0,
+        },
+      );
+      const msg = `Patient clinic ${clinicId} created Appointment with id ${created.id}`;
+      this.logger.log(msg);
+      LogWriter.append('log', AppointmentService.name, msg);
+      return {
+        id: created.id,
+        startDate: this.toApiDateOnly(created.startDate) ?? '',
+        endDate: this.toApiDateOnly(created.endDate),
+        calculatedFee: created.calculatedFee,
+        chargedFee: created.chargedFee,
+        discountFee: created.discountFee,
+      };
+    } catch (e: any) {
+      if (e?.message?.includes('Patient not found'))
+        throw new NotFoundException('Patient not found');
+      throw new BadRequestException('Failed to create appointment');
+    }
+  }
+
   async create(dentistId: number, dto: CreateAppointmentDto) {
     try {
       const created = await this.repo.createAppointmentForDentistAndPatient(

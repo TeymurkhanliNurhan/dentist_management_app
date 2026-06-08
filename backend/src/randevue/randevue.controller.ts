@@ -60,16 +60,39 @@ export class RandevueController {
 
   @ApiBearerAuth('bearer')
   @UseGuards(JwtAuthGuard)
+  @Get('clinic-occupancy')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'List clinic schedule occupancy for patients (no patient-identifying details)',
+  })
+  @ApiOkResponse({ description: 'Clinic occupancy retrieved' })
+  async findClinicOccupancy(
+    @User() user: any,
+    @Query() dto: GetRandevueQueryDto,
+  ) {
+    const context = resolveAuthContext(user);
+    if (context.kind !== 'patient') {
+      throw new ForbiddenException('Patients only');
+    }
+    return await this.service.findClinicOccupancyForPatient(context, dto);
+  }
+
+  @ApiBearerAuth('bearer')
+  @UseGuards(JwtAuthGuard)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a randevue' })
   @ApiCreatedResponse({ description: 'Randevue created' })
   async create(@User() user: any, @Body() dto: CreateRandevueDto) {
-    assertPatientMutationForbidden(user?.role);
-    const context = requireStaffContext(resolveAuthContext(user));
+    const context = resolveAuthContext(user);
+    if (context.kind === 'patient') {
+      return await this.service.createForPatient(context, dto);
+    }
+    const staff = requireStaffContext(context);
     const role =
-      typeof context.role === 'string' ? context.role.toLowerCase() : undefined;
-    return await this.service.create(context.dentistId, dto, role);
+      typeof staff.role === 'string' ? staff.role.toLowerCase() : undefined;
+    return await this.service.create(staff.dentistId, dto, role);
   }
 
   @ApiBearerAuth('bearer')
