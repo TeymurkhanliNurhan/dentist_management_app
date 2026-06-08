@@ -9,20 +9,23 @@ import {
   type AppointmentFilters,
 } from '../services/api';
 import { getPatientId, isPatientSession } from '../lib/patientSession';
+import {
+  getStoredPatientCourseListMode,
+  storePatientCourseListMode,
+  type PatientCourseListMode,
+} from '../lib/patientCourseListMode';
 import { PatientPortalShell } from './PatientPortalShell';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 
 const PAGE_SIZE = 12;
 const COURSES_PATH = '/course-of-treatments';
 
-type AppointmentListMode = 'open' | 'past' | 'all';
-
 function localDateString(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function filterAppointmentsByEnd(appointments: Appointment[], mode: AppointmentListMode): Appointment[] {
+function filterAppointmentsByEnd(appointments: Appointment[], mode: PatientCourseListMode): Appointment[] {
   const today = localDateString();
   if (mode === 'past') {
     return appointments.filter((a) => a.endDate != null && a.endDate < today);
@@ -33,11 +36,14 @@ function filterAppointmentsByEnd(appointments: Appointment[], mode: AppointmentL
   return appointments;
 }
 
-function formatDentistName(appointment: Appointment): string {
-  const d = appointment.dentist;
-  if (!d) return '—';
-  const name = `${d.name ?? ''} ${d.surname ?? ''}`.trim();
-  return name || `#${d.id}`;
+function appointmentDebt(appointment: Appointment): number {
+  return Math.max(0, appointment.calculatedFee - (appointment.chargedFee ?? 0));
+}
+
+function resolveInitialListMode(locationState: unknown): PatientCourseListMode {
+  const fromNav = (locationState as { listMode?: PatientCourseListMode } | null)?.listMode;
+  if (fromNav === 'open' || fromNav === 'past' || fromNav === 'all') return fromNav;
+  return getStoredPatientCourseListMode();
 }
 
 export default function PatientCourseOfTreatments() {
@@ -50,7 +56,7 @@ export default function PatientCourseOfTreatments() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [userDisplayName, setUserDisplayName] = useState('');
   const [rawAppointments, setRawAppointments] = useState<Appointment[]>([]);
-  const [listMode, setListMode] = useState<AppointmentListMode>('open');
+  const [listMode, setListMode] = useState<PatientCourseListMode>(() => resolveInitialListMode(location.state));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -75,6 +81,18 @@ export default function PatientCourseOfTreatments() {
   };
 
   useEffect(() => {
+    const fromNav = (location.state as { listMode?: PatientCourseListMode } | null)?.listMode;
+    if (fromNav === 'open' || fromNav === 'past' || fromNav === 'all') {
+      setListMode(fromNav);
+      storePatientCourseListMode(fromNav);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    storePatientCourseListMode(listMode);
+  }, [listMode]);
+
+  useEffect(() => {
     if (!patientId) return;
     void patientService
       .getById(patientId)
@@ -93,6 +111,7 @@ export default function PatientCourseOfTreatments() {
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
   const page = Math.min(currentPage, totalPages);
   const pagedAppointments = filteredAppointments.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const tableColSpan = 6;
 
   if (!isPatientSession() || !patientId) {
     return <Navigate to="/patient/login" replace />;
@@ -176,14 +195,14 @@ export default function PatientCourseOfTreatments() {
                   <select
                     value={listMode}
                     onChange={(e) => {
-                      setListMode(e.target.value as AppointmentListMode);
+                      setListMode(e.target.value as PatientCourseListMode);
                       setCurrentPage(1);
                     }}
                     className="appearance-none rounded-md border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm font-medium text-slate-800 hover:border-slate-400 focus:border-[#0066A6] focus:outline-none focus:ring-2 focus:ring-[#cce0f0]"
                   >
+                    <option value="all">{t('filterAll')}</option>
                     <option value="open">{t('filterCurrent')}</option>
                     <option value="past">{t('filterPast')}</option>
-                    <option value="all">{t('filterAll')}</option>
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-slate-500" />
                 </div>
@@ -202,23 +221,22 @@ export default function PatientCourseOfTreatments() {
                       <tr>
                         <th className="px-4 py-3 text-left">{t('tableStartDate')}</th>
                         <th className="px-4 py-3 text-left">{t('tableEndDate')}</th>
-                        <th className="px-4 py-3 text-left">{t('tableDentist')}</th>
+                        <th className="px-4 py-3 text-left">{t('tablePatient')}</th>
                         <th className="px-4 py-3 text-right">{t('calculated')}</th>
                         <th className="px-4 py-3 text-right">{t('charged')}</th>
-                        <th className="px-4 py-3 text-right">{t('discount')}</th>
-                        <th className="px-4 py-3 text-right">{t('treatments')}</th>
+                        <th className="px-4 py-3 text-right">{t('debt')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                          <td colSpan={tableColSpan} className="px-4 py-8 text-center text-slate-500">
                             {t('loadingAppointments')}
                           </td>
                         </tr>
                       ) : pagedAppointments.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                          <td colSpan={tableColSpan} className="px-4 py-8 text-center text-slate-500">
                             {t('noAppointments')}
                           </td>
                         </tr>
@@ -232,13 +250,14 @@ export default function PatientCourseOfTreatments() {
                                 state: {
                                   returnTo: `${location.pathname}${location.search}${location.hash}`,
                                   returnLabel: t('backLabel'),
+                                  listMode,
                                 },
                               })
                             }
                           >
                             <td className="px-4 py-3 font-medium text-slate-900">{appointment.startDate}</td>
                             <td className="px-4 py-3 text-slate-600">{appointment.endDate ?? '—'}</td>
-                            <td className="px-4 py-3 text-slate-700">{formatDentistName(appointment)}</td>
+                            <td className="px-4 py-3 text-slate-400">—</td>
                             <td className="px-4 py-3 text-right text-slate-900">
                               ${appointment.calculatedFee.toFixed(2)}
                             </td>
@@ -246,10 +265,7 @@ export default function PatientCourseOfTreatments() {
                               {appointment.chargedFee != null ? `$${appointment.chargedFee.toFixed(2)}` : '—'}
                             </td>
                             <td className="px-4 py-3 text-right text-slate-900">
-                              {appointment.discountFee != null ? `$${appointment.discountFee.toFixed(2)}` : '—'}
-                            </td>
-                            <td className="px-4 py-3 text-right text-slate-900">
-                              {appointment.treatmentCount ?? 0}
+                              ${appointmentDebt(appointment).toFixed(2)}
                             </td>
                           </tr>
                         ))
