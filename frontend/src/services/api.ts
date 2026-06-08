@@ -1097,10 +1097,23 @@ export interface UpdateRandevueDto {
   remove_tooth_treatment_ids?: number[];
 }
 
+export type ClinicOccupancySlot = {
+  date: string;
+  endTime: string;
+  dentistId: number | null;
+};
+
 export const randevueService = {
   getForRange: async (from: string, to: string): Promise<Randevue[]> => {
     const params = new URLSearchParams({ from, to });
     const response = await api.get<Randevue[]>(`/randevue?${params.toString()}`);
+    return response.data;
+  },
+  getClinicOccupancy: async (from: string, to: string): Promise<ClinicOccupancySlot[]> => {
+    const params = new URLSearchParams({ from, to });
+    const response = await api.get<ClinicOccupancySlot[]>(
+      `/randevue/clinic-occupancy?${params.toString()}`,
+    );
     return response.data;
   },
   create: async (dto: CreateRandevueDto): Promise<Randevue> => {

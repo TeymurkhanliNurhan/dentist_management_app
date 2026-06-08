@@ -13,7 +13,7 @@ import PatientDetail from './components/PatientDetail';
 import ToothDetail from './components/ToothDetail';
 import Medicines from './components/Medicines';
 import { TreatmentsRoute } from './components/TreatmentsRoute';
-import Schedule from './components/Schedule';
+import { ScheduleRoute } from './components/ScheduleRoute';
 import Contact from './components/Contact';
 import Settings from './components/Settings';
 import ClinicStaffDirectory from './components/ClinicStaffDirectory';
@@ -110,14 +110,7 @@ function App() {
           }
         />
         <Route path="/treatments" element={<TreatmentsRoute />} />
-        <Route
-          path="/schedule"
-          element={
-            <StaffRouteGuard>
-              <Schedule />
-            </StaffRouteGuard>
-          }
-        />
+        <Route path="/schedule" element={<ScheduleRoute />} />
         <Route
           path="/contact"
           element={
