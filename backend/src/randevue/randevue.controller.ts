@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -25,6 +26,12 @@ import { CreateRandevueDto } from './dto/create-randevue.dto';
 import { UpdateRandevueDto } from './dto/update-randevue.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
+import {
+  assertPatientMutationForbidden,
+  assertPatientOwnsPatientId,
+  requireStaffContext,
+  resolveAuthContext,
+} from '../auth/patient-access';
 
 @ApiTags('randevue')
 @Controller('randevue')
@@ -37,15 +44,18 @@ export class RandevueController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'List randevues overlapping a time range for the logged-in dentist',
+      'List randevues overlapping a time range for the logged-in dentist or patient',
   })
   @ApiOkResponse({ description: 'Randevues retrieved' })
   async findAll(@User() user: any, @Query() dto: GetRandevueQueryDto) {
-    const raw = user?.userId ?? user?.sub ?? user?.dentistId;
-    const dentistId = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
+    const context = resolveAuthContext(user);
+    if (context.kind === 'patient') {
+      assertPatientOwnsPatientId(context, dto.patient);
+      return await this.service.findAllForPatient(context, dto);
+    }
     const role =
-      typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
-    return await this.service.findAll(dentistId, dto, role);
+      typeof context.role === 'string' ? context.role.toLowerCase() : undefined;
+    return await this.service.findAll(context.dentistId, dto, role);
   }
 
   @ApiBearerAuth('bearer')
@@ -55,11 +65,11 @@ export class RandevueController {
   @ApiOperation({ summary: 'Create a randevue' })
   @ApiCreatedResponse({ description: 'Randevue created' })
   async create(@User() user: any, @Body() dto: CreateRandevueDto) {
-    const raw = user?.userId ?? user?.sub ?? user?.dentistId;
-    const dentistId = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
+    assertPatientMutationForbidden(user?.role);
+    const context = requireStaffContext(resolveAuthContext(user));
     const role =
-      typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
-    return await this.service.create(dentistId, dto, role);
+      typeof context.role === 'string' ? context.role.toLowerCase() : undefined;
+    return await this.service.create(context.dentistId, dto, role);
   }
 
   @ApiBearerAuth('bearer')
@@ -73,11 +83,11 @@ export class RandevueController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateRandevueDto,
   ) {
-    const raw = user?.userId ?? user?.sub ?? user?.dentistId;
-    const dentistId = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
+    assertPatientMutationForbidden(user?.role);
+    const context = requireStaffContext(resolveAuthContext(user));
     const role =
-      typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
-    return await this.service.update(dentistId, id, dto, role);
+      typeof context.role === 'string' ? context.role.toLowerCase() : undefined;
+    return await this.service.update(context.dentistId, id, dto, role);
   }
 
   @ApiBearerAuth('bearer')
@@ -87,10 +97,10 @@ export class RandevueController {
   @ApiOperation({ summary: 'Delete a randevue' })
   @ApiOkResponse({ description: 'Randevue deleted' })
   async delete(@User() user: any, @Param('id', ParseIntPipe) id: number) {
-    const raw = user?.userId ?? user?.sub ?? user?.dentistId;
-    const dentistId = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
+    assertPatientMutationForbidden(user?.role);
+    const context = requireStaffContext(resolveAuthContext(user));
     const role =
-      typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
-    return await this.service.delete(dentistId, id, role);
+      typeof context.role === 'string' ? context.role.toLowerCase() : undefined;
+    return await this.service.delete(context.dentistId, id, role);
   }
 }

@@ -148,6 +148,30 @@ export class RandevueRepository {
     return qb.orderBy('r.date', 'ASC').getMany();
   }
 
+  async findForPatientOverlappingRange(
+    patientId: number,
+    clinicId: number,
+    from: Date,
+    to: Date,
+  ): Promise<Randevue[]> {
+    return this.repo
+      .createQueryBuilder('r')
+      .innerJoinAndSelect('r.patient', 'pt')
+      .innerJoinAndSelect('pt.clinic', 'ptclinic')
+      .leftJoinAndSelect('r.appointment', 'appt')
+      .leftJoinAndSelect('r.room', 'rm')
+      .leftJoinAndSelect('r.nurse', 'nv')
+      .leftJoinAndSelect('nv.staff', 'nvStaff')
+      .leftJoinAndSelect('r.dentist', 'rdentist')
+      .leftJoinAndSelect('rdentist.staff', 'rdentistStaff')
+      .where('pt.id = :patientId', { patientId })
+      .andWhere('ptclinic.id = :clinicId', { clinicId })
+      .andWhere('r.date < :toBound', { toBound: to })
+      .andWhere('r.endTime > :fromBound', { fromBound: from })
+      .orderBy('r.date', 'ASC')
+      .getMany();
+  }
+
   async assertPatientOwnedByDentist(
     dentistId: number,
     patientId: number,

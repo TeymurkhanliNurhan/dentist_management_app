@@ -17,6 +17,7 @@ import { Dentist } from '../dentist/entities/dentist.entity';
 import { Room } from '../room/entities/room.entity';
 import { Nurse } from '../nurse/entities/nurse.entity';
 import { WhatsappNotificationService } from '../whatsapp/whatsapp-notification.service';
+import type { PatientAuthContext } from '../auth/patient-access';
 
 @Injectable()
 export class RandevueService {
@@ -138,6 +139,27 @@ export class RandevueService {
       },
     );
     const msg = `Dentist ${dentistId} listed ${list.length} randevue(s) for range`;
+    this.logger.log(msg);
+    LogWriter.append('log', RandevueService.name, msg);
+    return list.map((r) => this.toResponse(r));
+  }
+
+  async findAllForPatient(context: PatientAuthContext, dto: GetRandevueQueryDto) {
+    const from = new Date(dto.from);
+    const to = new Date(dto.to);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      throw new BadRequestException('Invalid date range');
+    }
+    if (to <= from) {
+      throw new BadRequestException('"to" must be after "from"');
+    }
+    const list = await this.repo.findForPatientOverlappingRange(
+      context.patientId,
+      context.clinicId,
+      from,
+      to,
+    );
+    const msg = `Patient ${context.patientId} listed ${list.length} randevue(s) for range`;
     this.logger.log(msg);
     LogWriter.append('log', RandevueService.name, msg);
     return list.map((r) => this.toResponse(r));
