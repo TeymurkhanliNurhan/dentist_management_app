@@ -166,6 +166,24 @@ function formatYmdDisplay(ymd: string): string {
   return `${d}.${mo}.${y}`;
 }
 
+function localTimeHm(d: Date): string {
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function formatRoomLabel(room: Randevue['room']): string {
+  if (!room) return '—';
+  if (room.number) return `${room.number}`;
+  return room.description || '—';
+}
+
+function formatDentistLabel(dentist: Randevue['dentist']): string {
+  if (!dentist) return '—';
+  const name = `${dentist.name ?? ''} ${dentist.surname ?? ''}`.trim();
+  return name ? `Dr. ${name}` : '—';
+}
+
 const PatientSchedule = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -199,6 +217,7 @@ const PatientSchedule = () => {
   const [apptsLoading, setApptsLoading] = useState(false);
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [detailRandevueId, setDetailRandevueId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -352,7 +371,7 @@ const PatientSchedule = () => {
       endDateTime: end.toISOString(),
       dentist_id: formDentistId,
     };
-    if (note.trim()) body.note = note.trim();
+    if (note.trim()) body.patient_request = note.trim();
 
     if (appointmentChoice === 'new') {
       body.create_new_appointment = true;
@@ -383,6 +402,10 @@ const PatientSchedule = () => {
   };
 
   const isToday = formatYmd(dayAnchor) === formatYmd(new Date());
+  const detailRandevue =
+    detailRandevueId != null
+      ? myRandevues.find((r) => r.id === detailRandevueId)
+      : undefined;
 
   return (
     <>
@@ -604,16 +627,18 @@ const PatientSchedule = () => {
                                   new Date(r.endTime),
                                 );
                                 return segs.map((seg, segIdx) => (
-                                  <div
+                                  <button
                                     key={`mine-${column.key}-${r.id}-${segIdx}`}
-                                    className={`pointer-events-none absolute inset-x-0 z-[20] px-1 py-0.5 text-[10px] font-semibold shadow-sm ${randevueStatusCellClass(r.status)}`}
+                                    type="button"
+                                    className={`absolute inset-x-0 z-[20] cursor-pointer px-1 py-0.5 text-left text-[10px] font-semibold shadow-sm transition-opacity hover:opacity-90 ${randevueStatusCellClass(r.status)}`}
                                     style={{ top: seg.top, height: seg.height }}
                                     title={t(randevueStatusLabelKey(r.status))}
+                                    onClick={() => setDetailRandevueId(r.id)}
                                   >
                                     <span className="block truncate leading-tight">
                                       {t(randevueStatusLabelKey(r.status))}
                                     </span>
-                                  </div>
+                                  </button>
                                 ));
                               })}
                           </div>
@@ -627,6 +652,58 @@ const PatientSchedule = () => {
           </main>
         </PatientPortalShell>
       </div>
+
+      {detailRandevue ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">{t('patientRandevueDetailTitle')}</h2>
+            <div className="space-y-3 text-sm text-gray-800">
+              <p>
+                <span className="font-medium text-gray-700">{t('status')}:</span>{' '}
+                {t(randevueStatusLabelKey(detailRandevue.status))}
+              </p>
+              <p>
+                <span className="font-medium text-gray-700">{t('date')}:</span>{' '}
+                {formatYmdDisplay(formatYmd(new Date(detailRandevue.date)))}
+              </p>
+              <p>
+                <span className="font-medium text-gray-700">{t('time')}:</span>{' '}
+                {localTimeHm(new Date(detailRandevue.date))} –{' '}
+                {localTimeHm(new Date(detailRandevue.endTime))}
+              </p>
+              <p>
+                <span className="font-medium text-gray-700">{t('doctor')}:</span>{' '}
+                {formatDentistLabel(detailRandevue.dentist)}
+              </p>
+              <p>
+                <span className="font-medium text-gray-700">{t('room')}:</span>{' '}
+                {detailRandevue.room ? formatRoomLabel(detailRandevue.room) : t('roomNotAssigned')}
+              </p>
+              {detailRandevue.patientRequest?.trim() ? (
+                <p>
+                  <span className="font-medium text-gray-700">{t('patientRequestMessage')}:</span>{' '}
+                  {detailRandevue.patientRequest}
+                </p>
+              ) : null}
+              <p>
+                <span className="font-medium text-gray-700">{t('staffResponse')}:</span>{' '}
+                {detailRandevue.staffResponse?.trim()
+                  ? detailRandevue.staffResponse
+                  : t('staffResponsePending')}
+              </p>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setDetailRandevueId(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                {t('cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {modalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -718,7 +795,7 @@ const PatientSchedule = () => {
               </div>
 
               <label className="block text-sm">
-                <span className="mb-1 block font-medium text-gray-700">{t('note')}</span>
+                <span className="mb-1 block font-medium text-gray-700">{t('patientRequestMessage')}</span>
                 <textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}

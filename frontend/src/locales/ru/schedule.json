@@ -118,5 +118,12 @@
   "randevueApprove": "Одобрить",
   "randevueReject": "Отклонить",
   "randevueApproveError": "Не удалось одобрить приём.",
-  "randevueRejectError": "Не удалось отклонить приём."
+  "randevueRejectError": "Не удалось отклонить приём.",
+  "patientRequestMessage": "Ваше сообщение",
+  "staffResponse": "Ответ клиники",
+  "staffResponsePending": "Ответа пока нет",
+  "staffResponsePlaceholder": "Необязательное сообщение пациенту",
+  "staffPrivateNote": "Заметка персонала (скрытая)",
+  "patientRandevueDetailTitle": "Ваш приём",
+  "roomNotAssigned": "Пока не назначена"
 }

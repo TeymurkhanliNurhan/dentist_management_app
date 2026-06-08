@@ -287,6 +287,8 @@ export class RandevueRepository {
     endTime: Date;
     status: string;
     note: string | null;
+    patientRequest: string | null;
+    staffResponse: string | null;
     patient: Patient;
     appointment: Appointment | null;
     room: Room | null;
@@ -302,6 +304,8 @@ export class RandevueRepository {
       endTime: input.endTime,
       status: input.status,
       note: input.note,
+      patientRequest: input.patientRequest,
+      staffResponse: input.staffResponse,
       patient: input.patient,
       appointment: input.appointment,
       room: input.room,
@@ -319,6 +323,8 @@ export class RandevueRepository {
     endTime: Date;
     status: string;
     note: string | null;
+    patientRequest: string | null;
+    staffResponse: string | null;
     patient: Patient;
     appointment: Appointment | null;
     room: Room | null;
@@ -464,6 +470,8 @@ export class RandevueRepository {
         endTime: input.endTime,
         status: input.status,
         note: input.note,
+        patientRequest: input.patientRequest,
+        staffResponse: input.staffResponse,
         patient: input.patient,
         appointment: input.appointment,
         room: input.room,
@@ -485,6 +493,8 @@ export class RandevueRepository {
     endTime: Date;
     status: string;
     note: string | null;
+    patientRequest: string | null;
+    staffResponse: string | null;
     patient: Patient;
     appointment: Appointment | null;
     room: Room;
@@ -625,6 +635,8 @@ export class RandevueRepository {
       existing.endTime = input.endTime;
       existing.status = input.status;
       existing.note = input.note;
+      existing.patientRequest = input.patientRequest;
+      existing.staffResponse = input.staffResponse;
       existing.patient = input.patient;
       existing.appointment = input.appointment;
       existing.room = input.room;

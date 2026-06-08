@@ -24,6 +24,7 @@ import { RandevueService } from './randevue.service';
 import { GetRandevueQueryDto } from './dto/get-randevue-query.dto';
 import { ApproveRandevueDto } from './dto/approve-randevue.dto';
 import { CreateRandevueDto } from './dto/create-randevue.dto';
+import { RejectRandevueDto } from './dto/reject-randevue.dto';
 import { UpdateRandevueDto } from './dto/update-randevue.dto';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { User } from '../auth/decorators/user.decorator';
@@ -120,12 +121,16 @@ export class RandevueController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reject a patient-requested randevue' })
   @ApiOkResponse({ description: 'Randevue rejected' })
-  async reject(@User() user: any, @Param('id', ParseIntPipe) id: number) {
+  async reject(
+    @User() user: any,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RejectRandevueDto,
+  ) {
     assertPatientMutationForbidden(user?.role);
     const context = requireStaffContext(resolveAuthContext(user));
     const role =
       typeof context.role === 'string' ? context.role.toLowerCase() : undefined;
-    return await this.service.reject(context.dentistId, id, role);
+    return await this.service.reject(context.dentistId, id, dto, role);
   }
 
   @ApiBearerAuth('bearer')

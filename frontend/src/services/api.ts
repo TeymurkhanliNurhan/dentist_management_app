@@ -1051,6 +1051,8 @@ export interface Randevue {
   endTime: string;
   status: string;
   note: string | null;
+  patientRequest: string | null;
+  staffResponse: string | null;
   patient: {
     id: number;
     name: string;
@@ -1072,6 +1074,7 @@ export interface CreateRandevueDto {
   patient_id?: number;
   dentist_id?: number;
   note?: string;
+  patient_request?: string;
   appointment_id?: number;
   create_new_appointment?: boolean;
   appointment_start_date?: string;
@@ -1130,13 +1133,16 @@ export const randevueService = {
   },
   approve: async (
     id: number,
-    dto?: { room_id?: number; nurse_id?: number },
+    dto?: { room_id?: number; nurse_id?: number; staff_response?: string },
   ): Promise<Randevue> => {
     const response = await api.patch<Randevue>(`/randevue/${id}/approve`, dto ?? {});
     return response.data;
   },
-  reject: async (id: number): Promise<Randevue> => {
-    const response = await api.patch<Randevue>(`/randevue/${id}/reject`);
+  reject: async (
+    id: number,
+    dto?: { staff_response?: string },
+  ): Promise<Randevue> => {
+    const response = await api.patch<Randevue>(`/randevue/${id}/reject`, dto ?? {});
     return response.data;
   },
 };

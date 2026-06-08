@@ -118,5 +118,12 @@
   "randevueApprove": "Approve",
   "randevueReject": "Reject",
   "randevueApproveError": "Could not approve randevue.",
-  "randevueRejectError": "Could not reject randevue."
+  "randevueRejectError": "Could not reject randevue.",
+  "patientRequestMessage": "Your message",
+  "staffResponse": "Clinic response",
+  "staffResponsePending": "No response yet",
+  "staffResponsePlaceholder": "Optional message to the patient",
+  "staffPrivateNote": "Staff note (private)",
+  "patientRandevueDetailTitle": "Your appointment",
+  "roomNotAssigned": "Not assigned yet"
 }

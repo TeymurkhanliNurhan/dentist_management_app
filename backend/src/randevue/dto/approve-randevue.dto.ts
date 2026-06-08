@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class ApproveRandevueDto {
   @ApiPropertyOptional({
@@ -16,4 +16,11 @@ export class ApproveRandevueDto {
   @IsNumber()
   @Min(1)
   nurse_id?: number;
+
+  @ApiPropertyOptional({
+    description: 'Optional message from staff to the patient',
+  })
+  @IsOptional()
+  @IsString()
+  staff_response?: string;
 }

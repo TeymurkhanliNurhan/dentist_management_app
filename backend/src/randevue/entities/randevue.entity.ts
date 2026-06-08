@@ -30,6 +30,12 @@ export class Randevue {
   @Column({ type: 'text', nullable: true })
   note: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  patientRequest: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  staffResponse: string | null;
+
   @ManyToOne(() => Patient, (patient) => patient.randevues, {
     nullable: false,
     onDelete: 'CASCADE',

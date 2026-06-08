@@ -511,6 +511,7 @@ const Schedule = () => {
   const [randevueDeleteConfirmOpen, setRandevueDeleteConfirmOpen] = useState(false);
   const [randevueDeleteBusy, setRandevueDeleteBusy] = useState(false);
   const [requestActionBusy, setRequestActionBusy] = useState(false);
+  const [staffResponseInput, setStaffResponseInput] = useState('');
   const [detailAppointmentChoice, setDetailAppointmentChoice] = useState<AppointmentChoice>('none');
   const [detailOpenAppointments, setDetailOpenAppointments] = useState<Appointment[]>([]);
   const [detailApptsLoading, setDetailApptsLoading] = useState(false);
@@ -875,6 +876,7 @@ const Schedule = () => {
     const apptOpen = Boolean(appt && (appt.endDate == null || appt.endDate === ''));
     setDetailAppointmentChoice(apptOpen && appt ? appt.id : 'none');
     setDetailError(null);
+    setStaffResponseInput('');
   }, []);
 
   useEffect(() => {
@@ -1380,12 +1382,13 @@ const Schedule = () => {
     setDetailError(null);
     setRequestActionBusy(true);
     try {
-      const body: { room_id?: number; nurse_id?: number } = {};
+      const body: { room_id?: number; nurse_id?: number; staff_response?: string } = {};
       if (useClinicScheduleUi && detailRoomId > 0) body.room_id = detailRoomId;
       else if (row?.room?.id) body.room_id = row.room.id;
       if ((isDirectorOrReception || isDentistUser) && detailNurseId > 0) {
         body.nurse_id = detailNurseId;
       }
+      if (staffResponseInput.trim()) body.staff_response = staffResponseInput.trim();
       await randevueService.approve(detailId, body);
       setDetailId(null);
       void fetchSchedule();
@@ -1410,7 +1413,9 @@ const Schedule = () => {
     setDetailError(null);
     setRequestActionBusy(true);
     try {
-      await randevueService.reject(detailId);
+      const rejectBody: { staff_response?: string } = {};
+      if (staffResponseInput.trim()) rejectBody.staff_response = staffResponseInput.trim();
+      await randevueService.reject(detailId, rejectBody);
       setDetailId(null);
       void fetchSchedule();
     } catch (err: unknown) {
@@ -3111,11 +3116,38 @@ const Schedule = () => {
                                         : null}
                                   </p>
                               )}
+                              {detailRandevue.patientRequest?.trim() ? (
+                                <p>
+                                  <span className="font-medium text-gray-700">{t('patientRequestMessage')}:</span>{' '}
+                                  {detailRandevue.patientRequest}
+                                </p>
+                              ) : null}
+                              {detailRandevue.staffResponse?.trim() &&
+                              detailRandevue.status !== 'requested' ? (
+                                <p>
+                                  <span className="font-medium text-gray-700">{t('staffResponse')}:</span>{' '}
+                                  {detailRandevue.staffResponse}
+                                </p>
+                              ) : null}
                               <p>
-                                <span className="font-medium text-gray-700">{t('note')}:</span>{' '}
+                                <span className="font-medium text-gray-700">{t('staffPrivateNote')}:</span>{' '}
                                 {detailRandevue.note?.trim() ? detailRandevue.note : t('noNote')}
                               </p>
                             </div>
+                            {detailRandevue.status === 'requested' && useClinicScheduleUi ? (
+                              <label className="mt-3 block text-sm">
+                                <span className="mb-1 block font-medium text-gray-700">
+                                  {t('staffResponse')}
+                                </span>
+                                <textarea
+                                  value={staffResponseInput}
+                                  onChange={(e) => setStaffResponseInput(e.target.value)}
+                                  rows={3}
+                                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                  placeholder={t('staffResponsePlaceholder')}
+                                />
+                              </label>
+                            ) : null}
                             {detailError && (
                                 <p className="text-sm text-red-600">{detailError}</p>
                             )}

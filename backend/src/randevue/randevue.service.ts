@@ -7,6 +7,7 @@ import {
 import { RandevueRepository } from './randevue.repository';
 import { ApproveRandevueDto } from './dto/approve-randevue.dto';
 import { CreateRandevueDto } from './dto/create-randevue.dto';
+import { RejectRandevueDto } from './dto/reject-randevue.dto';
 import { UpdateRandevueDto } from './dto/update-randevue.dto';
 import { GetRandevueQueryDto } from './dto/get-randevue-query.dto';
 import { AppointmentService } from '../appointment/appointment.service';
@@ -60,7 +61,13 @@ export class RandevueService {
     return dt.toISOString().slice(0, 10);
   }
 
-  private toResponse(r: Randevue) {
+  private trimNullable(value?: string | null): string | null {
+    if (value == null) return null;
+    const trimmed = value.trim();
+    return trimmed === '' ? null : trimmed;
+  }
+
+  private toResponse(r: Randevue, opts?: { forPatient?: boolean }) {
     return {
       id: r.id,
       date:
@@ -72,7 +79,9 @@ export class RandevueService {
           ? r.endTime.toISOString()
           : new Date(r.endTime as unknown as string).toISOString(),
       status: r.status,
-      note: r.note,
+      note: opts?.forPatient ? null : r.note,
+      patientRequest: r.patientRequest,
+      staffResponse: r.staffResponse,
       patient: r.patient
         ? {
             id: r.patient.id,
@@ -163,7 +172,7 @@ export class RandevueService {
     const msg = `Patient ${context.patientId} listed ${list.length} randevue(s) for range`;
     this.logger.log(msg);
     LogWriter.append('log', RandevueService.name, msg);
-    return list.map((r) => this.toResponse(r));
+    return list.map((r) => this.toResponse(r, { forPatient: true }));
   }
 
   async findClinicOccupancyForPatient(
@@ -241,6 +250,9 @@ export class RandevueService {
         'Patients cannot link treatments when requesting a randevue',
       );
     }
+    if (dto.note != null && dto.note.trim() !== '') {
+      throw new BadRequestException('Patients cannot set staff note');
+    }
 
     const patient = await this.repo.assertPatientInClinic(
       context.patientId,
@@ -270,8 +282,7 @@ export class RandevueService {
       dto.dentist_id,
       context.clinicId,
     );
-    const note =
-      dto.note != null && dto.note.trim() !== '' ? dto.note.trim() : null;
+    const patientRequest = this.trimNullable(dto.patient_request);
 
     try {
       const appointmentEntity =
@@ -283,7 +294,9 @@ export class RandevueService {
         date: start,
         endTime: end,
         status: 'requested',
-        note,
+        note: null,
+        patientRequest,
+        staffResponse: null,
         patient,
         appointment: appointmentEntity,
         room: null,
@@ -297,7 +310,7 @@ export class RandevueService {
       const msg = `Patient ${context.patientId} requested Randevue ${saved.id}`;
       this.logger.log(msg);
       LogWriter.append('log', RandevueService.name, msg);
-      return this.toResponse(reloaded);
+      return this.toResponse(reloaded, { forPatient: true });
     } catch (e: any) {
       if (e?.message === 'Patient not found')
         throw new NotFoundException('Patient not found');
@@ -420,8 +433,7 @@ export class RandevueService {
       );
     }
 
-    const note =
-      dto.note != null && dto.note.trim() !== '' ? dto.note.trim() : null;
+    const note = this.trimNullable(dto.note);
 
     try {
       const appointmentEntity =
@@ -450,6 +462,8 @@ export class RandevueService {
         endTime: end,
         status,
         note,
+        patientRequest: null,
+        staffResponse: null,
         patient,
         appointment: appointmentEntity,
         room,
@@ -817,6 +831,7 @@ export class RandevueService {
     }
 
     const nextStatus = row.appointment != null ? 'booked' : 'scheduled';
+    const staffResponse = this.trimNullable(dto.staff_response);
 
     try {
       const saved = await this.repo.confirmRequestedRandevue({
@@ -831,6 +846,8 @@ export class RandevueService {
             : new Date(row.endTime as unknown as string),
         status: nextStatus,
         note: row.note,
+        patientRequest: row.patientRequest,
+        staffResponse,
         patient: row.patient,
         appointment: row.appointment,
         room,
@@ -886,7 +903,12 @@ export class RandevueService {
     }
   }
 
-  async reject(dentistId: number, id: number, userRole?: string) {
+  async reject(
+    dentistId: number,
+    id: number,
+    dto: RejectRandevueDto,
+    userRole?: string,
+  ) {
     if (!Number.isFinite(dentistId) || dentistId < 1) {
       throw new BadRequestException('Invalid dentist context');
     }
@@ -901,6 +923,7 @@ export class RandevueService {
     }
 
     row.status = 'rejected';
+    row.staffResponse = this.trimNullable(dto.staff_response);
     try {
       await this.repo.saveEntity(row);
       const reloaded = isAdminLikeRole

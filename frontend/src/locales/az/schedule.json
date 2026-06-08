@@ -118,5 +118,12 @@
   "randevueApprove": "Təsdiqlə",
   "randevueReject": "Rədd et",
   "randevueApproveError": "Randevu təsdiqlənmədi.",
-  "randevueRejectError": "Randevu rədd edilmədi."
+  "randevueRejectError": "Randevu rədd edilmədi.",
+  "patientRequestMessage": "Sizin mesajınız",
+  "staffResponse": "Klinika cavabı",
+  "staffResponsePending": "Hələ cavab yoxdur",
+  "staffResponsePlaceholder": "Xəstəyə istəyə bağlı mesaj",
+  "staffPrivateNote": "İşçi qeydi (gizli)",
+  "patientRandevueDetailTitle": "Randevunuz",
+  "roomNotAssigned": "Hələ təyin edilməyib"
 }

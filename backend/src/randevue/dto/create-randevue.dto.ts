@@ -36,10 +36,19 @@ export class CreateRandevueDto {
   @Min(1)
   dentist_id?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Staff-only private note (not visible to patients)',
+  })
   @IsOptional()
   @IsString()
   note?: string;
+
+  @ApiPropertyOptional({
+    description: 'Patient message when requesting a randevue',
+  })
+  @IsOptional()
+  @IsString()
+  patient_request?: string;
 
   @ApiPropertyOptional({
     description: 'Link to an open appointment (no end date)',
