@@ -220,9 +220,6 @@ export class RandevueService {
     if (end <= start) {
       throw new BadRequestException('End time must be after start time');
     }
-    if (dto.dentist_id == null) {
-      throw new BadRequestException('Dentist is required');
-    }
     if (dto.room_id != null) {
       throw new BadRequestException('Patients cannot choose a room');
     }
@@ -278,10 +275,14 @@ export class RandevueService {
       linkedAppointmentId = dto.appointment_id;
     }
 
-    const assignedDentist = await this.repo.assertDentistBelongsToClinic(
-      dto.dentist_id,
-      context.clinicId,
-    );
+    let assignedDentistId: number | null = null;
+    if (dto.dentist_id != null) {
+      const assignedDentist = await this.repo.assertDentistBelongsToClinic(
+        dto.dentist_id,
+        context.clinicId,
+      );
+      assignedDentistId = assignedDentist.id;
+    }
     const patientRequest = this.trimNullable(dto.patient_request);
 
     try {
@@ -301,7 +302,7 @@ export class RandevueService {
         appointment: appointmentEntity,
         room: null,
         nurse: null,
-        dentistId: assignedDentist.id,
+        dentistId: assignedDentistId,
       });
 
       const reloaded = await this.repo.findByIdWithRelations(saved.id);
@@ -816,11 +817,19 @@ export class RandevueService {
     if (row.status !== 'requested') {
       throw new BadRequestException('Only requested randevues can be approved');
     }
-    if (!row.dentist?.id) {
+    const clinicId = row.patient.clinic.id;
+    let dentistIdToUse = row.dentist?.id ?? null;
+    if (dentistIdToUse == null && dto.dentist_id != null) {
+      const assignedDentist = await this.repo.assertDentistBelongsToClinic(
+        dto.dentist_id,
+        clinicId,
+      );
+      dentistIdToUse = assignedDentist.id;
+    }
+    if (dentistIdToUse == null) {
       throw new BadRequestException('Dentist is required to approve this randevue');
     }
 
-    const clinicId = row.patient.clinic.id;
     const room = await this.resolveRoomForPatient(
       row.patient,
       dto.room_id ?? row.room?.id,
@@ -852,7 +861,7 @@ export class RandevueService {
         appointment: row.appointment,
         room,
         nurse,
-        dentistId: row.dentist.id,
+        dentistId: dentistIdToUse,
       });
 
       const reloaded = await this.repo.findByIdWithRelations(saved.id);

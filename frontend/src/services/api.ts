@@ -1133,7 +1133,7 @@ export const randevueService = {
   },
   approve: async (
     id: number,
-    dto?: { room_id?: number; nurse_id?: number; staff_response?: string },
+    dto?: { room_id?: number; dentist_id?: number; nurse_id?: number; staff_response?: string },
   ): Promise<Randevue> => {
     const response = await api.patch<Randevue>(`/randevue/${id}/approve`, dto ?? {});
     return response.data;

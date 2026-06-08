@@ -1380,11 +1380,22 @@ const Schedule = () => {
     if (detailId == null) return;
     const row = randevues.find((x) => x.id === detailId);
     setDetailError(null);
+    const needsDentist = !row?.dentist?.id;
+    if (needsDentist && detailDentistId <= 0) {
+      setDetailError(t('pickDoctorBeforeApprove'));
+      return;
+    }
     setRequestActionBusy(true);
     try {
-      const body: { room_id?: number; nurse_id?: number; staff_response?: string } = {};
+      const body: {
+        room_id?: number;
+        dentist_id?: number;
+        nurse_id?: number;
+        staff_response?: string;
+      } = {};
       if (useClinicScheduleUi && detailRoomId > 0) body.room_id = detailRoomId;
       else if (row?.room?.id) body.room_id = row.room.id;
+      if (needsDentist && detailDentistId > 0) body.dentist_id = detailDentistId;
       if ((isDirectorOrReception || isDentistUser) && detailNurseId > 0) {
         body.nurse_id = detailNurseId;
       }
@@ -1476,6 +1487,17 @@ const Schedule = () => {
   );
 
   const awaitingBlockingCount = awaitingBlockingRequests.length;
+
+  const awaitingRandevueRequests = useMemo(
+    () =>
+      randevues
+        .filter((r) => r.status === 'requested')
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+    [randevues],
+  );
+
+  const awaitingRandevueCount = awaitingRandevueRequests.length;
+  const totalAwaitingCount = awaitingBlockingCount + awaitingRandevueCount;
 
   const roomTitleById = useMemo(() => {
     const map = new Map<number, string>();
@@ -1606,6 +1628,37 @@ const Schedule = () => {
     return [{ key: `mine-${d.id}`, label: t('viewDailyMine'), dentistId: d.id }];
   }, [dentists, loggedInDentistId, t]);
 
+  const showUnassignedRequestsColumn = useMemo(
+    () =>
+      useClinicScheduleUi &&
+      isDirectorOrReception &&
+      viewMode !== 'weekly' &&
+      viewMode !== 'dailyRooms' &&
+      viewMode !== 'dailyMine' &&
+      randevues.some(
+        (r) =>
+          r.status === 'requested' &&
+          !r.dentist?.id &&
+          overlapsLocalDay(new Date(r.date), new Date(r.endTime), dayAnchor),
+      ),
+    [dayAnchor, isDirectorOrReception, randevues, useClinicScheduleUi, viewMode],
+  );
+
+  const dailyDentistColumns = useMemo(
+    () =>
+      showUnassignedRequestsColumn
+        ? [
+            {
+              key: 'unassigned-requests',
+              label: t('requestsRandevueSection'),
+              dentistId: -1,
+            },
+            ...dentistColumns,
+          ]
+        : dentistColumns,
+    [dentistColumns, showUnassignedRequestsColumn, t],
+  );
+
   const activeColumns =
       viewMode === 'weekly'
           ? weeklyColumns
@@ -1613,7 +1666,7 @@ const Schedule = () => {
               ? roomColumns
               : viewMode === 'dailyMine'
                   ? dentistMineColumns
-                  : dentistColumns;
+                  : dailyDentistColumns;
 
   const intervalOverlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) =>
       aStart < bEnd && aEnd > bStart;
@@ -1999,10 +2052,10 @@ const Schedule = () => {
       () =>
           DIRECTOR_PORTAL_MENU.map((item) =>
               item.path === '/schedule'
-                  ? { ...item, notificationCount: isDirectorOrReception ? awaitingBlockingCount : 0 }
+                  ? { ...item, notificationCount: isDirectorOrReception ? totalAwaitingCount : 0 }
                   : item,
           ),
-      [awaitingBlockingCount, isDirectorOrReception],
+      [isDirectorOrReception, totalAwaitingCount],
   );
 
   const handleDirectorRequestAction = async (id: number, action: 'approve' | 'reject') => {
@@ -2144,7 +2197,7 @@ const Schedule = () => {
                 onLogoutClick={() => setShowLogoutConfirm(true)}
                 showProfileStrip={isDentistUser || isDirectorOrReception}
                 collapseToggleVariant={isDentistUser ? 'menu' : 'chevron'}
-                scheduleNotificationCount={isDirectorOrReception ? awaitingBlockingCount : undefined}
+                scheduleNotificationCount={isDirectorOrReception ? totalAwaitingCount : undefined}
                 headerActions={
                   isDirector ? (
                     <button
@@ -2304,9 +2357,9 @@ const Schedule = () => {
                             className="relative px-4 py-2.5 rounded-lg border border-violet-300 bg-violet-50 text-violet-800 text-sm font-semibold shadow-sm hover:bg-violet-100"
                         >
                           {t('requestsButton')}
-                          {awaitingBlockingCount > 0 && (
+                          {totalAwaitingCount > 0 && (
                               <span className="ml-2 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-white">
-                    {awaitingBlockingCount > 99 ? '99+' : awaitingBlockingCount}
+                    {totalAwaitingCount > 99 ? '99+' : totalAwaitingCount}
                   </span>
                           )}
                         </button>
@@ -2334,13 +2387,59 @@ const Schedule = () => {
                       <div className="mb-2 flex items-center justify-between">
                         <h2 className="text-sm font-semibold text-slate-800">{t('requestsPanelTitle')}</h2>
                         <span className="text-xs text-slate-500">
-                {t('requestsCountLabel', { count: awaitingBlockingCount })}
+                {t('requestsCountLabel', { count: totalAwaitingCount })}
               </span>
                       </div>
-                      {awaitingBlockingRequests.length === 0 ? (
+                      {totalAwaitingCount === 0 ? (
                           <p className="text-sm text-slate-600">{t('requestsEmpty')}</p>
                       ) : (
-                          <div className="space-y-2">
+                          <div className="space-y-4">
+                            {awaitingRandevueRequests.length > 0 ? (
+                              <div className="space-y-2">
+                                <h3 className="text-xs font-semibold uppercase tracking-wide text-violet-700">
+                                  {t('requestsRandevueSection')}
+                                </h3>
+                                {awaitingRandevueRequests.map((request) => {
+                                  const patientName =
+                                    `${request.patient?.name ?? ''} ${request.patient?.surname ?? ''}`.trim() ||
+                                    t('patient');
+                                  const dentistName =
+                                    request.dentist?.id != null
+                                      ? (dentistFullNameByDentistId.get(request.dentist.id) ?? t('dentistUnknown'))
+                                      : t('dentistNotAssigned');
+                                  const start = new Date(request.date);
+                                  const end = new Date(request.endTime);
+                                  const timeRange = formatBlockingRequestDateRange(start, end);
+                                  return (
+                                    <div
+                                      key={`randevue-req-${request.id}`}
+                                      className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                                    >
+                                      <div className="min-w-0">
+                                        <p className="truncate text-sm font-medium text-slate-800">{patientName}</p>
+                                        <p className="truncate text-xs text-slate-500">{timeRange}</p>
+                                        <p className="truncate text-xs text-slate-500">{dentistName}</p>
+                                        {request.patientRequest?.trim() ? (
+                                          <p className="truncate text-xs text-slate-500">{request.patientRequest}</p>
+                                        ) : null}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => openRandevueDetail(request)}
+                                        className="rounded-md border border-violet-300 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-800 hover:bg-violet-100"
+                                      >
+                                        {t('randevueRequestReview')}
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                            {awaitingBlockingRequests.length > 0 ? (
+                              <div className="space-y-2">
+                                <h3 className="text-xs font-semibold uppercase tracking-wide text-violet-700">
+                                  {t('requestsBlockingSection')}
+                                </h3>
                             {awaitingBlockingRequests.map((request) => {
                               const fullNameFromDentistList =
                                   request.staffId != null ? dentistDisplayNameByStaffId.get(request.staffId) : '';
@@ -2385,6 +2484,8 @@ const Schedule = () => {
                                   </div>
                               );
                             })}
+                              </div>
+                            ) : null}
                           </div>
                       )}
                     </div>
@@ -2633,6 +2734,14 @@ const Schedule = () => {
                                               return (r.room?.id ?? 0) === rid && overlapsLocalDay(new Date(r.date), new Date(r.endTime), dayAnchor);
                                             }
 
+                                            if (column.key === 'unassigned-requests') {
+                                              return (
+                                                r.status === 'requested' &&
+                                                !r.dentist?.id &&
+                                                overlapsLocalDay(new Date(r.date), new Date(r.endTime), dayAnchor)
+                                              );
+                                            }
+
                                             // dailyDentists / dailyMine
                                             const did = (column as (typeof dentistColumns)[number]).dentistId;
                                             return (r.dentist?.id ?? 0) === did && overlapsLocalDay(new Date(r.date), new Date(r.endTime), dayAnchor);
@@ -2699,7 +2808,7 @@ const Schedule = () => {
                                                     }
                                                     onMouseLeave={() => setHoverTip(null)}
                                                 >
-                                                  {isSingleDentist ? (
+                                                  {column.key === 'unassigned-requests' || isSingleDentist ? (
                                                       <p className="leading-tight truncate font-semibold">
                                                         {`${r.patient?.name ?? ''} ${r.patient?.surname ?? ''}`.trim()}
                                                       </p>
@@ -3091,7 +3200,7 @@ const Schedule = () => {
                                 <span className="font-medium text-gray-700">{t('doctor')}:</span>{' '}
                                 {detailRandevue.dentist?.id != null
                                     ? (dentistFullNameByDentistId.get(detailRandevue.dentist.id) ?? t('dentistUnknown'))
-                                    : t('dentistUnknown')}
+                                    : t('dentistNotAssigned')}
                               </p>
                               {isDirector && useClinicScheduleUi && (
                                   <p>
@@ -3135,18 +3244,52 @@ const Schedule = () => {
                               </p>
                             </div>
                             {detailRandevue.status === 'requested' && useClinicScheduleUi ? (
-                              <label className="mt-3 block text-sm">
-                                <span className="mb-1 block font-medium text-gray-700">
-                                  {t('staffResponse')}
-                                </span>
-                                <textarea
-                                  value={staffResponseInput}
-                                  onChange={(e) => setStaffResponseInput(e.target.value)}
-                                  rows={3}
-                                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                                  placeholder={t('staffResponsePlaceholder')}
-                                />
-                              </label>
+                              <div className="mt-3 space-y-3">
+                                {!isDentistUser && !detailRandevue.dentist?.id ? (
+                                  <label className="block text-sm">
+                                    <span className="mb-1 block font-medium text-gray-700">{t('doctor')}</span>
+                                    <select
+                                      value={detailDentistId || ''}
+                                      onChange={(e) => setDetailDentistId(Number(e.target.value) || 0)}
+                                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                    >
+                                      <option value="">{t('selectDoctor')}</option>
+                                      {detailDentistOptions.map((dentist) => (
+                                        <option key={dentist.id} value={dentist.id}>
+                                          {`Dr. ${dentist.staff?.surname || `#${dentist.id}`}`}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                ) : null}
+                                <label className="block text-sm">
+                                  <span className="mb-1 block font-medium text-gray-700">{t('room')}</span>
+                                  <select
+                                    value={detailRoomId || ''}
+                                    onChange={(e) => setDetailRoomId(Number(e.target.value) || 0)}
+                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                  >
+                                    <option value="">{t('selectRoom')}</option>
+                                    {detailRoomOptions.map((room) => (
+                                      <option key={room.id} value={room.id}>
+                                        {room.number ? `Room ${room.number}` : room.description || `Room #${room.id}`}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className="block text-sm">
+                                  <span className="mb-1 block font-medium text-gray-700">
+                                    {t('staffResponse')}
+                                  </span>
+                                  <textarea
+                                    value={staffResponseInput}
+                                    onChange={(e) => setStaffResponseInput(e.target.value)}
+                                    rows={3}
+                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                                    placeholder={t('staffResponsePlaceholder')}
+                                  />
+                                </label>
+                              </div>
                             ) : null}
                             {detailError && (
                                 <p className="text-sm text-red-600">{detailError}</p>

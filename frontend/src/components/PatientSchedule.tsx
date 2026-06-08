@@ -33,6 +33,7 @@ const PATIENT_OCCUPIED_CELL =
   'pointer-events-auto absolute inset-x-0 z-[10] cursor-not-allowed bg-slate-500';
 
 type AppointmentChoice = 'none' | 'new' | number;
+type PatientScheduleView = 'simple' | 'dentists';
 
 interface DentistColumn {
   id: number;
@@ -218,6 +219,7 @@ const PatientSchedule = () => {
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [detailRandevueId, setDetailRandevueId] = useState<number | null>(null);
+  const [scheduleView, setScheduleView] = useState<PatientScheduleView>('simple');
 
   useEffect(() => {
     let cancelled = false;
@@ -271,32 +273,42 @@ const PatientSchedule = () => {
     try {
       const range = toApiIsoLocalDayBounds(dayAnchor);
       const token = localStorage.getItem('access_token') || '';
-      const dow = apiDayOfWeekFromDate(dayAnchor);
-      let workingUrl = `${API_BASE_URL}/working-hours?dayOfWeek=${dow}`;
-      if (dow === 7) workingUrl = `${API_BASE_URL}/working-hours`;
+      const myRandevueData = patientId
+        ? await randevueService.getForRange(range.from, range.to)
+        : [];
 
-      const [occupancyData, myRandevueData, dentistsRes, blockingRes, workingRes] =
-        await Promise.all([
+      setMyRandevues(Array.isArray(myRandevueData) ? myRandevueData : []);
+
+      if (scheduleView === 'dentists') {
+        const dow = apiDayOfWeekFromDate(dayAnchor);
+        let workingUrl = `${API_BASE_URL}/working-hours?dayOfWeek=${dow}`;
+        if (dow === 7) workingUrl = `${API_BASE_URL}/working-hours`;
+
+        const [occupancyData, dentistsRes, blockingRes, workingRes] = await Promise.all([
           randevueService.getClinicOccupancy(range.from, range.to),
-          patientId ? randevueService.getForRange(range.from, range.to) : Promise.resolve([]),
           fetch(`${API_BASE_URL}/dentist`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API_BASE_URL}/blocking-hours`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(workingUrl, { headers: { Authorization: `Bearer ${token}` } }),
         ]);
 
-      const dentistsData = dentistsRes.ok ? ((await dentistsRes.json()) as DentistColumn[]) : [];
-      const blockingData = blockingRes.ok ? ((await blockingRes.json()) as BlockingHourRow[]) : [];
-      let workingData = workingRes.ok ? ((await workingRes.json()) as WorkingHourRow[]) : [];
+        const dentistsData = dentistsRes.ok ? ((await dentistsRes.json()) as DentistColumn[]) : [];
+        const blockingData = blockingRes.ok ? ((await blockingRes.json()) as BlockingHourRow[]) : [];
+        let workingData = workingRes.ok ? ((await workingRes.json()) as WorkingHourRow[]) : [];
 
-      if (dow === 7) {
-        workingData = workingData.filter((wh) => wh.dayOfWeek === 7);
+        if (dow === 7) {
+          workingData = workingData.filter((wh) => wh.dayOfWeek === 7);
+        }
+
+        setOccupancy(Array.isArray(occupancyData) ? occupancyData : []);
+        setDentists(Array.isArray(dentistsData) ? dentistsData : []);
+        setBlockingHours(Array.isArray(blockingData) ? blockingData : []);
+        setWorkingHours(normalizeWorkingHourRows(Array.isArray(workingData) ? workingData : []));
+      } else {
+        setOccupancy([]);
+        setDentists([]);
+        setBlockingHours([]);
+        setWorkingHours([]);
       }
-
-      setOccupancy(Array.isArray(occupancyData) ? occupancyData : []);
-      setMyRandevues(Array.isArray(myRandevueData) ? myRandevueData : []);
-      setDentists(Array.isArray(dentistsData) ? dentistsData : []);
-      setBlockingHours(Array.isArray(blockingData) ? blockingData : []);
-      setWorkingHours(normalizeWorkingHourRows(Array.isArray(workingData) ? workingData : []));
     } catch {
       setLoadError(t('loadError'));
       setOccupancy([]);
@@ -307,7 +319,7 @@ const PatientSchedule = () => {
     } finally {
       setLoading(false);
     }
-  }, [dayAnchor, patientId, t]);
+  }, [dayAnchor, patientId, scheduleView, t]);
 
   useEffect(() => {
     void fetchSchedule();
@@ -336,7 +348,7 @@ const PatientSchedule = () => {
     };
   }, [patientId]);
 
-  const openRequestModal = (dentistId: number, day: Date, hour: number) => {
+  const openRequestModal = (day: Date, hour: number, dentistId = 0) => {
     const startHm = `${String(hour).padStart(2, '0')}:00`;
     const endHm = `${String(Math.min(hour + 1, 23)).padStart(2, '0')}:00`;
     setFormDate(formatYmd(day));
@@ -355,10 +367,6 @@ const PatientSchedule = () => {
       setSubmitError(t('patientSessionError'));
       return;
     }
-    if (!formDentistId) {
-      setSubmitError(t('pickDoctorError'));
-      return;
-    }
     const start = combineLocalDateAndTime(formDate, formStart);
     const end = combineLocalDateAndTime(formDate, formEnd);
     if (end <= start) {
@@ -369,8 +377,8 @@ const PatientSchedule = () => {
     const body: CreateRandevueDto = {
       startDateTime: start.toISOString(),
       endDateTime: end.toISOString(),
-      dentist_id: formDentistId,
     };
+    if (formDentistId > 0) body.dentist_id = formDentistId;
     if (note.trim()) body.patient_request = note.trim();
 
     if (appointmentChoice === 'new') {
@@ -420,11 +428,32 @@ const PatientSchedule = () => {
         >
           <main className="relative min-h-0 flex-1 bg-[#f9fafb] px-4 py-6 sm:px-6">
             <div className="mx-auto max-w-[1400px]">
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-semibold text-gray-900">{t('patientScheduleTitle')}</h1>
-                <span className="rounded-md bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
-                  {t('viewDailyDentists')}
-                </span>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-xl font-semibold text-gray-900">{t('patientScheduleTitle')}</h1>
+                  {scheduleView === 'dentists' ? (
+                    <span className="rounded-md bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+                      {t('viewDailyDentists')}
+                    </span>
+                  ) : null}
+                </div>
+                {scheduleView === 'simple' ? (
+                  <button
+                    type="button"
+                    onClick={() => setScheduleView('dentists')}
+                    className="rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800 hover:bg-violet-100"
+                  >
+                    {t('patientSeeDentistSchedule')}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setScheduleView('simple')}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    {t('patientBackToSimpleSchedule')}
+                  </button>
+                )}
               </div>
 
               <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -461,14 +490,23 @@ const PatientSchedule = () => {
               </div>
 
               <div className="mb-3 flex flex-wrap gap-4 text-xs text-gray-600">
-                <span className="inline-flex items-center gap-2">
-                  <span className="inline-block h-3 w-3 bg-slate-500" />
-                  {t('patientOccupied')}
-                </span>
-                <span className="inline-flex items-center gap-2">
-                  <span className="inline-block h-3 w-3 rounded border border-gray-200 bg-white" />
-                  {t('patientFree')}
-                </span>
+                {scheduleView === 'dentists' ? (
+                  <>
+                    <span className="inline-flex items-center gap-2">
+                      <span className="inline-block h-3 w-3 bg-slate-500" />
+                      {t('patientOccupied')}
+                    </span>
+                    <span className="inline-flex items-center gap-2">
+                      <span className="inline-block h-3 w-3 rounded border border-gray-200 bg-white" />
+                      {t('patientFree')}
+                    </span>
+                  </>
+                ) : (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded border border-gray-200 bg-white" />
+                    {t('patientFree')}
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-2">
                   <span className={`inline-block h-3 w-3 ${randevueStatusLegendClass('requested')}`} />
                   {t('randevueStatusRequested')}
@@ -487,7 +525,7 @@ const PatientSchedule = () => {
                 <p className="text-sm text-gray-500">{t('loading')}</p>
               ) : loadError ? (
                 <p className="text-sm text-red-600">{loadError}</p>
-              ) : dentistColumns.length === 0 ? (
+              ) : scheduleView === 'dentists' && dentistColumns.length === 0 ? (
                 <p className="text-sm text-gray-500">{t('patientNoDentists')}</p>
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -506,7 +544,57 @@ const PatientSchedule = () => {
                     </div>
 
                     <div className="flex flex-1">
-                      {dentistColumns.map((column) => (
+                      {scheduleView === 'simple' ? (
+                        <div className="min-w-[200px] flex-1 border-r border-gray-200 last:border-r-0">
+                          <div
+                            className={`flex h-12 items-center justify-center border-b border-gray-200 px-2 text-center text-sm font-medium ${
+                              isToday ? 'bg-violet-50 text-violet-700' : 'text-gray-800'
+                            }`}
+                          >
+                            {t('patientRequestTimeColumn')}
+                          </div>
+                          <div className="relative" style={{ height: DAY_PX }}>
+                            {DISPLAY_HOURS.map((h, slot) => (
+                              <button
+                                key={`simple-${slot}-free`}
+                                type="button"
+                                className="absolute inset-x-0 z-[5] cursor-pointer border-b border-gray-100 px-1 py-0.5 text-left transition-colors hover:bg-violet-50/40"
+                                style={{ top: slot * HOUR_PX, height: HOUR_PX }}
+                                onClick={() => openRequestModal(dayAnchor, h)}
+                                aria-label={`${t('patientRequestSlot')} ${formatYmd(dayAnchor)} ${formatHourLabel24(h)}`}
+                              />
+                            ))}
+
+                            {myRandevues
+                              .filter((r) =>
+                                overlapsLocalDay(new Date(r.date), new Date(r.endTime), dayAnchor),
+                              )
+                              .flatMap((r) => {
+                                const segs = layoutSegments(
+                                  dayAnchor,
+                                  new Date(r.date),
+                                  new Date(r.endTime),
+                                );
+                                return segs.map((seg, segIdx) => (
+                                  <button
+                                    key={`mine-simple-${r.id}-${segIdx}`}
+                                    type="button"
+                                    className={`absolute inset-x-0 z-[20] cursor-pointer px-1 py-0.5 text-left text-[10px] font-semibold shadow-sm transition-opacity hover:opacity-90 ${randevueStatusCellClass(r.status)}`}
+                                    style={{ top: seg.top, height: seg.height }}
+                                    title={t(randevueStatusLabelKey(r.status))}
+                                    onClick={() => setDetailRandevueId(r.id)}
+                                  >
+                                    <span className="block truncate leading-tight">
+                                      {t(randevueStatusLabelKey(r.status))}
+                                    </span>
+                                  </button>
+                                ));
+                              })}
+                          </div>
+                        </div>
+                      ) : null}
+                      {scheduleView === 'dentists' &&
+                        dentistColumns.map((column) => (
                         <div
                           key={column.key}
                           className="min-w-[120px] flex-1 border-r border-gray-200 last:border-r-0 xl:min-w-[130px]"
@@ -546,7 +634,7 @@ const PatientSchedule = () => {
                                   type="button"
                                   className="absolute inset-x-0 z-[5] cursor-pointer border-b border-gray-100 px-1 py-0.5 text-left transition-colors hover:bg-violet-50/40"
                                   style={{ top: slot * HOUR_PX, height: HOUR_PX }}
-                                  onClick={() => openRequestModal(column.dentistId, dayAnchor, h)}
+                                  onClick={() => openRequestModal(dayAnchor, h, column.dentistId)}
                                   aria-label={`${t('patientRequestSlot')} ${formatYmd(dayAnchor)} ${formatHourLabel24(h)}`}
                                 />
                               );
@@ -643,7 +731,7 @@ const PatientSchedule = () => {
                               })}
                           </div>
                         </div>
-                      ))}
+                        ))}
                     </div>
                   </div>
                 </div>
@@ -721,23 +809,27 @@ const PatientSchedule = () => {
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                   />
                 </label>
-                <label className="block text-sm">
-                  <span className="mb-1 block font-medium text-gray-700">{t('doctor')}</span>
-                  <select
-                    value={formDentistId || ''}
-                    onChange={(e) => setFormDentistId(Number(e.target.value))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  >
-                    <option value="">{t('selectDoctor')}</option>
-                    {dentists.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.staff
-                          ? `Dr. ${(d.staff.name ?? '')} ${(d.staff.surname ?? '')}`.trim()
-                          : `#${d.id}`}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {scheduleView === 'dentists' ? (
+                  <label className="block text-sm">
+                    <span className="mb-1 block font-medium text-gray-700">{t('patientDoctorOptional')}</span>
+                    <select
+                      value={formDentistId || ''}
+                      onChange={(e) => setFormDentistId(Number(e.target.value))}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      <option value="">{t('selectDoctor')}</option>
+                      {dentists.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.staff
+                            ? `Dr. ${(d.staff.name ?? '')} ${(d.staff.surname ?? '')}`.trim()
+                            : `#${d.id}`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <div />
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

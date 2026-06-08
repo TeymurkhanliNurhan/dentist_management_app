@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import LogoutConfirmModal, { performLogout } from './LogoutConfirmModal';
 import { DIRECTOR_PORTAL_MENU, DENTIST_PORTAL_MENU, isDirectorPortalNavActive } from '../lib/clinicPortalNav';
 import { labelForPortalNavPath } from '../lib/portalNavLabels';
-import { API_BASE_URL } from '../services/api';
+import { API_BASE_URL, randevueService } from '../services/api';
 import { PortalLanguageSwitcher } from './PortalLanguageSwitcher';
 
 export default function ClinicManagementLayout({ children }: { children: ReactNode }) {
@@ -28,15 +28,23 @@ export default function ClinicManagementLayout({ children }: { children: ReactNo
       }
       const token = localStorage.getItem('access_token') || '';
       try {
-        const res = await fetch(`${API_BASE_URL}/blocking-hours`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error('failed');
-        const data = await res.json();
-        const count = Array.isArray(data)
-          ? data.filter((x) => x?.approvalStatus === 'awaiting').length
+        const from = new Date();
+        from.setHours(0, 0, 0, 0);
+        const to = new Date(from);
+        to.setDate(to.getDate() + 60);
+        const [blockingRes, randevueRows] = await Promise.all([
+          fetch(`${API_BASE_URL}/blocking-hours`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          randevueService.getForRange(from.toISOString(), to.toISOString()),
+        ]);
+        if (!blockingRes.ok) throw new Error('failed');
+        const blockingData = await blockingRes.json();
+        const blockingCount = Array.isArray(blockingData)
+          ? blockingData.filter((x) => x?.approvalStatus === 'awaiting').length
           : 0;
-        if (!cancelled) setAwaitingBlockingCount(count);
+        const randevueCount = randevueRows.filter((r) => r.status === 'requested').length;
+        if (!cancelled) setAwaitingBlockingCount(blockingCount + randevueCount);
       } catch {
         if (!cancelled) setAwaitingBlockingCount(0);
       }

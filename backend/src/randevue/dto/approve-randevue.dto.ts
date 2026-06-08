@@ -11,6 +11,15 @@ export class ApproveRandevueDto {
   @Min(1)
   room_id?: number;
 
+  @ApiPropertyOptional({
+    description:
+      'Dentist to assign when approving a request that has no dentist yet',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  dentist_id?: number;
+
   @ApiPropertyOptional({ description: 'Optional nurse for the confirmed randevue' })
   @IsOptional()
   @IsNumber()
