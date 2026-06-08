@@ -25,6 +25,11 @@ import { BlockingHoursService } from './blocking_hours.service';
 import { GetBlockingHoursDto } from './dto/get-blocking-hours.dto';
 import { CreateBlockingHoursDto } from './dto/create-blocking-hours.dto';
 import { UpdateBlockingHoursDto } from './dto/update-blocking-hours.dto';
+import {
+  assertPatientMutationForbidden,
+  requireStaffContext,
+  resolveAuthContext,
+} from '../auth/patient-access';
 
 @ApiTags('blocking_hours')
 @Controller('blocking-hours')
@@ -38,7 +43,12 @@ export class BlockingHoursController {
   @ApiOperation({ summary: 'Get blocking hours with optional filters' })
   @ApiOkResponse({ description: 'Blocking hours retrieved' })
   async findAll(@User() user: any, @Query() dto: GetBlockingHoursDto) {
-    return await this.service.findAll(user.userId, dto, user);
+    const context = resolveAuthContext(user);
+    if (context.kind === 'patient') {
+      return await this.service.findAllForPatient(context.clinicId, dto);
+    }
+    const staff = requireStaffContext(context);
+    return await this.service.findAll(staff.dentistId, dto, user);
   }
 
   @ApiBearerAuth('bearer')
@@ -48,7 +58,9 @@ export class BlockingHoursController {
   @ApiOperation({ summary: 'Create blocking hours' })
   @ApiResponse({ status: 201, description: 'Blocking hours created' })
   async create(@User() user: any, @Body() dto: CreateBlockingHoursDto) {
-    return await this.service.create(user.userId, dto, user);
+    assertPatientMutationForbidden(user?.role);
+    const context = requireStaffContext(resolveAuthContext(user));
+    return await this.service.create(context.dentistId, dto, user);
   }
 
   @ApiBearerAuth('bearer')

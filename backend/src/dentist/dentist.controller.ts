@@ -23,6 +23,7 @@ import { User } from '../auth/decorators/user.decorator';
 import { CreateDentistDto } from './dto/create-dentist.dto';
 import { GetDentistDto } from './dto/get-dentist.dto';
 import { GetDentistFinanceDto } from './dto/get-dentist-finance.dto';
+import { resolveAuthContext } from '../auth/patient-access';
 
 @ApiTags('dentist')
 @Controller('dentist')
@@ -55,8 +56,11 @@ export class DentistController {
   @ApiOperation({ summary: 'Get dentists with optional filters' })
   @ApiBearerAuth('bearer')
   findAll(@User() user: unknown, @Query() dto: GetDentistDto) {
-    const requesterDentistId = this.getDentistId(user);
-    return this.dentistService.findAll(requesterDentistId, dto);
+    const context = resolveAuthContext(user);
+    if (context.kind === 'patient') {
+      return this.dentistService.findAllForClinic(context.clinicId, dto);
+    }
+    return this.dentistService.findAll(context.dentistId, dto);
   }
 
   @Get('dashboard/overview')

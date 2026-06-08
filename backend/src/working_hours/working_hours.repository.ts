@@ -67,6 +67,39 @@ export class WorkingHoursRepository {
     return await this.repo.save(created);
   }
 
+  async findForClinic(
+    clinicId: number,
+    filters: {
+      id?: number;
+      dayOfWeek?: number;
+      startTime?: string;
+      endTime?: string;
+      staffId?: number;
+    },
+  ): Promise<WorkingHours[]> {
+    const qb = this.repo
+      .createQueryBuilder('wh')
+      .innerJoinAndSelect('wh.staff', 'staff')
+      .where('staff.clinicId = :clinicId', { clinicId });
+
+    if (filters.id !== undefined)
+      qb.andWhere('wh.id = :id', { id: filters.id });
+    if (filters.dayOfWeek !== undefined)
+      qb.andWhere('wh.dayOfWeek = :dayOfWeek', {
+        dayOfWeek: filters.dayOfWeek,
+      });
+    if (filters.staffId !== undefined)
+      qb.andWhere('wh.staffId = :staffId', { staffId: filters.staffId });
+    if (filters.startTime !== undefined)
+      qb.andWhere('wh.startTime = :startTime', {
+        startTime: filters.startTime,
+      });
+    if (filters.endTime !== undefined)
+      qb.andWhere('wh.endTime = :endTime', { endTime: filters.endTime });
+
+    return await qb.getMany();
+  }
+
   async findForDentist(
     dentistId: number,
     filters: {

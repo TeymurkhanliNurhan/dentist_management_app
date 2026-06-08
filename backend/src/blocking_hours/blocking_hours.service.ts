@@ -87,6 +87,14 @@ export class BlockingHoursService {
     }
   }
 
+  async findAllForPatient(clinicId: number, dto: GetBlockingHoursDto) {
+    const filters = { ...dto };
+    if (!filters.approvalStatus) {
+      filters.approvalStatus = BlockingHoursApprovalStatus.APPROVED;
+    }
+    return await this.repo.findForClinic(clinicId, filters);
+  }
+
   async findAll(dentistId: number, dto: GetBlockingHoursDto, user?: any) {
     const role = (user?.role ?? '').toLowerCase();
     const filters = { ...dto };

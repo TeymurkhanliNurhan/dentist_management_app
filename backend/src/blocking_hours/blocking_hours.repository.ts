@@ -90,6 +90,51 @@ export class BlockingHoursRepository {
     return await this.repo.save(created);
   }
 
+  async findForClinic(
+    clinicId: number,
+    filters: {
+      id?: number;
+      startTime?: string;
+      endTime?: string;
+      staffId?: number;
+      roomId?: number;
+      approvalStatus?: BlockingHoursApprovalStatus;
+    },
+  ): Promise<BlockingHours[]> {
+    const qb = this.repo
+      .createQueryBuilder('bh')
+      .leftJoinAndSelect('bh.staff', 'staff')
+      .leftJoinAndSelect('bh.room', 'room')
+      .where(
+        '(staff.id IS NULL OR staff.clinicId = :clinicId) AND (room.id IS NULL OR room.clinicId = :clinicId)',
+        { clinicId },
+      );
+
+    if (filters.id !== undefined)
+      qb.andWhere('bh.id = :id', { id: filters.id });
+    if (filters.staffId !== undefined)
+      qb.andWhere('bh.staffId = :staffId', { staffId: filters.staffId });
+    if (filters.roomId !== undefined)
+      qb.andWhere('bh.roomId = :roomId', { roomId: filters.roomId });
+    if (filters.startTime !== undefined)
+      qb.andWhere('bh.startTime = :startTime', {
+        startTime: filters.startTime,
+      });
+    if (filters.endTime !== undefined)
+      qb.andWhere('bh.endTime = :endTime', { endTime: filters.endTime });
+    if (filters.approvalStatus !== undefined) {
+      qb.andWhere('bh.approvalStatus = :approvalStatus', {
+        approvalStatus: filters.approvalStatus,
+      });
+    } else {
+      qb.andWhere('bh.approvalStatus != :canceledStatus', {
+        canceledStatus: BlockingHoursApprovalStatus.CANCELED,
+      });
+    }
+
+    return await qb.getMany();
+  }
+
   async findForDentist(
     dentistId: number,
     filters: {

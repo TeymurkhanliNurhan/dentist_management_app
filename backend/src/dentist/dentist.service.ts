@@ -116,12 +116,20 @@ export class DentistService {
       );
     }
 
+    return this.findAllForClinic(requester.staff.clinicId, dto, requesterDentistId);
+  }
+
+  async findAllForClinic(
+    clinicId: number,
+    dto: GetDentistDto,
+    logContextId?: number,
+  ) {
     const dentists = await this.dentistRepository.findAllByClinicWithFilters(
-      requester.staff.clinicId,
+      clinicId,
       dto,
     );
     const sanitized = dentists.map((dentist) => this.sanitizeDentist(dentist));
-    const msg = `Dentist with id ${requesterDentistId} retrieved ${sanitized.length} dentist(s)`;
+    const msg = `Clinic ${clinicId} retrieved ${sanitized.length} dentist(s)${logContextId != null ? ` (requester ${logContextId})` : ''}`;
     this.logger.log(msg);
     LogWriter.append('log', DentistService.name, msg);
     return sanitized;

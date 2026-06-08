@@ -10,6 +10,7 @@ import { CreateWorkingHoursDto } from './dto/create-working-hours.dto';
 import { GetWorkingHoursDto } from './dto/get-working-hours.dto';
 import { UpdateWorkingHoursDto } from './dto/update-working-hours.dto';
 import { LogWriter } from '../log-writer';
+import { isPatientRole } from '../auth/role-guards';
 
 @Injectable()
 export class WorkingHoursService {
@@ -83,6 +84,14 @@ export class WorkingHoursService {
 
   async findAll(user: any, dto: GetWorkingHoursDto) {
     const role = (user?.role ?? '').toLowerCase();
+
+    if (isPatientRole(role)) {
+      const clinicId = this.parseNumericId(user?.clinicId ?? user?.clinic_id);
+      if (!Number.isFinite(clinicId) || clinicId <= 0) {
+        throw new ForbiddenException('Patient clinic context missing');
+      }
+      return await this.repo.findForClinic(clinicId, dto);
+    }
 
     if (role === 'director' || role === 'frontdesk') {
       const dentistId = this.parseNumericId(user?.userId ?? user?.sub ?? user?.dentistId);
