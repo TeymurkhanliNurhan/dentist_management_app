@@ -1061,7 +1061,7 @@ export interface Randevue {
     startDate: string;
     endDate: string | null;
   } | null;
-  room?: { id: number; number: string; description: string };
+  room?: { id: number; number: string; description: string } | null;
   nurse: { id: number; name?: string; surname?: string } | null;
   dentist?: { id: number; name?: string; surname?: string } | null;
 }
@@ -1069,7 +1069,7 @@ export interface Randevue {
 export interface CreateRandevueDto {
   startDateTime: string;
   endDateTime: string;
-  patient_id: number;
+  patient_id?: number;
   dentist_id?: number;
   note?: string;
   appointment_id?: number;

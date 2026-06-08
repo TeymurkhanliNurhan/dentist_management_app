@@ -92,7 +92,7 @@ export class RandevueService {
             number: r.room.number,
             description: r.room.description,
           }
-        : undefined,
+        : null,
       nurse: r.nurse
         ? {
             id: r.nurse.id,
@@ -213,6 +213,9 @@ export class RandevueService {
     if (dto.dentist_id == null) {
       throw new BadRequestException('Dentist is required');
     }
+    if (dto.room_id != null) {
+      throw new BadRequestException('Patients cannot choose a room');
+    }
     if (dto.create_new_appointment && dto.appointment_id != null) {
       throw new BadRequestException(
         'Cannot set both create_new_appointment and appointment_id',
@@ -223,7 +226,10 @@ export class RandevueService {
         'appointment_start_date is required when creating a new appointment',
       );
     }
-    if (dto.patient_id != null && dto.patient_id !== context.patientId) {
+    if (
+      dto.patient_id != null &&
+      dto.patient_id !== context.patientId
+    ) {
       throw new BadRequestException('Invalid patient');
     }
     if (dto.nurse_id != null) {
@@ -263,7 +269,6 @@ export class RandevueService {
       dto.dentist_id,
       context.clinicId,
     );
-    const room = await this.resolveRoomForPatient(patient, dto.room_id);
     const note =
       dto.note != null && dto.note.trim() !== '' ? dto.note.trim() : null;
 
@@ -280,7 +285,7 @@ export class RandevueService {
         note,
         patient,
         appointment: appointmentEntity,
-        room,
+        room: null,
         nurse: null,
         dentistId: assignedDentist.id,
       });
@@ -336,6 +341,9 @@ export class RandevueService {
   async create(dentistId: number, dto: CreateRandevueDto, userRole?: string) {
     if (!Number.isFinite(dentistId) || dentistId < 1) {
       throw new BadRequestException('Invalid dentist context');
+    }
+    if (dto.patient_id == null) {
+      throw new BadRequestException('patient_id is required');
     }
     const start = new Date(dto.startDateTime);
     const end = new Date(dto.endDateTime);
@@ -701,6 +709,12 @@ export class RandevueService {
       );
     } else if (dto.patient_id != null && dto.patient_id !== originalPatientId) {
       row.nurse = null;
+    }
+
+    if (row.status !== 'requested' && (!row.room || !row.dentist)) {
+      throw new BadRequestException(
+        'Room and dentist are required unless status is requested',
+      );
     }
 
     try {

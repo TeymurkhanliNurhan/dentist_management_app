@@ -20,10 +20,15 @@ export class CreateRandevueDto {
   @IsDateString()
   endDateTime: string;
 
-  @ApiProperty({ example: 1 })
+  @ApiPropertyOptional({
+    example: 1,
+    description:
+      'Patient id; optional for patient JWT (server uses token). Required for staff.',
+  })
+  @IsOptional()
   @IsNumber()
   @Min(1)
-  patient_id: number;
+  patient_id?: number;
 
   @ApiPropertyOptional({ example: 1, description: 'Dentist id' })
   @IsOptional()

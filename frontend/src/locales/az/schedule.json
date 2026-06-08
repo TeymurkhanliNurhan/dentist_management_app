@@ -106,5 +106,6 @@
   "patientRequestSubmit": "Sorğunu göndər",
   "patientRequestError": "Randevu sorğusu göndərilmədi.",
   "patientNotePlaceholder": "Klinika üçün qeyd əlavə edin (istəyə bağlı)",
-  "pickDoctorError": "Zəhmət olmasa həkim seçin."
+  "pickDoctorError": "Zəhmət olmasa həkim seçin.",
+  "patientSessionError": "Sessiyanız bitib. Zəhmət olmasa yenidən daxil olun."
 }

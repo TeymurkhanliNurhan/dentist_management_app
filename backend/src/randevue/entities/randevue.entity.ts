@@ -45,11 +45,11 @@ export class Randevue {
   appointment: Appointment | null;
 
   @ManyToOne(() => Room, (room) => room.randevues, {
-    nullable: false,
+    nullable: true,
     onDelete: 'RESTRICT',
   })
   @JoinColumn({ name: 'room' })
-  room: Room;
+  room: Room | null;
 
   @ManyToOne(() => Nurse, (nurse) => nurse.randevues, {
     nullable: true,

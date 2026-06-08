@@ -106,5 +106,6 @@
   "patientRequestSubmit": "Отправить запрос",
   "patientRequestError": "Не удалось отправить запрос на приём.",
   "patientNotePlaceholder": "Добавьте заметку для клиники (необязательно)",
-  "pickDoctorError": "Пожалуйста, выберите врача."
+  "pickDoctorError": "Пожалуйста, выберите врача.",
+  "patientSessionError": "Сеанс истёк. Пожалуйста, войдите снова."
 }

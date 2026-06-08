@@ -320,6 +320,10 @@ const PatientSchedule = () => {
 
   const handleSubmitRequest = async () => {
     setSubmitError(null);
+    if (!patientId) {
+      setSubmitError(t('patientSessionError'));
+      return;
+    }
     if (!formDentistId) {
       setSubmitError(t('pickDoctorError'));
       return;
@@ -334,7 +338,6 @@ const PatientSchedule = () => {
     const body: CreateRandevueDto = {
       startDateTime: start.toISOString(),
       endDateTime: end.toISOString(),
-      patient_id: patientId,
       dentist_id: formDentistId,
     };
     if (note.trim()) body.note = note.trim();
@@ -351,8 +354,17 @@ const PatientSchedule = () => {
       await randevueService.create(body);
       setModalOpen(false);
       void fetchSchedule();
-    } catch {
-      setSubmitError(t('patientRequestError'));
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string | string[] } } })?.response?.data
+          ?.message;
+      setSubmitError(
+        typeof message === 'string'
+          ? message
+          : Array.isArray(message)
+            ? message.join(', ')
+            : t('patientRequestError'),
+      );
     } finally {
       setSubmitBusy(false);
     }

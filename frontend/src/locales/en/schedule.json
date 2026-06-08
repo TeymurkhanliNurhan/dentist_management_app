@@ -106,5 +106,6 @@
   "patientRequestSubmit": "Send request",
   "patientRequestError": "Could not send appointment request.",
   "patientNotePlaceholder": "Add a note for the clinic (optional)",
-  "pickDoctorError": "Please select a doctor."
+  "pickDoctorError": "Please select a doctor.",
+  "patientSessionError": "Your session has expired. Please sign in again."
 }
