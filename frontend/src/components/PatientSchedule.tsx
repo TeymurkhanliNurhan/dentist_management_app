@@ -21,7 +21,9 @@ const VISIBLE_HOURS = SCHEDULE_END_HOUR - SCHEDULE_START_HOUR;
 const DISPLAY_HOURS = Array.from({ length: VISIBLE_HOURS }, (_, i) => SCHEDULE_START_HOUR + i);
 const HOUR_PX = 56;
 const DAY_PX = VISIBLE_HOURS * HOUR_PX;
-const PATIENT_OCCUPIED_BG = 'bg-slate-500/90';
+/** Solid, full-width occupied cells — no rounding or opacity so layers never look darker. */
+const PATIENT_OCCUPIED_CELL =
+  'pointer-events-auto absolute inset-x-0 z-[10] cursor-not-allowed bg-slate-500';
 
 type AppointmentChoice = 'none' | 'new' | number;
 
@@ -413,7 +415,7 @@ const PatientSchedule = () => {
 
               <div className="mb-3 flex flex-wrap gap-4 text-xs text-gray-600">
                 <span className="inline-flex items-center gap-2">
-                  <span className={`inline-block h-3 w-3 rounded ${PATIENT_OCCUPIED_BG}`} />
+                  <span className="inline-block h-3 w-3 bg-slate-500" />
                   {t('patientOccupied')}
                 </span>
                 <span className="inline-flex items-center gap-2">
@@ -472,7 +474,7 @@ const PatientSchedule = () => {
                                 return (
                                   <div
                                     key={`${column.key}-${slot}-off`}
-                                    className={`pointer-events-auto absolute inset-x-0 z-[5] cursor-not-allowed border-b border-gray-300/80 ${PATIENT_OCCUPIED_BG}`}
+                                    className={PATIENT_OCCUPIED_CELL}
                                     style={{ top: slot * HOUR_PX, height: HOUR_PX }}
                                     title={t('patientOccupied')}
                                     aria-hidden
@@ -510,11 +512,8 @@ const PatientSchedule = () => {
                                 return segs.map((seg, segIdx) => (
                                   <div
                                     key={`occ-${column.key}-${slot.date}-${segIdx}`}
-                                    className={`pointer-events-auto absolute inset-x-1 z-[15] cursor-not-allowed rounded-md ${PATIENT_OCCUPIED_BG} px-1 py-0.5 text-[10px] text-white shadow-sm`}
-                                    style={{
-                                      top: seg.top + 1,
-                                      height: Math.max(seg.height - 2, 6),
-                                    }}
+                                    className={PATIENT_OCCUPIED_CELL}
+                                    style={{ top: seg.top, height: seg.height }}
                                     title={t('patientOccupied')}
                                     aria-hidden
                                   />
@@ -541,11 +540,8 @@ const PatientSchedule = () => {
                                 return segs.map((seg, segIdx) => (
                                   <div
                                     key={`blk-${column.key}-${bh.id}-${segIdx}`}
-                                    className={`pointer-events-auto absolute inset-x-1 z-[14] cursor-not-allowed rounded-md ${PATIENT_OCCUPIED_BG} px-1 py-0.5 text-[10px] text-white shadow-sm`}
-                                    style={{
-                                      top: seg.top + 1,
-                                      height: Math.max(seg.height - 2, 6),
-                                    }}
+                                    className={PATIENT_OCCUPIED_CELL}
+                                    style={{ top: seg.top, height: seg.height }}
                                     title={t('patientOccupied')}
                                     aria-hidden
                                   />
