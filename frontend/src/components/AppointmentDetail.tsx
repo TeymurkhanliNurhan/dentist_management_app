@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useParams, useNavigate, useLocation, type NavigateFunction } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, FileText, Edit, X, Pill, DollarSign, Plus, Trash, ChevronDown } from 'lucide-react';
 import ClinicManagementLayout from './ClinicManagementLayout';
 import { PatientPortalShell } from './PatientPortalShell';
@@ -8,6 +8,59 @@ import { API_BASE_URL, appointmentService, dentistService, randevueService, toot
 import type { Appointment, Randevue, ToothTreatment, ToothInfo, ToothTreatmentMedicine, Treatment, PatientTooth, CreateToothTreatmentDto, Medicine, CreateTreatmentDto, Media, TreatmentPricePer, DentistProfile } from '../services/api';
 import { getPatientId, isPatientSession } from '../lib/patientSession';
 import type { PatientCourseListMode } from '../lib/patientCourseListMode';
+
+type PatientAppointmentDetailLayoutProps = {
+  userDisplayName: string;
+  pathname: string;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: Dispatch<SetStateAction<boolean>>;
+  navigate: NavigateFunction;
+  showLogoutConfirm: boolean;
+  onLogoutClick: () => void;
+  onLogoutCancel: () => void;
+  onLogoutConfirm: () => void;
+  children: ReactNode;
+};
+
+function PatientAppointmentDetailLayout({
+  userDisplayName,
+  pathname,
+  isSidebarOpen,
+  setIsSidebarOpen,
+  navigate,
+  showLogoutConfirm,
+  onLogoutClick,
+  onLogoutCancel,
+  onLogoutConfirm,
+  children,
+}: PatientAppointmentDetailLayoutProps) {
+  return (
+    <>
+      <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
+        <PatientPortalShell
+          userDisplayName={userDisplayName}
+          pathname={pathname}
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          navigate={navigate}
+          onLogoutClick={onLogoutClick}
+        >
+          <main
+            data-appointment-detail-scroll
+            className="min-h-0 flex-1 overflow-y-auto bg-[#f9fafb] px-6 py-6"
+          >
+            {children}
+          </main>
+        </PatientPortalShell>
+      </div>
+      <LogoutConfirmModal
+        open={showLogoutConfirm}
+        onCancel={onLogoutCancel}
+        onConfirm={onLogoutConfirm}
+      />
+    </>
+  );
+}
 
 function combineLocalDateAndTime(dateYmd: string, timeHm: string): Date {
   const [y, m, d] = dateYmd.split('-').map(Number);
@@ -629,7 +682,9 @@ const AppointmentDetail = () => {
   const [previewMedia, setPreviewMedia] = useState<Media | null>(null);
   const [debtPaymentInput, setDebtPaymentInput] = useState('');
   const [debtPaymentSubmitting, setDebtPaymentSubmitting] = useState(false);
-  const [treatmentTimeFilter, setTreatmentTimeFilter] = useState<TreatmentTimeFilter>('current');
+  const [treatmentTimeFilter, setTreatmentTimeFilter] = useState<TreatmentTimeFilter>(() =>
+    isPatient || isDirector || isAdminLike ? 'all' : 'current',
+  );
   const [treatmentOwnershipFilter, setTreatmentOwnershipFilter] = useState<TreatmentOwnershipFilter>(
     isDirector || isSingleDentist ? 'all' : 'mine',
   );
@@ -1826,39 +1881,48 @@ const AppointmentDetail = () => {
     navigate(backPath);
   }, [backPath, isPatient, listModeFromState, navigate]);
 
-  const DetailPageLayout = ({ children }: { children: ReactNode }) => {
+  const wrapDetailLayout = (children: ReactNode) => {
     if (!isPatient) {
       return <ClinicManagementLayout>{children}</ClinicManagementLayout>;
     }
     return (
-      <>
-        <div className="h-dvh overflow-hidden bg-[#f4f6f8] text-slate-700">
-          <PatientPortalShell
-            userDisplayName={patientDisplayName}
-            pathname={location.pathname}
-            isSidebarOpen={patientSidebarOpen}
-            setIsSidebarOpen={setPatientSidebarOpen}
-            navigate={navigate}
-            onLogoutClick={() => setPatientShowLogout(true)}
-          >
-            <main className="min-h-0 flex-1 overflow-y-auto bg-[#f9fafb] px-6 py-6">{children}</main>
-          </PatientPortalShell>
-        </div>
-        <LogoutConfirmModal
-          open={patientShowLogout}
-          onCancel={() => setPatientShowLogout(false)}
-          onConfirm={() => {
-            performLogout(navigate);
-            setPatientShowLogout(false);
-          }}
-        />
-      </>
+      <PatientAppointmentDetailLayout
+        userDisplayName={patientDisplayName}
+        pathname={location.pathname}
+        isSidebarOpen={patientSidebarOpen}
+        setIsSidebarOpen={setPatientSidebarOpen}
+        navigate={navigate}
+        showLogoutConfirm={patientShowLogout}
+        onLogoutClick={() => setPatientShowLogout(true)}
+        onLogoutCancel={() => setPatientShowLogout(false)}
+        onLogoutConfirm={() => {
+          performLogout(navigate);
+          setPatientShowLogout(false);
+        }}
+      >
+        {children}
+      </PatientAppointmentDetailLayout>
     );
   };
 
+  const toggleRandevuesForTreatment = (treatmentId: number, isExpanded: boolean) => {
+    const scrollEl = document.querySelector<HTMLElement>('[data-appointment-detail-scroll]');
+    const scrollTop = scrollEl?.scrollTop ?? window.scrollY;
+    setShowRandevuesByTreatment((prev) => ({
+      ...prev,
+      [treatmentId]: !isExpanded,
+    }));
+    requestAnimationFrame(() => {
+      if (scrollEl) {
+        scrollEl.scrollTop = scrollTop;
+      } else {
+        window.scrollTo({ top: scrollTop });
+      }
+    });
+  };
+
   if (isLoading) {
-    return (
-      <DetailPageLayout>
+    return wrapDetailLayout(
         <div className="mx-auto max-w-7xl">
           <button
             type="button"
@@ -1871,14 +1935,12 @@ const AppointmentDetail = () => {
           <div className="rounded-lg bg-white p-8 text-center text-gray-600 shadow-md">
             Loading appointment details...
           </div>
-        </div>
-      </DetailPageLayout>
+        </div>,
     );
   }
 
   if (error) {
-    return (
-      <DetailPageLayout>
+    return wrapDetailLayout(
         <div className="mx-auto max-w-7xl">
           <button
             type="button"
@@ -1889,14 +1951,12 @@ const AppointmentDetail = () => {
             <span className="font-medium">{backButtonLabel}</span>
           </button>
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center text-red-700">{error}</div>
-        </div>
-      </DetailPageLayout>
+        </div>,
     );
   }
 
   if (!appointment) {
-    return (
-      <DetailPageLayout>
+    return wrapDetailLayout(
         <div className="mx-auto max-w-7xl">
           <button
             type="button"
@@ -1907,8 +1967,7 @@ const AppointmentDetail = () => {
             <span className="font-medium">{backButtonLabel}</span>
           </button>
           <div className="rounded-lg bg-white p-8 text-center text-gray-600 shadow-md">Appointment not found.</div>
-        </div>
-      </DetailPageLayout>
+        </div>,
     );
   }
 
@@ -1960,8 +2019,7 @@ const AppointmentDetail = () => {
     return passesTime && passesOwnership;
   });
 
-  return (
-    <DetailPageLayout>
+  return wrapDetailLayout(
       <div className="mx-auto max-w-7xl">
         <button
           type="button"
@@ -2995,12 +3053,7 @@ const AppointmentDetail = () => {
                             <div className="mb-3 rounded-md border border-slate-200 bg-slate-50 p-3">
                               <button
                                 type="button"
-                                onClick={() =>
-                                  setShowRandevuesByTreatment((prev) => ({
-                                    ...prev,
-                                    [treatment.id]: !isRandevuesExpanded,
-                                  }))
-                                }
+                                onClick={() => toggleRandevuesForTreatment(treatment.id, isRandevuesExpanded)}
                                 className="rounded-md border border-[#0066A6] bg-white px-3 py-1.5 text-sm font-medium text-[#0066A6] hover:bg-[#f0f7fc]"
                               >
                                 {isRandevuesExpanded ? 'Hide randevues' : 'See randevues'}
@@ -3963,8 +4016,7 @@ const AppointmentDetail = () => {
         )}
 
         {/* Inline form replaces modal above; modal removed */}
-      </div>
-    </DetailPageLayout>
+      </div>,
   );
 };
 
