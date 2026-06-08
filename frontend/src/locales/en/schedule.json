@@ -96,5 +96,15 @@
   "requestsCountLabel": "{{count}} awaiting",
   "requestsEmpty": "No awaiting requests.",
   "requestApprove": "Accept request",
-  "requestReject": "Reject request"
+  "requestReject": "Reject request",
+  "patientScheduleTitle": "Book an appointment",
+  "patientOccupied": "Occupied",
+  "patientFree": "Available",
+  "patientNoDentists": "No dentists are available for booking.",
+  "patientRequestSlot": "Request time",
+  "patientRequestTitle": "Request appointment",
+  "patientRequestSubmit": "Send request",
+  "patientRequestError": "Could not send appointment request.",
+  "patientNotePlaceholder": "Add a note for the clinic (optional)",
+  "pickDoctorError": "Please select a doctor."
 }

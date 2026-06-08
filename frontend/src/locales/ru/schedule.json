@@ -96,5 +96,15 @@
   "requestsCountLabel": "Ожидают: {{count}}",
   "requestsEmpty": "Нет ожидающих запросов.",
   "requestApprove": "Подтвердить запрос",
-  "requestReject": "Отклонить запрос"
+  "requestReject": "Отклонить запрос",
+  "patientScheduleTitle": "Записаться на приём",
+  "patientOccupied": "Занято",
+  "patientFree": "Свободно",
+  "patientNoDentists": "Нет доступных врачей для записи.",
+  "patientRequestSlot": "Выбрать время",
+  "patientRequestTitle": "Запрос на приём",
+  "patientRequestSubmit": "Отправить запрос",
+  "patientRequestError": "Не удалось отправить запрос на приём.",
+  "patientNotePlaceholder": "Добавьте заметку для клиники (необязательно)",
+  "pickDoctorError": "Пожалуйста, выберите врача."
 }

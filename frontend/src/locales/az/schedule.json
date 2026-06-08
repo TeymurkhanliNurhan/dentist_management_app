@@ -96,5 +96,15 @@
   "requestsCountLabel": "{{count}} gözləyir",
   "requestsEmpty": "Gözləyən sorğu yoxdur.",
   "requestApprove": "Sorğunu təsdiqlə",
-  "requestReject": "Sorğunu rədd et"
+  "requestReject": "Sorğunu rədd et",
+  "patientScheduleTitle": "Randevu təyin et",
+  "patientOccupied": "Dolu",
+  "patientFree": "Boş",
+  "patientNoDentists": "Randevu üçün həkim mövcud deyil.",
+  "patientRequestSlot": "Vaxt seç",
+  "patientRequestTitle": "Randevu sorğusu",
+  "patientRequestSubmit": "Sorğunu göndər",
+  "patientRequestError": "Randevu sorğusu göndərilmədi.",
+  "patientNotePlaceholder": "Klinika üçün qeyd əlavə edin (istəyə bağlı)",
+  "pickDoctorError": "Zəhmət olmasa həkim seçin."
 }
