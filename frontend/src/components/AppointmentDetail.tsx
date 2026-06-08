@@ -1070,24 +1070,30 @@ const AppointmentDetail = () => {
         }
         setTreatments(treatmentsData);
         if (appointmentData) {
-          const { from, to } = randevueQueryRangeForAppointment(appointmentData);
-          const rangeList = await randevueService.getForRange(from, to);
-          setAppointmentRandevues(
-            filterRandevuesForAppointment(
-              rangeList,
-              appointmentData.id,
-              appointmentData.patient.id,
-            ),
-          );
+          try {
+            const { from, to } = randevueQueryRangeForAppointment(appointmentData);
+            const rangeList = await randevueService.getForRange(from, to);
+            setAppointmentRandevues(
+              filterRandevuesForAppointment(
+                rangeList,
+                appointmentData.id,
+                appointmentData.patient.id,
+              ),
+            );
+          } catch (randevueErr) {
+            console.error('Failed to fetch randevues for appointment:', randevueErr);
+            setAppointmentRandevues([]);
+          }
         } else {
           setAppointmentRandevues([]);
         }
 
         const uniqueToothIds = [...new Set(treatmentsData.flatMap(t => t.toothTreatmentTeeth.map(ttt => ttt.toothId)))];
-        const teethPromises = uniqueToothIds.map(toothId => 
-          toothService.getAll({ id: toothId, language: 'english' })
+        const teethResults = await Promise.all(
+          uniqueToothIds.map((toothId) =>
+            toothService.getAll({ id: toothId, language: 'english' }).catch(() => [] as ToothInfo[]),
+          ),
         );
-        const teethResults = await Promise.all(teethPromises);
         
         const teethMap = new Map<number, ToothInfo>();
         teethResults.forEach((toothArray, index) => {
@@ -1097,10 +1103,13 @@ const AppointmentDetail = () => {
         });
         setTeethInfo(teethMap);
 
-        const medicinePromises = treatmentsData.map(treatment => 
-          toothTreatmentMedicineService.getAll({ tooth_treatment: treatment.id })
+        const medicinesResults = await Promise.all(
+          treatmentsData.map((treatment) =>
+            toothTreatmentMedicineService
+              .getAll({ tooth_treatment: treatment.id })
+              .catch(() => [] as ToothTreatmentMedicine[]),
+          ),
         );
-        const medicinesResults = await Promise.all(medicinePromises);
         
         const medicinesMap = new Map<number, ToothTreatmentMedicine[]>();
         treatmentsData.forEach((treatment, index) => {
@@ -1108,10 +1117,11 @@ const AppointmentDetail = () => {
         });
         setTreatmentMedicines(medicinesMap);
 
-        const mediaPromises = treatmentsData.map(treatment =>
-          mediaService.getAll({ tooth_treatment_id: treatment.id })
+        const mediaResults = await Promise.all(
+          treatmentsData.map((treatment) =>
+            mediaService.getAll({ tooth_treatment_id: treatment.id }).catch(() => ({ medias: [] as Media[] })),
+          ),
         );
-        const mediaResults = await Promise.all(mediaPromises);
 
         const mediasMap = new Map<number, Media[]>();
         treatmentsData.forEach((treatment, index) => {

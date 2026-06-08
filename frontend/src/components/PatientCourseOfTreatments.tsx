@@ -111,7 +111,7 @@ export default function PatientCourseOfTreatments() {
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
   const page = Math.min(currentPage, totalPages);
   const pagedAppointments = filteredAppointments.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const tableColSpan = 6;
+  const tableColSpan = 5;
 
   if (!isPatientSession() || !patientId) {
     return <Navigate to="/patient/login" replace />;
@@ -221,7 +221,6 @@ export default function PatientCourseOfTreatments() {
                       <tr>
                         <th className="px-4 py-3 text-left">{t('tableStartDate')}</th>
                         <th className="px-4 py-3 text-left">{t('tableEndDate')}</th>
-                        <th className="px-4 py-3 text-left">{t('tablePatient')}</th>
                         <th className="px-4 py-3 text-right">{t('calculated')}</th>
                         <th className="px-4 py-3 text-right">{t('charged')}</th>
                         <th className="px-4 py-3 text-right">{t('debt')}</th>
@@ -257,7 +256,6 @@ export default function PatientCourseOfTreatments() {
                           >
                             <td className="px-4 py-3 font-medium text-slate-900">{appointment.startDate}</td>
                             <td className="px-4 py-3 text-slate-600">{appointment.endDate ?? '—'}</td>
-                            <td className="px-4 py-3 text-slate-400">—</td>
                             <td className="px-4 py-3 text-right text-slate-900">
                               ${appointment.calculatedFee.toFixed(2)}
                             </td>
